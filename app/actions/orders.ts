@@ -6,7 +6,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { billableChars, currency, formatHKD, refinementPrice, screeningPrice } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
-import { manualPayments } from "@/config/payments";
+import { acceptsClaims, manualPayments } from "@/config/payments";
 import { uploads } from "@/config/app";
 import {
   paymentClaimInput,
@@ -316,7 +316,7 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
   const parsed = paymentClaimInput.safeParse({ orderId, method, reference });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the payment details." };
   const v = parsed.data;
-  if (!manualPayments[v.method].enabled) return { ok: false, message: "That payment method isn't available right now." };
+  if (!acceptsClaims(manualPayments[v.method])) return { ok: false, message: "That payment method isn't available right now." };
 
   const order = await ownOrder(v.orderId, user.id);
   if (!order) return { ok: false, message: "Order not found." };

@@ -3,13 +3,13 @@
  * Rename the product by editing `brand` only; nothing else hard-codes the name.
  */
 export const brand = {
-  name: "Proofline",
+  name: "0%",
   tagline: "Know before you submit.",
   description:
-    "Preliminary writing scans, human-processed AI and similarity screening, and clarity review for genuine student writing.",
-  supportEmail: "support@proofline.example",
+    "Preliminary writing scans, AI and similarity reports from a Turnitin screening run by our team, and writing refinement of your own work.",
+  supportEmail: "support@zeropercent.example",
   // Legal operator name shown in terms/privacy. Replace before launch.
-  operator: "Proofline (operator name TBC)",
+  operator: "0% (operator name TBC)",
   jurisdiction: "Hong Kong SAR",
 } as const;
 

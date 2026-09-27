@@ -16,7 +16,8 @@ export function FaqList({ items }: { items: FaqItem[] }) {
             <h3>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-6 px-5 py-5 text-left text-[15px] font-medium text-fg transition hover:bg-white/[0.02] sm:px-6"
+                data-press
+                className="flex w-full items-center justify-between gap-6 px-5 py-5 text-left text-[15px] font-medium text-fg hover:bg-white/[0.035] sm:px-6"
                 aria-expanded={isOpen}
                 aria-controls={`faq-${i}`}
                 id={`faq-q-${i}`}

@@ -76,9 +76,9 @@ export default async function AdminSettings() {
     [
       "Free-scan messages",
       <div key="s" className="space-y-1">
-        {channels.scans && channels.telegram ? <Badge tone="info">On (Telegram)</Badge> : <Badge>Off</Badge>}
+        {channels.scans && (channels.telegram || channels.email) ? <Badge tone="info">On</Badge> : <Badge>Off</Badge>}
         <p className="text-[12px] text-fg-subtle">
-          Telegram only, so free scans can&rsquo;t use up the email quota payment alerts need. Set {env("NOTIFY_ON_SCANS")}=false to stop them.
+          Telegram: one message per scan. Email: one summary a day (needs the retention job), so scans can&rsquo;t use up the email quota payment alerts need. Set {env("NOTIFY_ON_SCANS")}=false to stop both.
         </p>
       </div>,
     ],
@@ -100,7 +100,7 @@ export default async function AdminSettings() {
           <Card className="p-5">
             <h2 className="text-[14px] font-semibold">Owner notifications</h2>
             <p className="mt-1 text-[12.5px] text-fg-muted">
-              Sent for new orders, reported payments, confirmations and rejections{channels.scans && channels.telegram ? ", and free scans (Telegram only)" : ""}. Messages
+              Sent for new orders, reported payments, confirmations and rejections{channels.scans ? ", and free scans (each one on Telegram, a daily total by email)" : ""}. Messages
               carry order numbers, amounts, methods and the account email, never document text or titles.
             </p>
             {!channels.telegram && !channels.email && (

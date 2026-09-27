@@ -9,9 +9,11 @@ import { brand } from "@/config/app";
  * user down. Order and payment messages are retried once; a failed send is
  * then logged and dropped.
  *
- * Free-scan messages go to Telegram only. Anyone can trigger a scan without an
- * account, so on email they could use up the daily sending quota (Resend's
- * free plan allows 100 a day) that payment alerts depend on.
+ * Free-scan messages go to Telegram only, one per scan. Anyone can trigger a
+ * scan without an account, so per-scan emails could use up the daily sending
+ * quota (Resend's free plan allows 100 a day) that payment alerts depend on.
+ * Email gets one daily summary of free scans instead (`scan_digest`, sent by
+ * the retention job).
  *
  * Never put document text, file names or titles in `fields`. Ids, amounts,
  * counts, methods and the account email are fine.
@@ -19,6 +21,7 @@ import { brand } from "@/config/app";
 
 export type OwnerEvent =
   | "scan_used"
+  | "scan_digest"
   | "order_created"
   | "payment_submitted"
   | "payment_confirmed"
@@ -26,6 +29,7 @@ export type OwnerEvent =
 
 const TITLES: Record<OwnerEvent, string> = {
   scan_used: "Free scan used",
+  scan_digest: "Free scans yesterday",
   order_created: "New order",
   payment_submitted: "Payment reported, please check your account",
   payment_confirmed: "Payment confirmed",
@@ -85,7 +89,9 @@ async function sendEmail(subject: string, text: string) {
 export function notifyOwner(event: OwnerEvent, fields: Fields = {}): void {
   const ch = notificationChannels();
   const scan = event === "scan_used";
+  const digest = event === "scan_digest";
   if (scan && (!ch.scans || !ch.telegram)) return;
+  if (digest && (!ch.scans || !ch.email)) return;
   if (!ch.telegram && !ch.email) return;
   const { subject, text } = format(event, fields);
   const attempt = async (fn: () => Promise<void>) => {
@@ -99,7 +105,7 @@ export function notifyOwner(event: OwnerEvent, fields: Fields = {}): void {
   };
   const send = async () => {
     const results = await Promise.allSettled([
-      attempt(() => sendTelegram(text)),
+      digest ? Promise.resolve() : attempt(() => sendTelegram(text)),
       scan ? Promise.resolve() : attempt(() => sendEmail(subject, text)),
     ]);
     for (const r of results) {

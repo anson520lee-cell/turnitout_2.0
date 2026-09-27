@@ -14,7 +14,8 @@ export function OrderRow({ order, href, paymentPending }: { order: Order; href?:
     <li>
       <Link
         href={href ?? `/orders/${order.id}`}
-        className="group flex items-center gap-4 px-4 py-3.5 transition hover:bg-white/[0.03] sm:px-5"
+        data-press
+        className="group flex items-center gap-4 px-4 py-3.5 hover:bg-white/[0.04] sm:px-5"
       >
         <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-white/[0.03]">
           <Icon className="size-4 text-accent" aria-hidden />

@@ -56,7 +56,7 @@ export function PricingCards() {
                     data-pop
                     className="absolute -top-3 left-6 rounded-full bg-gradient-to-b from-[#6c97ff] to-accent-strong px-3 py-1 text-[11px] font-medium text-white shadow-[0_8px_24px_-8px_rgb(91_140_255/0.8)]"
                   >
-                    Most requested
+                    AI + similarity
                   </span>
                 )}
                 <div className="flex items-center justify-between">

@@ -45,7 +45,7 @@ export function OrderDetails({ order, file, payments }: { order: Order; file: Or
 
       {order.source_text ? (
         <details className="group mt-5 rounded-xl border border-[var(--line)] bg-ink-900/40">
-          <summary className="cursor-pointer list-none px-3.5 py-3 text-[13px] text-fg-muted transition hover:text-fg [&::-webkit-details-marker]:hidden">
+          <summary data-press className="cursor-pointer list-none rounded-xl px-3.5 py-3 text-[13px] text-fg-muted transition hover:text-fg [&::-webkit-details-marker]:hidden">
             <span className="mr-1.5 inline-block transition group-open:rotate-90">›</span> Your submitted text
           </summary>
           <div className="max-h-[320px] overflow-auto whitespace-pre-wrap border-t border-[var(--line)] px-3.5 py-3 font-serif text-[14px] leading-[1.75] text-fg-muted">

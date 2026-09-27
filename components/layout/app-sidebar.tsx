@@ -35,6 +35,7 @@ export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean
                 href={href}
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
+                data-press
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
                   active ? "bg-white/[0.07] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",

@@ -26,7 +26,8 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
     <li className="border-b border-[var(--line)] last:border-0">
       <button
         type="button"
-        className="flex w-full items-center gap-4 py-4 text-left"
+        data-press
+        className="-mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 rounded-xl px-3 py-4 text-left hover:bg-white/[0.03]"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >

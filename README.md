@@ -1,18 +1,18 @@
-# Proofline
+# 0%
 
 A pre-submission service for students checking their own academic writing. It offers three separate services:
 
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **AI & Similarity Report** (Turnitin-backed, HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
+| **AI & Similarity Report** (Turnitin screening run by staff, HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
 | **Writing Refinement** (HK$1 per 100 characters, min HK$30) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; screening results are labelled as the observed result of that screening run. Missing values are shown as "Not returned", never estimated.
 
 > Turnitin is a third-party service. This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin. The app contains no Turnitin branding, UI, credentials, scraping or automation.
 
-The brand name "Proofline" is a placeholder. Rename it in `config/app.ts`.
+The brand name is "0%". Rename it in `config/app.ts` (`brand`); nothing else hard-codes it.
 
 ---
 
@@ -135,7 +135,7 @@ The order page offers **Alipay**, **PayMe** and **bank transfer (FPS)**, plus **
 
 Manual methods are confirmed by a person:
 
-1. The customer sees the exact amount, your payee details, the steps and a reference code (`PL-` + the first 8 characters of the order id) to put in the payment note.
+1. The customer sees the exact amount, your payee details, the steps and a reference code (`ZP-` + the first 8 characters of the order id) to put in the payment note.
 2. After paying they enter their transaction number or payer name. `submitPaymentClaim` stores a `payment_claims` row (amount = the order's server-side price; one pending claim per order). The order stays `awaiting_payment`; the page shows "Payment submitted — we're confirming it" and refreshes itself every 20 seconds.
 3. You get a notification. In **Admin → Overview → Payments to verify** (or the order page), check your Alipay / PayMe / bank account for the reference and amount, then:
    - **Confirm payment received**: records the payment through the same `markOrderPaid` path as Stripe (provider = the method, id = the claim id) and queues the order.
@@ -155,7 +155,10 @@ Customers can never mark an order paid; only a verified Stripe webhook or an adm
 | `payment_submitted` | A customer reports an Alipay / PayMe / bank payment (check your account) |
 | `payment_confirmed` | You confirm a claim, or Stripe confirms a card payment |
 | `payment_rejected` | You reject a claim |
-| `scan_used` | A free scan is run. Telegram only, so anonymous scans can't use up the email quota payment alerts need (turn off with `NOTIFY_ON_SCANS=false`) |
+| `scan_used` | A free scan is run. Telegram only, so anonymous scans can't use up the email quota payment alerts need |
+| `scan_digest` | Once a day (retention job): yesterday's free-scan total, by email only |
+
+`NOTIFY_ON_SCANS=false` turns off both scan events.
 
 Messages contain the order number, service, word or character count, amount, payment method and account email, never document text, titles or file names. Order and payment messages are retried once if a send fails. If a card payment arrives for an order that was already cancelled, you get a `payment_confirmed` message telling you to refund it or restore the order.
 

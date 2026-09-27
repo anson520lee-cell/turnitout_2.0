@@ -36,7 +36,7 @@ export default function HomePage() {
             align="center"
             eyebrow="Pricing"
             title="Simple, per-document pricing."
-            body="Start free. Pay only when you need a screening or a human review."
+            body="Start free. Pay only when you need a report or writing refinement."
           />
           <div className="mt-14">
             <PricingCards />

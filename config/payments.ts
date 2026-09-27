@@ -115,8 +115,22 @@ export function isPlaceholder(value: string | undefined | null): boolean {
   return !value || value.trim().toUpperCase().startsWith("REPLACE");
 }
 
+/** True once every payee detail (and the pay link, if any) has a real value. */
+export function payeeReady(m: ManualPaymentConfig): boolean {
+  return m.payee.every((p) => !isPlaceholder(p.value)) && (m.link === undefined || !isPlaceholder(m.link));
+}
+
+/**
+ * Whether customers may report a payment by this method. On a deployed site a
+ * method still showing placeholder payee details can't take claims (nobody
+ * could have paid it); in development it can, so the flow can be tested.
+ */
+export function acceptsClaims(m: ManualPaymentConfig): boolean {
+  return m.enabled && (payeeReady(m) || process.env.NODE_ENV !== "production");
+}
+
 /** Code the customer puts in the transfer note, so the admin can match it. */
-export const referencePrefix = "PL";
+export const referencePrefix = "ZP";
 
 export function paymentReference(orderId: string): string {
   return `${referencePrefix}-${orderId.slice(0, 8).toUpperCase()}`;

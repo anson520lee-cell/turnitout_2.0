@@ -11,7 +11,7 @@ export default function Page() {
   return (
     <>
       <AppHeader
-        eyebrow={<Badge tone="info" dot>Human-processed · Turnitin-backed</Badge>}
+        eyebrow={<Badge tone="info" dot>Human-processed · Turnitin screening</Badge>}
         title={serviceLabels[reportService]}
         body="Paste your text and pay once. A reviewer runs it through Turnitin with repository storage off, then records exactly what the screening returned: the AI-writing indicator, the similarity result and the report file where available."
       />

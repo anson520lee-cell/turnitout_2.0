@@ -26,6 +26,8 @@
  * IntersectionObserver, offset by the scroll position.
  */
 
+import { PRESSABLE } from "./press-effects";
+
 export interface PointerState {
   /** Raw pointer, px. */
   x: number;
@@ -94,9 +96,6 @@ export interface EngineLayers {
   backGrid?: HTMLElement | null;
   /** Small soft glow above the content. */
   halo: HTMLElement;
-  /** The light trail: an SVG with stacked paths (glow → core) and the
-   * gradient that fades them from head to tail. */
-  trail?: { svg: SVGSVGElement; paths: SVGPathElement[]; gradient: SVGLinearGradientElement } | null;
   /** Container click ripples are appended to. */
   ripples: HTMLElement;
 }
@@ -179,9 +178,6 @@ export function startPointerEngine(layers: EngineLayers) {
 
   const light = { x: { x: -9999, v: 0 }, y: { x: -9999, v: 0 } };
   const halo = { x: { x: -9999, v: 0 }, y: { x: -9999, v: 0 } };
-  const TRAIL_POINTS = 14;
-  const trail = Array.from({ length: TRAIL_POINTS }, () => ({ x: -9999, y: -9999 }));
-  let trailShown = false;
   const haloScale: Spring = { x: 1, v: 0 };
   const cxy = { wx: 0, wy: 0 };
 
@@ -506,41 +502,6 @@ export function startPointerEngine(layers: EngineLayers) {
       layers.backGrid.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
     }
     layers.halo.style.transform = `translate3d(${halo.x.x.toFixed(1)}px, ${halo.y.x.toFixed(1)}px, 0) scale(${haloScale.x.toFixed(3)})`;
-    // Trail: a chain of points, each easing toward the one ahead of it, drawn
-    // as one smooth path that fades from head to tail. Shown only while the
-    // cursor moves quickly.
-    let px = pointer.x;
-    let py = pointer.y;
-    for (let i = 0; i < trail.length; i++) {
-      const d = trail[i];
-      const k = ease(46 - i * 2.2, dt);
-      d.x += (px - d.x) * k;
-      d.y += (py - d.y) * k;
-      px = d.x;
-      py = d.y;
-    }
-    const trailOn = clamp((pointer.speed - 300) / 1500, 0, 1);
-    if (layers.trail && (trailOn > 0 || trailShown)) {
-      const { svg, paths, gradient } = layers.trail;
-      let dpath = `M${pointer.x.toFixed(1)} ${pointer.y.toFixed(1)}`;
-      let ax = pointer.x;
-      let ay = pointer.y;
-      for (const d of trail) {
-        const mx = (ax + d.x) / 2;
-        const my = (ay + d.y) / 2;
-        dpath += ` Q${ax.toFixed(1)} ${ay.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
-        ax = d.x;
-        ay = d.y;
-      }
-      for (const path of paths) path.setAttribute("d", dpath);
-      const tail = trail[trail.length - 1];
-      gradient.setAttribute("x1", pointer.x.toFixed(1));
-      gradient.setAttribute("y1", pointer.y.toFixed(1));
-      gradient.setAttribute("x2", tail.x.toFixed(1));
-      gradient.setAttribute("y2", tail.y.toFixed(1));
-      svg.style.opacity = trailOn.toFixed(3);
-      trailShown = trailOn > 0;
-    }
 
     lightSurfaces();
     if (stepTilts(dt)) busy = true;
@@ -569,10 +530,6 @@ export function startPointerEngine(layers: EngineLayers) {
       if (light.x.x < -9000) {
         light.x.x = halo.x.x = e.clientX;
         light.y.x = halo.y.x = e.clientY;
-        trail.forEach((d) => {
-          d.x = e.clientX;
-          d.y = e.clientY;
-        });
       }
     }
     if (pointer.x > -9000) moved += Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y);
@@ -599,6 +556,11 @@ export function startPointerEngine(layers: EngineLayers) {
     if (e.pointerType !== "mouse" || e.button !== 0) return;
     pressed = true;
     pointer.clickAt = pointer.time;
+    // Buttons and clickable cards show their own press ripple (press-effects.ts).
+    if (e.target instanceof Element && e.target.closest(PRESSABLE)) {
+      wakeLoop();
+      return;
+    }
     const r = document.createElement("span");
     r.className = "light-ripple";
     r.style.translate = `${e.clientX}px ${e.clientY}px`;

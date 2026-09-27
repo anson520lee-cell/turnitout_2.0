@@ -47,7 +47,7 @@ export function CoreServices() {
         <Stagger className="mt-14 grid gap-5 md:grid-cols-3">
           {cards.map((c) => (
             <StaggerItem key={c.title}>
-              <SpotlightCard className="h-full">
+              <SpotlightCard press className="h-full">
                 <Link href={c.href} className="flex h-full flex-col p-6 sm:p-7">
                   <div className="flex items-center justify-between">
                     <span className="grid size-11 place-items-center rounded-xl border border-[var(--line)] bg-gradient-to-b from-white/[0.07] to-transparent">

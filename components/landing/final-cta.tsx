@@ -28,7 +28,7 @@ export function FinalCta() {
               Know before <span className="depth-title-sheen">you submit.</span>
             </h2>
             <p className="mt-4 text-[16px] text-fg-muted">
-              Start with a free preliminary scan. Request a real screening when you need verification.
+              Start with a free preliminary scan. Get a report when you need the actual result.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className={buttonClasses("primary", "lg")}>

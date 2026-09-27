@@ -58,6 +58,7 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
                 onPointerEnter={() => setHovered(l.href)}
                 onFocus={() => setHovered(l.href)}
                 onBlur={() => setHovered(null)}
+                data-press
                 className={cn(
                   "relative block rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg",
                   pathname === l.href && "text-fg",
@@ -112,7 +113,7 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
             <ul className="grid gap-1">
               {links.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
+                  <Link href={l.href} data-press className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
                     {l.label}
                   </Link>
                 </li>

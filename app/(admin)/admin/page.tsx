@@ -51,6 +51,7 @@ export default async function AdminHome() {
                 <Link
                   href={`/admin/orders/${o.id}`}
                   data-tilt="5"
+                  data-press
                   className="glass flex items-center justify-between gap-4 rounded-2xl border-warn/30 p-4 transition hover:border-warn/60"
                 >
                   <div className="min-w-0">

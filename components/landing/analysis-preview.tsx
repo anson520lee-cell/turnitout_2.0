@@ -59,6 +59,7 @@ export function AnalysisPreview() {
                   <button
                     key={k}
                     role="tab"
+                    data-press
                     aria-selected={k === key}
                     onClick={() => setKey(k)}
                     className={cn(

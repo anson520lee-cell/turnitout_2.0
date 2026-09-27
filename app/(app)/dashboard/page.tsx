@@ -74,7 +74,7 @@ export default async function DashboardPage() {
           { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "Turnitin AI & similarity", tag: formatHKD(screeningPrices[reportService]) },
           { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatHKD(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`, tag: `From ${formatHKD(refinementPricing.minimum)}` },
         ].map((q) => (
-          <Link key={q.href} href={q.href} data-tilt="8" className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
+          <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
             <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>
             <div className="flex-1">
               <p className="text-[14px] font-medium">{q.t}</p>

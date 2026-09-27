@@ -6,6 +6,7 @@ import { Container, Eyebrow } from "@/components/ui/section";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { buttonClasses } from "@/components/ui/button";
 import { EngineCore, ENGINE_SIGNALS } from "./engine-core";
+import { brand } from "@/config/app";
 
 /**
  * Homepage promotion for the in-house analysis engine behind the free scan
@@ -60,7 +61,7 @@ export function PatternEngine() {
             </Reveal>
             <Reveal delay={0.06}>
               <h2 id="engine-title" className="mt-4 text-balance text-3xl font-semibold tracking-tight text-fg sm:text-[44px] sm:leading-[1.08]">
-                Meet the <span data-cursor className="depth-title-sheen">Proofline Pattern Engine</span>.
+                Meet the <span data-cursor className="depth-title-sheen">{brand.name} Pattern Engine</span>.
               </h2>
             </Reveal>
             <Reveal delay={0.12}>

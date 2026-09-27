@@ -12,6 +12,7 @@ import { methodIcons } from "./payment-methods";
 import { CopyValue } from "./copy-value";
 import {
   claimReference,
+  acceptsClaims,
   enabledManualPayments,
   isPlaceholder,
   type ManualPaymentConfig,
@@ -83,6 +84,7 @@ function ManualMethod({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const linkReady = method.link && !isPlaceholder(method.link) && /^https?:\/\//.test(method.link);
+  const claimsOpen = acceptsClaims(method);
 
   return (
     <div>
@@ -149,6 +151,13 @@ function ManualMethod({
           });
         }}
       >
+        {!claimsOpen && (
+          <div className="mb-4">
+            <FormMessage tone="info">
+              {method.label} payment details are still being set up, so this method can&rsquo;t take payments yet. Please check back soon.
+            </FormMessage>
+          </div>
+        )}
         <Field label={`After paying: ${method.referenceLabel}`} htmlFor={`payer-${method.id}`} hint="We use this to find your payment. It is never shown to anyone else.">
           <Input
             id={`payer-${method.id}`}
@@ -157,11 +166,11 @@ function ManualMethod({
             maxLength={claimReference.max}
             placeholder={method.referencePlaceholder}
             autoComplete="off"
-            disabled={disabled || pending}
+            disabled={disabled || pending || !claimsOpen}
           />
         </Field>
         <div className="mt-3"><FormMessage>{error}</FormMessage></div>
-        <Button type="submit" size="lg" className="mt-2 w-full" loading={pending} disabled={disabled}>
+        <Button type="submit" size="lg" className="mt-2 w-full" loading={pending} disabled={disabled || !claimsOpen}>
           I&rsquo;ve paid · submit for confirmation
         </Button>
         <p className="mt-2 text-center text-[11.5px] text-fg-subtle">
@@ -224,6 +233,7 @@ export function PaymentPanel({
                 key={t}
                 type="button"
                 role="tab"
+                data-press
                 aria-selected={active}
                 aria-controls={`pay-${t}`}
                 onClick={() => {
