@@ -34,6 +34,7 @@ export function PasteDialog({
   waitingNote = "This usually takes a few seconds. Please keep this window open.",
   allowFile = true,
   closeOnSuccess = false,
+  initialText,
 }: {
   open: boolean;
   onClose: () => void;
@@ -52,6 +53,8 @@ export function PasteDialog({
   waitingNote?: string;
   allowFile?: boolean;
   closeOnSuccess?: boolean;
+  /** Text to fill the box with when the dialog opens (e.g. from a dropped file). */
+  initialText?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -60,6 +63,16 @@ export function PasteDialog({
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"edit" | "reading" | "waiting">("edit");
   const titleId = useId();
+
+  // Fill the box from `initialText` once per opening (adjust-state-during-render,
+  // so the dropped file's text is there on the first painted frame).
+  const [appliedInitial, setAppliedInitial] = useState<string | undefined>(undefined);
+  if (open && initialText && initialText !== appliedInitial) {
+    setAppliedInitial(initialText);
+    setText(initialText);
+  } else if (!open && appliedInitial !== undefined) {
+    setAppliedInitial(undefined);
+  }
 
   useEffect(() => {
     const d = dialogRef.current;

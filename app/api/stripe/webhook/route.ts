@@ -53,6 +53,18 @@ export async function POST(request: NextRequest) {
           amount: formatHKD(res.order.price),
           email: session.customer_details?.email ?? session.customer_email ?? undefined,
         });
+      } else if (res.ok && res.order?.status === "cancelled") {
+        // Paid through a checkout opened before the order was cancelled (by the
+        // customer or the unpaid-order cleanup). The payment is recorded; a
+        // person has to refund it or restore the order.
+        notifyOwner("payment_confirmed", {
+          order: shortId(res.order.id),
+          service: serviceLabels[res.order.service_type],
+          method: "Card (Stripe)",
+          amount: formatHKD(res.order.price),
+          email: session.customer_details?.email ?? session.customer_email ?? undefined,
+          action: "Order was cancelled before this payment arrived. Refund it in Stripe or contact the customer.",
+        });
       }
     }
   }

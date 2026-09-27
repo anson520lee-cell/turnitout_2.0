@@ -14,7 +14,7 @@ import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion"
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
   { label: "Writing signals", body: "Sentence rhythm, transitions, phrasing and structure are measured and explained." },
-  { label: "Request screening", body: "If you need an actual result, request a screening and upload the document." },
+  { label: "Get report", body: "If you need an actual result, press Get report, paste your text and press Enter." },
   { label: "Verification", body: "A reviewer runs a Turnitin screening with repository storage off." },
   { label: "Screening complete", body: "The returned result and report arrive in your dashboard." },
 ];

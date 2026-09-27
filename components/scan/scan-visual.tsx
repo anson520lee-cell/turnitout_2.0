@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
  * needs no listeners of its own:
  * - `--rx/--ry/--lift`, inherited from the tilted card, turn the stack (more
  *   than the card itself, which reads as depth) and lift the signal chips;
- * - `--cx/--cy` on :root move the specular highlight toward the cursor, and
- *   `data-depth` slides the glow with it and the cast shadow away from it.
+ * - `--cx/--cy` (written on this `data-cursor` root) move the specular
+ *   highlight toward the cursor, and `data-depth` slides the glow with it and
+ *   the cast shadow away from it.
  * On touch or with reduced motion none of these are set and it sits still.
  */
 
@@ -51,9 +52,9 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
   };
 
   return (
-    <div aria-hidden className={cn("relative mx-auto h-[250px] w-full max-w-[380px] select-none sm:h-[290px]", className)}>
-      <div data-depth="2" className="absolute inset-[6%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.34),rgb(154_123_255/0.12)_55%,transparent)] blur-2xl" />
-      <div data-depth="-3" className="absolute inset-x-[24%] bottom-[3%] h-9 rounded-[50%] bg-black/75 blur-xl" />
+    <div aria-hidden data-cursor className={cn("relative mx-auto h-[250px] w-full max-w-[380px] select-none sm:h-[290px]", className)}>
+      <div data-depth="2" className="absolute inset-[6%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.3),rgb(154_123_255/0.1)_55%,transparent)]" />
+      <div data-depth="-3" className="absolute inset-x-[24%] bottom-[3%] h-9 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.75),transparent)]" />
 
       <div className="absolute inset-0 [perspective:900px]">
         <motion.div

@@ -48,6 +48,11 @@ export const retention = {
    * after completion by /api/cron/retention (see README > Retention).
    */
   sourceDocumentDays: 14,
+  /**
+   * Unpaid orders with no reported payment are cancelled after this many
+   * days, and their pasted text and uploads deleted at once.
+   */
+  unpaidOrderDays: 7,
   /** Reports are kept this long so the user can re-download them. */
   reportDays: 90,
 } as const;

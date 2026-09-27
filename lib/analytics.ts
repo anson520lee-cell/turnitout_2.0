@@ -15,6 +15,7 @@ export type AnalyticsEvent =
   | "refinement_service_clicked"
   | "order_created"
   | "checkout_started"
+  | "payment_claim_submitted"
   | "payment_completed"
   | "report_opened"
   | "report_downloaded";

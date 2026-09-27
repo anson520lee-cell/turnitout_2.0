@@ -16,14 +16,16 @@ import { freeScan } from "@/config/app";
  * server-side salt, only the hash is stored, and neither is logged.
  *
  * Which address:
- * - The first entry of `x-forwarded-for`, else `x-real-ip`. Vercel sets both
- *   and overwrites any value the visitor sends. Behind another proxy, make
- *   sure it does the same, or visitors could pick their own bucket.
+ * - The first entry of `x-forwarded-for`, else `x-real-ip`, but only where a
+ *   proxy we trust sets them: on Vercel (`VERCEL` is set), which overwrites
+ *   any value the visitor sends, or where `TRUST_PROXY_IP_HEADERS=true` says
+ *   the host does the same. Anywhere else the headers could come from the
+ *   visitor (`next start` keeps a client-sent `x-forwarded-for`), so they are
+ *   ignored.
  * - IPv6 addresses count per /64 network (one household or phone), since a
  *   single device can rotate through addresses inside its /64.
- * - With no usable header (e.g. `next start` with no proxy in front), all
- *   guests share one "unknown" bucket: the limit still holds, it just fails
- *   closed instead of open.
+ * - Without a trusted header, all guests share one "unknown" bucket: the
+ *   limit still holds, it just fails closed instead of open.
  *
  * Visitors behind one shared address (a school network, mobile carrier NAT)
  * share one allowance. Signing in gives each person their own.
@@ -58,10 +60,18 @@ function bucketFor(raw: string | null | undefined): string {
   return "unknown";
 }
 
+/** Whether visitor addresses come from proxy headers (else one shared bucket). */
+export function trustsProxyHeaders(): boolean {
+  return Boolean(process.env.VERCEL) || process.env.TRUST_PROXY_IP_HEADERS === "true";
+}
+
 async function ipHash(): Promise<string> {
-  const h = await headers();
-  const forwarded = h.get("x-forwarded-for")?.split(",")[0];
-  const bucket = bucketFor(forwarded || h.get("x-real-ip"));
+  let bucket = "unknown";
+  if (trustsProxyHeaders()) {
+    const h = await headers();
+    const forwarded = h.get("x-forwarded-for")?.split(",")[0];
+    bucket = bucketFor(forwarded || h.get("x-real-ip"));
+  }
   // 64 hex characters, which the table's check constraint requires.
   return createHash("sha256").update(salt()).update(bucket).digest("hex");
 }

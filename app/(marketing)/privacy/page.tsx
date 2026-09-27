@@ -17,7 +17,8 @@ export default function PrivacyPage() {
           <li><strong>Account:</strong> email address, optional display name, sign-in records.</li>
           <li><strong>Free scans:</strong> the signal scores and risk level for each scan. {retention.storeScanText ? "The scanned text is also stored." : "The text you paste is analysed in memory and not stored."}</li>
           <li><strong>Orders:</strong> the document or text you submit, its title, any notes, the service chosen, and the result we deliver.</li>
-          <li><strong>Payments:</strong> handled by Stripe. We store the payment reference, amount and status, never your card details.</li>
+          <li><strong>Payments:</strong> made by Alipay, PayMe, bank transfer or card (Stripe). For Alipay, PayMe and bank transfer we store the payment reference you enter (transaction number or payer name), the amount and the status so we can match your payment. We never receive or store card details.</li>
+          <li><strong>Free scans without an account:</strong> to enforce the daily limit we keep a salted one-way hash of your IP address (never the address itself) and a count for the day. Old counts are deleted automatically. Results of scans made without an account are not saved.</li>
         </ul>
         <h2>How documents are handled</h2>
         <ul>
@@ -30,13 +31,15 @@ export default function PrivacyPage() {
         <h2>Retention</h2>
         <ul>
           <li>Source documents and refinement text are deleted {retention.sourceDocumentDays} days after the order is completed or cancelled, by a scheduled deletion job.</li>
+          <li>Orders left unpaid for {retention.unpaidOrderDays} days, with no payment reported, are cancelled and their text and files deleted straight away. Cancelling an unpaid order yourself deletes them at once.</li>
           <li>Screening reports are deleted {retention.reportDays} days after completion. Result values (for example, a similarity percentage) remain in your order history until you ask us to delete them.</li>
           <li>You can delete your scan history from Settings, or ask us to delete your account and all associated data at any time.</li>
         </ul>
         <h2>Third parties</h2>
         <ul>
           <li><strong>Supabase:</strong> authentication, database and file storage.</li>
-          <li><strong>Stripe:</strong> payment processing.</li>
+          <li><strong>Stripe:</strong> card payment processing.</li>
+          <li><strong>Alipay, PayMe and your bank:</strong> when you pay by those methods, they process the payment under their own terms.</li>
           <li><strong>Turnitin:</strong> used by our staff to perform screening you order. Turnitin is a third-party service and is not affiliated with us.</li>
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>

@@ -4,11 +4,11 @@ import {
   motion,
   useMotionTemplate,
   useMotionValue,
-  useReducedMotion,
   useSpring,
   useTransform,
   type MotionValue,
 } from "framer-motion";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +35,7 @@ export function DepthStage({
   glare?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   // -0.5…0.5 across the stage.
   const px = useMotionValue(0);
   const py = useMotionValue(0);
@@ -111,7 +111,7 @@ export function DepthLayer({
   children: ReactNode;
 }) {
   const p = useContext(PointerContext);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const fallback = useMotionValue(0);
   const dx = useTransform(p?.x ?? fallback, [-0.5, 0.5], [-drift, drift]);
   const dy = useTransform(p?.y ?? fallback, [-0.5, 0.5], [-drift * 0.6, drift * 0.6]);

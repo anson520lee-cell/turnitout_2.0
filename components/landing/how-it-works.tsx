@@ -7,8 +7,8 @@ import { Reveal } from "@/components/motion/reveal";
 export const steps = [
   { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },
   { n: "02", title: "Review the signals", body: "See which patterns stand out and where, paragraph by paragraph." },
-  { n: "03", title: "Choose screening if needed", body: "AI-writing, similarity, or both. Pay securely through Stripe." },
-  { n: "04", title: "Upload your document", body: "PDF or DOCX into private storage. No public links, ever." },
+  { n: "03", title: "Get a report if you need one", body: "One Turnitin-backed AI & similarity report, HK$35. Pay by Alipay, PayMe or bank transfer." },
+  { n: "04", title: "Paste your text", body: "Paste into the dialog and press Enter. Your text is visible only to you and the person processing it." },
   { n: "05", title: "Receive your result", body: "We screen it, record exactly what was returned, and deliver the report." },
 ];
 

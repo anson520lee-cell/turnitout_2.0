@@ -6,7 +6,12 @@ import { brand } from "@/config/app";
  * Tells the site owner when something happens: a free scan, a new order, a
  * payment reported or confirmed. Sent by Telegram and/or email, whichever is
  * configured. Runs after the response with `after()`, so it never slows the
- * user down, and a failed send is logged and dropped.
+ * user down. Order and payment messages are retried once; a failed send is
+ * then logged and dropped.
+ *
+ * Free-scan messages go to Telegram only. Anyone can trigger a scan without an
+ * account, so on email they could use up the daily sending quota (Resend's
+ * free plan allows 100 a day) that payment alerts depend on.
  *
  * Never put document text, file names or titles in `fields`. Ids, amounts,
  * counts, methods and the account email are fine.
@@ -33,6 +38,7 @@ export function notificationChannels() {
   return {
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
     email: Boolean(process.env.RESEND_API_KEY && process.env.NOTIFY_EMAIL_TO),
+    /** Free-scan messages: Telegram only, and on unless NOTIFY_ON_SCANS=false. */
     scans: process.env.NOTIFY_ON_SCANS !== "false",
   };
 }
@@ -78,11 +84,24 @@ async function sendEmail(subject: string, text: string) {
 /** Queue a notification to the owner. Safe to call from server actions and route handlers. */
 export function notifyOwner(event: OwnerEvent, fields: Fields = {}): void {
   const ch = notificationChannels();
+  const scan = event === "scan_used";
+  if (scan && (!ch.scans || !ch.telegram)) return;
   if (!ch.telegram && !ch.email) return;
-  if (event === "scan_used" && !ch.scans) return;
   const { subject, text } = format(event, fields);
+  const attempt = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+    } catch (first) {
+      if (scan) throw first;
+      await new Promise((r) => setTimeout(r, 1500));
+      await fn();
+    }
+  };
   const send = async () => {
-    const results = await Promise.allSettled([sendTelegram(text), sendEmail(subject, text)]);
+    const results = await Promise.allSettled([
+      attempt(() => sendTelegram(text)),
+      scan ? Promise.resolve() : attempt(() => sendEmail(subject, text)),
+    ]);
     for (const r of results) {
       if (r.status === "rejected") console.error("[notify]", event, r.reason instanceof Error ? r.reason.message : r.reason);
     }

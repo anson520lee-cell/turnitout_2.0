@@ -10,6 +10,7 @@ import { isStripeConfigured, devPaymentsEnabled } from "@/lib/env";
 import { notificationChannels } from "@/lib/notify";
 import { getScreeningProvider } from "@/lib/screening";
 import { getAnalyzer } from "@/lib/scanning";
+import { trustsProxyHeaders } from "@/lib/scanning/guest";
 
 export const metadata: Metadata = { title: "Admin · Settings" };
 
@@ -37,12 +38,19 @@ export default async function AdminSettings() {
   const rows: [string, React.ReactNode][] = [
     ["Brand", brand.name],
     ["Free scans / day", `${freeScan.dailyLimit} (${freeScan.timezone})`],
+    [
+      "Guest scan limit",
+      trustsProxyHeaders()
+        ? on("Per visitor address")
+        : off("One shared allowance: set TRUST_PROXY_IP_HEADERS if your host overwrites X-Forwarded-For"),
+    ],
     ["Preliminary analyzer", getAnalyzer().id],
     ["Screening provider", `${provider.id} · ${provider.manual ? "manual (human-in-the-loop)" : "automated"}`],
     ["Card payments (Stripe)", isStripeConfigured() ? on() : off("Not configured: card option hidden")],
     ["Dev payments", devPaymentsEnabled() ? <Badge tone="warn" key="d">Enabled</Badge> : "Off"],
     ["Retention job", process.env.CRON_SECRET ? on("CRON_SECRET set") : off("CRON_SECRET missing: deletion job won't run")],
     ["Source text kept", `${retention.sourceDocumentDays} days after completion`],
+    ["Unpaid orders", `Cancelled and text deleted after ${retention.unpaidOrderDays} days`],
     ["Reports kept", `${retention.reportDays} days after completion`],
     ["Store free-scan text", retention.storeScanText ? "Yes" : "No"],
     ["Report upload limit", `${uploads.maxBytes / 1024 / 1024} MB · PDF, DOCX`],
@@ -68,8 +76,10 @@ export default async function AdminSettings() {
     [
       "Free-scan messages",
       <div key="s" className="space-y-1">
-        {channels.scans ? <Badge tone="info">On</Badge> : <Badge>Off</Badge>}
-        <p className="text-[12px] text-fg-subtle">Set {env("NOTIFY_ON_SCANS")}=false to stop a message for every free scan.</p>
+        {channels.scans && channels.telegram ? <Badge tone="info">On (Telegram)</Badge> : <Badge>Off</Badge>}
+        <p className="text-[12px] text-fg-subtle">
+          Telegram only, so free scans can&rsquo;t use up the email quota payment alerts need. Set {env("NOTIFY_ON_SCANS")}=false to stop them.
+        </p>
       </div>,
     ],
   ];
@@ -90,7 +100,7 @@ export default async function AdminSettings() {
           <Card className="p-5">
             <h2 className="text-[14px] font-semibold">Owner notifications</h2>
             <p className="mt-1 text-[12.5px] text-fg-muted">
-              Sent for new orders, reported payments, confirmations and rejections{channels.scans ? ", and free scans" : ""}. Messages
+              Sent for new orders, reported payments, confirmations and rejections{channels.scans && channels.telegram ? ", and free scans (Telegram only)" : ""}. Messages
               carry order numbers, amounts, methods and the account email, never document text or titles.
             </p>
             {!channels.telegram && !channels.email && (

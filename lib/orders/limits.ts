@@ -31,11 +31,11 @@ export function refinementCharError(chars: number): string | null {
   return null;
 }
 
-/** "Report · The effects of social media on…" for the customer's own order list. */
-export function autoTitle(prefix: string, text: string): string {
-  const words = text.replace(/\s+/g, " ").trim().split(" ");
-  const first = words.slice(0, 6).join(" ");
-  const head = first.slice(0, 60).trimEnd();
-  const more = words.length > 6 || head.length < first.length;
-  return `${prefix} · ${head || "Untitled"}${more ? "…" : ""}`;
+/**
+ * "Report · 1,240 words" for order lists. Built from counts only, never the
+ * document's words, so no text survives in `title` after retention deletes
+ * `source_text`.
+ */
+export function autoTitle(prefix: string, count: number, unit: "words" | "characters"): string {
+  return `${prefix} · ${n(count)} ${unit}`;
 }

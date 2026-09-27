@@ -12,8 +12,8 @@ const nav = [
   { href: "/scan", label: "Free Scan", icon: ScanText },
   { href: "/scan/history", label: "Scan History", icon: History },
   { href: "/orders", label: "Orders", icon: FileStack },
-  { href: "/services/screening", label: "Screening", icon: FileCheck2 },
-  { href: "/services/refinement", label: "Writing Review", icon: PenLine },
+  { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
+  { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -5,7 +5,7 @@ A pre-submission service for students checking their own academic writing. It of
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **Turnitin AI & Similarity Report** (HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
+| **AI & Similarity Report** (Turnitin-backed, HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
 | **Writing Refinement** (HK$1 per 100 characters, min HK$30) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; screening results are labelled as the observed result of that screening run. Missing values are shown as "Not returned", never estimated.
@@ -121,7 +121,7 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 
 | Product | Price | Limits |
 | --- | --- | --- |
-| Turnitin AI & Similarity Report (`combined_screening`) | HK$35 per report (`screeningPrices`) | 450–29,000 words (`screeningWordRange`), checked in the browser and again in `screeningTextOrderInput` |
+| AI & Similarity Report (`combined_screening`) | HK$35 per report (`screeningPrices`) | 450–29,000 words (`screeningWordRange`), checked in the browser and again in `screeningTextOrderInput` |
 | Writing Refinement (`refinement`) | HK$1 per 100 characters, rounded up, minimum HK$30 = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
 | Preliminary scan | Free, 3 a day | — |
 
@@ -155,9 +155,9 @@ Customers can never mark an order paid; only a verified Stripe webhook or an adm
 | `payment_submitted` | A customer reports an Alipay / PayMe / bank payment (check your account) |
 | `payment_confirmed` | You confirm a claim, or Stripe confirms a card payment |
 | `payment_rejected` | You reject a claim |
-| `scan_used` | A free scan is run (turn off with `NOTIFY_ON_SCANS=false`) |
+| `scan_used` | A free scan is run. Telegram only, so anonymous scans can't use up the email quota payment alerts need (turn off with `NOTIFY_ON_SCANS=false`) |
 
-Messages contain the order number, service, word or character count, amount, payment method and account email, never document text, titles or file names.
+Messages contain the order number, service, word or character count, amount, payment method and account email, never document text, titles or file names. Order and payment messages are retried once if a send fails. If a card payment arrives for an order that was already cancelled, you get a `payment_confirmed` message telling you to refund it or restore the order.
 
 | Channel | Environment variables |
 | --- | --- |
@@ -187,14 +187,29 @@ It also returns sentence-level highlights (which patterns each sentence contains
 
 The free scan accepts .docx, .pdf and .txt files. Text is extracted in the browser (`lib/extract-text.ts`, mammoth and unpdf), so the file itself is never uploaded. Results can be saved as a PDF through the browser's print dialog (print styles in `globals.css`).
 
+## Guest scans
+
+The free scan lives at `/scan` in its own route group, `app/(scan)`, so visitors can use it without an account: guests see the marketing navbar, signed-in users see the app sidebar. Opening a saved scan (`/scan?id=…`) and `/scan/history` still require sign-in (`lib/supabase/proxy.ts`).
+
+Guests get `freeScan.dailyLimit` (3) scans per Hong Kong calendar day per network address (`lib/scanning/guest.ts`, migration `0002`):
+
+- The address comes from the first `x-forwarded-for` entry, else `x-real-ip`, and only on a host that overwrites them: Vercel (detected from `VERCEL`), or another host where you set `TRUST_PROXY_IP_HEADERS=true` because its proxy replaces any value the visitor sends. Elsewhere these headers can be forged, so they are ignored.
+- IPv6 counts per /64, because one device can rotate through addresses inside its /64.
+- Without a trusted header, all guests share one `unknown` bucket, so the limit fails closed.
+- Known limit: someone with a routed IPv6 block larger than a /64 can get more than 3 a day. The cost is only server time for the heuristic scan (scan messages go to Telegram, not the email quota). Add a platform rate limit (Vercel Firewall) if it happens.
+- Only a salted SHA-256 of the address is stored (`GUEST_IP_SALT`, or a value derived from the service-role key when unset). Neither the address nor the hash is logged.
+- Counting is an atomic Postgres function callable only by the service role; a failed scan refunds its use. Yesterday's rows are deleted by the retention cron.
+- People behind one shared address (a school network, mobile carrier NAT) share one allowance. Signing in gives each person their own 3 a day.
+
 ## Interaction design
 
-`components/motion/interactive-surfaces.tsx` is one pointer listener for the whole site. It lights `.glass` surfaces where the cursor is, tilts anything with `data-tilt`, pulls `.magnetic` buttons, and drives `data-depth` parallax layers, all through CSS variables. It switches itself off for touch screens and reduced-motion users.
+`components/motion/interactive-surfaces.tsx` mounts one pointer engine (`components/motion/pointer-engine.ts`) for the whole site: a single `requestAnimationFrame` loop with spring smoothing that writes CSS variables and nothing else. It lights `.glass` surfaces where the cursor is, tilts anything with `data-tilt`, pulls `.magnetic` buttons, and drives `data-depth` parallax layers, all through CSS variables. It switches itself off for touch screens and reduced-motion users.
 
 ## Privacy and retention
 
 - Private buckets; no public URLs; users have no direct storage policy. Everything goes through server-checked signed URLs.
 - Free-scan text is not stored (`retention.storeScanText = false`); only scores are.
+- Guest scan counts keep only a salted hash of the visitor's network address, and each day's rows are deleted by the retention cron the next day.
 - Source documents and refinement text are deleted `retention.sourceDocumentDays` (14) days after an order closes; reports after `retention.reportDays` (90). This depends on the cron job running with `CRON_SECRET` set; the admin Settings page shows whether it is.
 - Analytics hooks (`lib/analytics.ts`) carry ids and enums only, never document content. No provider is wired yet.
 

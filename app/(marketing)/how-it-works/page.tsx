@@ -12,7 +12,7 @@ export default function HowItWorksPage() {
       <PageHeader
         eyebrow="How it works"
         title="From draft to report, step by step."
-        body="The free scan runs instantly on our servers. Screening is a separate, human-processed order: we run the permitted screening outside this website and upload exactly what it returned."
+        body="The free scan runs instantly on our servers. Screening is a separate, human-processed order: we run the permitted screening outside this website and record exactly what it returned."
       />
       <HowItWorks heading={false} />
       <ScrollStory />

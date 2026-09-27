@@ -68,7 +68,7 @@ export function Comparison() {
               {paid.map(([l, y]) => <Row key={l} label={l} yes={y} />)}
             </ul>
             <Link href="/services/screening" className={buttonClasses("primary", "md", "relative mt-7 w-full")}>
-              Request screening
+              Get report
               <ArrowRight className="size-4" />
             </Link>
           </Reveal>

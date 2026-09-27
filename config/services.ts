@@ -31,7 +31,7 @@ export const reportService = "combined_screening" as const;
 export const serviceLabels: Record<ServiceType, string> = {
   ai_screening: "AI-Writing Screening",
   similarity_screening: "Similarity Screening",
-  combined_screening: "Turnitin AI & Similarity Report",
+  combined_screening: "AI & Similarity Report",
   refinement: "Writing Refinement",
 };
 

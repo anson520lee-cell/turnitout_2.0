@@ -82,8 +82,8 @@ export function Hero() {
           </Reveal>
           <Reveal delay={0.16}>
             <p className="mt-6 max-w-lg text-pretty text-[16.5px] leading-relaxed text-fg-muted">
-              Run a preliminary writing scan instantly, then request a Turnitin-backed AI and similarity
-              screening when you need a real report.
+              Run a preliminary writing scan instantly, then get a Turnitin-backed AI and similarity
+              report when you need the real result.
             </p>
           </Reveal>
           <Reveal delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">
@@ -92,7 +92,7 @@ export function Hero() {
               <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
             </Link>
             <Link href="/services/screening" className={buttonClasses("secondary", "lg")}>
-              Request screening
+              Get report
             </Link>
           </Reveal>
           <Reveal delay={0.32}>

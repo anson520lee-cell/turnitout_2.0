@@ -144,7 +144,7 @@ function ManualMethod({
               message: "We couldn't reach the server. Check your connection and try again.",
             }));
             if (!res.ok) return setError(res.message);
-            track("checkout_started", { method: method.id, manual: true });
+            track("payment_claim_submitted", { method: method.id });
             onSubmitted();
           });
         }}

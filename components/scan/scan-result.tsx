@@ -13,6 +13,7 @@ import { SentenceHighlights } from "./sentence-highlights";
 import { ReadabilityCard } from "./readability-card";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
+import { formatHKD, screeningPrices } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -167,33 +168,25 @@ export function ScanResult({ result, createdAt }: { result: AnalysisResult; crea
 }
 
 function NextStep() {
-  const types = [
-    { href: "/services/screening?type=ai_screening", label: "Request AI screening" },
-    { href: "/services/screening?type=similarity_screening", label: "Request similarity screening" },
-    { href: "/services/screening?type=combined_screening", label: "Request AI + similarity screening" },
-  ];
   return (
     <div className="glass-strong relative overflow-hidden rounded-2xl p-6 sm:p-8">
       <div aria-hidden className="absolute -right-16 -top-16 size-56 rounded-full bg-accent/20 blur-3xl" />
       <p className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Optional next step</p>
       <h2 className="relative mt-2 text-xl font-semibold tracking-tight">Need the actual screening result?</h2>
       <p className="relative mt-1.5 max-w-xl text-[13.5px] text-fg-muted">
-        This scan is our estimate. A screening order runs your document through Turnitin, processed by a person, and delivers the result it returned.
+        This scan is our estimate. A report runs your text through Turnitin, processed by a person, and delivers the result it returned.
       </p>
       <div className="relative mt-5 flex flex-wrap gap-2">
-        {types.map((t, i) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            onClick={() => track("screening_service_clicked", { from: "scan_result" })}
-            className={buttonClasses(i === 2 ? "primary" : "secondary", "md")}
-          >
-            {t.label}
-            {i === 2 && <ArrowRight className="size-4" />}
-          </Link>
-        ))}
+        <Link
+          href="/services/screening"
+          onClick={() => track("screening_service_clicked", { from: "scan_result" })}
+          className={buttonClasses("primary", "md")}
+        >
+          Get AI &amp; similarity report · {formatHKD(screeningPrices.combined_screening)}
+          <ArrowRight className="size-4" />
+        </Link>
         <Link href="/services/refinement" onClick={() => track("refinement_service_clicked", { from: "scan_result" })} className={buttonClasses("ghost", "md")}>
-          Request writing review
+          Writing refinement
         </Link>
       </div>
     </div>

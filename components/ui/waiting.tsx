@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, } from "framer-motion";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,7 +22,7 @@ export function WaitingAnimation({
   className?: string;
   stepMs?: number;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const [i, setI] = useState(0);
   useEffect(() => {
     if (steps.length < 2) return;

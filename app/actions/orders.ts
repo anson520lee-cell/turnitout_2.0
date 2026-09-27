@@ -76,8 +76,7 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     .insert({
       user_id: user.id,
       service_type: reportService,
-      // For the customer's own order list only; never sent in notifications.
-      title: autoTitle("Report", text),
+      title: autoTitle("Report", words, "words"),
       price,
       currency,
       word_count: words,
@@ -219,7 +218,7 @@ export async function createRefinementOrder(input: unknown): Promise<{ ok: true;
     .insert({
       user_id: user.id,
       service_type: "refinement",
-      title: autoTitle("Refinement", v.text),
+      title: autoTitle("Refinement", chars, "characters"),
       price,
       currency,
       word_count: words,

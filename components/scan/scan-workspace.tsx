@@ -14,6 +14,7 @@ import { ScanVisual } from "./scan-visual";
 import { freeScan, retention } from "@/config/app";
 import { countWords, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { extractText, ExtractError } from "@/lib/extract-text";
 
 /** What the visitor can do on /scan, decided on the server. */
 export type ScanAccess =
@@ -73,7 +74,8 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
   const [guest, setGuest] = useState(access.mode === "guest");
   const [remaining, setRemaining] = useState(access.mode === "offline" ? 0 : access.remaining);
   const [open, setOpen] = useState(false);
-  const [droppedName, setDroppedName] = useState<string | null>(null);
+  const [dropped, setDropped] = useState<{ name: string; text: string } | null>(null);
+  const [dropError, setDropError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [run, setRun] = useState(0);
@@ -86,16 +88,17 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
     ? `You've used today's ${freeScan.dailyLimit} free scans. Sign in or come back tomorrow (it resets at midnight Hong Kong time).`
     : "You've used today's free scans. Your allowance resets at midnight Hong Kong time.";
 
-  const openDialog = (from: "button" | "drop" | "again", fileName: string | null = null) => {
+  const openDialog = (from: "button" | "drop" | "again", file: { name: string; text: string } | null = null) => {
     if (limitReached) return;
-    setDroppedName(fileName);
+    setDropped(file);
+    setDropError(null);
     setOpen(true);
     track("scan_dialog_opened", { from, guest });
   };
 
   const closeDialog = () => {
     setOpen(false);
-    setDroppedName(null);
+    setDropped(null);
     if (!revealPending.current) return;
     revealPending.current = false;
     // After the dialog has closed (and handed focus back), bring the report into view.
@@ -155,9 +158,9 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
     <span className="text-warn">{OFFLINE_MESSAGE[offline]}</span>
   ) : (
     <>
-      {droppedName && (
+      {dropped && (
         <span className="mb-1 block text-fg">
-          To scan &ldquo;{droppedName}&rdquo;, open it with &ldquo;Or load a .docx, .pdf or .txt&rdquo; below, or paste its text.
+          Loaded &ldquo;{dropped.name}&rdquo;. Check the text, then press Enter.
         </span>
       )}
       {remaining} of {freeScan.dailyLimit} free scans left today{guest ? ", no account needed" : ""}. We measure sentence rhythm, structure and phrasing patterns.
@@ -198,7 +201,12 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
           if (!hasFiles(e) || limitReached) return;
           e.preventDefault();
           setDragging(false);
-          openDialog("drop", e.dataTransfer.files[0]?.name ?? null);
+          const file = e.dataTransfer.files[0];
+          if (!file) return;
+          // Read the file here in the browser; only its text goes to the dialog.
+          extractText(file)
+            .then((text) => openDialog("drop", { name: file.name, text }))
+            .catch((err) => setDropError(err instanceof ExtractError ? err.message : "We couldn't read that file."));
         }}
       >
         <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-accent/15 blur-3xl" data-depth="-1" />
@@ -251,13 +259,24 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
         )}
       </Card>
 
+      {dropError && (
+        <div className="print:hidden">
+          <FormMessage>{dropError}</FormMessage>
+        </div>
+      )}
+
       {offline && (
         <div className="print:hidden">
           <FormMessage tone="info">
             {offline === "not_configured" ? (
-              <>
-                Scanning isn&rsquo;t available yet: Supabase isn&rsquo;t configured. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (see README).
-              </>
+              process.env.NODE_ENV === "production" ? (
+                <>Scanning isn&rsquo;t available yet. Please check back soon.</>
+              ) : (
+                // Setup hint for the developer; visitors on a deployed site see the line above.
+                <>
+                  Scanning isn&rsquo;t available yet: Supabase isn&rsquo;t configured. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (see README).
+                </>
+              )
             ) : (
               <span className="flex flex-wrap items-center justify-between gap-3">
                 {OFFLINE_MESSAGE.guest_unavailable}
@@ -277,7 +296,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
                 <Link className="underline" href="/login?next=/scan">Sign in</Link> to use your account&rsquo;s own allowance.{" "}
               </>
             )}
-            Need a result now? <Link className="underline" href="/services/screening">Request a screening</Link>.
+            Need a result now? <Link className="underline" href="/services/screening">Get a report</Link>.
           </FormMessage>
         </div>
       )}
@@ -348,6 +367,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
           </>
         }
         onSubmit={onSubmit}
+        initialText={dropped?.text}
         waitingTitle="Scanning your writing…"
         waitingSteps={WAITING_STEPS}
         waitingNote="This usually takes a few seconds. Please keep this window open."

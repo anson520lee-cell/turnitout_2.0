@@ -55,7 +55,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: "What happens to my text after the report?",
-    a: `Your text is kept in our database where only you and authorised staff can see it. It is deleted ${retention.sourceDocumentDays} days after your order completes, and report files after ${retention.reportDays} days. You can ask us to delete them sooner at ${brand.supportEmail}.`,
+    a: `Your text is kept in our database where only you and authorised staff can see it. It is deleted ${retention.sourceDocumentDays} days after your order completes, and report files after ${retention.reportDays} days. Unpaid orders are cancelled and their text deleted after ${retention.unpaidOrderDays} days. You can ask us to delete them sooner at ${brand.supportEmail}.`,
   },
   {
     q: "How long is my text stored?",
