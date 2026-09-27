@@ -1,0 +1,80 @@
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { LayoutGrid, ScanText, FileStack, FileCheck2, PenLine, Settings, Shield, LogOut, Menu, X } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
+import { signOut } from "@/app/actions/account";
+import { cn } from "@/lib/utils";
+
+const nav = [
+  { href: "/dashboard", label: "Overview", icon: LayoutGrid },
+  { href: "/scan", label: "Free Scan", icon: ScanText },
+  { href: "/orders", label: "Orders", icon: FileStack },
+  { href: "/services/screening", label: "Screening", icon: FileCheck2 },
+  { href: "/services/refinement", label: "Writing Review", icon: PenLine },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean }) {
+  const path = usePathname();
+  const [open, setOpen] = useState(false);
+  const items = isAdmin ? [...nav, { href: "/admin", label: "Admin", icon: Shield }] : nav;
+
+  const list = (
+    <nav aria-label="App" className="flex flex-1 flex-col">
+      <ul className="space-y-0.5">
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = path === href || (href !== "/dashboard" && path.startsWith(href));
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                onClick={() => setOpen(false)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
+                  active ? "bg-white/[0.07] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
+                )}
+              >
+                <Icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-auto border-t border-[var(--line)] pt-4">
+        <p className="truncate px-3 text-[12px] text-fg-subtle" title={email}>{email}</p>
+        <form action={signOut}>
+          <button className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] text-fg-muted hover:bg-white/[0.04] hover:text-fg">
+            <LogOut className="size-4" aria-hidden /> Log out
+          </button>
+        </form>
+      </div>
+    </nav>
+  );
+
+  return (
+    <>
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-[var(--line)] bg-ink-900/50 p-4 backdrop-blur-xl lg:flex">
+        <div className="mb-8 px-2 pt-1"><Logo /></div>
+        {list}
+      </aside>
+      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--line)] bg-ink-950/80 px-4 backdrop-blur-xl lg:hidden">
+        <Logo />
+        <button
+          className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5"
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
+      </div>
+      {open && (
+        <div className="fixed inset-x-0 top-14 bottom-0 z-40 flex flex-col bg-ink-950/95 p-4 backdrop-blur-xl lg:hidden">{list}</div>
+      )}
+    </>
+  );
+}
