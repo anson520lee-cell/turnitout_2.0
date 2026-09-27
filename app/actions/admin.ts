@@ -94,6 +94,23 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
       .eq("id", claim.id);
     return { ok: false, message: `Couldn't mark the order paid (${res.reason ?? "unknown error"}). The claim is still pending.` };
   }
+  if (!res.newlyPaid) {
+    // The order was paid another way (a card payment) between the check above
+    // and now. Undo this claim's payment record and reject it, so it isn't
+    // counted as a second payment the business kept.
+    await db.from("payments").delete().eq("provider", claim.method).eq("provider_payment_id", claim.id);
+    await db
+      .from("payment_claims")
+      .update({ status: "rejected", admin_note: "Order was already paid by another method" })
+      .eq("id", claim.id);
+    await audit("payment_claim_rejected", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, reason: "already_paid" } });
+    refresh(order.id);
+    const label = manualPayments[claim.method]?.label ?? claim.method;
+    return {
+      ok: false,
+      message: `The order was paid by another method while you were confirming, so this claim was rejected. If the customer also paid by ${label}, refund that payment.`,
+    };
+  }
 
   await audit("payment_claim_confirmed", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, method: claim.method } });
   notifyOwner("payment_confirmed", {

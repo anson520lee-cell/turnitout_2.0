@@ -286,7 +286,7 @@ export function PaymentPanel({
                 router.refresh();
               }}
             />
-          ) : tab === "card" ? (
+          ) : stripe && tab === "card" ? (
             <div className="rounded-2xl border border-[var(--line)] bg-ink-900/40 p-5 text-center">
               <p className="text-[13px] text-fg-muted">Pay by Visa, Mastercard and other cards through Stripe&rsquo;s secure checkout.</p>
               <Button

@@ -31,7 +31,7 @@ export function FinalCta() {
               Start with a free preliminary scan. Get a report when you need the actual result.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className={buttonClasses("primary", "lg")}>
+              <Link href="/scan" className={buttonClasses("primary", "lg")}>
                 Run free scan <ArrowRight className="size-4" />
               </Link>
               <Link href="/pricing" className={buttonClasses("secondary", "lg")}>

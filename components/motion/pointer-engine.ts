@@ -107,9 +107,27 @@ interface Spring {
   v: number;
 }
 const settled = (s: Spring, target: number, eps = 0.01) => Math.abs(s.x - target) < eps && Math.abs(s.v) < eps * 10;
+/**
+ * Semi-implicit Euler, which is only stable up to a step size that depends on
+ * k and c (about 35ms for the halo's k=620, c=46). A slow frame — a long
+ * task, a tab that was backgrounded, a low-end machine — could otherwise
+ * overshoot into growing oscillation. Substepping keeps every step under
+ * 20ms regardless of dt (dt itself is capped at 50ms by the caller, so this
+ * is at most 3 iterations), and the finite guard recovers instantly if a
+ * spring ever does go non-finite rather than staying broken for the rest of
+ * the session (the engine lives in the root layout and outlives navigation).
+ */
 function step(s: Spring, target: number, k: number, c: number, dt: number) {
-  s.v += (k * (target - s.x) - c * s.v) * dt;
-  s.x += s.v * dt;
+  const n = Math.max(1, Math.ceil(dt / 0.02));
+  const h = dt / n;
+  for (let i = 0; i < n; i++) {
+    s.v += (k * (target - s.x) - c * s.v) * h;
+    s.x += s.v * h;
+  }
+  if (!Number.isFinite(s.x) || !Number.isFinite(s.v)) {
+    s.x = target;
+    s.v = 0;
+  }
 }
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -130,6 +148,8 @@ interface Tracked {
   /** Receives --cx/--cy. */
   follows: boolean;
   lit: boolean;
+  /** Last lighting values written, to skip `setProperty` once they stop changing. */
+  written: string;
 }
 
 interface Tilt {
@@ -139,12 +159,15 @@ interface Tilt {
   rx: Spring;
   ry: Spring;
   lift: Spring;
+  /** Last CSS values written, to skip `setProperty` once they stop changing. */
+  written: string;
 }
 
 interface Magnet {
   tx: Spring;
   ty: Spring;
   target: [number, number];
+  written: string;
 }
 
 const SURFACES = ".glass, .glass-strong, .magnetic, [data-depth], [data-cursor]";
@@ -230,6 +253,7 @@ export function startPointerEngine(layers: EngineLayers) {
           magnetic: el.classList.contains("magnetic"),
           follows: el.hasAttribute("data-depth") || el.hasAttribute("data-cursor"),
           lit: prev?.lit ?? false,
+          written: prev?.written ?? "",
         });
         // Entering view: bring it up to date with the current light.
         if (el.hasAttribute("data-depth") || el.hasAttribute("data-cursor")) {
@@ -294,6 +318,7 @@ export function startPointerEngine(layers: EngineLayers) {
         if (t.lit) {
           unset(t.el, LIT_PROPS);
           t.lit = false;
+          t.written = "";
         }
         continue;
       } else {
@@ -309,18 +334,28 @@ export function startPointerEngine(layers: EngineLayers) {
         if (t.lit) {
           unset(t.el, LIT_PROPS);
           t.lit = false;
+          t.written = "";
         }
         continue;
       }
       // Direction from the surface's center to the light, -1…1.
       const nx = clamp((lx - left - w / 2) / (w / 2 + LIGHT_REACH), -1, 1);
       const ny = clamp((ly - top - h / 2) / (h / 2 + LIGHT_REACH), -1, 1);
-      const s = t.el.style;
-      s.setProperty("--px", `${(lx - left).toFixed(1)}px`);
-      s.setProperty("--py", `${(ly - top).toFixed(1)}px`);
-      s.setProperty("--lit", p.toFixed(3));
-      s.setProperty("--shx", (-nx * 22 * p).toFixed(1));
-      s.setProperty("--shy", (-ny * 22 * p).toFixed(1));
+      const px = (lx - left).toFixed(1);
+      const py = (ly - top).toFixed(1);
+      const lit = p.toFixed(3);
+      const shx = (-nx * 22 * p).toFixed(1);
+      const shy = (-ny * 22 * p).toFixed(1);
+      const written = `${px}|${py}|${lit}|${shx}|${shy}`;
+      if (written !== t.written) {
+        t.written = written;
+        const s = t.el.style;
+        s.setProperty("--px", `${px}px`);
+        s.setProperty("--py", `${py}px`);
+        s.setProperty("--lit", lit);
+        s.setProperty("--shx", shx);
+        s.setProperty("--shy", shy);
+      }
       t.lit = true;
     }
   };
@@ -346,19 +381,27 @@ export function startPointerEngine(layers: EngineLayers) {
       step(t.rx, trx, 190, 15, dt);
       step(t.ry, tr, 190, 15, dt);
       step(t.lift, tl, 210, 20, dt);
-      const done = !t.hover && settled(t.rx, 0, 0.02) && settled(t.ry, 0, 0.02) && settled(t.lift, 0, 0.004);
-      if (done) {
+      // Settled against the CURRENT target, not always 0: while the pointer
+      // rests on a hovered card, trx/tr/tl hold steady and the spring
+      // settles there, not at rest. Comparing against 0 in that case kept
+      // `busy` (and this element) alive for as long as the mouse sat still.
+      const rest = settled(t.rx, trx, 0.02) && settled(t.ry, tr, 0.02) && settled(t.lift, tl, 0.004);
+      if (!t.hover && rest) {
         unset(el, TILT_PROPS);
         tilts.delete(el);
         continue;
       }
-      busy = true;
-      const s = el.style;
-      s.setProperty("--rx", `${t.rx.x.toFixed(2)}deg`);
-      s.setProperty("--ry", `${t.ry.x.toFixed(2)}deg`);
-      s.setProperty("--lift", t.lift.x.toFixed(3));
-      s.setProperty("--gx", (t.ry.x / t.strength).toFixed(3));
-      s.setProperty("--gy", (-t.rx.x / t.strength).toFixed(3));
+      if (!rest) busy = true;
+      const written = `${t.rx.x.toFixed(2)}|${t.ry.x.toFixed(2)}|${t.lift.x.toFixed(3)}`;
+      if (written !== t.written) {
+        t.written = written;
+        const s = el.style;
+        s.setProperty("--rx", `${t.rx.x.toFixed(2)}deg`);
+        s.setProperty("--ry", `${t.ry.x.toFixed(2)}deg`);
+        s.setProperty("--lift", t.lift.x.toFixed(3));
+        s.setProperty("--gx", (t.ry.x / t.strength).toFixed(3));
+        s.setProperty("--gy", (-t.rx.x / t.strength).toFixed(3));
+      }
     }
     return busy;
   };
@@ -380,28 +423,41 @@ export function startPointerEngine(layers: EngineLayers) {
         if (d < MAGNET_REACH && (!best || d < best.d)) best = { el: t.el, left, top, w: t.w, h: t.h, d };
       }
     }
-    if (best && !magnets.has(best.el)) magnets.set(best.el, { tx: { x: 0, v: 0 }, ty: { x: 0, v: 0 }, target: [0, 0] });
+    if (best && !magnets.has(best.el)) magnets.set(best.el, { tx: { x: 0, v: 0 }, ty: { x: 0, v: 0 }, target: [0, 0], written: "" });
     for (const [el, m] of magnets) {
+      let bx = "";
+      let by = "";
       if (best && el === best.el) {
         const f = 1 - best.d / MAGNET_REACH;
         const dx = pointer.x - (best.left + best.w / 2);
         const dy = pointer.y - (best.top + best.h / 2);
         m.target = [clamp(dx * 0.22, -14, 14) * f, clamp(dy * 0.34, -9, 9) * f];
-        el.style.setProperty("--bx", `${(pointer.x - best.left).toFixed(0)}px`);
-        el.style.setProperty("--by", `${(pointer.y - best.top).toFixed(0)}px`);
+        bx = (pointer.x - best.left).toFixed(0);
+        by = (pointer.y - best.top).toFixed(0);
       } else {
         m.target = [0, 0];
       }
       step(m.tx, m.target[0], 260, 17, dt);
       step(m.ty, m.target[1], 260, 17, dt);
-      if (el !== best?.el && settled(m.tx, 0, 0.05) && settled(m.ty, 0, 0.05)) {
+      // Settled against the current target: while the pointer rests near a
+      // magnetic button, the target holds steady and the spring settles
+      // there, not at 0 — comparing against 0 kept this element (and the
+      // frame loop) busy for as long as the mouse sat still.
+      const rest = settled(m.tx, m.target[0], 0.05) && settled(m.ty, m.target[1], 0.05);
+      if (el !== best?.el && rest) {
         unset(el, MAGNET_PROPS);
         magnets.delete(el);
         continue;
       }
-      busy = true;
-      el.style.setProperty("--tx", `${m.tx.x.toFixed(2)}px`);
-      el.style.setProperty("--ty", `${m.ty.x.toFixed(2)}px`);
+      if (!rest) busy = true;
+      const written = `${m.tx.x.toFixed(2)}|${m.ty.x.toFixed(2)}|${bx}|${by}`;
+      if (written !== m.written) {
+        m.written = written;
+        el.style.setProperty("--tx", `${m.tx.x.toFixed(2)}px`);
+        el.style.setProperty("--ty", `${m.ty.x.toFixed(2)}px`);
+        if (bx) el.style.setProperty("--bx", `${bx}px`);
+        if (by) el.style.setProperty("--by", `${by}px`);
+      }
     }
     return busy;
   };
@@ -430,6 +486,7 @@ export function startPointerEngine(layers: EngineLayers) {
           rx: { x: 0, v: 0 },
           ry: { x: 0, v: 0 },
           lift: { x: 0, v: 0 },
+          written: "",
         };
         if (existing) t.rect = measure(tl);
         t.hover = true;

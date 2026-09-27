@@ -35,6 +35,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   const screeningOrder = isScreening(order.service_type);
   const unpaid = order.status === "awaiting_payment";
   const pendingClaim = unpaid ? claims.find((c) => c.status === "pending") ?? null : null;
+  // Back from Stripe before its webhook has marked the order paid: wait for
+  // it (the page refreshes itself) instead of offering to pay again.
+  const confirmingCard = sp.checkout === "success" && unpaid && !pendingClaim;
   const rejectedClaim = unpaid && !pendingClaim && claims[0]?.status === "rejected" ? claims[0] : null;
   const inProgress = ACTIVE_STATUSES.includes(order.status);
   const reference = paymentReference(order.id);
@@ -51,9 +54,6 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         actions={pendingClaim ? <Badge tone="warn" dot>Confirming payment</Badge> : <StatusBadge status={order.status} />}
       />
 
-      {sp.checkout === "success" && unpaid && (
-        <div className="mb-5"><FormMessage tone="info">Payment received by Stripe. We&rsquo;re confirming it now; this page updates in a moment.</FormMessage></div>
-      )}
       {sp.checkout === "cancelled" && unpaid && (
         <div className="mb-5"><FormMessage tone="info">Checkout was cancelled. You haven&rsquo;t been charged. You can pay whenever you&rsquo;re ready.</FormMessage></div>
       )}
@@ -79,7 +79,24 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
 
       {unpaid && (
         <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
-          {pendingClaim ? (
+          {confirmingCard ? (
+            <Card strong className="noise overflow-hidden p-5 sm:p-7">
+              <WaitingAnimation
+                title="Card payment received — confirming it"
+                steps={["Waiting for Stripe's confirmation", "Adding your order to the queue"]}
+                stepMs={2200}
+                note="This usually takes a few seconds. The page updates by itself."
+              />
+              <AutoRefresh every={5_000} className="relative mt-5" />
+              <p className="relative mt-4 text-center text-[12px] text-fg-subtle">
+                Still waiting after a few minutes?{" "}
+                <Link href={`/orders/${order.id}`} className="underline hover:text-fg">
+                  Show payment options
+                </Link>{" "}
+                or contact support. Please don&rsquo;t pay twice.
+              </p>
+            </Card>
+          ) : pendingClaim ? (
             <Card strong className="noise overflow-hidden p-5 sm:p-7">
               <div aria-hidden className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-warn/10 blur-3xl" />
               <WaitingAnimation

@@ -13,7 +13,12 @@ import { startPressEffects } from "./press-effects";
  *   `press-effects.ts`, which also runs on touch screens).
  *
  * Runs only for a fine pointer with motion allowed; otherwise nothing here is
- * shown and the CSS effects keyed on html[data-interactive] stay off.
+ * shown and the CSS effects keyed on html[data-interactive] stay off. Both
+ * conditions are watched live, not just read once at mount: this component
+ * stays mounted for the whole visit (it lives in the root layout), so a
+ * setting changed mid-session — pointer type on a 2-in-1, or reduced motion
+ * turned on — starts or stops the engine to match, instead of waiting for a
+ * reload.
  */
 export function InteractiveSurfaces() {
   const back = useRef<HTMLDivElement>(null);
@@ -26,14 +31,29 @@ export function InteractiveSurfaces() {
   useEffect(() => {
     const fine = window.matchMedia("(pointer: fine)");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!fine.matches || reduce.matches) return;
-    if (!back.current || !halo.current || !ripples.current) return;
-    return startPointerEngine({
-      back: back.current,
-      backGrid: grid.current,
-      halo: halo.current,
-      ripples: ripples.current,
-    });
+    let stop: (() => void) | null = null;
+    const sync = () => {
+      const want = fine.matches && !reduce.matches;
+      if (want && !stop && back.current && halo.current && ripples.current) {
+        stop = startPointerEngine({
+          back: back.current,
+          backGrid: grid.current,
+          halo: halo.current,
+          ripples: ripples.current,
+        });
+      } else if (!want && stop) {
+        stop();
+        stop = null;
+      }
+    };
+    sync();
+    fine.addEventListener("change", sync);
+    reduce.addEventListener("change", sync);
+    return () => {
+      fine.removeEventListener("change", sync);
+      reduce.removeEventListener("change", sync);
+      stop?.();
+    };
   }, []);
 
   return (

@@ -108,6 +108,14 @@ body {
 @property --shx { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --shy { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --glare { syntax: "*"; inherits: false; }
+/* --rx/--ry (the tilt angles) are read only in [data-tilt]'s own transform,
+   never by a descendant, unlike --gx/--gy/--lift which [data-pop] does read
+   by inheriting them. Registering rx/ry non-inheriting stops every frame's
+   tilt update from invalidating style on the card's whole subtree — with a
+   card full of text and chips, that was most of the pointer loop's cost
+   while the cursor rested on a tilted card. */
+@property --rx { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --ry { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 
 /* Glass surfaces behave like panes under a moving light. The pointer engine
    sets, on every surface within reach of the light:
@@ -131,8 +139,10 @@ body {
     0 1px 2px rgb(0 0 0 / 0.4),
     calc(var(--shx) * 1px) calc(20px + var(--shy) * 1px + var(--lift, 0) * 18px) calc(50px + var(--lift, 0) * 30px) -20px rgb(0 0 0 / 0.75),
     calc(var(--shx) * -0.7px) calc(var(--shy) * -0.7px) 44px -16px rgb(91 140 255 / calc(0.4 * var(--lit)));
+  /* No -webkit-backdrop-filter here: Lightning CSS adds it for our
+     browserslist targets, and hand-writing both let the build tool collapse
+     them to the prefixed-only property, so Chrome/Edge/Firefox got no blur. */
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
   &:not(.absolute, .fixed, .sticky) { position: relative; }
   &::before { @apply edge-light; }
 }
@@ -151,7 +161,6 @@ body {
     calc(var(--shx) * 1.2px) calc(30px + var(--shy) * 1.2px + var(--lift, 0) * 22px) calc(80px + var(--lift, 0) * 30px) -30px rgb(0 0 0 / 0.85),
     calc(var(--shx) * -0.8px) calc(var(--shy) * -0.8px) 56px -18px rgb(91 140 255 / calc(0.42 * var(--lit)));
   backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
   &:not(.absolute, .fixed, .sticky) { position: relative; }
   &::before { @apply edge-light; }
 }

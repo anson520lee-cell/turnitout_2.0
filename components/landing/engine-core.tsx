@@ -113,9 +113,21 @@ export function EngineCore({
     };
     const state = { angle: START, ax: BASE.ax, ay: BASE.ay, rz: BASE.rz, on: ENGINE_SIGNALS.map(() => 0) };
     let unsub: (() => void) | null = null;
+    // While the section is on screen but idle (cursor still, nothing focused)
+    // the orbit still has to keep turning, so this listener can't go idle
+    // like the tilt/magnet ones do — but it can do that work at half rate
+    // instead of every frame, which is what actually costs main-thread time.
+    let idleSkip = 0;
 
     const frame = (p: PointerState) => {
-      const dt = p.dt;
+      const idle = p.speed === 0 && focus.current === null;
+      if (idle) {
+        idleSkip = (idleSkip + 1) % 2;
+        if (idleSkip) return true;
+      } else {
+        idleSkip = 0;
+      }
+      const dt = p.dt * (idle ? 2 : 1); // one throttled step covers the skipped frame too
       const k = 1 - Math.exp(-5 * dt);
       // Cursor relative to the lens centre, in container units.
       const cxp = box.left - window.scrollX + box.size / 2;

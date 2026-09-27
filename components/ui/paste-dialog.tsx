@@ -141,10 +141,18 @@ export function PasteDialog({
         e.preventDefault();
         if (phase !== "waiting") onClose();
       }}
+      onClose={() => {
+        // The browser can close a modal by itself (e.g. Chrome lets a second
+        // Escape through even while we block the first). Tell the parent, so
+        // its `open` state and the button that opens the dialog stay in sync.
+        if (open) onClose();
+      }}
       onClick={(e) => {
         if (e.target === dialogRef.current && phase !== "waiting") onClose();
       }}
-      className="m-auto w-[min(760px,calc(100vw-24px))] max-w-none overflow-visible bg-transparent p-0 text-fg backdrop:bg-ink-950/70 backdrop:backdrop-blur-md"
+      // Scrolls as a whole on short screens (small phones, on-screen keyboard
+      // open) so the footnote and the submit button are always reachable.
+      className="m-auto max-h-[calc(100dvh-16px)] w-[min(760px,calc(100vw-24px))] max-w-none overflow-y-auto overscroll-contain bg-transparent p-0 text-fg backdrop:bg-ink-950/70 backdrop:backdrop-blur-md"
     >
       <AnimatePresence>
         {open && (
@@ -185,7 +193,9 @@ export function PasteDialog({
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      // keyCode 229: Safari fires the Enter that confirms an IME
+                      // candidate (Cangjie, Pinyin…) after compositionend.
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) {
                         e.preventDefault();
                         submit();
                       }
@@ -193,7 +203,7 @@ export function PasteDialog({
                     placeholder={placeholder}
                     disabled={busy}
                     aria-invalid={Boolean(error) || undefined}
-                    className="block h-[min(46vh,380px)] w-full resize-none rounded-2xl border border-[var(--line)] bg-ink-900/70 px-4 py-4 font-serif text-[15.5px] leading-[1.8] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.03)] placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none focus:ring-4 focus:ring-accent/15"
+                    className="block h-[min(40dvh,380px)] w-full resize-none rounded-2xl border border-[var(--line)] bg-ink-900/70 px-4 py-4 font-serif text-[15.5px] leading-[1.8] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.03)] placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none focus:ring-4 focus:ring-accent/15"
                   />
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[12px] text-fg-subtle">
                     <span>{meta?.(text)}</span>

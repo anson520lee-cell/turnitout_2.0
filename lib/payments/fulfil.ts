@@ -14,7 +14,10 @@ import type { Order } from "@/types/domain";
  *
  * Idempotent: repeated webhook deliveries are harmless. `newlyPaid` is true
  * only for the call that actually moved the order out of awaiting_payment,
- * so callers can notify once.
+ * so callers can notify once. `duplicate` is true when this exact payment
+ * was already recorded (a redelivery). A payment that is new but finds the
+ * order already paid or cancelled (`!newlyPaid && !duplicate`) is money the
+ * customer paid twice or too late: callers must flag it for a refund.
  */
 export async function markOrderPaid(args: {
   orderId: string;
@@ -22,7 +25,7 @@ export async function markOrderPaid(args: {
   providerPaymentId: string;
   amount: number;
   currency: string;
-}): Promise<{ ok: boolean; reason?: string; newlyPaid?: boolean; order?: Order }> {
+}): Promise<{ ok: boolean; reason?: string; newlyPaid?: boolean; duplicate?: boolean; order?: Order }> {
   const db = createAdminClient();
   const { data: order } = await db
     .from("orders")
@@ -40,6 +43,14 @@ export async function markOrderPaid(args: {
     return { ok: false, reason: "amount mismatch" };
   }
 
+  const { data: existing } = await db
+    .from("payments")
+    .select("id")
+    .eq("provider", args.provider)
+    .eq("provider_payment_id", args.providerPaymentId)
+    .maybeSingle();
+  const duplicate = Boolean(existing);
+
   await db.from("payments").upsert(
     {
       order_id: order.id,
@@ -53,7 +64,12 @@ export async function markOrderPaid(args: {
     { onConflict: "provider,provider_payment_id" },
   );
 
-  if (order.status !== "awaiting_payment") return { ok: true, newlyPaid: false, order };
+  if (order.status !== "awaiting_payment") {
+    if (!duplicate) {
+      await audit("payment_after_close", { orderId: order.id, detail: { provider: args.provider, status: order.status } });
+    }
+    return { ok: true, newlyPaid: false, duplicate, order };
+  }
 
   const now = new Date().toISOString();
   const { data: moved, error } = await db
@@ -63,8 +79,8 @@ export async function markOrderPaid(args: {
     .eq("status", "awaiting_payment")
     .select("id");
   if (error) return { ok: false, reason: "update failed" };
-  // Another delivery got here first.
-  if (!moved?.length) return { ok: true, newlyPaid: false, order };
+  // Another delivery (or another payment method) got here first.
+  if (!moved?.length) return { ok: true, newlyPaid: false, duplicate, order };
   await audit("order_paid", { orderId: order.id, detail: { provider: args.provider } });
 
   if (isScreening(order.service_type)) {
@@ -89,5 +105,5 @@ export async function markOrderPaid(args: {
       .eq("status", "paid");
   }
   await audit("order_queued", { orderId: order.id });
-  return { ok: true, newlyPaid: true, order };
+  return { ok: true, newlyPaid: true, duplicate, order };
 }

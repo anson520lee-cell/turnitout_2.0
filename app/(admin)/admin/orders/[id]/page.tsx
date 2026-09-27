@@ -44,7 +44,8 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
   const { order, file, screening, refinement, payments, notes, events, claims } = b;
   const screeningOrder = isScreening(order.service_type);
   const closed = order.status === "completed" || order.status === "cancelled";
-  const paid = payments.find((p) => p.status === "succeeded");
+  const succeeded = payments.filter((p) => p.status === "succeeded");
+  const paid = succeeded[0];
   const pendingClaim = claims.some((c) => c.status === "pending");
 
   return (
@@ -80,6 +81,19 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
               <Row k="Price" v={formatHKD(order.price)} />
               <Row k="Pay reference" v={<span className="font-mono">{paymentReference(order.id)}</span>} />
               <Row k="Payment" v={paid ? `${paymentMethodLabel(paid.provider)} · ${formatHKD(paid.amount)} · ${formatDateTime(order.paid_at)}` : pendingClaim ? "Claim waiting for you to verify" : "Not paid"} />
+              {succeeded.length > 1 && (
+                <Row
+                  k="Paid twice"
+                  v={
+                    <span className="text-warn">
+                      {succeeded.map((p) => `${paymentMethodLabel(p.provider)} ${formatHKD(p.amount)}`).join(" + ")}. Refund the extra payment.
+                    </span>
+                  }
+                />
+              )}
+              {order.status === "cancelled" && succeeded.length > 0 && (
+                <Row k="Refund needed" v={<span className="text-warn">This order was cancelled after a payment arrived. Refund it.</span>} />
+              )}
               <Row k="Completed" v={formatDateTime(order.completed_at)} />
               <Row k="User notes" v={<span className="whitespace-pre-wrap text-fg-muted">{order.instructions || "—"}</span>} />
             </dl>
