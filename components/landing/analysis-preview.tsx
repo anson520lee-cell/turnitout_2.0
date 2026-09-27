@@ -52,7 +52,7 @@ export function AnalysisPreview() {
           body="The free scan measures concrete properties of your text and explains each one. It doesn't return a made-up AI percentage."
         />
         <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-          <Card strong className="p-6 sm:p-7">
+          <Card strong tilt={4} className="p-6 sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div role="tablist" aria-label="Example text" className="inline-flex rounded-xl border border-[var(--line)] bg-ink-900/60 p-1">
                 {(Object.keys(samples) as Key[]).map((k) => (
@@ -99,7 +99,7 @@ export function AnalysisPreview() {
               <span className="flex items-center gap-2"><span className="h-2 w-4 rounded-sm bg-accent/30" />Stock phrasing</span>
             </div>
           </Card>
-          <Card className="p-6 sm:p-7">
+          <Card tilt={4} className="p-6 sm:p-7">
             <div className="flex items-center justify-between">
               <p className="text-[13px] text-fg-muted">Preliminary risk estimate</p>
               <Badge tone={s.level === "Elevated" ? "danger" : "success"} dot>

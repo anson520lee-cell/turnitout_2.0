@@ -2,7 +2,7 @@
 
 import { getSessionUser } from "@/lib/auth/session";
 import { getAnalyzer } from "@/lib/scanning";
-import type { AnalysisResult } from "@/lib/scanning/types";
+import { forStorage, type AnalysisResult } from "@/lib/scanning/types";
 import { incrementScanUsage, refundScanUsage } from "@/lib/scanning/usage";
 import { createClient } from "@/lib/supabase/server";
 import { scanInput } from "@/lib/validation/schemas";
@@ -49,7 +49,8 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
         input_text: retention.storeScanText ? text : null,
         word_count: result.metadata.words,
         overall_risk: result.overallRisk,
-        result_json: result,
+        // Highlights and excerpts contain the user's words; only scores are saved.
+        result_json: forStorage(result),
         analyzer: result.metadata.analyzer,
       })
       .select("id")

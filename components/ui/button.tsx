@@ -11,7 +11,7 @@ export function buttonClasses(variant: Variant = "primary", size: Size = "md", c
     size === "md" && "h-10 px-4 text-sm",
     size === "lg" && "h-12 px-6 text-[15px]",
     variant === "primary" &&
-      "bg-gradient-to-b from-[#6c97ff] to-accent-strong text-white glow-accent hover:-translate-y-px hover:brightness-110 active:translate-y-0",
+      "magnetic bg-gradient-to-b from-[#6c97ff] to-accent-strong text-white glow-accent hover:-translate-y-px hover:brightness-110 active:translate-y-0",
     variant === "secondary" &&
       "glass text-fg hover:-translate-y-px hover:border-[var(--line-strong)] hover:bg-white/[0.06]",
     variant === "outline" &&

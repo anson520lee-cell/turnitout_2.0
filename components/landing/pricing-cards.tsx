@@ -12,6 +12,7 @@ export function PricingCards() {
         {services.map((s) => (
           <StaggerItem key={s.id} className="h-full">
             <div
+              data-tilt="7"
               className={cn(
                 "relative flex h-full flex-col rounded-2xl p-6",
                 s.highlight ? "glass-strong border-accent/40 shadow-[0_0_0_1px_rgb(91_140_255/0.25),0_30px_60px_-30px_rgb(91_140_255/0.5)]" : "glass",

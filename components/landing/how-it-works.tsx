@@ -41,7 +41,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
                   <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[10.5px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
                     {s.n}
                   </span>
-                  <div className="glass rounded-2xl p-5 sm:p-6">
+                  <div data-tilt="4" className="glass rounded-2xl p-5 sm:p-6">
                     <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
                     <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
                   </div>

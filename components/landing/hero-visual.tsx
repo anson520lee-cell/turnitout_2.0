@@ -48,8 +48,8 @@ export function HeroVisual() {
   return (
     <div className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
       {/* radial lighting */}
-      <div className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.28),rgb(154_123_255/0.12)_55%,transparent_75%)] blur-2xl" />
-      <div className="absolute inset-0 bg-grid [mask-image:radial-gradient(closest-side,black,transparent)] opacity-60" />
+      <div data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.28),rgb(154_123_255/0.12)_55%,transparent_75%)] blur-2xl" />
+      <div data-depth="2" className="absolute inset-0 bg-grid [mask-image:radial-gradient(closest-side,black,transparent)] opacity-60" />
       {use3D ? <HeroScene /> : <CssDocument />}
       {LABELS.map((l, i) => (
         <AnimatePresence key={l}>

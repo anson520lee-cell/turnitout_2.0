@@ -1,7 +1,9 @@
 import type {
   AnalysisResult,
   ParagraphSignal,
+  Readability,
   RiskLevel,
+  SentenceSignal,
   Signal,
   SignalId,
   WritingAnalyzer,
@@ -112,6 +114,79 @@ function repeatedTrigramRate(ws: string[]): number {
   let repeated = 0;
   for (const c of counts.values()) if (c > 1) repeated += c;
   return repeated / Math.max(ws.length - 2, 1);
+}
+
+/** Rough English syllable count: vowel groups, minus a silent final "e". */
+function syllables(word: string): number {
+  const w = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (!w) return 0;
+  if (w.length <= 3) return 1;
+  const trimmed = w.replace(/(?:[^laeiouy]es|[^laeiouy]ed|[^laeiouy]e)$/, "").replace(/^y/, "");
+  const groups = trimmed.match(/[aeiouy]{1,2}/g);
+  return Math.max(1, groups?.length ?? 1);
+}
+
+function readability(allWords: string[], sentLens: number[]): Readability {
+  const latin = allWords.filter((w) => /[a-z]/.test(w));
+  const syl = latin.reduce((a, w) => a + syllables(w), 0);
+  const asw = latin.length ? syl / latin.length : 0;
+  const asl = sentLens.length ? mean(sentLens) : 0;
+  // Only meaningful for English text with a few sentences.
+  const ok = sentLens.length >= 3 && latin.length / Math.max(allWords.length, 1) > 0.8;
+  const round1 = (x: number) => Math.round(x * 10) / 10;
+  return {
+    readingEase: ok ? Math.round(Math.min(100, Math.max(0, 206.835 - 1.015 * asl - 84.6 * asw))) : null,
+    gradeLevel: ok ? round1(Math.max(0, 0.39 * asl + 11.8 * asw - 15.59)) : null,
+    avgSentenceWords: round1(asl),
+    avgWordSyllables: round1(asw),
+    longSentences: sentLens.filter((n) => n > 35).length,
+    readingMinutes: Math.max(1, Math.round(allWords.length / 238)),
+  };
+}
+
+/**
+ * Flag individual sentences with the same patterns the signals measure, so
+ * the user can see where they occur. A sentence is part of an "even run" when
+ * it and its neighbours are all within 20% of the same length.
+ */
+function sentenceSignals(paraSentences: string[][]): SentenceSignal[] {
+  const flat = paraSentences.flatMap((ss, paragraph) => ss.map((text) => ({ paragraph, text, n: words(text).length })));
+  const even = flat.map(() => false);
+  for (let i = 0; i + 2 < flat.length; i++) {
+    const run = flat.slice(i, i + 3).map((s) => s.n);
+    const m = mean(run);
+    if (run.every((n) => Math.abs(n - m) <= m * 0.2)) even[i] = even[i + 1] = even[i + 2] = true;
+  }
+  const openerCounts = new Map<string, number>();
+  flat.forEach((s) => {
+    const o = words(s.text).slice(0, 2).join(" ");
+    openerCounts.set(o, (openerCounts.get(o) ?? 0) + 1);
+  });
+  return flat.map((s, i) => {
+    const reasons: string[] = [];
+    let weight = 0;
+    const t = startsWithTransition(s.text);
+    if (t) {
+      reasons.push(`Opens with “${t[0].toUpperCase()}${t.slice(1)}”`);
+      weight += 1;
+    }
+    const ph = stockPhraseHits(s.text);
+    if (ph.length) {
+      reasons.push(`Stock phrasing: ${ph.slice(0, 2).map((x) => `“${x}”`).join(", ")}`);
+      weight += ph.length > 1 ? 2 : 1;
+    }
+    if (even[i]) {
+      reasons.push("Same length as the sentences around it");
+      weight += 0.5;
+    }
+    const opener = words(s.text).slice(0, 2).join(" ");
+    if (flat.length > 4 && (openerCounts.get(opener) ?? 0) >= 3) {
+      reasons.push(`Starts like ${openerCounts.get(opener)! - 1} other sentences`);
+      weight += 0.5;
+    }
+    const level: RiskLevel = weight >= 2 ? "elevated" : weight >= 1 ? "moderate" : "low";
+    return { paragraph: s.paragraph, text: s.text, level, reasons };
+  });
 }
 
 const LABELS: Record<SignalId, string> = {
@@ -299,10 +374,12 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       overallRisk: levelOf(overallScore),
       signals,
       paragraphs: paragraphSignals,
+      sentences: sentenceSignals(paraSentences),
+      readability: readability(allWords, sentLens),
       recommendations,
       metadata: {
         analyzer: this.id,
-        version: "1.0.0",
+        version: "1.1.0",
         words: allWords.length,
         sentences: sentences.length,
         paragraphs: paragraphs.length,

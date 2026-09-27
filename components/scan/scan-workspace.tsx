@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ClipboardPaste, Eraser, ScanText } from "lucide-react";
+import { ClipboardPaste, Eraser, FileUp, ScanText } from "lucide-react";
 import { runScan } from "@/app/actions/scan";
 import type { AnalysisResult } from "@/lib/scanning/types";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ScanResult } from "./scan-result";
 import { freeScan, retention } from "@/config/app";
 import { countWords, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { extractText, ExtractError, SCAN_FILE_ACCEPT } from "@/lib/extract-text";
 
 function UsageMeter({ remaining }: { remaining: number }) {
   return (
@@ -38,6 +39,27 @@ export function ScanWorkspace({ initialRemaining }: { initialRemaining: number }
   const [pending, start] = useTransition();
   const [phase, setPhase] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  // Text is read in the browser; the file itself is never uploaded.
+  const loadFile = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setReading(file.name);
+    try {
+      const t = await extractText(file);
+      setText(t);
+      setResult(null);
+      track("scan_file_loaded", { kind: file.name.split(".").pop()?.toLowerCase() ?? "unknown" });
+    } catch (e) {
+      setError({ code: "file", message: e instanceof ExtractError ? e.message : "We couldn't read that file." });
+    } finally {
+      setReading(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const words = countWords(text);
   const chars = text.length;
@@ -78,10 +100,45 @@ export function ScanWorkspace({ initialRemaining }: { initialRemaining: number }
 
   return (
     <div className="space-y-8">
-      <Card strong className="overflow-hidden">
+      <Card
+        strong
+        className={cn("overflow-hidden transition-[border-color,box-shadow]", dragging && "border-accent/60 shadow-[0_0_0_4px_rgb(91_140_255/0.15)]")}
+        onDragOver={(e) => {
+          if (pending) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (!pending) loadFile(e.dataTransfer.files[0]);
+        }}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
           <UsageMeter remaining={remaining} />
           <div className="flex gap-1">
+            <input
+              ref={fileRef}
+              type="file"
+              accept={SCAN_FILE_ACCEPT}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(e) => loadFile(e.target.files?.[0])}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              loading={!!reading}
+              disabled={pending}
+              onClick={() => fileRef.current?.click()}
+            >
+              {!reading && <FileUp className="size-3.5" />} {reading ? "Reading file" : "Upload file"}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -107,7 +164,7 @@ export function ScanWorkspace({ initialRemaining }: { initialRemaining: number }
           id="scan-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste your writing here. Separate paragraphs with a blank line for paragraph-level signals."
+          placeholder="Paste your writing here, or drop a .docx, .pdf or .txt file. Separate paragraphs with a blank line for paragraph-level signals."
           className="block min-h-[340px] w-full resize-y bg-transparent px-5 py-5 font-serif text-[16px] leading-[1.8] text-fg placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:outline-none sm:px-6"
           aria-invalid={tooLong || undefined}
           aria-describedby="scan-counts"

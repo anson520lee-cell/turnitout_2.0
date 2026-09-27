@@ -118,6 +118,22 @@ function mulberry32(seed: number) {
   };
 }
 
+/**
+ * Cursor position across the whole window (-1…1), not just over the canvas,
+ * so the scene reacts wherever the mouse is on the hero.
+ */
+const cursor = { x: 0, y: 0 };
+function useWindowPointer() {
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      cursor.x = (e.clientX / window.innerWidth) * 2 - 1;
+      cursor.y = -((e.clientY / window.innerHeight) * 2 - 1);
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+}
+
 function Particles({ count = 420 }: { count?: number }) {
   const ref = useRef<THREE.Points>(null);
   const positions = useMemo(() => {
@@ -134,7 +150,12 @@ function Particles({ count = 420 }: { count?: number }) {
     return arr;
   }, [count]);
   useFrame((_, dt) => {
-    if (ref.current) ref.current.rotation.y += dt * 0.025;
+    if (!ref.current) return;
+    const k = 1 - Math.pow(0.02, dt);
+    ref.current.rotation.y += dt * 0.025;
+    // Particles sit "behind" the document, so they drift the opposite way.
+    ref.current.position.x = THREE.MathUtils.lerp(ref.current.position.x, -cursor.x * 0.35, k);
+    ref.current.position.y = THREE.MathUtils.lerp(ref.current.position.y, -cursor.y * 0.25, k);
   });
   return (
     <points ref={ref}>
@@ -188,11 +209,12 @@ function Nodes() {
 
 function Rig({ children }: { children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null);
-  useFrame(({ pointer, clock }, dt) => {
+  useFrame(({ clock }, dt) => {
     if (!ref.current) return;
-    const k = 1 - Math.pow(0.001, dt);
-    ref.current.rotation.y = THREE.MathUtils.lerp(ref.current.rotation.y, -0.32 + pointer.x * 0.1, k);
-    ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, 0.1 - pointer.y * 0.07, k);
+    const k = 1 - Math.pow(0.004, dt);
+    ref.current.rotation.y = THREE.MathUtils.lerp(ref.current.rotation.y, -0.3 + cursor.x * 0.42, k);
+    ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, 0.08 - cursor.y * 0.26, k);
+    ref.current.position.x = THREE.MathUtils.lerp(ref.current.position.x, cursor.x * 0.12, k);
     ref.current.position.y = Math.sin(clock.elapsedTime * 0.6) * 0.06;
   });
   return <group ref={ref}>{children}</group>;
@@ -200,6 +222,7 @@ function Rig({ children }: { children: React.ReactNode }) {
 
 export default function HeroScene() {
   const wrap = useRef<HTMLDivElement>(null);
+  useWindowPointer();
   const [visible, setVisible] = useState(true);
   useEffect(() => {
     const el = wrap.current;

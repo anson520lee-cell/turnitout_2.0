@@ -9,14 +9,14 @@ import { freeScan } from "@/config/app";
 export function Hero() {
   return (
     <section className="noise relative overflow-hidden pt-32 pb-16 sm:pt-40 lg:pb-24">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[720px] bg-[radial-gradient(60%_60%_at_70%_20%,rgb(91_140_255/0.14),transparent_70%),radial-gradient(40%_50%_at_10%_10%,rgb(154_123_255/0.1),transparent_70%)]" />
+      <div aria-hidden data-depth="-3" className="pointer-events-none absolute inset-x-0 top-0 h-[720px] bg-[radial-gradient(60%_60%_at_70%_20%,rgb(91_140_255/0.14),transparent_70%),radial-gradient(40%_50%_at_10%_10%,rgb(154_123_255/0.1),transparent_70%)]" />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
         <div>
           <Reveal>
             <Eyebrow>Academic writing screening</Eyebrow>
           </Reveal>
           <Reveal delay={0.08}>
-            <h1 className="mt-5 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
+            <h1 data-depth="1" className="mt-5 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
               <span className="text-gradient">Know before</span>
               <br />
               you submit.

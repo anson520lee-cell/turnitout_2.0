@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       <AppHeader title={`Welcome, ${name}`} body="Your scans, orders and reports." />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card strong className="p-5">
+        <Card strong tilt className="p-5">
           <p className="text-[12.5px] text-fg-muted">Free scans today</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight">
             {remaining}
@@ -43,16 +43,16 @@ export default async function DashboardPage() {
           </div>
           <p className="mt-3 text-[11.5px] text-fg-subtle">Resets at midnight Hong Kong time</p>
         </Card>
-        <Card className="p-5">
+        <Card tilt className="p-5">
           <p className="text-[12.5px] text-fg-muted">Active orders</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight">{active.length}</p>
           {unpaid.length > 0 && <p className="mt-3 text-[12px] text-warn">{unpaid.length} awaiting payment</p>}
         </Card>
-        <Card className="p-5">
+        <Card tilt className="p-5">
           <p className="text-[12.5px] text-fg-muted">Completed screenings</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight">{completedScreenings.length}</p>
         </Card>
-        <Card className="p-5">
+        <Card tilt className="p-5">
           <p className="text-[12.5px] text-fg-muted">Account</p>
           <p className="mt-2 truncate text-[14px] font-medium">{user.email}</p>
           <Link href="/settings" className="mt-3 inline-block text-[12.5px] text-accent hover:underline">Settings</Link>
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
           { href: "/services/screening", icon: FileCheck2, t: "Request screening", d: "Turnitin-backed result", tag: "Paid" },
           { href: "/services/refinement", icon: PenLine, t: "Writing review", d: "Human clarity editing", tag: "Paid" },
         ].map((q) => (
-          <Link key={q.href} href={q.href} className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
+          <Link key={q.href} href={q.href} data-tilt="8" className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
             <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>
             <div className="flex-1">
               <p className="text-[14px] font-medium">{q.t}</p>
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-5">
             <h2 className="text-[15px] font-semibold">Recent scans</h2>
-            <Badge>Preliminary</Badge>
+            <Link href="/scan/history" className="text-[12.5px] text-accent hover:underline">View all</Link>
           </div>
           {scans.length ? (
             <ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">

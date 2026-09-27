@@ -94,8 +94,12 @@ body {
 /* ------------------------------------------------------------------
    Surfaces
    ------------------------------------------------------------------ */
+/* Glass surfaces pick up light from the cursor. `InteractiveSurfaces` sets
+   --px/--py (cursor inside the surface) and --lit (1 while hovered); the
+   sheen is an extra background layer and the lit edge is a masked ::before. */
 @utility glass {
   background:
+    radial-gradient(520px circle at var(--px, 50%) var(--py, 0%), rgb(120 160 255 / calc(0.16 * var(--lit, 0))), transparent 45%),
     linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.01) 40%),
     var(--glass);
   border: 1px solid var(--line);
@@ -105,10 +109,13 @@ body {
     0 20px 50px -20px rgb(0 0 0 / 0.7);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
+  &:not(.absolute, .fixed, .sticky) { position: relative; }
+  &::before { @apply edge-light; }
 }
 
 @utility glass-strong {
   background:
+    radial-gradient(620px circle at var(--px, 50%) var(--py, 0%), rgb(120 160 255 / calc(0.18 * var(--lit, 0))), transparent 45%),
     linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.015) 45%),
     var(--glass-strong);
   border: 1px solid var(--line-strong);
@@ -118,6 +125,24 @@ body {
     0 0 0 1px rgb(0 0 0 / 0.3);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
+  &:not(.absolute, .fixed, .sticky) { position: relative; }
+  &::before { @apply edge-light; }
+}
+
+/* A 1px ring that brightens where the cursor is, drawn over the border. */
+@utility edge-light {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(260px circle at var(--px, 50%) var(--py, 0%), rgb(170 195 255 / 0.9), rgb(154 123 255 / 0.35) 40%, transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: var(--lit, 0);
+  transition: opacity 0.35s ease;
 }
 
 @utility hairline {
@@ -174,3 +199,139 @@ body {
 .prose-doc li + li { margin-top: 0.35rem; }
 .prose-doc a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
 .prose-doc strong { color: var(--color-fg); font-weight: 600; }
+
+/* ------------------------------------------------------------------
+   Cursor lighting and depth. All of this is inert until
+   `InteractiveSurfaces` sets html[data-interactive] (fine pointer,
+   motion allowed), so touch devices and reduced-motion users get the
+   static design.
+   ------------------------------------------------------------------ */
+
+/* Page-wide soft light that follows the cursor. */
+.cursor-light {
+  background:
+    radial-gradient(600px circle at var(--mx, -100px) var(--my, -100px), rgb(91 140 255 / 0.09), transparent 60%),
+    radial-gradient(160px circle at var(--mx, -100px) var(--my, -100px), rgb(154 123 255 / 0.06), transparent 70%);
+  opacity: var(--cursor-on, 0);
+  transition: opacity 0.4s ease;
+  mix-blend-mode: screen;
+}
+
+/* Cards that lean toward the cursor. Strength is set per element with
+   data-tilt="8" (degrees at the edge); the engine writes --rx/--ry. */
+html[data-interactive] [data-tilt] {
+  transform: perspective(1100px) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) translateZ(0);
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+  will-change: transform;
+}
+html[data-interactive] [data-tilt]:hover {
+  transition-duration: 0.12s, 0.4s;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.09),
+    0 40px 90px -35px rgb(0 0 0 / 0.9),
+    0 18px 50px -30px rgb(91 140 255 / 0.45);
+}
+/* Children marked data-pop float above the tilted card. */
+html[data-interactive] [data-tilt] { transform-style: preserve-3d; }
+html[data-interactive] [data-tilt] [data-pop] {
+  transform: translateZ(calc(var(--lift, 0) * 28px));
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Primary buttons drift toward the cursor and catch a highlight. */
+html[data-interactive] .magnetic {
+  transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), translate 0.2s, filter 0.2s, box-shadow 0.2s;
+}
+html[data-interactive] .magnetic:hover { transition-duration: 0.1s, 0.2s, 0.2s, 0.2s; }
+.magnetic::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(90px circle at var(--bx, 50%) 30%, rgb(255 255 255 / 0.35), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  mix-blend-mode: soft-light;
+}
+html[data-interactive] .magnetic:hover::after { opacity: 1; }
+
+/* Parallax layers: data-depth="1" moves a little, "3" moves most, "-2"
+   moves the other way. Driven by --cx/--cy (-1…1 across the viewport). */
+html[data-interactive] [data-depth] {
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translate3d(calc(var(--cx, 0) * var(--d) * 1px), calc(var(--cy, 0) * var(--d) * 1px), 0);
+}
+[data-depth="1"] { --d: 6; }
+[data-depth="2"] { --d: 14; }
+[data-depth="3"] { --d: 26; }
+[data-depth="-1"] { --d: -8; }
+[data-depth="-2"] { --d: -18; }
+[data-depth="-3"] { --d: -34; }
+
+/* Orbiting 3D rings (final call to action). They spin on their own and
+   tilt with the cursor. */
+.orbit-stage {
+  perspective: 900px;
+}
+.orbit-rig {
+  transform-style: preserve-3d;
+  transform: rotateX(calc(62deg - var(--cy, 0) * 14deg)) rotateZ(calc(var(--cx, 0) * 18deg));
+  transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.orbit-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 9999px;
+  border: 1px solid rgb(143 176 255 / 0.35);
+  box-shadow: 0 0 40px -8px rgb(91 140 255 / 0.45), inset 0 0 30px -10px rgb(154 123 255 / 0.4);
+  animation: orbit-spin var(--spin, 18s) linear infinite;
+}
+.orbit-ring::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #5fd8f5;
+  box-shadow: 0 0 14px 2px rgb(95 216 245 / 0.8);
+}
+@keyframes orbit-spin {
+  from { transform: rotateZ(0deg) rotateX(var(--tiltx, 0deg)); }
+  to { transform: rotateZ(360deg) rotateX(var(--tiltx, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-ring { animation: none; }
+}
+
+/* ------------------------------------------------------------------
+   Print ("Download report (PDF)"). Browsers drop dark backgrounds when
+   printing, so switch the palette to ink-on-paper and drop the chrome.
+   ------------------------------------------------------------------ */
+@media print {
+  :root {
+    --color-fg: #10131c;
+    --color-fg-muted: #3b4256;
+    --color-fg-subtle: #5d6478;
+    --color-ink-950: #ffffff;
+    --color-ink-900: #f6f7fb;
+    --line: rgb(16 19 28 / 0.14);
+    --line-strong: rgb(16 19 28 / 0.22);
+    --glass: #ffffff;
+    --glass-strong: #ffffff;
+  }
+  html, body { background: #fff !important; }
+  .cursor-light, header, nav, aside, footer { display: none !important; }
+  .glass, .glass-strong {
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  [data-tilt] { transform: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

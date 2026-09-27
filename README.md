@@ -130,6 +130,14 @@ Every step writes to `audit_events`.
 
 `HeuristicWritingAnalyzer` computes six explainable signals from the text itself: sentence-length variation, sentence-opening repetition, connector frequency, stock phrasing and repeated trigrams, moving-average type–token ratio, and paragraph-length variation. It returns a level (Low / Moderate / Elevated) and per-signal measurements, not an "AI %". Add another implementation (model, LLM rubric, external API) behind `WritingAnalyzer` and select it with `WRITING_ANALYZER`. `metadata.isMock` exists so any future development mock is never shown as real analysis.
 
+It also returns sentence-level highlights (which patterns each sentence contains) and readability measures (Flesch reading ease, Flesch–Kincaid grade, sentence length, reading time). Highlights contain the user's text, so `forStorage()` strips them, and paragraph excerpts, before a result is saved; scan history keeps scores only.
+
+The free scan accepts .docx, .pdf and .txt files. Text is extracted in the browser (`lib/extract-text.ts`, mammoth and unpdf), so the file itself is never uploaded. Results can be saved as a PDF through the browser's print dialog (print styles in `globals.css`).
+
+## Interaction design
+
+`components/motion/interactive-surfaces.tsx` is one pointer listener for the whole site. It lights `.glass` surfaces where the cursor is, tilts anything with `data-tilt`, pulls `.magnetic` buttons, and drives `data-depth` parallax layers, all through CSS variables. It switches itself off for touch screens and reduced-motion users.
+
 ## Privacy and retention
 
 - Private buckets; no public URLs; users have no direct storage policy. Everything goes through server-checked signed URLs.
