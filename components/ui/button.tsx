@@ -11,9 +11,9 @@ export function buttonClasses(variant: Variant = "primary", size: Size = "md", c
     size === "md" && "h-10 px-4 text-sm",
     size === "lg" && "h-12 px-6 text-[15px]",
     variant === "primary" &&
-      "magnetic bg-gradient-to-b from-[#6c97ff] to-accent-strong text-white glow-accent hover:-translate-y-px hover:brightness-110 active:translate-y-0",
+      "magnetic bg-gradient-to-b from-[#6c97ff] to-accent-strong text-white glow-accent hover:-translate-y-px hover:brightness-110 hover:shadow-[0_0_0_1px_rgb(91_140_255/0.5),0_14px_40px_-8px_rgb(91_140_255/0.75),inset_0_1px_0_rgb(255_255_255/0.3)] active:translate-y-0 active:shadow-[0_0_0_1px_rgb(91_140_255/0.4),0_4px_14px_-6px_rgb(91_140_255/0.6),inset_0_2px_6px_rgb(0_0_0/0.25)]",
     variant === "secondary" &&
-      "glass text-fg hover:-translate-y-px hover:border-[var(--line-strong)] hover:bg-white/[0.06]",
+      "magnetic glass text-fg hover:-translate-y-px hover:border-[var(--line-strong)] hover:bg-white/[0.06] active:translate-y-0",
     variant === "outline" &&
       "border border-[var(--line-strong)] bg-transparent text-fg hover:bg-white/[0.04]",
     variant === "ghost" && "text-fg-muted hover:bg-white/[0.05] hover:text-fg",

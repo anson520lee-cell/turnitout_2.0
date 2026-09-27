@@ -34,7 +34,8 @@ const cols = [
 
 export function Footer() {
   return (
-    <footer className="relative mt-24 border-t border-[var(--line)] bg-ink-950">
+    <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)] bg-ink-950/70">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
       <Container className="grid gap-12 py-14 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div className="max-w-xs">
           <Logo />
@@ -55,7 +56,10 @@ export function Footer() {
           </div>
         ))}
       </Container>
-      <Container className="border-t border-[var(--line)] py-6">
+      <div aria-hidden data-cursor className="footer-wordmark pointer-events-none select-none text-center text-[clamp(72px,17vw,240px)] font-semibold leading-[0.8] tracking-[-0.06em]">
+        {brand.name}
+      </div>
+      <Container className="relative border-t border-[var(--line)] py-6">
         <p className="text-[12px] leading-relaxed text-fg-subtle">{disclaimers.turnitin}</p>
         <p className="mt-2 text-[12px] text-fg-subtle">
           © {new Date().getFullYear()} {brand.operator}. {disclaimers.noGuarantee}

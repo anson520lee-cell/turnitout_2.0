@@ -12,8 +12,8 @@ export default function ServicesPage() {
     <>
       <PageHeader
         eyebrow="Services"
-        title="Preliminary scan, screening, and writing review."
-        body="Three separate services. The scan is our estimate; the screening is an actual Turnitin result from a human-processed workflow; writing review is human editing of your own work."
+        title="Preliminary scan, Turnitin report, and writing refinement."
+        body="Three separate services. The scan is our own estimate; the report is the actual result of a human-processed Turnitin screening; refinement is human editing of your own writing for clarity, flow and style."
       />
       <CoreServices />
       <Comparison />

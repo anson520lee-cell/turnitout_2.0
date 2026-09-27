@@ -2,12 +2,13 @@ import Link from "next/link";
 import { ChevronRight, FileCheck2, PenLine } from "lucide-react";
 import type { Order } from "@/types/domain";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { serviceLabels } from "@/config/services";
 import { formatHKD } from "@/config/pricing";
 import { formatDate, shortId } from "@/lib/utils";
 import { isScreening } from "@/lib/orders/status";
 
-export function OrderRow({ order, href }: { order: Order; href?: string }) {
+export function OrderRow({ order, href, paymentPending }: { order: Order; href?: string; paymentPending?: boolean }) {
   const Icon = isScreening(order.service_type) ? FileCheck2 : PenLine;
   return (
     <li>
@@ -25,7 +26,11 @@ export function OrderRow({ order, href }: { order: Order; href?: string }) {
           </p>
         </div>
         <span className="hidden text-[13px] text-fg-muted sm:block">{formatHKD(order.price)}</span>
-        <StatusBadge status={order.status} />
+        {paymentPending && order.status === "awaiting_payment" ? (
+          <Badge tone="warn" dot>Confirming payment</Badge>
+        ) : (
+          <StatusBadge status={order.status} />
+        )}
         <ChevronRight className="size-4 text-fg-subtle transition group-hover:translate-x-0.5 group-hover:text-fg" aria-hidden />
       </Link>
     </li>

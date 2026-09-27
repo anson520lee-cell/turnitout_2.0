@@ -5,8 +5,8 @@ A pre-submission service for students checking their own academic writing. It of
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **AI & Similarity Screening** (paid) | Human-processed screening | A person runs the document through Turnitin outside this app and records exactly what it returned |
-| **Writing Refinement** (paid) | Human clarity/style editing of the author's own text | A reviewer |
+| **Turnitin AI & Similarity Report** (HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
+| **Writing Refinement** (HK$1 per 100 characters, min HK$30) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; screening results are labelled as the observed result of that screening run. Missing values are shown as "Not returned", never estimated.
 
@@ -48,10 +48,11 @@ Supabase: Auth · Postgres (RLS) · private Storage
 | `lib/orders/status.ts` | The order state machine: labels, flows, allowed transitions. |
 | `lib/scanning/` | `WritingAnalyzer` interface, `HeuristicWritingAnalyzer`, and `canUserScan` / `getRemainingScans` / `incrementScanUsage`. |
 | `lib/screening/` | `ScreeningProvider` interface and `ManualTurnitinProvider` (human-in-the-loop). |
-| `lib/payments/` | Stripe client and `markOrderPaid` (idempotent, amount-checked). |
+| `lib/payments/` | Stripe client and `markOrderPaid` (idempotent, amount-checked), used by the webhook and by admin claim confirmation. |
+| `config/payments.ts` | Alipay / PayMe / bank transfer payee details, QR paths and instructions. |
 | `app/actions/` | Server actions: scan, orders, admin, account. |
 | `app/api/files/[kind]/[orderId]` | Access-checked 60-second signed URLs for source files and reports. |
-| `app/api/stripe/webhook` | The only way a real order becomes paid. |
+| `app/api/stripe/webhook` | Marks card orders paid (signature- and amount-checked). Manual payments are confirmed by an admin; see [Payments](#payments). |
 | `app/api/cron/retention` | Scheduled deletion of old documents and reports. |
 | `supabase/migrations/0001_init.sql` | Tables, constraints, indexes, RLS, storage buckets and policies. |
 
@@ -60,7 +61,7 @@ Supabase: Auth · Postgres (RLS) · private Storage
 Screening: `awaiting_payment → paid → queued → screening → report_ready → completed` (or `cancelled`)
 Refinement: `awaiting_payment → paid → queued → under_review → processing → completed` (or `cancelled`)
 
-`paid` is set only by the webhook. Customers see results only when an order is `completed` (enforced by RLS, not just the UI).
+`paid` is set only by the verified Stripe webhook or by an admin confirming a manual payment claim. Customers see results only when an order is `completed` (enforced by RLS, not just the UI).
 
 ---
 
@@ -97,7 +98,7 @@ See `.env.example`. `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WE
 3. Locally: `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
 4. Without Stripe, set `ALLOW_DEV_PAYMENTS=true` in development to get a "Simulate payment" button. It is ignored in production builds.
 
-FPS, PayMe or bank transfer can be added later as another path into `markOrderPaid`; none is faked here.
+Stripe is optional. When it isn't configured the card option is simply hidden and customers pay by Alipay, PayMe or bank transfer (see [Payments](#payments)).
 
 ### Commands
 
@@ -114,10 +115,62 @@ Set all env vars in the project, deploy, point the Stripe webhook at the product
 
 ---
 
+## Pricing
+
+All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the server; the browser never sends an amount.
+
+| Product | Price | Limits |
+| --- | --- | --- |
+| Turnitin AI & Similarity Report (`combined_screening`) | HK$35 per report (`screeningPrices`) | 450–29,000 words (`screeningWordRange`), checked in the browser and again in `screeningTextOrderInput` |
+| Writing Refinement (`refinement`) | HK$1 per 100 characters, rounded up, minimum HK$30 = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
+| Preliminary scan | Free, 3 a day | — |
+
+Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening` and `similarity_screening` remain in the enum so older orders still display, but they are no longer offered.
+
+Customers request both paid services the same way: press **Get report** (or **Paste your text**), paste into the dialog, press Enter. The server re-validates, creates an unpaid order holding the text (`createScreeningTextOrder` / `createRefinementOrder`), and the browser goes to the order's payment page. At most 10 unpaid orders per account.
+
+## Payments
+
+The order page offers **Alipay**, **PayMe** and **bank transfer (FPS)**, plus **card** through Stripe Checkout only when `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are set.
+
+Manual methods are confirmed by a person:
+
+1. The customer sees the exact amount, your payee details, the steps and a reference code (`PL-` + the first 8 characters of the order id) to put in the payment note.
+2. After paying they enter their transaction number or payer name. `submitPaymentClaim` stores a `payment_claims` row (amount = the order's server-side price; one pending claim per order). The order stays `awaiting_payment`; the page shows "Payment submitted — we're confirming it" and refreshes itself every 20 seconds.
+3. You get a notification. In **Admin → Overview → Payments to verify** (or the order page), check your Alipay / PayMe / bank account for the reference and amount, then:
+   - **Confirm payment received**: records the payment through the same `markOrderPaid` path as Stripe (provider = the method, id = the claim id) and queues the order.
+   - **Reject** (optional note, shown to the customer): the order stays unpaid and the customer can submit again.
+
+Customers can never mark an order paid; only a verified Stripe webhook or an admin confirming a claim can. Refunds happen outside the app.
+
+**Set your payee details before launch** in `config/payments.ts`: replace every value starting with `REPLACE`, set `enabled` per method, and put QR images at `public/payments/alipay-qr.png` and `public/payments/payme-qr.png` (or set `qrImage: null`). Missing images show a neutral frame. **Admin → Settings** lists any method still using placeholders.
+
+## Owner notifications
+
+`lib/notify.ts` sends you a message by Telegram and/or email (Resend), after the response so it never slows the customer down:
+
+| Event | When |
+| --- | --- |
+| `order_created` | A report or refinement order is created |
+| `payment_submitted` | A customer reports an Alipay / PayMe / bank payment (check your account) |
+| `payment_confirmed` | You confirm a claim, or Stripe confirms a card payment |
+| `payment_rejected` | You reject a claim |
+| `scan_used` | A free scan is run (turn off with `NOTIFY_ON_SCANS=false`) |
+
+Messages contain the order number, service, word or character count, amount, payment method and account email, never document text, titles or file names.
+
+| Channel | Environment variables |
+| --- | --- |
+| Telegram | `TELEGRAM_BOT_TOKEN` (from @BotFather), `TELEGRAM_CHAT_ID` |
+| Email | `RESEND_API_KEY`, `NOTIFY_EMAIL_TO` (comma-separated), optional `NOTIFY_EMAIL_FROM` |
+
+**Admin → Settings** shows which channels are configured.
+
 ## Admin workflow
 
+0. Orders with a reported manual payment appear first under **Payments to verify**. Confirm or reject them (see [Payments](#payments)).
 1. Paid orders land in **Admin → Overview → Work queue** (oldest first).
-2. Open the order. Download the source file (60-second signed link, logged).
+2. Open the order. Copy the pasted text or download it as .txt (older orders: download the source file through a 60-second signed link, logged).
 3. **Checklist:** confirm the Turnitin assignment is set to *no repository*. Required before moving to **Screening**.
 4. Move to **Screening** and perform the screening in Turnitin, outside this app.
 5. Enter what was returned: AI-writing indicator and/or similarity %, leaving blank anything not returned (with a note if the AI indicator was withheld). Upload the report PDF/DOCX.
@@ -168,6 +221,6 @@ Still needed before production:
 ## Future work
 
 - `AuthorizedTurnitinProvider`, only if an officially permitted integration becomes available.
-- FPS / PayMe payment paths.
-- Email notifications when an order completes.
+- Automatic matching of bank / FPS payments (manual confirmation today).
+- Email to the customer when an order completes (owner notifications exist; customer emails don't yet).
 - Customer-initiated account deletion.

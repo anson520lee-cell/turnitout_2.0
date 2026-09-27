@@ -6,10 +6,16 @@ import { assertAdmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { audit } from "@/lib/audit";
 import { canTransition, isScreening, type OrderStatus, ORDER_STATUSES } from "@/lib/orders/status";
-import { screeningResultInput, uuid } from "@/lib/validation/schemas";
+import { claimReviewInput, screeningResultInput, uuid } from "@/lib/validation/schemas";
 import { safeFileName, sniff } from "@/lib/storage/files";
+import { markOrderPaid } from "@/lib/payments/fulfil";
+import { notifyOwner } from "@/lib/notify";
 import { uploads } from "@/config/app";
-import type { AdminChecklist, Order } from "@/types/domain";
+import { formatHKD } from "@/config/pricing";
+import { manualPayments } from "@/config/payments";
+import { serviceLabels } from "@/config/services";
+import { shortId } from "@/lib/utils";
+import type { AdminChecklist, Order, PaymentClaim } from "@/types/domain";
 
 type Result = { ok: true } | { ok: false; message: string };
 
@@ -24,6 +30,119 @@ function refresh(orderId: string) {
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
+  revalidatePath(`/orders/${orderId}`);
+}
+
+async function loadClaim(claimId: string): Promise<PaymentClaim | null> {
+  const db = createAdminClient();
+  const { data } = await db.from("payment_claims").select("*").eq("id", claimId).maybeSingle<PaymentClaim>();
+  return data;
+}
+
+async function customerEmail(userId: string): Promise<string | undefined> {
+  const db = createAdminClient();
+  const { data } = await db.from("profiles").select("email").eq("id", userId).maybeSingle<{ email: string }>();
+  return data?.email;
+}
+
+/**
+ * The admin has found the customer's Alipay / PayMe / bank payment. Claims the
+ * review first (pending → confirmed, conditionally, so two admins can't both
+ * confirm), then records the payment through the same markOrderPaid path as
+ * Stripe. If that fails, the claim goes back to pending.
+ */
+export async function confirmPaymentClaim(input: unknown): Promise<Result> {
+  const admin = await assertAdmin();
+  const parsed = claimReviewInput.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
+  const claim = await loadClaim(parsed.data.claimId);
+  if (!claim) return { ok: false, message: "Payment claim not found." };
+  if (claim.status !== "pending") return { ok: false, message: "This claim has already been reviewed." };
+  const order = await loadOrder(claim.order_id);
+  if (!order) return { ok: false, message: "Order not found." };
+  if (order.status !== "awaiting_payment") {
+    return {
+      ok: false,
+      message: `This order is ${order.status.replace(/_/g, " ")}, not awaiting payment. Reject the claim instead and refund the customer if they paid twice.`,
+    };
+  }
+  if (claim.amount !== order.price) {
+    return { ok: false, message: `The claim is for ${formatHKD(claim.amount)} but the order costs ${formatHKD(order.price)}. Reject it and ask the customer to resubmit.` };
+  }
+
+  const db = createAdminClient();
+  const now = new Date().toISOString();
+  const { data: taken } = await db
+    .from("payment_claims")
+    .update({ status: "confirmed", reviewed_by: admin.id, reviewed_at: now, admin_note: parsed.data.note || null })
+    .eq("id", claim.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!taken?.length) return { ok: false, message: "This claim has already been reviewed." };
+
+  const res = await markOrderPaid({
+    orderId: order.id,
+    provider: claim.method,
+    providerPaymentId: claim.id,
+    amount: order.price,
+    currency: order.currency,
+  });
+  if (!res.ok) {
+    await db
+      .from("payment_claims")
+      .update({ status: "pending", reviewed_by: null, reviewed_at: null, admin_note: null })
+      .eq("id", claim.id);
+    return { ok: false, message: `Couldn't mark the order paid (${res.reason ?? "unknown error"}). The claim is still pending.` };
+  }
+
+  await audit("payment_claim_confirmed", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, method: claim.method } });
+  notifyOwner("payment_confirmed", {
+    order: shortId(order.id),
+    service: serviceLabels[order.service_type],
+    method: manualPayments[claim.method]?.label ?? claim.method,
+    amount: formatHKD(order.price),
+    email: await customerEmail(order.user_id),
+  });
+  refresh(order.id);
+  return { ok: true };
+}
+
+/**
+ * The payment couldn't be found or doesn't match. The order stays
+ * awaiting_payment and the customer can submit a new claim. The optional
+ * note is shown to the customer.
+ */
+export async function rejectPaymentClaim(input: unknown): Promise<Result> {
+  const admin = await assertAdmin();
+  const parsed = claimReviewInput.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
+  const claim = await loadClaim(parsed.data.claimId);
+  if (!claim) return { ok: false, message: "Payment claim not found." };
+  if (claim.status !== "pending") return { ok: false, message: "This claim has already been reviewed." };
+
+  const db = createAdminClient();
+  const { data: done } = await db
+    .from("payment_claims")
+    .update({
+      status: "rejected",
+      reviewed_by: admin.id,
+      reviewed_at: new Date().toISOString(),
+      admin_note: parsed.data.note || null,
+    })
+    .eq("id", claim.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!done?.length) return { ok: false, message: "This claim has already been reviewed." };
+
+  await audit("payment_claim_rejected", { actorId: admin.id, orderId: claim.order_id, detail: { claim: claim.id, method: claim.method } });
+  notifyOwner("payment_rejected", {
+    order: shortId(claim.order_id),
+    method: manualPayments[claim.method]?.label ?? claim.method,
+    amount: formatHKD(claim.amount),
+    email: await customerEmail(claim.user_id),
+  });
+  refresh(claim.order_id);
+  return { ok: true };
 }
 
 export async function updateOrderStatus(orderId: string, to: string): Promise<Result> {
@@ -77,6 +196,14 @@ export async function updateOrderStatus(orderId: string, to: string): Promise<Re
 
   const { error } = await db.from("orders").update(patch).eq("id", order.id).eq("status", order.status);
   if (error) return { ok: false, message: "Update failed. Refresh and try again." };
+  if (target === "cancelled") {
+    // A cancelled order can't be paid: close any claim still waiting for review.
+    await db
+      .from("payment_claims")
+      .update({ status: "rejected", reviewed_by: admin.id, reviewed_at: now, admin_note: "Order cancelled." })
+      .eq("order_id", order.id)
+      .eq("status", "pending");
+  }
   await audit("status_changed", { actorId: admin.id, orderId: order.id, detail: { from: order.status, to: target } });
   refresh(order.id);
   return { ok: true };

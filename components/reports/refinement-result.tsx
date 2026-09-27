@@ -56,7 +56,7 @@ export function RefinementResult({
         <a href={`/api/orders/${orderId}/revision`} className={buttonClasses("secondary", "md")}>
           <Download className="size-4" /> Download result
         </a>
-        <Link href="/services/screening" className={buttonClasses("primary", "md")}>Request screening</Link>
+        <Link href="/services/screening" className={buttonClasses("primary", "md")}>Get a report</Link>
       </div>
     </div>
   );

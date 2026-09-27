@@ -2,6 +2,7 @@ import {
   formatHKD,
   refinementPricing,
   screeningPrices,
+  screeningWordRange,
   type ServiceType,
 } from "./pricing";
 import { freeScan } from "./app";
@@ -21,12 +22,28 @@ export interface ServiceDefinition {
   highlight?: boolean;
 }
 
+/**
+ * The one report product. `ai_screening` and `similarity_screening` stay in
+ * the enum so older orders still render, but they are no longer offered.
+ */
+export const reportService = "combined_screening" as const;
+
 export const serviceLabels: Record<ServiceType, string> = {
   ai_screening: "AI-Writing Screening",
   similarity_screening: "Similarity Screening",
-  combined_screening: "AI + Similarity Screening",
+  combined_screening: "Turnitin AI & Similarity Report",
   refinement: "Writing Refinement",
 };
+
+export const wordRangeLabel = `${screeningWordRange.min.toLocaleString("en-HK")}–${screeningWordRange.max.toLocaleString("en-HK")} words`;
+
+export const refinementRateLabel = `${formatHKD(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`;
+
+/** "Minimum HK$30 (3,000 characters)". */
+export const refinementMinimumLabel = `Minimum ${formatHKD(refinementPricing.minimum)} (${(
+  (refinementPricing.minimum / refinementPricing.perBlock) *
+  refinementPricing.blockChars
+).toLocaleString("en-HK")} characters)`;
 
 export const services: ServiceDefinition[] = [
   {
@@ -39,74 +56,45 @@ export const services: ServiceDefinition[] = [
     features: [
       "Instant result",
       "Six writing-pattern signals",
-      "Paragraph-level indicators",
+      "Sentence-level highlights",
       "Not a Turnitin result",
     ],
     href: "/scan",
     cta: "Run free scan",
   },
   {
-    id: "refinement",
-    kind: "refinement",
-    name: "Writing Review",
-    short: "Human clarity and style review of your own writing.",
-    priceLabel: `From ${formatHKD(refinementPricing.minimum)}`,
-    cadence: `${formatHKD(refinementPricing.perBlock)} per ${refinementPricing.blockWords} words`,
-    features: [
-      "Human-reviewed",
-      "Clarity and flow",
-      "Meaning and citations preserved",
-      "Your voice retained",
-    ],
-    href: "/services/refinement",
-    cta: "Request review",
-  },
-  {
-    id: "ai_screening",
+    id: reportService,
     kind: "screening",
-    name: "AI-Writing Screening",
-    short: "Turnitin AI-writing indicator from a human-processed screening.",
-    priceLabel: formatHKD(screeningPrices.ai_screening),
-    cadence: "per document",
-    features: [
-      "Turnitin AI-writing indicator",
-      "Report delivered to your dashboard",
-      "Not stored in any repository",
-    ],
-    href: "/services/screening?type=ai_screening",
-    cta: "Request screening",
-  },
-  {
-    id: "similarity_screening",
-    kind: "screening",
-    name: "Similarity Screening",
-    short: "Turnitin similarity result from a human-processed screening.",
-    priceLabel: formatHKD(screeningPrices.similarity_screening),
-    cadence: "per document",
-    features: [
-      "Turnitin similarity percentage",
-      "Similarity report delivery",
-      "Not stored in any repository",
-    ],
-    href: "/services/screening?type=similarity_screening",
-    cta: "Request screening",
-  },
-  {
-    id: "combined_screening",
-    kind: "screening",
-    name: "AI + Similarity",
-    short: "Both indicators from one screening run.",
-    priceLabel: formatHKD(screeningPrices.combined_screening),
-    cadence: "per document",
+    name: serviceLabels[reportService],
+    short: "The AI-writing indicator and similarity result a Turnitin screening returns, from one run.",
+    priceLabel: formatHKD(screeningPrices[reportService]),
+    cadence: `per report · ${wordRangeLabel}`,
     features: [
       "AI-writing indicator",
-      "Similarity result",
-      "Combined report delivery",
-      "Not stored in any repository",
+      "Similarity percentage",
+      "Report file where available",
+      "Run with repository storage off",
+      "Just paste your text",
     ],
-    href: "/services/screening?type=combined_screening",
-    cta: "Request screening",
+    href: "/services/screening",
+    cta: "Get report",
     highlight: true,
+  },
+  {
+    id: "refinement",
+    kind: "refinement",
+    name: "Writing Refinement",
+    short: "Human clarity, flow and style refinement of your own writing.",
+    priceLabel: `From ${formatHKD(refinementPricing.minimum)}`,
+    cadence: refinementRateLabel,
+    features: [
+      "Clarity, flow and style",
+      "Meaning and citations preserved",
+      "Your voice retained",
+      refinementMinimumLabel,
+    ],
+    href: "/services/refinement",
+    cta: "Refine my writing",
   },
 ];
 
@@ -119,4 +107,6 @@ export const disclaimers = {
     "This report reflects the result returned during the screening performed for this submission. Automated indicators should be interpreted carefully and are not, on their own, proof of authorship.",
   noGuarantee:
     "We do not guarantee any particular AI-writing or similarity outcome.",
+  refinement:
+    "Writing Refinement improves the clarity, flow and style of your own writing. It is not a service for disguising AI-generated or third-party work.",
 } as const;

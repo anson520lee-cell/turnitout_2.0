@@ -12,28 +12,41 @@ export type ScreeningServiceType =
   | "combined_screening";
 export type ServiceType = ScreeningServiceType | "refinement";
 
+/**
+ * One Turnitin report (AI indicator and similarity, from one run) is a flat
+ * price for any document inside `screeningWordRange`. The three service types
+ * are kept for older orders; new orders are always `combined_screening`.
+ */
 export const screeningPrices: Record<ScreeningServiceType, number> = {
-  ai_screening: 8800,
-  similarity_screening: 8800,
-  combined_screening: 12800,
+  ai_screening: 3500,
+  similarity_screening: 3500,
+  combined_screening: 3500,
 };
 
+export const screeningWordRange = { min: 450, max: 29000 } as const;
+
 /**
- * Writing refinement is priced per word with a minimum charge.
- * price = max(minimum, ceil(words / blockWords) * perBlock)
+ * Writing refinement is priced per 100 characters (spaces included) with a
+ * minimum charge: HK$1 per 100 characters, minimum HK$30 (3,000 characters).
+ * price = max(minimum, ceil(chars / blockChars) * perBlock)
  */
 export const refinementPricing = {
-  minimum: 6800,
-  blockWords: 100,
-  perBlock: 2800,
+  minimum: 3000,
+  blockChars: 100,
+  perBlock: 100,
 } as const;
 
 export function screeningPrice(type: ScreeningServiceType): number {
   return screeningPrices[type];
 }
 
-export function refinementPrice(words: number): number {
-  const blocks = Math.max(1, Math.ceil(words / refinementPricing.blockWords));
+/** Characters as billed: whitespace runs count as one space, ends trimmed. */
+export function billableChars(text: string): number {
+  return text.replace(/\s+/g, " ").trim().length;
+}
+
+export function refinementPrice(chars: number): number {
+  const blocks = Math.max(1, Math.ceil(chars / refinementPricing.blockChars));
   return Math.max(refinementPricing.minimum, blocks * refinementPricing.perBlock);
 }
 

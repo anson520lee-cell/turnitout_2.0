@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/layout/app-header";
-import { RefinementForm } from "@/components/orders/refinement-form";
+import { RefinementRequest } from "@/components/orders/refinement-request";
 import { Badge } from "@/components/ui/badge";
 
-export const metadata: Metadata = { title: "Writing review" };
+export const metadata: Metadata = { title: "Writing Refinement" };
 
 export default function Page() {
   return (
     <>
       <AppHeader
         eyebrow={<Badge tone="progress" dot>Human-reviewed</Badge>}
-        title="Academic writing refinement"
-        body="A reviewer improves clarity, flow and phrasing in your own writing while keeping your meaning, citations and voice."
+        title="Writing Refinement"
+        body="A reviewer refines the clarity, flow and style of your own writing, keeping your meaning, citations and voice."
       />
-      <RefinementForm />
+      <RefinementRequest />
     </>
   );
 }

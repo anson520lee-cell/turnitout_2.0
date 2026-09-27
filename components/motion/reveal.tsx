@@ -5,10 +5,11 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 /**
  * Framer writes `transform` inline, which would override the CSS tilt from
- * `[data-tilt]`. This template prepends the tilt so both apply.
+ * `[data-tilt]`. This template prepends the tilt so both apply. It also
+ * carries the lift in Z, matching the CSS rule.
  */
 const withTilt = (_: unknown, generated: string) =>
-  `perspective(1100px) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) ${generated === "none" ? "" : generated}`;
+  `perspective(1000px) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) translateZ(calc(var(--lift, 0) * 12px)) ${generated === "none" ? "" : generated}`;
 
 function tiltProps(tilt?: boolean | number) {
   if (!tilt) return {};
@@ -18,21 +19,37 @@ function tiltProps(tilt?: boolean | number) {
   };
 }
 
+/**
+ * Entrances swing up out of the page: a few degrees of rotateX around the
+ * bottom edge, with depth, settling flat. With reduced motion Framer skips the
+ * transform and only fades.
+ */
+const hidden = (y: number, flip: number) => ({
+  opacity: 0,
+  y,
+  rotateX: flip,
+  scale: 0.97,
+  transformPerspective: 1200,
+  filter: "blur(4px)",
+});
+const shown = { opacity: 1, y: 0, rotateX: 0, scale: 1, filter: "blur(0px)" };
+
 export function Reveal({
   delay = 0,
-  y = 18,
+  y = 26,
+  flip = 14,
   className,
   children,
   tilt,
   ...props
-}: HTMLMotionProps<"div"> & { delay?: number; y?: number; tilt?: boolean | number }) {
+}: HTMLMotionProps<"div"> & { delay?: number; y?: number; flip?: number; tilt?: boolean | number }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y, filter: "blur(6px)" }}
-      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      initial={hidden(y, flip)}
+      whileInView={shown}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.8, ease, delay }}
-      className={className}
+      transition={{ duration: 0.9, ease, delay }}
+      className={["reveal-3d", className].filter(Boolean).join(" ")}
       {...tiltProps(tilt)}
       {...props}
     >
@@ -74,11 +91,11 @@ export function StaggerItem({
 }) {
   return (
     <motion.div
-      className={className}
+      className={["reveal-3d", className].filter(Boolean).join(" ")}
       {...tiltProps(tilt)}
       variants={{
-        hidden: { opacity: 0, y: 22, filter: "blur(6px)" },
-        show: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.75, ease } },
+        hidden: hidden(30, 22),
+        show: { ...shown, transition: { duration: 0.85, ease } },
       }}
     >
       {children}

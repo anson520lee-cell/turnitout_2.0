@@ -3,13 +3,13 @@ import { useRef, useState } from "react";
 import {
   motion,
   useMotionValueEvent,
-  useReducedMotion,
   useScroll,
   useTransform,
   type MotionValue,
 } from "framer-motion";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
@@ -122,7 +122,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
 
 export function ScrollStory() {
   const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -131,7 +131,7 @@ export function ScrollStory() {
 
   if (reduce) {
     return (
-      <section className="py-24">
+      <section ref={ref} className="py-24">
         <Container>
           <Eyebrow>From draft to report</Eyebrow>
           <ol className="mt-8 grid gap-4 md:grid-cols-5">

@@ -1,130 +1,82 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { startPointerEngine } from "./pointer-engine";
 
 /**
- * One global pointer listener that powers the site's lighting and depth:
+ * Mounts the pointer engine (see `pointer-engine.ts`) and the light layers it
+ * moves:
+ * - a large soft light *behind* the content that lags the cursor, so glass
+ *   panes glow from behind as it passes and a faint grid shows where it falls;
+ * - a small glow above the content, a short light trail when the cursor moves
+ *   fast, and a ripple of light on click.
  *
- * - Every `.glass` / `.glass-strong` surface under the cursor gets `--px/--py`
- *   (cursor position inside it) and `--lit: 1`, which the CSS in globals.css
- *   turns into a moving sheen and a light-catching border.
- * - Surfaces marked `data-tilt` also get `--rx/--ry` and lean a few degrees
- *   toward the cursor.
- * - `.magnetic` elements (primary buttons) drift slightly toward the cursor.
- * - `:root` gets `--cx/--cy` (-1…1 across the viewport) and `--mx/--my` (px),
- *   used by `[data-depth]` parallax layers and the page-wide cursor light.
- *
- * Runs only for a fine pointer with motion allowed. One rAF per frame, no
- * React state, so it costs almost nothing.
+ * Runs only for a fine pointer with motion allowed; otherwise nothing here is
+ * shown and the CSS effects keyed on html[data-interactive] stay off.
  */
 export function InteractiveSurfaces() {
+  const back = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  const halo = useRef<HTMLDivElement>(null);
+  const trailSvg = useRef<SVGSVGElement>(null);
+  const trailGrad = useRef<SVGLinearGradientElement>(null);
+  const trailPaths = useRef<(SVGPathElement | null)[]>([]);
+  const ripples = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const fine = window.matchMedia("(pointer: fine)");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (!fine.matches || reduce.matches) return;
-
-    const root = document.documentElement;
-    root.dataset.interactive = "true";
-
-    let frame = 0;
-    let last: PointerEvent | null = null;
-    let lit: HTMLElement | null = null;
-    let tilted: HTMLElement | null = null;
-    let magnet: HTMLElement | null = null;
-
-    const reset = (el: HTMLElement | null, props: string[]) => {
-      if (!el) return;
-      props.forEach((p) => el.style.removeProperty(p));
-    };
-
-    const update = () => {
-      frame = 0;
-      const e = last;
-      if (!e) return;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      root.style.setProperty("--mx", `${e.clientX}px`);
-      root.style.setProperty("--my", `${e.clientY}px`);
-      root.style.setProperty("--cx", ((e.clientX / w) * 2 - 1).toFixed(3));
-      root.style.setProperty("--cy", ((e.clientY / h) * 2 - 1).toFixed(3));
-
-      const target = e.target instanceof Element ? e.target : null;
-
-      // Lighting on the nearest glass surface.
-      const surface = target?.closest<HTMLElement>(".glass, .glass-strong") ?? null;
-      if (surface !== lit) {
-        reset(lit, ["--lit"]);
-        lit = surface;
-      }
-      if (surface) {
-        const r = surface.getBoundingClientRect();
-        surface.style.setProperty("--px", `${e.clientX - r.left}px`);
-        surface.style.setProperty("--py", `${e.clientY - r.top}px`);
-        surface.style.setProperty("--lit", "1");
-      }
-
-      // Tilt on the nearest opted-in element.
-      const tilt = target?.closest<HTMLElement>("[data-tilt]") ?? null;
-      if (tilt !== tilted) {
-        reset(tilted, ["--rx", "--ry", "--lift"]);
-        tilted = tilt;
-      }
-      if (tilt) {
-        const r = tilt.getBoundingClientRect();
-        const strength = Number(tilt.dataset.tilt) || 6;
-        const nx = (e.clientX - r.left) / r.width - 0.5;
-        const ny = (e.clientY - r.top) / r.height - 0.5;
-        tilt.style.setProperty("--rx", `${(-ny * strength).toFixed(2)}deg`);
-        tilt.style.setProperty("--ry", `${(nx * strength).toFixed(2)}deg`);
-        tilt.style.setProperty("--lift", "1");
-      }
-
-      // Magnetic buttons.
-      const m = target?.closest<HTMLElement>(".magnetic") ?? null;
-      if (m !== magnet) {
-        reset(magnet, ["--tx", "--ty"]);
-        magnet = m;
-      }
-      if (m) {
-        const r = m.getBoundingClientRect();
-        const dx = e.clientX - (r.left + r.width / 2);
-        const dy = e.clientY - (r.top + r.height / 2);
-        m.style.setProperty("--tx", `${(dx * 0.18).toFixed(1)}px`);
-        m.style.setProperty("--ty", `${(dy * 0.28).toFixed(1)}px`);
-        m.style.setProperty("--bx", `${e.clientX - r.left}px`);
-      }
-    };
-
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return;
-      last = e;
-      if (!frame) frame = requestAnimationFrame(update);
-    };
-    const onLeave = () => {
-      reset(lit, ["--lit"]);
-      reset(tilted, ["--rx", "--ry", "--lift"]);
-      reset(magnet, ["--tx", "--ty"]);
-      lit = tilted = magnet = null;
-      root.style.setProperty("--cursor-on", "0");
-    };
-    const onEnter = () => root.style.setProperty("--cursor-on", "1");
-
-    window.addEventListener("pointermove", onMove, { passive: true });
-    document.addEventListener("pointerleave", onLeave);
-    document.addEventListener("pointerenter", onEnter);
-    root.style.setProperty("--cursor-on", "1");
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerleave", onLeave);
-      document.removeEventListener("pointerenter", onEnter);
-      if (frame) cancelAnimationFrame(frame);
-      delete root.dataset.interactive;
-    };
+    if (!back.current || !halo.current || !ripples.current) return;
+    return startPointerEngine({
+      back: back.current,
+      backGrid: grid.current,
+      halo: halo.current,
+      trail:
+        trailSvg.current && trailGrad.current
+          ? {
+              svg: trailSvg.current,
+              gradient: trailGrad.current,
+              paths: trailPaths.current.filter((t): t is SVGPathElement => !!t),
+            }
+          : null,
+      ripples: ripples.current,
+    });
   }, []);
 
   return (
-    <div
-      aria-hidden
-      className="cursor-light pointer-events-none fixed inset-0 z-[1] hidden [html[data-interactive]_&]:block"
-    />
+    <div aria-hidden className="light-layers">
+      <div ref={back} className="light-back">
+        <div className="light-back-grid-window">
+          <div ref={grid} className="light-back-grid" />
+        </div>
+        <div className="light-back-vignette" />
+        <div className="light-back-glow" />
+      </div>
+      <div ref={halo} className="light-halo" />
+      <svg ref={trailSvg} className="light-trail">
+        <defs>
+          <linearGradient ref={trailGrad} id="light-trail-fade" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#d8f4ff" stopOpacity="0.95" />
+            <stop offset="0.35" stopColor="#5fd8f5" stopOpacity="0.55" />
+            <stop offset="1" stopColor="#6f6bff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[10, 4, 1.6].map((w, i) => (
+          <path
+            key={w}
+            ref={(el) => {
+              trailPaths.current[i] = el;
+            }}
+            fill="none"
+            stroke="url(#light-trail-fade)"
+            strokeWidth={w}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={[0.14, 0.4, 1][i]}
+          />
+        ))}
+      </svg>
+      <div ref={ripples} />
+    </div>
   );
 }

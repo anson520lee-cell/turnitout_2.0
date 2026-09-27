@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
+import { notifyOwner } from "@/lib/notify";
+import { formatHKD } from "@/config/pricing";
+import { serviceLabels } from "@/config/services";
+import { shortId } from "@/lib/utils";
 
 /**
  * The ONLY path by which a real order becomes "paid". The success redirect
@@ -36,6 +40,19 @@ export async function POST(request: NextRequest) {
       });
       if (!res.ok && res.reason === "order not found") {
         return new NextResponse("Unknown order", { status: 404 });
+      }
+      // Let Stripe retry if the database write failed.
+      if (!res.ok && res.reason === "update failed") {
+        return new NextResponse("Try again", { status: 500 });
+      }
+      if (res.ok && res.newlyPaid && res.order) {
+        notifyOwner("payment_confirmed", {
+          order: shortId(res.order.id),
+          service: serviceLabels[res.order.service_type],
+          method: "Card (Stripe)",
+          amount: formatHKD(res.order.price),
+          email: session.customer_details?.email ?? session.customer_email ?? undefined,
+        });
       }
     }
   }

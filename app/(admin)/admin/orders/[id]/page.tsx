@@ -17,9 +17,12 @@ import {
   StatusControls,
   WordCountForm,
 } from "@/components/admin/order-controls";
+import { PaymentClaims } from "@/components/admin/payment-claims";
+import { SourceText } from "@/components/admin/source-text";
 import { isScreening } from "@/lib/orders/status";
 import { serviceLabels } from "@/config/services";
-import { formatHKD } from "@/config/pricing";
+import { billableChars, formatHKD } from "@/config/pricing";
+import { paymentMethodLabel, paymentReference } from "@/config/payments";
 import { formatBytes, formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin · Order" };
@@ -38,10 +41,11 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
   if (!uuid.safeParse(id).success) notFound();
   const b = await adminOrderBundle(id);
   if (!b) notFound();
-  const { order, file, screening, refinement, payments, notes, events } = b;
+  const { order, file, screening, refinement, payments, notes, events, claims } = b;
   const screeningOrder = isScreening(order.service_type);
   const closed = order.status === "completed" || order.status === "cancelled";
   const paid = payments.find((p) => p.status === "succeeded");
+  const pendingClaim = claims.some((c) => c.status === "pending");
 
   return (
     <>
@@ -51,7 +55,11 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
           <h1 className="text-xl font-semibold tracking-tight">{order.title}</h1>
           <p className="mt-1 font-mono text-[12px] text-fg-subtle">{order.id}</p>
         </div>
-        <div className="flex gap-2"><Badge>{serviceLabels[order.service_type]}</Badge><StatusBadge status={order.status} /></div>
+        <div className="flex flex-wrap gap-2">
+          <Badge>{serviceLabels[order.service_type]}</Badge>
+          {pendingClaim && <Badge tone="warn" dot>Payment to verify</Badge>}
+          <StatusBadge status={order.status} />
+        </div>
       </div>
 
       <Card className="mt-5 p-5"><OrderTimeline type={order.service_type} status={order.status} /></Card>
@@ -67,28 +75,32 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
               <Row k="Service" v={serviceLabels[order.service_type]} />
               {file && <Row k="Filename" v={`${file.file_name} (${formatBytes(file.file_size)})${file.verified ? "" : " · not verified"}`} />}
               <Row k="Word count" v={<WordCountForm orderId={order.id} value={order.word_count} />} />
+              {order.source_text && <Row k="Characters" v={billableChars(order.source_text).toLocaleString("en-HK")} />}
               <Row k="Submitted" v={formatDateTime(order.created_at)} />
               <Row k="Price" v={formatHKD(order.price)} />
-              <Row k="Payment" v={paid ? `${paid.provider === "dev" ? "Simulated (dev)" : "Stripe"} · ${formatHKD(paid.amount)} · ${formatDateTime(order.paid_at)}` : "Not paid"} />
+              <Row k="Pay reference" v={<span className="font-mono">{paymentReference(order.id)}</span>} />
+              <Row k="Payment" v={paid ? `${paymentMethodLabel(paid.provider)} · ${formatHKD(paid.amount)} · ${formatDateTime(order.paid_at)}` : pendingClaim ? "Claim waiting for you to verify" : "Not paid"} />
               <Row k="Completed" v={formatDateTime(order.completed_at)} />
               <Row k="User notes" v={<span className="whitespace-pre-wrap text-fg-muted">{order.instructions || "—"}</span>} />
             </dl>
-            {screeningOrder && (
+            {screeningOrder && file && (
               <div className="mt-4 border-t border-[var(--line)] pt-4">
                 <p className="text-[13px] font-medium">Source file</p>
                 {order.source_deleted_at ? (
                   <p className="mt-1 text-[12.5px] text-fg-subtle">Deleted {formatDateTime(order.source_deleted_at)} (retention policy).</p>
-                ) : file ? (
+                ) : (
                   <div className="mt-2 flex gap-2">
                     <a href={`/api/files/source/${order.id}?download=1`} className={buttonClasses("primary", "sm")}><Download className="size-3.5" /> Download (60s link)</a>
                     <a href={`/api/files/source/${order.id}`} target="_blank" rel="noopener" className={buttonClasses("secondary", "sm")}><ExternalLink className="size-3.5" /> Open</a>
                   </div>
-                ) : (
-                  <p className="mt-1 text-[12.5px] text-fg-subtle">No file.</p>
                 )}
               </div>
             )}
           </Card>
+
+          {(claims.length > 0 || order.status === "awaiting_payment") && (
+            <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} />
+          )}
 
           <StatusControls orderId={order.id} type={order.service_type} status={order.status} />
           {screeningOrder && !closed && <ChecklistControls orderId={order.id} checklist={order.admin_checklist ?? {}} />}
@@ -108,6 +120,23 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
         </div>
 
         <div className="space-y-5">
+          {screeningOrder && !file && (
+            <Card className="p-5">
+              <h2 className="text-[14px] font-semibold">Submitted text</h2>
+              <p className="mt-1 text-[12.5px] text-fg-muted">
+                Pasted by the customer{order.word_count ? ` · ${order.word_count.toLocaleString("en-HK")} words` : ""}. Screen it with repository storage off.
+              </p>
+              <div className="mt-3">
+                {order.source_text ? (
+                  <SourceText text={order.source_text} fileBase={`order-${shortId(order.id)}`} />
+                ) : (
+                  <p className="text-[12.5px] text-fg-subtle">
+                    {order.source_deleted_at ? `Deleted ${formatDateTime(order.source_deleted_at)} (retention policy).` : "No text on this order."}
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
           {screeningOrder ? (
             <ScreeningResultForm orderId={order.id} type={order.service_type} existing={screening} closed={closed} />
           ) : (

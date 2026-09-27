@@ -53,8 +53,8 @@ export const retention = {
 } as const;
 
 export const refinement = {
-  minWords: 50,
-  maxWords: 5000,
+  minChars: 200,
+  maxChars: 60000,
   maxInstructionChars: 1000,
 } as const;
 

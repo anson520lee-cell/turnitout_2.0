@@ -11,7 +11,7 @@ const items = [
 
 export function TrustStrip() {
   return (
-    <section aria-label="Trust" className="border-y border-[var(--line)] bg-ink-900/40">
+    <section aria-label="Trust" data-cursor className="trust-strip relative border-y border-[var(--line)] bg-ink-900/40">
       <Container className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 py-6">
         {items.map(({ icon: Icon, label }) => (
           <div key={label} className="flex items-center gap-2 text-[13px] text-fg-muted">

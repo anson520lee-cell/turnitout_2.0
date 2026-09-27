@@ -46,7 +46,7 @@ export function StatusControls({ orderId, type, status }: { orderId: string; typ
   return (
     <Card className="p-5">
       <h2 className="text-[14px] font-semibold">Status</h2>
-      <p className="mt-1 text-[12.5px] text-fg-muted">Current: {statusMeta[status].label}. {status === "awaiting_payment" && "Moves to Paid automatically when Stripe confirms payment."}</p>
+      <p className="mt-1 text-[12.5px] text-fg-muted">Current: {statusMeta[status].label}. {status === "awaiting_payment" && "Moves to Paid when you confirm a payment claim, or automatically when Stripe confirms a card payment."}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {options.map((s) => (
           <Button
@@ -55,7 +55,7 @@ export function StatusControls({ orderId, type, status }: { orderId: string; typ
             variant={s === "cancelled" ? "danger" : "primary"}
             disabled={pending}
             onClick={() => {
-              if (s === "cancelled" && !confirm("Cancel this order? Refund any payment in Stripe separately.")) return;
+              if (s === "cancelled" && !confirm("Cancel this order? Refund any payment separately (Stripe, Alipay, PayMe or bank).")) return;
               if (s === "completed" && !confirm("Release the result to the customer?")) return;
               run(() => updateOrderStatus(orderId, s), `Moved to ${statusMeta[s].label}.`);
             }}

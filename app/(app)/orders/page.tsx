@@ -5,7 +5,7 @@ import { AppHeader, EmptyState } from "@/components/layout/app-header";
 import { Card } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
 import { OrderRow } from "@/components/orders/order-row";
-import { listOrders } from "@/lib/data/user";
+import { listOrders, listPendingClaimOrderIds } from "@/lib/data/user";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ const FILTERS = [
 
 export default async function OrdersPage({ searchParams }: PageProps<"/orders">) {
   const { filter = "all" } = await searchParams;
-  const all = await listOrders(200);
+  const [all, pendingClaims] = await Promise.all([listOrders(200), listPendingClaimOrderIds()]);
   const orders = all.filter((o) =>
     filter === "active" ? ACTIVE_STATUSES.includes(o.status)
     : filter === "completed" ? o.status === "completed"
@@ -31,8 +31,13 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
     <>
       <AppHeader
         title="Orders"
-        body="Screening and writing-review orders, with their live status."
-        actions={<Link href="/services/screening" className={buttonClasses("primary", "md")}>New screening</Link>}
+        body="Reports and writing refinement orders, with their live status."
+        actions={
+          <>
+            <Link href="/services/refinement" className={buttonClasses("secondary", "md")}>Refine writing</Link>
+            <Link href="/services/screening" className={buttonClasses("primary", "md")}>Get a report</Link>
+          </>
+        }
       />
       <nav aria-label="Filter orders" className="mb-4 flex flex-wrap gap-1.5">
         {FILTERS.map((f) => (
@@ -51,14 +56,16 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
       </nav>
       {orders.length ? (
         <Card className="overflow-hidden">
-          <ul className="divide-y divide-[var(--line)]">{orders.map((o) => <OrderRow key={o.id} order={o} />)}</ul>
+          <ul className="divide-y divide-[var(--line)]">
+            {orders.map((o) => <OrderRow key={o.id} order={o} paymentPending={pendingClaims.has(o.id)} />)}
+          </ul>
         </Card>
       ) : (
         <EmptyState
           icon={<FileStack className="size-5" />}
           title={filter === "all" ? "No orders yet" : "Nothing here"}
-          body={filter === "all" ? "Request a screening or a writing review to get started." : "No orders match this filter."}
-          action={<Link href="/services/screening" className={buttonClasses("secondary", "sm")}>Request screening</Link>}
+          body={filter === "all" ? "Get a report or request writing refinement to get started." : "No orders match this filter."}
+          action={<Link href="/services/screening" className={buttonClasses("secondary", "sm")}>Get a report</Link>}
         />
       )}
     </>
