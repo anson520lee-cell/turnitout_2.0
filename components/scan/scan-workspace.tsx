@@ -11,7 +11,7 @@ import { FormMessage } from "@/components/ui/field";
 import { PasteDialog, type PasteResult } from "@/components/ui/paste-dialog";
 import { ScanResult } from "./scan-result";
 import { ScanVisual } from "./scan-visual";
-import { freeScan, retention } from "@/config/app";
+import { freeScan, localModel, retention } from "@/config/app";
 import { countChars, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { freeScanCharError } from "@/lib/orders/limits";
@@ -70,7 +70,7 @@ function SignInLinks() {
   );
 }
 
-export function ScanWorkspace({ access }: { access: ScanAccess }) {
+export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanAccess; modelFeedback?: boolean }) {
   const offline = access.mode === "offline" ? access.reason : null;
   const [guest, setGuest] = useState(access.mode === "guest");
   const [remaining, setRemaining] = useState(access.mode === "offline" ? 0 : access.remaining);
@@ -79,6 +79,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
   const [dropError, setDropError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
   const [run, setRun] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -142,11 +143,19 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
     setGuest(res.guest);
     setRemaining(res.remaining);
     setResult(res.result);
+    setFeedbackJobId(res.feedbackJobId);
     setRun((n) => n + 1);
     revealPending.current = true;
     track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
     return { ok: true };
   };
+
+  const textNote =
+    retention.storeScanText && !guest
+      ? "Your text is saved with your scan history."
+      : modelFeedback
+        ? `Your text isn\u2019t stored. If our writing model is online, it also writes you feedback, and the text is deleted once the model has read it (within ${localModel.scanFeedbackMinutes} minutes).`
+        : "Your text is analysed on our server and not stored.";
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
@@ -334,13 +343,13 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
                 </Button>
               </div>
             </div>
-            <ScanResult result={result} />
+            <ScanResult result={result} feedbackJobId={feedbackJobId} />
           </motion.section>
         )}
       </div>
 
       <p className="text-center text-[12.5px] text-fg-subtle print:hidden">
-        {retention.storeScanText && !guest ? "Your text is saved with your scan history." : "Your text is analysed on our server and not stored."}{" "}
+        {textNote}{" "}
         <Link href="/privacy" className={buttonClasses("ghost", "sm", "h-auto px-1 underline")}>Privacy</Link>
       </p>
 
@@ -355,8 +364,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
         meta={meta}
         footnote={
           <>
-            {retention.storeScanText && !guest ? "Your text is saved with your scan history." : "Your text is analysed on our server and not stored."} This is
-            our own preliminary estimate, not a Turnitin result.{" "}
+            {textNote} This is our own preliminary estimate, not a Turnitin result.{" "}
             <Link href="/services/screening" className="inline-flex items-center gap-0.5 text-accent hover:underline">
               Need the actual screening? <ArrowRight className="size-3" />
             </Link>

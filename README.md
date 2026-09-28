@@ -55,6 +55,7 @@ Supabase: Auth · Postgres (RLS) · private Storage
 | `app/api/stripe/webhook` | Marks card orders paid (signature- and amount-checked). Manual payments are confirmed by an admin; see [Payments](#payments). |
 | `app/api/cron/retention` | Scheduled deletion of old documents and reports. |
 | `supabase/migrations/0001_init.sql` | Tables, constraints, indexes, RLS, storage buckets and policies. |
+| `lib/local-model/`, `app/api/model-worker/`, `tools/local-model-worker/` | Optional local writing model: job queue, worker API and the worker program. See [Local writing model](#local-writing-model). |
 
 ### Order statuses
 
@@ -190,6 +191,25 @@ It also returns sentence-level highlights (which patterns each sentence contains
 
 The free scan accepts .docx, .pdf and .txt files. Text is extracted in the browser (`lib/extract-text.ts`, mammoth and unpdf), so the file itself is never uploaded. Results can be saved as a PDF through the browser's print dialog (print styles in `globals.css`).
 
+## Local writing model
+
+The owner's own model, served by Open WebUI on the owner's computer, can write feedback under free scans and first drafts of refinement orders. Everything is off until `MODEL_WORKER_SECRET` (24+ characters) is set.
+
+```
+browser ─► runScan ─► model_jobs (queued) ◄── poll ── worker on owner's PC ─► Open WebUI ─► local model
+   ▲                                    └── result ──┘
+   └── /api/scan-feedback/[id] (read once, then deleted)
+```
+
+- **Pull, not push.** `tools/local-model-worker/worker.mjs` (Node 18+, no packages) polls `POST /api/model-worker/next` and reports to `POST /api/model-worker/jobs/[id]`, authenticated with `Authorization: Bearer $MODEL_WORKER_SECRET` (constant-time check). The owner's computer only makes outgoing requests. Each poll is a heartbeat (`model_worker.last_seen_at`).
+- **Queue:** migration `0003`. `claim_model_job` hands out one job at a time (`for update skip locked`), scan feedback first, and requeues a draft whose worker stopped reporting progress for 20 minutes (up to three tries). Service role only.
+- **Scan feedback** is queued only while the worker was seen in the last `localModel.onlineWindowSeconds` (45 s) and fewer than `maxQueuedFeedback` are waiting, so the report never waits on it. The text is cleared from the row when the worker claims it; the feedback is deleted when the browser reads it or after `scanFeedbackMinutes` (10). The UI labels it as model-written writing feedback; it never judges AI authorship or gives a score.
+- **Refinement drafts** are queued when an order is paid (`markOrderPaid`) or from the admin order page. The worker reads the text from the order at claim time (it is never copied into the job), writes it in chunks of `CHUNK_CHARS`, and between chunks answers waiting scan feedback. The admin loads the draft into the revision editor and reviews it; the customer sees only what the admin saves and releases. Drafts are deleted with the order's text by the retention cron.
+- **Prompts** live in `lib/local-model/prompts.ts`, not in the worker, so the rules ship with the site: clarity, grammar and flow only; keep meaning, citations and voice; nothing about AI detection or evading it.
+- The privacy page says the model runs on equipment the operator controls and text doesn't go to an outside AI provider. That's only true if `OPENWEBUI_MODEL` is a local model; change the page before using a cloud model.
+
+Setup (in Traditional Chinese for the owner): `tools/local-model-worker/README.md`.
+
 ## Guest scans
 
 The free scan lives at `/scan` in its own route group, `app/(scan)`, so visitors can use it without an account: guests see the marketing navbar, signed-in users see the app sidebar. Opening a saved scan (`/scan?id=…`) and `/scan/history` still require sign-in (`lib/supabase/proxy.ts`).
@@ -211,7 +231,7 @@ Guests get `freeScan.dailyLimit` (3) scans per Hong Kong calendar day per networ
 ## Privacy and retention
 
 - Private buckets; no public URLs; users have no direct storage policy. Everything goes through server-checked signed URLs.
-- Free-scan text is not stored (`retention.storeScanText = false`); only scores are.
+- Free-scan text is not stored (`retention.storeScanText = false`); only scores are. With the local model on, it sits in `model_jobs` only until the worker claims it, and the feedback until the browser reads it (10 minutes at most).
 - Guest scan counts keep only a salted hash of the visitor's network address, and each day's rows are deleted by the retention cron the next day.
 - Source documents and refinement text are deleted `retention.sourceDocumentDays` (14) days after an order closes; reports after `retention.reportDays` (90). This depends on the cron job running with `CRON_SECRET` set; the admin Settings page shows whether it is.
 - Analytics hooks (`lib/analytics.ts`) carry ids and enums only, never document content. No provider is wired yet.

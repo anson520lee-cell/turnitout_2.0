@@ -11,6 +11,7 @@ import { RiskGauge } from "./risk-gauge";
 import { SignalRadar } from "./signal-radar";
 import { SentenceHighlights } from "./sentence-highlights";
 import { ReadabilityCard } from "./readability-card";
+import { ModelFeedback } from "./model-feedback";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 import { formatHKD, screeningPrices } from "@/config/pricing";
@@ -56,7 +57,16 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
   );
 }
 
-export function ScanResult({ result, createdAt }: { result: AnalysisResult; createdAt?: string }) {
+export function ScanResult({
+  result,
+  createdAt,
+  feedbackJobId,
+}: {
+  result: AnalysisResult;
+  createdAt?: string;
+  /** Live scans only: the local model's written feedback, fetched as it arrives. */
+  feedbackJobId?: string | null;
+}) {
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
@@ -102,6 +112,8 @@ export function ScanResult({ result, createdAt }: { result: AnalysisResult; crea
           <SignalRadar signals={result.signals} />
         </Card>
       </div>
+
+      {feedbackJobId && <ModelFeedback jobId={feedbackJobId} />}
 
       {result.readability && <ReadabilityCard r={result.readability} />}
 

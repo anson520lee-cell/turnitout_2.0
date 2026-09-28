@@ -19,6 +19,8 @@ import {
 } from "@/components/admin/order-controls";
 import { PaymentClaims } from "@/components/admin/payment-claims";
 import { SourceText } from "@/components/admin/source-text";
+import { ModelDraftStatus } from "@/components/admin/model-draft";
+import { latestDraft, localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
 import { isScreening } from "@/lib/orders/status";
 import { serviceLabels } from "@/config/services";
 import { billableChars, formatHKD } from "@/config/pricing";
@@ -47,6 +49,10 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
   const succeeded = payments.filter((p) => p.status === "succeeded");
   const paid = succeeded[0];
   const pendingClaim = claims.some((c) => c.status === "pending");
+  // The owner's local model drafts refinements; shown only once it's set up.
+  const modelOn = !screeningOrder && localModelEnabled();
+  const [draft, worker] = modelOn ? await Promise.all([latestDraft(order.id), workerStatus()]) : [null, null];
+  const draftOpen = ["paid", "queued", "under_review", "processing"].includes(order.status) && Boolean(order.source_text);
 
   return (
     <>
@@ -161,7 +167,14 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
                   {order.source_text ?? "Deleted under the retention policy."}
                 </div>
               </Card>
-              <RefinementResultForm orderId={order.id} revised={refinement?.revised_text ?? order.source_text ?? ""} reviewerNotes={refinement?.reviewer_notes ?? ""} closed={closed} />
+              {modelOn && worker && <ModelDraftStatus orderId={order.id} draft={draft} worker={worker} canRequest={draftOpen} />}
+              <RefinementResultForm
+                orderId={order.id}
+                revised={refinement?.revised_text ?? order.source_text ?? ""}
+                reviewerNotes={refinement?.reviewer_notes ?? ""}
+                closed={closed}
+                draft={draft?.status === "done" ? draft.output_text : null}
+              />
             </>
           )}
           {screening && (

@@ -25,7 +25,8 @@ export type OwnerEvent =
   | "order_created"
   | "payment_submitted"
   | "payment_confirmed"
-  | "payment_rejected";
+  | "payment_rejected"
+  | "draft_ready";
 
 const TITLES: Record<OwnerEvent, string> = {
   scan_used: "Free scan used",
@@ -34,6 +35,7 @@ const TITLES: Record<OwnerEvent, string> = {
   payment_submitted: "Payment reported, please check your account",
   payment_confirmed: "Payment confirmed",
   payment_rejected: "Payment claim rejected",
+  draft_ready: "Model draft ready to review",
 };
 
 type Fields = Record<string, string | number | boolean | null | undefined>;

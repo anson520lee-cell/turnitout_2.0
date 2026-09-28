@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getScreeningProvider } from "@/lib/screening";
 import { audit } from "@/lib/audit";
 import { isScreening } from "@/lib/orders/status";
+import { enqueueRefinementDraft, localModelEnabled } from "@/lib/local-model/jobs";
+import { localModel } from "@/config/app";
 import type { ScreeningServiceType } from "@/config/pricing";
 import type { Order } from "@/types/domain";
 
@@ -103,6 +105,12 @@ export async function markOrderPaid(args: {
       .update({ status: "queued", updated_at: now })
       .eq("id", order.id)
       .eq("status", "paid");
+    // A first draft from the owner's local model, for an admin to review and
+    // edit. It never goes to the customer by itself.
+    if (localModelEnabled() && localModel.refinementDrafts) {
+      const queued = await enqueueRefinementDraft(order.id);
+      if (queued.ok) await audit("model_draft_requested", { orderId: order.id });
+    }
   }
   await audit("order_queued", { orderId: order.id });
   return { ok: true, newlyPaid: true, duplicate, order };

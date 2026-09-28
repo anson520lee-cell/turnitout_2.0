@@ -9,6 +9,7 @@ import { canTransition, isScreening, type OrderStatus, ORDER_STATUSES } from "@/
 import { claimReviewInput, screeningResultInput, uuid } from "@/lib/validation/schemas";
 import { safeFileName, sniff } from "@/lib/storage/files";
 import { markOrderPaid } from "@/lib/payments/fulfil";
+import { enqueueRefinementDraft } from "@/lib/local-model/jobs";
 import { notifyOwner } from "@/lib/notify";
 import { uploads } from "@/config/app";
 import { formatHKD } from "@/config/pricing";
@@ -369,6 +370,22 @@ export async function saveRefinementResult(input: unknown): Promise<Result> {
   );
   if (error) return { ok: false, message: "Couldn't save." };
   await audit("refinement_saved", { actorId: admin.id, orderId: order.id });
+  refresh(order.id);
+  return { ok: true };
+}
+
+/** Asks the local model for a (new) first draft of a refinement order. */
+export async function requestRefinementDraft(orderId: string): Promise<Result> {
+  const admin = await assertAdmin();
+  const order = await loadOrder(orderId);
+  if (!order || order.service_type !== "refinement") return { ok: false, message: "Order not found." };
+  if (!order.source_text) return { ok: false, message: "This order's text has been deleted." };
+  if (!["paid", "queued", "under_review", "processing"].includes(order.status)) {
+    return { ok: false, message: "Drafts are for paid orders that aren't finished yet." };
+  }
+  const res = await enqueueRefinementDraft(order.id);
+  if (!res.ok) return res;
+  await audit("model_draft_requested", { actorId: admin.id, orderId: order.id });
   refresh(order.id);
   return { ok: true };
 }

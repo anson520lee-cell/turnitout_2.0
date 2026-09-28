@@ -3,6 +3,7 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/env";
 import { notifyOwner } from "@/lib/notify";
+import { enqueueScanFeedback } from "@/lib/local-model/jobs";
 import { getAnalyzer } from "@/lib/scanning";
 import { consumeGuestScan, refundGuestScan } from "@/lib/scanning/guest";
 import { forStorage, type AnalysisResult } from "@/lib/scanning/types";
@@ -20,6 +21,8 @@ export type ScanResponse =
       guest: boolean;
       /** Saved scan id (accounts only). */
       scanId: string | null;
+      /** Poll /api/scan-feedback/{id} for the local model's written feedback; null when there is none. */
+      feedbackJobId: string | null;
     }
   | { ok: false; code: "invalid" | "limit" | "failed" | "unavailable"; message: string };
 
@@ -101,5 +104,8 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
     remaining,
   });
 
-  return { ok: true, result, remaining, guest: !user, scanId };
+  // Only while the owner's model is online; the scan result never waits on it.
+  const feedbackJobId = await enqueueScanFeedback(text);
+
+  return { ok: true, result, remaining, guest: !user, scanId, feedbackJobId };
 }

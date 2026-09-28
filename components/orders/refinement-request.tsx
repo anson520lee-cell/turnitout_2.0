@@ -23,7 +23,7 @@ const minimumChars = (refinementPricing.minimum / refinementPricing.perBlock) * 
  * dialog with a live character count and the exact price. The server
  * recomputes the price from the characters it receives.
  */
-export function RefinementRequest() {
+export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [instructions, setInstructions] = useState("");
@@ -131,7 +131,9 @@ export function RefinementRequest() {
         footnote={
           <>
             By pressing Enter you confirm this is your own writing. Refinement improves clarity, flow and style; it does not
-            disguise authorship or AI-generated text. The final price is confirmed on the next page.
+            disguise authorship or AI-generated text.
+            {modelDrafts && " Our writing model may prepare a first draft, and a person reviews every change."} The final
+            price is confirmed on the next page.
           </>
         }
         onSubmit={async (text) => {

@@ -11,6 +11,8 @@ import { notificationChannels } from "@/lib/notify";
 import { getScreeningProvider } from "@/lib/screening";
 import { getAnalyzer } from "@/lib/scanning";
 import { trustsProxyHeaders } from "@/lib/scanning/guest";
+import { localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
+import { formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin · Settings" };
 
@@ -35,6 +37,7 @@ export default async function AdminSettings() {
   await assertAdmin();
   const provider = getScreeningProvider();
   const channels = notificationChannels();
+  const worker = await workerStatus();
   const rows: [string, React.ReactNode][] = [
     ["Brand", brand.name],
     ["Free scans / day", `${freeScan.dailyLimit} (${freeScan.timezone})`],
@@ -45,6 +48,19 @@ export default async function AdminSettings() {
         : off("One shared allowance: set TRUST_PROXY_IP_HEADERS if your host overwrites X-Forwarded-For"),
     ],
     ["Preliminary analyzer", getAnalyzer().id],
+    [
+      "Local writing model",
+      <div key="m" className="space-y-1">
+        {!localModelEnabled()
+          ? off("Off")
+          : worker.online
+            ? on(`Online${worker.model ? ` · ${worker.model}` : ""}`)
+            : off(worker.lastSeenAt ? `Offline · last seen ${formatDateTime(worker.lastSeenAt)}` : "Waiting for the worker to connect")}
+        <p className="text-[12px] text-fg-subtle">
+          Set {env("MODEL_WORKER_SECRET")}, then run the worker on your computer (README &gt; Local writing model). Scan feedback only runs while it&rsquo;s online.
+        </p>
+      </div>,
+    ],
     ["Screening provider", `${provider.id} · ${provider.manual ? "manual (human-in-the-loop)" : "automated"}`],
     ["Card payments (Stripe)", isStripeConfigured() ? on() : off("Not configured: card option hidden")],
     ["Dev payments", devPaymentsEnabled() ? <Badge tone="warn" key="d">Enabled</Badge> : "Off"],

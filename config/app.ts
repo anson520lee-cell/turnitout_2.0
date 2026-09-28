@@ -63,6 +63,29 @@ export const refinement = {
   maxInstructionChars: 1000,
 } as const;
 
+/**
+ * The owner's local writing model (Open WebUI on the owner's computer), used
+ * through the worker in tools/local-model-worker. Everything here is off until
+ * MODEL_WORKER_SECRET is set; see README > Local writing model.
+ */
+export const localModel = {
+  /** Written feedback under a free scan, while the worker is online. */
+  scanFeedback: true,
+  /** A first draft for each paid refinement order, for an admin to review and edit. */
+  refinementDrafts: true,
+  /** The worker counts as online if it checked in within this many seconds. */
+  onlineWindowSeconds: 45,
+  /** Scan feedback not ready and shown within this is dropped, text and all. */
+  scanFeedbackMinutes: 10,
+  /** Skip scan feedback while this many are already waiting: they wouldn't be ready in time. */
+  maxQueuedFeedback: 5,
+  /** A draft the worker hasn't picked up by then is marked failed; request another from the order page. */
+  draftDays: 14,
+  /** Longest output accepted from the worker, in characters. */
+  maxFeedbackChars: 6000,
+  maxDraftChars: 90000,
+} as const;
+
 export const features = {
   googleSignIn: process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === "true",
 } as const;

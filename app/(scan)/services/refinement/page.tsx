@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/layout/app-header";
 import { RefinementRequest } from "@/components/orders/refinement-request";
 import { Badge } from "@/components/ui/badge";
+import { localModelEnabled } from "@/lib/local-model/jobs";
+import { localModel } from "@/config/app";
 
 export const metadata: Metadata = { title: "Writing Refinement" };
 
@@ -13,7 +15,7 @@ export default function Page() {
         title="Writing Refinement"
         body="A reviewer refines the clarity, flow and style of your own writing, keeping your meaning, citations and voice."
       />
-      <RefinementRequest />
+      <RefinementRequest modelDrafts={localModelEnabled() && localModel.refinementDrafts} />
     </>
   );
 }

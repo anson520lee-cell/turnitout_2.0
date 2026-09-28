@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
       .from("orders")
       .update({ source_deleted_at: new Date().toISOString(), source_text: null })
       .eq("id", o.id);
+    // Model drafts are made from the same text, so they go with it.
+    await db.from("model_jobs").delete().eq("order_id", o.id);
     sources++;
   }
 
@@ -110,6 +112,10 @@ export async function GET(request: NextRequest) {
     .from("guest_scan_usage")
     .delete({ count: "exact" })
     .lt("usage_date", hkToday);
+
+  // Scan feedback whose visitor has gone (normally removed within minutes;
+  // this catches any left while the worker was off).
+  await db.rpc("purge_model_jobs");
 
   const summary = { unpaid, sources, reports, guestRows: guestRows ?? 0 };
   if (unpaid || sources || reports || guestRows) await audit("retention_run", { detail: summary });

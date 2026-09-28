@@ -11,6 +11,7 @@ export type AnalyticsEvent =
   | "scan_completed"
   | "scan_limit_reached"
   | "scan_report_downloaded"
+  | "scan_feedback_shown"
   | "screening_service_clicked"
   | "refinement_service_clicked"
   | "order_created"
