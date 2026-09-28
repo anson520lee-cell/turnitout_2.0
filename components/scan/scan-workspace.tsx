@@ -12,8 +12,9 @@ import { PasteDialog, type PasteResult } from "@/components/ui/paste-dialog";
 import { ScanResult } from "./scan-result";
 import { ScanVisual } from "./scan-visual";
 import { freeScan, retention } from "@/config/app";
-import { countWords, cn } from "@/lib/utils";
+import { countChars, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { freeScanCharError } from "@/lib/orders/limits";
 import { extractText, ExtractError } from "@/lib/extract-text";
 
 /** What the visitor can do on /scan, decided on the server. */
@@ -112,28 +113,23 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
   const validate = (text: string): string | null => {
     if (offline) return OFFLINE_MESSAGE[offline];
     if (remaining <= 0) return limitMessage;
-    const words = countWords(text);
-    if (words < freeScan.minWords) return `Add a little more text. The scan needs at least ${freeScan.minWords} words.`;
-    if (words > freeScan.maxWords || text.length > freeScan.maxChars) {
-      return `The free scan handles up to ${freeScan.maxWords.toLocaleString()} words at a time.`;
-    }
-    return null;
+    return freeScanCharError(countChars(text));
   };
 
   const meta = (text: string): ReactNode => {
-    const words = countWords(text);
+    const chars = countChars(text);
     return (
       <>
-        <span className={cn(words > 0 && words < freeScan.minWords && "text-warn", words > freeScan.maxWords && "text-risk")}>
-          {words.toLocaleString()} words
+        <span className={cn(chars > 0 && chars < freeScan.minChars && "text-warn", chars > freeScan.maxChars && "text-risk")}>
+          {chars.toLocaleString()} characters
         </span>
-        {` · ${freeScan.minWords}–${freeScan.maxWords.toLocaleString()} per scan`}
+        {` · ${freeScan.minChars.toLocaleString()}–${freeScan.maxChars.toLocaleString()} per scan`}
       </>
     );
   };
 
   const onSubmit = async (text: string): Promise<PasteResult> => {
-    track("scan_started", { words: countWords(text), guest });
+    track("scan_started", { chars: countChars(text), guest });
     const res = await runScan(text);
     if (!res.ok) {
       if (res.code === "limit") {
@@ -218,7 +214,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
             </h2>
             <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fg-muted">
               Sentence rhythm, structure, phrasing and readability, down to the sentences that drive the estimate.{" "}
-              {freeScan.minWords}–{freeScan.maxWords.toLocaleString()} words per scan.
+              {freeScan.minChars.toLocaleString()}–{freeScan.maxChars.toLocaleString()} characters per scan.
             </p>
             <div className="mt-6">
               <UsageMeter remaining={remaining} offline={Boolean(offline)} />

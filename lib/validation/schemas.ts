@@ -2,22 +2,17 @@ import { z } from "zod";
 import { freeScan, refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { refinementCharError, screeningWordError } from "@/lib/orders/limits";
+import { freeScanCharError, refinementCharError, screeningWordError } from "@/lib/orders/limits";
 import { countWords } from "@/lib/utils";
 
 export const scanInput = z
   .string()
   .max(freeScan.maxChars, `Text is too long (max ${freeScan.maxChars.toLocaleString()} characters).`)
   .transform((s) => s.trim())
-  .refine((s) => s.length > 0, "Paste some text to scan.")
-  .refine(
-    (s) => countWords(s) >= freeScan.minWords,
-    `Add a little more text. The scan needs at least ${freeScan.minWords} words to measure patterns reliably.`,
-  )
-  .refine(
-    (s) => countWords(s) <= freeScan.maxWords,
-    `The free scan handles up to ${freeScan.maxWords.toLocaleString()} words at a time.`,
-  );
+  .superRefine((s, ctx) => {
+    const problem = s ? freeScanCharError(s.length) : "Paste some text to scan.";
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
 
 export const screeningType = z.enum(["ai_screening", "similarity_screening", "combined_screening"]);
 

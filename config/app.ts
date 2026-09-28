@@ -18,8 +18,8 @@ export const freeScan = {
   dailyLimit: 3,
   /** Calendar day boundary for the daily reset. Must match the SQL function. */
   timezone: "Asia/Hong_Kong",
-  minWords: 80,
-  maxWords: 3000,
+  /** Character count, not word count: CJK text has no spaces to split words on. */
+  minChars: 300,
   maxChars: 25000,
 } as const;
 

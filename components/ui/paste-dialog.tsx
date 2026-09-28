@@ -187,24 +187,26 @@ export function PasteDialog({
               ) : (
                 <>
                   <label htmlFor={`${titleId}-text`} className="sr-only">Text</label>
-                  <textarea
-                    id={`${titleId}-text`}
-                    ref={textRef}
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => {
-                      // keyCode 229: Safari fires the Enter that confirms an IME
-                      // candidate (Cangjie, Pinyin…) after compositionend.
-                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) {
-                        e.preventDefault();
-                        submit();
-                      }
-                    }}
-                    placeholder={placeholder}
-                    disabled={busy}
-                    aria-invalid={Boolean(error) || undefined}
-                    className="block h-[min(40dvh,380px)] w-full resize-none rounded-2xl border border-[var(--line)] bg-ink-900/70 px-4 py-4 font-serif text-[15.5px] leading-[1.8] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.03)] placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none focus:ring-4 focus:ring-accent/15"
-                  />
+                  <div className="paste-input-frame rounded-2xl">
+                    <textarea
+                      id={`${titleId}-text`}
+                      ref={textRef}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      onKeyDown={(e) => {
+                        // keyCode 229: Safari fires the Enter that confirms an IME
+                        // candidate (Cangjie, Pinyin…) after compositionend.
+                        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) {
+                          e.preventDefault();
+                          submit();
+                        }
+                      }}
+                      placeholder={placeholder}
+                      disabled={busy}
+                      aria-invalid={Boolean(error) || undefined}
+                      className="block h-[min(40dvh,380px)] w-full resize-none rounded-2xl border border-[var(--line)] bg-ink-900/70 px-4 py-4 font-serif text-[15.5px] leading-[1.8] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.03)] placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none focus:ring-4 focus:ring-accent/15"
+                    />
+                  </div>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[12px] text-fg-subtle">
                     <span>{meta?.(text)}</span>
                     {allowFile && (

@@ -1,4 +1,4 @@
-import { refinement } from "@/config/app";
+import { freeScan, refinement } from "@/config/app";
 import { screeningWordRange } from "@/config/pricing";
 
 /**
@@ -16,6 +16,17 @@ export function screeningWordError(words: number): string | null {
   }
   if (words > screeningWordRange.max) {
     return `A report covers up to ${n(screeningWordRange.max)} words. This text has ${n(words)}; split it into separate reports.`;
+  }
+  return null;
+}
+
+/** Null when `chars` is inside the free-scan range. */
+export function freeScanCharError(chars: number): string | null {
+  if (chars < freeScan.minChars) {
+    return `Add a little more text. The scan needs at least ${n(freeScan.minChars)} characters.`;
+  }
+  if (chars > freeScan.maxChars) {
+    return `The free scan handles up to ${n(freeScan.maxChars)} characters at a time.`;
   }
   return null;
 }

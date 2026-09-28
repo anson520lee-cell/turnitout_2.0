@@ -554,6 +554,40 @@ html[data-interactive] :is(.glass, .glass-strong)[data-tilt]:not([aria-hidden="t
   animation-play-state: running;
 }
 
+/* Paste dialog text box: the same rim of light buttons and tilted cards get
+   on hover/press, triggered by focus instead so the "chat box" feels alive
+   while typing. Reuses --rim/rim-spin registered above. */
+.paste-input-frame {
+  position: relative;
+  border-radius: inherit;
+}
+.paste-input-frame::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--rim),
+    transparent 0deg 190deg,
+    rgb(95 216 245 / 0.8) 270deg,
+    rgb(255 255 255) 318deg,
+    rgb(170 150 255 / 0.85) 342deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  animation: rim-spin 3.2s linear infinite paused;
+}
+.paste-input-frame:focus-within::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
 /* Parallax layers: data-depth="1" moves a little, "3" moves most, "-2"
    moves the other way. Driven by --cx/--cy (-1…1, already smoothed). */
 html[data-interactive] [data-depth] {
@@ -598,6 +632,31 @@ html[data-interactive] [data-depth] {
 @keyframes orbit-spin {
   from { transform: rotateZ(0deg) rotateX(var(--tiltx, 0deg)); }
   to { transform: rotateZ(360deg) rotateX(var(--tiltx, 0deg)); }
+}
+
+/* Waiting animation (paste dialog + order page): a rotating radar sweep
+   behind the floating document, and a trio of pulsing dots beside the step
+   text. Reuses .orbit-ring/engine-spin so loading reads as the same tech/3D
+   language as the rest of the site instead of a new one. */
+.waiting-halo {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(95 216 245 / 0.55) 26deg,
+    transparent 70deg,
+    transparent 200deg,
+    rgb(154 123 255 / 0.5) 230deg,
+    transparent 280deg
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 68%, #000 70%, #000 96%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 68%, #000 70%, #000 96%, transparent 100%);
+}
+.waiting-dot {
+  animation: waiting-dot 1.3s ease-in-out infinite;
+}
+@keyframes waiting-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
 }
 
 /* ------------------------------------------------------------------
