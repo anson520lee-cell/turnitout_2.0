@@ -5,8 +5,10 @@ const PROTECTED = ["/dashboard", "/orders", "/settings", "/admin"];
 
 function needsAuth(url: Pick<URL, "pathname" | "searchParams">): boolean {
   const path = url.pathname;
-  // /services is public marketing; /services/* are order forms.
-  if (path.startsWith("/services/")) return true;
+  // /services is public marketing; /services/screening and /services/refinement
+  // (the request forms) are open to guests too — pasting text and seeing the
+  // price needs no account, only submitting does, and the server action
+  // itself checks that. See app/(scan)/layout.tsx.
   // The free scan is open to guests (per-IP allowance); a saved result
   // (/scan?id=…) and everything under /scan/ (history) need an account.
   if (path === "/scan") return url.searchParams.has("id");

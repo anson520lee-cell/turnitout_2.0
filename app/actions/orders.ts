@@ -62,7 +62,7 @@ async function ownOrder(orderId: string, userId: string): Promise<Order | null> 
  */
 export async function createScreeningTextOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
   const user = await getSessionUser();
-  if (!user) return { ok: false, message: "Please sign in again." };
+  if (!user) return { ok: false, message: "Please sign in or create a free account to submit this." };
   const parsed = screeningTextOrderInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
   if (await tooManyUnpaid(user.id)) return { ok: false, message: TOO_MANY_UNPAID };
@@ -203,7 +203,7 @@ export async function confirmUpload(orderId: string): Promise<{ ok: true } | Fai
  */
 export async function createRefinementOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
   const user = await getSessionUser();
-  if (!user) return { ok: false, message: "Please sign in again." };
+  if (!user) return { ok: false, message: "Please sign in or create a free account to submit this." };
   const parsed = refinementOrderInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid order." };
   if (await tooManyUnpaid(user.id)) return { ok: false, message: TOO_MANY_UNPAID };
