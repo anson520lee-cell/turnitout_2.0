@@ -47,6 +47,7 @@ export default function AnimationPreviewPage() {
         <Link href="/" className="inline-flex items-center gap-1.5 text-[12.5px] text-fg-subtle hover:text-fg">
           <ArrowLeft className="size-3.5" /> Back home
         </Link>
+        <h1 className="sr-only">Loading animation preview</h1>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Design preview · not a real scan or order</p>
         <div className="flex flex-wrap justify-center gap-2">
           {FLOWS.map((f, i) => (

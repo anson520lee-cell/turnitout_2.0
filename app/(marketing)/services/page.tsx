@@ -5,7 +5,11 @@ import { Comparison } from "@/components/landing/comparison";
 import { Container } from "@/components/ui/section";
 import { disclaimers } from "@/config/services";
 
-export const metadata: Metadata = { title: "Services" };
+export const metadata: Metadata = {
+  title: "Services",
+  description: "Three services: a free preliminary writing scan, AI and similarity reports run by our team, and human-reviewed writing refinement.",
+  alternates: { canonical: "/services" },
+};
 
 export default function ServicesPage() {
   return (

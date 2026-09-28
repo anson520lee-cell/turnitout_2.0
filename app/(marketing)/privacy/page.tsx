@@ -4,7 +4,11 @@ import { Container } from "@/components/ui/section";
 import { brand, localModel, retention, uploads } from "@/config/app";
 import { localModelEnabled } from "@/lib/local-model/jobs";
 
-export const metadata: Metadata = { title: "Privacy" };
+export const metadata: Metadata = {
+  title: "Privacy",
+  description: "How 0% handles your account, your writing and your documents: what we keep, for how long, and who can see it.",
+  alternates: { canonical: "/privacy" },
+};
 
 // Foundation text. Have it reviewed against the PDPO (Cap. 486) before launch.
 export default function PrivacyPage() {

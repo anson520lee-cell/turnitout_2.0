@@ -16,9 +16,13 @@ import { createClient } from "@/lib/supabase/server";
 import { uuid } from "@/lib/validation/schemas";
 import { formatDateTime } from "@/lib/utils";
 import type { ScanResultRow } from "@/types/domain";
-import { localModel } from "@/config/app";
+import { freeScan, localModel } from "@/config/app";
 
-export const metadata: Metadata = { title: "Free writing scan" };
+export const metadata: Metadata = {
+  title: "Free writing scan",
+  description: `Paste ${freeScan.minChars.toLocaleString("en-HK")} to ${freeScan.maxChars.toLocaleString("en-HK")} characters and get a free preliminary scan of sentence rhythm, structure and phrasing. ${freeScan.dailyLimit} free scans a day, no account needed.`,
+  alternates: { canonical: "/scan" },
+};
 
 export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
   const { id } = await searchParams;

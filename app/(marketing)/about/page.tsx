@@ -4,7 +4,11 @@ import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 
-export const metadata: Metadata = { title: "About" };
+export const metadata: Metadata = {
+  title: "About",
+  description: "Who runs 0%, what the site does and doesn’t do, and how we handle your writing.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (

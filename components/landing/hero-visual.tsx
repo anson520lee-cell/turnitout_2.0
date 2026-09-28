@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { CssDocument } from "./css-document";
@@ -23,10 +23,18 @@ function useCanRender3D() {
   const [ok, setOk] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px) and (pointer: fine)");
+    let supported: boolean | null = null;
     const update = () => {
-      const c = document.createElement("canvas");
-      const gl = c.getContext("webgl2") || c.getContext("webgl");
-      setOk(mq.matches && !!gl);
+      // Phones and tablets never get the 3D scene, so don't pay for a WebGL
+      // context there: creating one costs up to seconds on a mobile CPU.
+      if (!mq.matches) return setOk(false);
+      if (supported === null) {
+        const c = document.createElement("canvas");
+        const gl = c.getContext("webgl2") || c.getContext("webgl");
+        supported = !!gl;
+        gl?.getExtension("WEBGL_lose_context")?.loseContext();
+      }
+      setOk(supported);
     };
     update();
     mq.addEventListener("change", update);
@@ -39,15 +47,35 @@ export function HeroVisual() {
   const use3D = useCanRender3D();
   const [active, setActive] = useState(0);
   const reduce = usePrefersReducedMotion();
+  const root = useRef<HTMLDivElement>(null);
 
+  // Cycle the labels only where they're shown (sm and up) and while on screen.
   useEffect(() => {
-    if (reduce) return;
-    const t = setInterval(() => setActive((a) => (a + 1) % LABELS.length), 2200);
-    return () => clearInterval(t);
+    const el = root.current;
+    if (reduce || !el) return;
+    const wide = window.matchMedia("(min-width: 640px)");
+    let visible = false;
+    let t: ReturnType<typeof setInterval> | undefined;
+    const sync = () => {
+      clearInterval(t);
+      t = undefined;
+      if (visible && wide.matches) t = setInterval(() => setActive((a) => (a + 1) % LABELS.length), 2200);
+    };
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      sync();
+    });
+    io.observe(el);
+    wide.addEventListener("change", sync);
+    return () => {
+      io.disconnect();
+      wide.removeEventListener("change", sync);
+      clearInterval(t);
+    };
   }, [reduce]);
 
   return (
-    <div className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
+    <div ref={root} className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
       {/* radial lighting, and a contact shadow the document floats over */}
       <div data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.28),rgb(154_123_255/0.12)_55%,transparent_75%)]" />
       <div data-depth="-1" className="absolute inset-0 bg-grid [mask-image:radial-gradient(closest-side,black,transparent)] opacity-50" />

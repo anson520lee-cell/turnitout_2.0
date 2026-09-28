@@ -91,7 +91,7 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
         </div>
         <button
           type="button"
-          className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
+          className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? "Close menu" : "Open menu"}

@@ -38,16 +38,32 @@ export function Reveal({
   delay = 0,
   y = 26,
   flip = 14,
+  aboveFold,
   className,
   children,
   tilt,
   ...props
-}: HTMLMotionProps<"div"> & { delay?: number; y?: number; flip?: number; tilt?: boolean | number }) {
+}: HTMLMotionProps<"div"> & {
+  delay?: number;
+  y?: number;
+  flip?: number;
+  tilt?: boolean | number;
+  /**
+   * For content visible on load (hero, page headers): the server sends it
+   * visible, and only the depth swing plays once the script runs, so the
+   * first paint already shows the text.
+   */
+  aboveFold?: boolean;
+}) {
+  const motionProps = aboveFold
+    ? {
+        initial: { y: Math.min(y, 12), rotateX: flip / 2, transformPerspective: 1200 },
+        animate: { y: 0, rotateX: 0 },
+      }
+    : { initial: hidden(y, flip), whileInView: shown, viewport: { once: true, margin: "-80px" } };
   return (
     <motion.div
-      initial={hidden(y, flip)}
-      whileInView={shown}
-      viewport={{ once: true, margin: "-80px" }}
+      {...motionProps}
       transition={{ duration: 0.9, ease, delay }}
       className={["reveal-3d", className].filter(Boolean).join(" ")}
       {...tiltProps(tilt)}

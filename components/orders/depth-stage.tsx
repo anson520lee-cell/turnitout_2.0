@@ -74,11 +74,8 @@ export function DepthStage({
           className="pointer-events-none absolute inset-x-[12%] bottom-[-6%] h-[18%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.65),transparent)] blur-xl"
           style={reduce ? undefined : { x: shadowX, scaleX: shadowScale }}
         />
-        <motion.div
-          className="relative size-full"
-          animate={reduce ? undefined : { y: [0, -8, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        >
+        {/* Bobs on the compositor (CSS; reduced motion stops it globally), not a JS animation every frame. */}
+        <div className="doc-bob relative size-full">
           <motion.div
             className="relative size-full [transform-style:preserve-3d]"
             style={reduce ? undefined : { rotateX, rotateY }}
@@ -91,7 +88,7 @@ export function DepthStage({
               />
             )}
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </PointerContext.Provider>
   );

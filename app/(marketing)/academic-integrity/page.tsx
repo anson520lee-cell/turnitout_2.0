@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 
-export const metadata: Metadata = { title: "Academic integrity" };
+export const metadata: Metadata = {
+  title: "Academic integrity",
+  description: "Our academic integrity policy: we check and polish your own writing, and never disguise authorship or AI-generated text.",
+  alternates: { canonical: "/academic-integrity" },
+};
 
 export default function IntegrityPage() {
   return (

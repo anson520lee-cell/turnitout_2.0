@@ -52,8 +52,8 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
           />
           <ol className="space-y-6">
             {steps.map((s, i) => (
-              <Reveal key={s.n} delay={i * 0.04}>
-                <li className="relative">
+              <li key={s.n} className="relative">
+                <Reveal delay={i * 0.04}>
                   <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[10.5px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
                     {s.n}
                   </span>
@@ -61,8 +61,8 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
                     <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
                     <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
                   </div>
-                </li>
-              </Reveal>
+                </Reveal>
+              </li>
             ))}
           </ol>
         </div>

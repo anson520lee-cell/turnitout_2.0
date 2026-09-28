@@ -23,7 +23,9 @@ function Headline() {
     </>
   );
   return (
-    <h1 data-cursor className="depth-title relative mt-5 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
+    // The extruded copies sit beside the <h1>, not in it, so the heading's
+    // text (what search engines and screen readers read) appears once.
+    <div data-cursor className="depth-title relative mt-5 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
       <span aria-hidden className="depth-title-layer depth-title-shadow">
         {text(false)}
       </span>
@@ -39,8 +41,8 @@ function Headline() {
             {text(false)}
           </span>
         ))}
-      <span className="relative">{text(true)}</span>
-    </h1>
+      <h1 className="relative">{text(true)}</h1>
+    </div>
   );
 }
 
@@ -74,19 +76,19 @@ export function Hero() {
       <Backdrop />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
         <div>
-          <Reveal>
+          <Reveal aboveFold>
             <Eyebrow>Academic writing screening</Eyebrow>
           </Reveal>
-          <Reveal delay={0.08} flip={24}>
+          <Reveal aboveFold delay={0.08} flip={24}>
             <Headline />
           </Reveal>
-          <Reveal delay={0.16}>
+          <Reveal aboveFold delay={0.16}>
             <p className="mt-6 max-w-lg text-pretty text-[16.5px] leading-relaxed text-fg-muted">
               Run a preliminary writing scan instantly. When you need the real result, our team runs
               your text through Turnitin and sends you the AI and similarity report.
             </p>
           </Reveal>
-          <Reveal delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">
+          <Reveal aboveFold delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/scan" className={buttonClasses("primary", "lg")}>
               Run free scan
               <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
@@ -95,14 +97,14 @@ export function Hero() {
               Get report
             </Link>
           </Reveal>
-          <Reveal delay={0.32}>
+          <Reveal aboveFold delay={0.32}>
             <p className="mt-6 flex items-center gap-2 text-[13px] text-fg-subtle">
               <ShieldCheck className="size-4 text-ok" aria-hidden />
               {freeScan.dailyLimit} preliminary scans free every day. Private document handling.
             </p>
           </Reveal>
         </div>
-        <Reveal delay={0.2} className="flex justify-center lg:justify-end">
+        <Reveal aboveFold delay={0.2} className="flex justify-center lg:justify-end">
           <HeroVisual />
         </Reveal>
       </Container>

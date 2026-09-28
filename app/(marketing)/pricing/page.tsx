@@ -9,7 +9,11 @@ import { formatHKD, refinementPrice, refinementPricing, screeningPrices } from "
 import { enabledManualPayments } from "@/config/payments";
 import { refinementMinimumLabel, refinementRateLabel, reportService, wordRangeLabel } from "@/config/services";
 
-export const metadata: Metadata = { title: "Pricing" };
+export const metadata: Metadata = {
+  title: "Pricing",
+  description: `Free writing scans, ${formatHKD(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Pay by Alipay, PayMe or bank transfer.`,
+  alternates: { canonical: "/pricing" },
+};
 
 const examples = [1800, 3000, 4250, 12000].map((chars) => ({ chars, price: refinementPrice(chars) }));
 

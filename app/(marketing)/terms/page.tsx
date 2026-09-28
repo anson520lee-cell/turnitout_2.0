@@ -4,7 +4,11 @@ import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 
-export const metadata: Metadata = { title: "Terms" };
+export const metadata: Metadata = {
+  title: "Terms",
+  description: "The terms for using 0%: our services, payments, refunds and acceptable use.",
+  alternates: { canonical: "/terms" },
+};
 
 // Foundation text. Have it reviewed by a lawyer before launch.
 export default function TermsPage() {

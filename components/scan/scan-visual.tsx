@@ -1,6 +1,5 @@
 "use client";
 import type { CSSProperties, ReactNode } from "react";
-import { motion } from "framer-motion";
 import type { RiskLevel } from "@/lib/scanning/types";
 import { cn } from "@/lib/utils";
 
@@ -57,10 +56,9 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
       <div data-depth="-3" className="absolute inset-x-[24%] bottom-[3%] h-9 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.75),transparent)]" />
 
       <div className="absolute inset-0 [perspective:900px]">
-        <motion.div
-          className="absolute inset-0 [transform-style:preserve-3d]"
-          animate={{ y: [0, -9, 0] }}
-          transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
+        <div
+          // Bobs on the compositor (CSS), not a JS animation running every frame.
+          className="doc-bob absolute inset-0 [transform-style:preserve-3d]"
         >
           <div className="absolute inset-y-[9%] inset-x-[22%] [transform-style:preserve-3d]" style={stack}>
             {/* Pages behind, offset up and right like a fanned stack. */}
@@ -120,7 +118,7 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
               )}
             </Chip>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
