@@ -1,7 +1,6 @@
 "use server";
 
 import { getSessionUser } from "@/lib/auth/session";
-import { isSupabaseConfigured } from "@/lib/env";
 import { notifyOwner } from "@/lib/notify";
 import { enqueueScanFeedback } from "@/lib/local-model/jobs";
 import { getAnalyzer } from "@/lib/scanning";
@@ -24,7 +23,7 @@ export type ScanResponse =
       /** Poll /api/scan-feedback/{id} for the local model's written feedback; null when there is none. */
       feedbackJobId: string | null;
     }
-  | { ok: false; code: "invalid" | "limit" | "failed" | "unavailable"; message: string };
+  | { ok: false; code: "invalid" | "limit" | "failed"; message: string };
 
 /**
  * Free preliminary scan, with or without an account. Signed-in users use
@@ -38,10 +37,6 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
     return { ok: false, code: "invalid", message: parsed.error.issues[0]?.message ?? "Invalid text." };
   }
   const text = parsed.data;
-
-  if (!isSupabaseConfigured) {
-    return { ok: false, code: "unavailable", message: "Scanning isn't available yet. Please try again later." };
-  }
 
   const user = await getSessionUser();
 

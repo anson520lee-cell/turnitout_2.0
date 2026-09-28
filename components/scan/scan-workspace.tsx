@@ -18,19 +18,11 @@ import { freeScanCharError } from "@/lib/orders/limits";
 import { extractText, ExtractError } from "@/lib/extract-text";
 
 /** What the visitor can do on /scan, decided on the server. */
-export type ScanAccess =
-  | { mode: "account" | "guest"; remaining: number }
-  /** not_configured: no Supabase. guest_unavailable: the per-IP allowance can't be read (service key or migration missing). */
-  | { mode: "offline"; reason: "not_configured" | "guest_unavailable" };
+export type ScanAccess = { mode: "account" | "guest"; remaining: number };
 
 const WAITING_STEPS = ["Segmenting sentences", "Measuring rhythm and structure", "Checking phrasing patterns", "Preparing your report"];
 
-const OFFLINE_MESSAGE = {
-  not_configured: "Scanning isn't available on this site yet, so nothing can be scanned right now.",
-  guest_unavailable: "Scanning without an account isn't available right now. Sign in to use your account's free scans.",
-} as const;
-
-function UsageMeter({ remaining, offline }: { remaining: number; offline: boolean }) {
+function UsageMeter({ remaining }: { remaining: number }) {
   return (
     <div className="flex items-center gap-3" aria-live="polite">
       <div className="flex gap-1.5" aria-hidden>
@@ -39,19 +31,13 @@ function UsageMeter({ remaining, offline }: { remaining: number; offline: boolea
             key={i}
             className={cn(
               "h-2 w-8 rounded-full transition-all duration-500",
-              !offline && i < remaining ? "bg-gradient-to-r from-accent to-cyan shadow-[0_0_12px_rgb(91_140_255/0.75)]" : "bg-white/10",
+              i < remaining ? "bg-gradient-to-r from-accent to-cyan shadow-[0_0_12px_rgb(91_140_255/0.75)]" : "bg-white/10",
             )}
           />
         ))}
       </div>
       <span className="text-[13px] text-fg-muted">
-        {offline ? (
-          "Scanning unavailable"
-        ) : (
-          <>
-            <span className="font-medium text-fg">{remaining}</span> of {freeScan.dailyLimit} free scans left today
-          </>
-        )}
+        <span className="font-medium text-fg">{remaining}</span> of {freeScan.dailyLimit} free scans left today
       </span>
     </div>
   );
@@ -71,9 +57,8 @@ function SignInLinks() {
 }
 
 export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanAccess; modelFeedback?: boolean }) {
-  const offline = access.mode === "offline" ? access.reason : null;
   const [guest, setGuest] = useState(access.mode === "guest");
-  const [remaining, setRemaining] = useState(access.mode === "offline" ? 0 : access.remaining);
+  const [remaining, setRemaining] = useState(access.remaining);
   const [open, setOpen] = useState(false);
   const [dropped, setDropped] = useState<{ name: string; text: string } | null>(null);
   const [dropError, setDropError] = useState<string | null>(null);
@@ -85,7 +70,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const headingRef = useRef<HTMLHeadingElement>(null);
   const revealPending = useRef(false);
 
-  const limitReached = !offline && remaining <= 0;
+  const limitReached = remaining <= 0;
   const limitMessage = guest
     ? `You've used today's ${freeScan.dailyLimit} free scans. Sign in or come back tomorrow (it resets at midnight Hong Kong time).`
     : "You've used today's free scans. Your allowance resets at midnight Hong Kong time.";
@@ -112,7 +97,6 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   };
 
   const validate = (text: string): string | null => {
-    if (offline) return OFFLINE_MESSAGE[offline];
     if (remaining <= 0) return limitMessage;
     return freeScanCharError(countChars(text));
   };
@@ -159,9 +143,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
-  const description: ReactNode = offline ? (
-    <span className="text-warn">{OFFLINE_MESSAGE[offline]}</span>
-  ) : (
+  const description: ReactNode = (
     <>
       {dropped && (
         <span className="mb-1 block text-fg">
@@ -226,7 +208,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
               {freeScan.minChars.toLocaleString()}–{freeScan.maxChars.toLocaleString()} characters per scan.
             </p>
             <div className="mt-6">
-              <UsageMeter remaining={remaining} offline={Boolean(offline)} />
+              <UsageMeter remaining={remaining} />
             </div>
             <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-3">
               <span className="relative inline-flex">
@@ -267,28 +249,6 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
       {dropError && (
         <div className="print:hidden">
           <FormMessage>{dropError}</FormMessage>
-        </div>
-      )}
-
-      {offline && (
-        <div className="print:hidden">
-          <FormMessage tone="info">
-            {offline === "not_configured" ? (
-              process.env.NODE_ENV === "production" ? (
-                <>Scanning isn&rsquo;t available yet. Please check back soon.</>
-              ) : (
-                // Setup hint for the developer; visitors on a deployed site see the line above.
-                <>
-                  Scanning isn&rsquo;t available yet: Supabase isn&rsquo;t configured. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (see README).
-                </>
-              )
-            ) : (
-              <span className="flex flex-wrap items-center justify-between gap-3">
-                {OFFLINE_MESSAGE.guest_unavailable}
-                <SignInLinks />
-              </span>
-            )}
-          </FormMessage>
         </div>
       )}
 

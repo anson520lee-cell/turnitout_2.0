@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { freeScan } from "@/config/app";
 
@@ -29,6 +30,12 @@ import { freeScan } from "@/config/app";
  *
  * Visitors behind one shared address (a school network, mobile carrier NAT)
  * share one allowance. Signing in gives each person their own.
+ *
+ * Fallback: until Supabase (URL, anon key, service key and migration 0002)
+ * is set up, the count is kept in server memory per address plus a cookie,
+ * so the free scan still works instead of showing an error. That limit is
+ * softer (memory resets when the server restarts; a visitor can clear the
+ * cookie), so it is only a stopgap until the database is connected.
  */
 
 function salt(): string {
@@ -76,22 +83,103 @@ async function ipHash(): Promise<string> {
   return createHash("sha256").update(salt()).update(bucket).digest("hex");
 }
 
-/** Free scans this visitor has left today. Throws if usage can't be read. */
+function databaseReady(): boolean {
+  return isSupabaseConfigured && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+// ---- Fallback (no database yet) ----
+
+const FALLBACK_COOKIE = "zp_free_scans";
+/** Per process, so the in-memory keys can't be linked to an address outside it. */
+const fallbackSalt = randomBytes(16).toString("hex");
+const fallbackCounts = new Map<string, { day: string; used: number }>();
+
+function hkDay(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+}
+
+async function fallbackKey(): Promise<string> {
+  let bucket = "unknown";
+  if (trustsProxyHeaders()) {
+    const h = await headers();
+    bucket = bucketFor(h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip"));
+  }
+  return createHash("sha256").update(fallbackSalt).update(bucket).digest("hex");
+}
+
+/** Scans used today by this visitor: the higher of the server's count and the cookie's. */
+async function fallbackUsed(): Promise<{ key: string; day: string; used: number }> {
+  const day = hkDay();
+  const key = await fallbackKey();
+  const mem = fallbackCounts.get(key);
+  const memUsed = mem?.day === day ? mem.used : 0;
+  const [cookieDay, cookieUsed] = ((await cookies()).get(FALLBACK_COOKIE)?.value ?? "").split(".");
+  const fromCookie = cookieDay === day ? Math.max(0, Number(cookieUsed) || 0) : 0;
+  return { key, day, used: Math.max(memUsed, fromCookie) };
+}
+
+/** Only callable where cookies can be written (server actions). */
+async function fallbackRecord(key: string, day: string, used: number): Promise<void> {
+  if (fallbackCounts.size > 10_000) fallbackCounts.clear(); // bounded; a reset only loosens the soft limit
+  fallbackCounts.set(key, { day, used });
+  (await cookies()).set(FALLBACK_COOKIE, `${day}.${used}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 36,
+  });
+}
+
+function logFallback(e: unknown) {
+  console.error("[scan] guest allowance database unavailable, using fallback:", e instanceof Error ? e.message : "unknown error");
+}
+
+// ---- Public API ----
+
+/** Free scans this visitor has left today. */
 export async function guestRemainingScans(): Promise<number> {
-  const { data, error } = await createAdminClient().rpc("guest_remaining_scans", { p_ip_hash: await ipHash() });
-  if (error) throw new Error(`Could not read guest scan usage (${error.code || "unknown"})`);
-  return Math.max(0, Math.min(freeScan.dailyLimit, Number(data)));
+  if (databaseReady()) {
+    try {
+      const { data, error } = await createAdminClient().rpc("guest_remaining_scans", { p_ip_hash: await ipHash() });
+      if (error) throw new Error(`Could not read guest scan usage (${error.code || "unknown"})`);
+      return Math.max(0, Math.min(freeScan.dailyLimit, Number(data)));
+    } catch (e) {
+      logFallback(e);
+    }
+  }
+  const { used } = await fallbackUsed();
+  return Math.max(0, freeScan.dailyLimit - used);
 }
 
 /** Consumes one guest scan. Returns scans remaining, or null if today's limit was already reached. */
 export async function consumeGuestScan(): Promise<number | null> {
-  const { data, error } = await createAdminClient().rpc("consume_guest_scan", { p_ip_hash: await ipHash() });
-  if (error) throw new Error(`Could not record guest scan usage (${error.code || "unknown"})`);
-  const remaining = Number(data);
-  return remaining < 0 ? null : remaining;
+  if (databaseReady()) {
+    try {
+      const { data, error } = await createAdminClient().rpc("consume_guest_scan", { p_ip_hash: await ipHash() });
+      if (error) throw new Error(`Could not record guest scan usage (${error.code || "unknown"})`);
+      const remaining = Number(data);
+      return remaining < 0 ? null : remaining;
+    } catch (e) {
+      logFallback(e);
+    }
+  }
+  const { key, day, used } = await fallbackUsed();
+  if (used >= freeScan.dailyLimit) return null;
+  await fallbackRecord(key, day, used + 1);
+  return freeScan.dailyLimit - (used + 1);
 }
 
 /** Gives the scan back after a failed analysis (same request, so the same address). */
 export async function refundGuestScan(): Promise<void> {
-  await createAdminClient().rpc("refund_guest_scan", { p_ip_hash: await ipHash() });
+  if (databaseReady()) {
+    try {
+      const { error } = await createAdminClient().rpc("refund_guest_scan", { p_ip_hash: await ipHash() });
+      if (!error) return;
+    } catch {
+      // fall through to the fallback count
+    }
+  }
+  const { key, day, used } = await fallbackUsed();
+  if (used > 0) await fallbackRecord(key, day, used - 1);
 }

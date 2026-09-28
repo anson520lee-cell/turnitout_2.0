@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { getSessionUser } from "@/lib/auth/session";
-import { isSupabaseConfigured } from "@/lib/env";
 import { localModelEnabled } from "@/lib/local-model/jobs";
 import { guestRemainingScans } from "@/lib/scanning/guest";
 import { getRemainingScans } from "@/lib/scanning/usage";
@@ -56,20 +55,11 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
     missing = true;
   }
 
-  let access: ScanAccess;
-  if (!isSupabaseConfigured) {
-    access = { mode: "offline", reason: "not_configured" };
-  } else if (user) {
-    access = { mode: "account", remaining: await getRemainingScans() };
-  } else {
-    try {
-      access = { mode: "guest", remaining: await guestRemainingScans() };
-    } catch (e) {
-      // Usually a missing SUPABASE_SERVICE_ROLE_KEY or migration 0002 not applied.
-      console.error("[scan] guest allowance unavailable:", e instanceof Error ? e.message : "unknown error");
-      access = { mode: "offline", reason: "guest_unavailable" };
-    }
-  }
+  // Guests always get the free scan: without the database the allowance is
+  // counted in memory and a cookie instead (see lib/scanning/guest.ts).
+  const access: ScanAccess = user
+    ? { mode: "account", remaining: await getRemainingScans() }
+    : { mode: "guest", remaining: await guestRemainingScans() };
 
   return (
     <>
