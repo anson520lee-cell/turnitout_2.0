@@ -23,7 +23,7 @@ export function PrivacySection() {
         />
         <Stagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((it) => (
-            <StaggerItem key={it.title} className="glass rounded-2xl p-6">
+            <StaggerItem key={it.title} tilt className="glass rounded-2xl p-6">
               <it.icon className="size-5 text-accent" aria-hidden />
               <h3 className="mt-4 text-[15px] font-semibold">{it.title}</h3>
               <p className="mt-1.5 text-[13.5px] leading-relaxed text-fg-muted">{it.body}</p>

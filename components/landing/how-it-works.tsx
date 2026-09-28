@@ -3,13 +3,29 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
+import { formatHKD, screeningPrices } from "@/config/pricing";
+import { enabledManualPayments } from "@/config/payments";
+import { reportService } from "@/config/services";
+
+const methods = enabledManualPayments()
+  .map((m) => (m.id === "bank_transfer" ? "bank transfer" : m.label))
+  .join(", ")
+  .replace(/, ([^,]*)$/, " or $1");
 
 export const steps = [
   { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },
   { n: "02", title: "Review the signals", body: "See which patterns stand out and where, paragraph by paragraph." },
-  { n: "03", title: "Choose screening if needed", body: "AI-writing, similarity, or both. Pay securely through Stripe." },
-  { n: "04", title: "Upload your document", body: "PDF or DOCX into private storage. No public links, ever." },
-  { n: "05", title: "Receive your result", body: "We screen it, record exactly what was returned, and deliver the report." },
+  {
+    n: "03",
+    title: "Get a report if you need one",
+    body: "Press Get report, paste your text into the dialog and press Enter. Only you and the person processing it can see it.",
+  },
+  {
+    n: "04",
+    title: "Pay once",
+    body: `${formatHKD(screeningPrices[reportService])} per AI & similarity report, by ${methods}.`,
+  },
+  { n: "05", title: "Receive your result", body: "Our team runs a Turnitin screening, records exactly what it returned, and sends you the report." },
 ];
 
 export function HowItWorks({ heading = true }: { heading?: boolean }) {
@@ -36,17 +52,17 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
           />
           <ol className="space-y-6">
             {steps.map((s, i) => (
-              <Reveal key={s.n} delay={i * 0.04}>
-                <li className="relative">
+              <li key={s.n} className="relative">
+                <Reveal delay={i * 0.04}>
                   <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[10.5px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
                     {s.n}
                   </span>
-                  <div className="glass rounded-2xl p-5 sm:p-6">
+                  <div data-tilt="6" className="glass rounded-2xl p-5 sm:p-6">
                     <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
                     <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
                   </div>
-                </li>
-              </Reveal>
+                </Reveal>
+              </li>
             ))}
           </ol>
         </div>

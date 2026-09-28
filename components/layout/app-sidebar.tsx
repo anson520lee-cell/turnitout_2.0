@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, ScanText, FileStack, FileCheck2, PenLine, Settings, Shield, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
   { href: "/scan", label: "Free Scan", icon: ScanText },
+  { href: "/scan/history", label: "Scan History", icon: History },
   { href: "/orders", label: "Orders", icon: FileStack },
-  { href: "/services/screening", label: "Screening", icon: FileCheck2 },
-  { href: "/services/refinement", label: "Writing Review", icon: PenLine },
+  { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
+  { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -25,13 +26,16 @@ export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean
     <nav aria-label="App" className="flex flex-1 flex-col">
       <ul className="space-y-0.5">
         {items.map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== "/dashboard" && path.startsWith(href));
+          // The longest matching item wins, so /scan/history doesn't also light up /scan.
+          const matches = (h: string) => path === h || (h !== "/dashboard" && path.startsWith(`${h}/`));
+          const active = matches(href) && !items.some((o) => o.href.length > href.length && matches(o.href));
           return (
             <li key={href}>
               <Link
                 href={href}
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
+                data-press
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
                   active ? "bg-white/[0.07] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",

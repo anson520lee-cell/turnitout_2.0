@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/motion/providers";
+import { InteractiveSurfaces } from "@/components/motion/interactive-surfaces";
 import { brand } from "@/config/app";
 import "./globals.css";
 
@@ -11,6 +12,15 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: { default: `${brand.name} · ${brand.tagline}`, template: `%s · ${brand.name}` },
   description: brand.description,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: brand.name,
+    title: `${brand.name} · ${brand.tagline}`,
+    description: brand.description,
+    locale: "en_HK",
+  },
+  twitter: { card: "summary_large_image", title: `${brand.name} · ${brand.tagline}`, description: brand.description },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <MotionProvider>{children}</MotionProvider>
+        <InteractiveSurfaces />
       </body>
     </html>
   );

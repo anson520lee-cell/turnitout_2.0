@@ -1,5 +1,6 @@
 import { Hero } from "@/components/landing/hero";
 import { TrustStrip } from "@/components/landing/trust-strip";
+import { PatternEngine } from "@/components/landing/pattern-engine";
 import { CoreServices } from "@/components/landing/core-services";
 import { AnalysisPreview } from "@/components/landing/analysis-preview";
 import { Comparison } from "@/components/landing/comparison";
@@ -21,6 +22,7 @@ export default function HomePage() {
     <>
       <Hero />
       <TrustStrip />
+      <PatternEngine />
       <CoreServices />
       <AnalysisPreview />
       <Comparison />
@@ -34,7 +36,7 @@ export default function HomePage() {
             align="center"
             eyebrow="Pricing"
             title="Simple, per-document pricing."
-            body="Start free. Pay only when you need a screening or a human review."
+            body="Start free. Pay only when you need a report or writing refinement."
           />
           <div className="mt-14">
             <PricingCards />

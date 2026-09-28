@@ -5,7 +5,10 @@ import { NotConfigured } from "@/components/auth/not-configured";
 import { features } from "@/config/app";
 import { isSupabaseConfigured } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Sign up" };
+export const metadata: Metadata = {
+  title: "Sign up",
+  alternates: { canonical: "/signup" },
+};
 
 export default function Page() {
   if (!isSupabaseConfigured) return <NotConfigured />;

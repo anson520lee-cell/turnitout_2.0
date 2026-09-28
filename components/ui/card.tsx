@@ -1,14 +1,21 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Glass card. Every card catches the cursor light; pass `tilt` (degrees, or
+ * true for the default) to make it lean toward the cursor as well. Leave tilt
+ * off for cards holding forms.
+ */
 export function Card({
   className,
   strong,
+  tilt,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { strong?: boolean }) {
+}: HTMLAttributes<HTMLDivElement> & { strong?: boolean; tilt?: boolean | number }) {
   return (
     <div
       className={cn(strong ? "glass-strong" : "glass", "rounded-2xl", className)}
+      data-tilt={tilt ? (tilt === true ? "" : String(tilt)) : undefined}
       {...props}
     />
   );

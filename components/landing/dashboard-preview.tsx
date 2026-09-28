@@ -20,7 +20,7 @@ export function DashboardPreview() {
           body="Remaining free scans, live order status, and reports ready to open."
         />
         <Reveal className="mx-auto mt-14 max-w-5xl [perspective:1600px]">
-          <div className="glass-strong overflow-hidden rounded-3xl [transform:rotateX(8deg)] transition-transform duration-700 hover:[transform:rotateX(2deg)]" aria-hidden>
+          <div data-tilt="5" className="glass-strong overflow-hidden rounded-3xl [--rx0:7deg] [transform:perspective(1000px)_rotateX(7deg)]" aria-hidden>
             <div className="flex">
               <div className="hidden w-48 shrink-0 border-r border-[var(--line)] p-4 sm:block">
                 <div className="h-5 w-24 rounded bg-white/10" />

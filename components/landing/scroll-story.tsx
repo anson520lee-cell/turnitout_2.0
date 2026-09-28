@@ -3,18 +3,18 @@ import { useRef, useState } from "react";
 import {
   motion,
   useMotionValueEvent,
-  useReducedMotion,
   useScroll,
   useTransform,
   type MotionValue,
 } from "framer-motion";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
   { label: "Writing signals", body: "Sentence rhythm, transitions, phrasing and structure are measured and explained." },
-  { label: "Request screening", body: "If you need an actual result, request a screening and upload the document." },
+  { label: "Get report", body: "If you need an actual result, press Get report, paste your text and press Enter." },
   { label: "Verification", body: "A reviewer runs a Turnitin screening with repository storage off." },
   { label: "Screening complete", body: "The returned result and report arrive in your dashboard." },
 ];
@@ -77,8 +77,9 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
       {SIGNALS.map((s, i) => (
         <motion.div
           key={s.t}
-          style={{ opacity: sigOpacity, left: `calc(50% + ${s.x})`, top: `calc(50% + ${s.y})` }}
-          className="absolute"
+          // Pulled toward the centre on phones so the labels stay on screen.
+          style={{ opacity: sigOpacity, left: `calc(50% + ${s.x} * var(--spread))`, top: `calc(50% + ${s.y})` }}
+          className="absolute [--spread:0.55] sm:[--spread:1]"
         >
           <div className="glass flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
             <span className={cn("size-1.5 rounded-full", i % 2 ? "bg-violet" : "bg-cyan")} />
@@ -122,7 +123,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
 
 export function ScrollStory() {
   const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -131,7 +132,7 @@ export function ScrollStory() {
 
   if (reduce) {
     return (
-      <section className="py-24">
+      <section ref={ref} className="py-24">
         <Container>
           <Eyebrow>From draft to report</Eyebrow>
           <ol className="mt-8 grid gap-4 md:grid-cols-5">
@@ -150,17 +151,17 @@ export function ScrollStory() {
 
   return (
     <section ref={ref} className="relative h-[420vh]" aria-label="From draft to report">
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <Container className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+      <div className="sticky top-0 flex h-svh items-center overflow-hidden pt-16 lg:pt-0">
+        <Container className="grid items-center gap-4 sm:gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <div className="order-2 lg:order-1">
             <Eyebrow>From draft to report</Eyebrow>
             <ol className="mt-6 space-y-1">
               {stages.map((s, i) => (
                 <li key={s.label}>
                   <motion.div
-                    animate={{ opacity: i === active ? 1 : 0.32 }}
+                    animate={{ opacity: i === active ? 1 : 0.6 }}
                     transition={{ duration: 0.4 }}
-                    className="flex gap-4 rounded-xl py-3"
+                    className="flex gap-4 rounded-xl py-2 sm:py-3"
                   >
                     <span className={cn("mt-2 h-px w-6 shrink-0 transition-all duration-500", i === active ? "w-10 bg-accent" : "bg-fg-subtle/50")} />
                     <div>
@@ -178,7 +179,8 @@ export function ScrollStory() {
               ))}
             </ol>
           </div>
-          <div className="order-1 lg:order-2">
+          {/* On short phone screens the whole stage is zoomed down so it and the steps both fit. */}
+          <div className="order-1 max-lg:[@media(max-height:760px)]:[zoom:0.72] lg:order-2">
             <Stage progress={scrollYProgress} />
           </div>
         </Container>

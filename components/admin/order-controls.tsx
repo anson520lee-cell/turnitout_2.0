@@ -46,7 +46,7 @@ export function StatusControls({ orderId, type, status }: { orderId: string; typ
   return (
     <Card className="p-5">
       <h2 className="text-[14px] font-semibold">Status</h2>
-      <p className="mt-1 text-[12.5px] text-fg-muted">Current: {statusMeta[status].label}. {status === "awaiting_payment" && "Moves to Paid automatically when Stripe confirms payment."}</p>
+      <p className="mt-1 text-[12.5px] text-fg-muted">Current: {statusMeta[status].label}. {status === "awaiting_payment" && "Moves to Paid when you confirm a payment claim, or automatically when Stripe confirms a card payment."}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {options.map((s) => (
           <Button
@@ -55,7 +55,7 @@ export function StatusControls({ orderId, type, status }: { orderId: string; typ
             variant={s === "cancelled" ? "danger" : "primary"}
             disabled={pending}
             onClick={() => {
-              if (s === "cancelled" && !confirm("Cancel this order? Refund any payment in Stripe separately.")) return;
+              if (s === "cancelled" && !confirm("Cancel this order? Refund any payment separately (Stripe, Alipay, PayMe or bank).")) return;
               if (s === "completed" && !confirm("Release the result to the customer?")) return;
               run(() => updateOrderStatus(orderId, s), `Moved to ${statusMeta[s].label}.`);
             }}
@@ -187,14 +187,47 @@ export function ScreeningResultForm({ orderId, type, existing, closed }: { order
   );
 }
 
-export function RefinementResultForm({ orderId, revised, reviewerNotes, closed }: { orderId: string; revised: string; reviewerNotes: string; closed: boolean }) {
+export function RefinementResultForm({
+  orderId,
+  revised,
+  reviewerNotes,
+  closed,
+  draft,
+}: {
+  orderId: string;
+  revised: string;
+  reviewerNotes: string;
+  closed: boolean;
+  /** The local model's first draft, when one is ready. */
+  draft?: string | null;
+}) {
   const { msg, pending, run } = useAction();
   const [text, setText] = useState(revised);
   const [notes, setNotes] = useState(reviewerNotes);
+  const draftLoaded = Boolean(draft) && text === draft;
+  const loadDraft = () => {
+    if (!draft) return;
+    if (text !== revised && !confirm("Replace your edits in the editor with the model draft?")) return;
+    setText(draft);
+  };
   return (
     <Card className="p-5">
       <h2 className="text-[14px] font-semibold">Revised text</h2>
       <p className="mt-1 text-[12.5px] text-fg-muted">Keep citations exactly as submitted unless the customer asked otherwise. Never add sources.</p>
+      {draft && !closed && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet/30 bg-violet/10 px-3.5 py-3 text-[12.5px]">
+          <span className="text-[#c7b8ff]">
+            {draftLoaded
+              ? "Model draft loaded. Compare it with the submitted text and edit before saving."
+              : "A model draft is ready. Nothing is sent to the customer until you save and complete the order."}
+          </span>
+          {!draftLoaded && (
+            <Button size="sm" variant="secondary" onClick={loadDraft}>
+              Load draft into editor
+            </Button>
+          )}
+        </div>
+      )}
       <Field label="Revision" htmlFor="rev" className="mt-4">
         <Textarea id="rev" rows={14} className="font-serif" value={text} onChange={(e) => setText(e.target.value)} disabled={closed} />
       </Field>

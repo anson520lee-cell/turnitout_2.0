@@ -5,15 +5,19 @@ import { Comparison } from "@/components/landing/comparison";
 import { Container } from "@/components/ui/section";
 import { disclaimers } from "@/config/services";
 
-export const metadata: Metadata = { title: "Services" };
+export const metadata: Metadata = {
+  title: "Services",
+  description: "Three services: a free preliminary writing scan, AI and similarity reports run by our team, and human-reviewed writing refinement.",
+  alternates: { canonical: "/services" },
+};
 
 export default function ServicesPage() {
   return (
     <>
       <PageHeader
         eyebrow="Services"
-        title="Preliminary scan, screening, and writing review."
-        body="Three separate services. The scan is our estimate; the screening is an actual Turnitin result from a human-processed workflow; writing review is human editing of your own work."
+        title="Preliminary scan, Turnitin report, and writing refinement."
+        body="Three separate services. The scan is our own estimate; the report is the actual result of a human-processed Turnitin screening; refinement is human editing of your own writing for clarity, flow and style."
       />
       <CoreServices />
       <Comparison />

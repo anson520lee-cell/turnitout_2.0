@@ -31,7 +31,7 @@ export function FalsePositives() {
         />
         <Stagger className="grid gap-4 sm:grid-cols-2">
           {reasons.map((r, i) => (
-            <StaggerItem key={r.title} className="glass rounded-2xl p-6">
+            <StaggerItem key={r.title} tilt className="glass rounded-2xl p-6">
               <span className="font-mono text-[11px] text-fg-subtle">0{i + 1}</span>
               <h3 className="mt-3 text-[15.5px] font-semibold tracking-tight">{r.title}</h3>
               <p className="mt-2 text-[13.5px] leading-relaxed text-fg-muted">{r.body}</p>

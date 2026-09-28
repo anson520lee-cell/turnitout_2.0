@@ -6,6 +6,7 @@ import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
 import { freeScan } from "@/config/app";
 import { formatHKD, refinementPricing, screeningPrices } from "@/config/pricing";
+import { refinementRateLabel, reportService, serviceLabels, wordRangeLabel } from "@/config/services";
 
 const cards = [
   {
@@ -19,17 +20,17 @@ const cards = [
   {
     icon: FileCheck2,
     tag: <Badge tone="info">Human-processed</Badge>,
-    title: "AI & Similarity Screening",
-    body: "Upload your document and we run it through a Turnitin screening workflow, then deliver the result that screening returned.",
-    meta: `From ${formatHKD(Math.min(...Object.values(screeningPrices)))} · report delivered`,
+    title: serviceLabels[reportService],
+    body: "Paste your text and press Enter. A reviewer runs a Turnitin screening with repository storage off and delivers the AI-writing indicator and similarity result it returned, plus the report file where available.",
+    meta: `${formatHKD(screeningPrices[reportService])} per report · ${wordRangeLabel}`,
     href: "/services/screening",
   },
   {
     icon: PenLine,
     tag: <Badge tone="progress">Human-reviewed</Badge>,
     title: "Writing Refinement",
-    body: "A careful clarity and flow review of your own writing. Meaning, citations and your voice are preserved.",
-    meta: `From ${formatHKD(refinementPricing.minimum)}`,
+    body: "Clarity, flow and style refinement of your own writing. Your meaning, citations and voice are kept.",
+    meta: `${refinementRateLabel} · min ${formatHKD(refinementPricing.minimum)}`,
     href: "/services/refinement",
   },
 ];
@@ -41,12 +42,12 @@ export function CoreServices() {
         <SectionHeading
           eyebrow="Three services"
           title="Three services, clearly separated."
-          body="An instant estimate from us, a real screening result when you need one, and optional human editing. Each is labelled for exactly what it is."
+          body="An instant estimate from us, a real screening report when you need one, and optional human refinement of your own writing. Each is labelled for exactly what it is."
         />
         <Stagger className="mt-14 grid gap-5 md:grid-cols-3">
           {cards.map((c) => (
             <StaggerItem key={c.title}>
-              <SpotlightCard className="h-full">
+              <SpotlightCard press className="h-full">
                 <Link href={c.href} className="flex h-full flex-col p-6 sm:p-7">
                   <div className="flex items-center justify-between">
                     <span className="grid size-11 place-items-center rounded-xl border border-[var(--line)] bg-gradient-to-b from-white/[0.07] to-transparent">
