@@ -1,4 +1,8 @@
-# Connecting accounts (Supabase) — 10 minutes, no coding
+# Connecting accounts (Supabase)
+
+**Status 2026-10-05:** project `zero-percent` (Singapore) is already created and all four migrations are applied. Only steps 3–5 below remain (they need your dashboard / Vercel).
+
+(Steps 1–2 are only needed if you ever make a fresh project.)
 
 Until this is done, sign-up/login show "Getting accounts ready" and report/refinement orders can't be submitted. The free scan works either way.
 
@@ -6,7 +10,7 @@ Until this is done, sign-up/login show "Getting accounts ready" and report/refin
 1. supabase.com → New project (any name, pick a region near Hong Kong, e.g. Singapore). Save the database password somewhere safe.
 2. Wait about 2 minutes until it says "Healthy".
 
-## 2. Create the tables (one paste)
+## 2. Create the tables (one paste, only for a fresh project)
 1. Left menu → **SQL Editor** → **New query**.
 2. Open `supabase/setup.sql` in this repo, copy everything, paste, press **Run**. Run it **once only**.
 3. You should see "Success. No rows returned". (This makes tables, security rules and the private file buckets.)

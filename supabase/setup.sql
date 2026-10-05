@@ -1,5 +1,5 @@
--- 0%: one-shot database setup. Paste this whole file into Supabase > SQL Editor > New query > Run, once.
--- It is the three migrations in order (0001 → 0003). Do not run it twice.
+-- 0%: one-shot database setup for a FRESH Supabase project. Paste into SQL Editor > Run, once.
+-- The hosted project was already set up on 2026-10-05, so you do not need this unless you make a new project.
 
 -- ===== supabase/migrations/0001_init.sql =====
 -- Proofline initial schema
@@ -580,4 +580,12 @@ revoke all on function public.claim_model_job(text, text) from public, anon, aut
 grant execute on function public.touch_model_worker(text) to service_role;
 grant execute on function public.purge_model_jobs() to service_role;
 grant execute on function public.claim_model_job(text, text) to service_role;
+
+-- ===== supabase/migrations/0004_security_hardening.sql =====
+-- Locks down helper functions flagged by Supabase's security advisor.
+-- Apply after 0003. (Already applied to the hosted project.)
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+alter function public.protect_profile_columns() set search_path = public;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated, service_role;
 
