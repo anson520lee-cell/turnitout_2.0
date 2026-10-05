@@ -64,7 +64,12 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
     for (const [i, body] of attempts.entries()) {
       const res = await post(body);
       if (res.status === 400 && i < attempts.length - 1) continue;
-      if (!res.ok) throw new DeepSeekError();
+      if (!res.ok) {
+        // Status and error code only (never the text or the key), so a wrong model id shows up in the host's logs.
+        const err = (await res.json().catch(() => null)) as { error?: { type?: string; code?: string } } | null;
+        console.error("deepseek request failed", { status: res.status, model: deepseekModel(), type: err?.error?.type, code: err?.error?.code });
+        throw new DeepSeekError();
+      }
       const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
       const text = data.choices?.[0]?.message?.content?.trim();
       if (!text) throw new DeepSeekError("The writing model returned nothing.");
