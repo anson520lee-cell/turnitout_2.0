@@ -41,3 +41,6 @@ update public.profiles set role = 'admin' where email = 'your-email@example.com'
 
 ## Check it works
 Sign up → you land logged in → open Get a report → paste text → Enter → you reach the payment page. Admin appears under /admin.
+
+## Vercel variable types
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are public by design: choose type **Config**. Only `SUPABASE_SERVICE_ROLE_KEY` is **Secret**. After changing variables, a push (or Redeploy of the *Preview* deployment) is needed so the new build sees them.
