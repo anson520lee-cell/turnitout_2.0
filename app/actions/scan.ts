@@ -27,8 +27,9 @@ export type ScanResponse =
 
 /**
  * Free preliminary scan, with or without an account. Signed-in users use
- * their account's daily allowance and the scores are saved to their history;
- * guests use the per-IP allowance and nothing is saved.
+ * their account's daily allowance (kept per account per day in the database,
+ * so logging out and in again never resets it) and the scores are saved to
+ * their history; guests use the per-IP allowance and nothing is saved.
  */
 export async function runScan(rawText: string): Promise<ScanResponse> {
   // Validate first, then consume: invalid input never costs a scan.
@@ -41,8 +42,18 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
   const user = await getSessionUser();
 
   let remaining: number | null;
+  // Signed-in scans also use up this address's guest allowance, so logging
+  // out does not hand out a fresh set of free scans. Never blocks a signed-in user.
+  let countedOnAddress = false;
   try {
     remaining = user ? await incrementScanUsage() : await consumeGuestScan();
+    if (user && remaining !== null) {
+      try {
+        countedOnAddress = (await consumeGuestScan()) !== null;
+      } catch {
+        // The account's own count is what enforces the limit for signed-in users.
+      }
+    }
   } catch {
     return { ok: false, code: "failed", message: "We couldn't check your daily allowance. Please try again." };
   }
@@ -81,6 +92,7 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
   } catch {
     try {
       await (user ? refundScanUsage(user.id) : refundGuestScan());
+      if (user && countedOnAddress) await refundGuestScan();
     } catch {
       // The analysis error is what the user needs to see; a lost refund costs one scan at most.
     }
