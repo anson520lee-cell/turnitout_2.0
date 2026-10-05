@@ -11,7 +11,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  */
 
 const BASE_URL = process.env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com";
-const DEFAULT_MODEL = "deepseek-v4-flash";
+const DEFAULT_MODEL = "deepseek-flash";
 const DEFAULT_EFFORT = "low";
 const TIMEOUT_MS = 90_000;
 
