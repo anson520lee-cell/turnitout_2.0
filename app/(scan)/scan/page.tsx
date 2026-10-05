@@ -8,14 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { getSessionUser } from "@/lib/auth/session";
-import { localModelEnabled } from "@/lib/local-model/jobs";
+import { deepseekEnabled } from "@/lib/deepseek";
 import { guestRemainingScans } from "@/lib/scanning/guest";
 import { getRemainingScans } from "@/lib/scanning/usage";
 import { createClient } from "@/lib/supabase/server";
 import { uuid } from "@/lib/validation/schemas";
 import { formatDateTime } from "@/lib/utils";
 import type { ScanResultRow } from "@/types/domain";
-import { freeScan, localModel } from "@/config/app";
+import { freeScan } from "@/config/app";
 
 export const metadata: Metadata = {
   title: "Free writing scan",
@@ -78,7 +78,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
           <FormMessage tone="info">That saved scan wasn&rsquo;t found in your history. You can run a new one below.</FormMessage>
         </div>
       )}
-      <ScanWorkspace access={access} modelFeedback={localModelEnabled() && localModel.scanFeedback} />
+      <ScanWorkspace access={access} modelFeedback={deepseekEnabled()} />
     </>
   );
 }

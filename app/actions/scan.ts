@@ -2,7 +2,7 @@
 
 import { getSessionUser } from "@/lib/auth/session";
 import { notifyOwner } from "@/lib/notify";
-import { enqueueScanFeedback } from "@/lib/local-model/jobs";
+import { issueFeedbackTicket } from "@/lib/deepseek";
 import { getAnalyzer } from "@/lib/scanning";
 import { consumeGuestScan, refundGuestScan } from "@/lib/scanning/guest";
 import { forStorage, type AnalysisResult } from "@/lib/scanning/types";
@@ -20,8 +20,8 @@ export type ScanResponse =
       guest: boolean;
       /** Saved scan id (accounts only). */
       scanId: string | null;
-      /** Poll /api/scan-feedback/{id} for the local model's written feedback; null when there is none. */
-      feedbackJobId: string | null;
+      /** Signed ticket for POST /api/scan-feedback (written feedback on this text); null when feedback is off. */
+      feedbackTicket: string | null;
     }
   | { ok: false; code: "invalid" | "limit" | "failed"; message: string };
 
@@ -99,8 +99,8 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
     remaining,
   });
 
-  // Only while the owner's model is online; the scan result never waits on it.
-  const feedbackJobId = await enqueueScanFeedback(text);
+  // The browser fetches written feedback separately; the scan result never waits on it.
+  const feedbackTicket = issueFeedbackTicket(text);
 
-  return { ok: true, result, remaining, guest: !user, scanId, feedbackJobId };
+  return { ok: true, result, remaining, guest: !user, scanId, feedbackTicket };
 }

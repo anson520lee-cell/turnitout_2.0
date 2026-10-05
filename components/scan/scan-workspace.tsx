@@ -11,7 +11,7 @@ import { FormMessage } from "@/components/ui/field";
 import { PasteDialog, type PasteResult } from "@/components/ui/paste-dialog";
 import { ScanResult } from "./scan-result";
 import { ScanVisual } from "./scan-visual";
-import { freeScan, localModel, retention } from "@/config/app";
+import { freeScan, retention } from "@/config/app";
 import { countChars, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { freeScanCharError } from "@/lib/orders/limits";
@@ -64,7 +64,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const [dropError, setDropError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ ticket: string; text: string } | null>(null);
   const [run, setRun] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -127,7 +127,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setGuest(res.guest);
     setRemaining(res.remaining);
     setResult(res.result);
-    setFeedbackJobId(res.feedbackJobId);
+    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text } : null);
     setRun((n) => n + 1);
     revealPending.current = true;
     track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
@@ -138,7 +138,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     retention.storeScanText && !guest
       ? "Your text is saved with your scan history."
       : modelFeedback
-        ? `Your text isn\u2019t stored. If our writing model is online, it also writes you feedback, and the text is deleted once the model has read it (within ${localModel.scanFeedbackMinutes} minutes).`
+        ? `Your text isn\u2019t stored. It is also sent to an outside AI provider (DeepSeek) to write you feedback, and isn\u2019t kept.`
         : "Your text is analysed on our server and not stored.";
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
@@ -303,7 +303,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
                 </Button>
               </div>
             </div>
-            <ScanResult result={result} feedbackJobId={feedbackJobId} />
+            <ScanResult result={result} feedback={feedback} />
           </motion.section>
         )}
       </div>

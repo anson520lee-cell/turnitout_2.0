@@ -60,12 +60,12 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
 export function ScanResult({
   result,
   createdAt,
-  feedbackJobId,
+  feedback,
 }: {
   result: AnalysisResult;
   createdAt?: string;
   /** Live scans only: the local model's written feedback, fetched as it arrives. */
-  feedbackJobId?: string | null;
+  feedback?: { ticket: string; text: string } | null;
 }) {
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
@@ -113,7 +113,7 @@ export function ScanResult({
         </Card>
       </div>
 
-      {feedbackJobId && <ModelFeedback jobId={feedbackJobId} />}
+      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} />}
 
       {result.readability && <ReadabilityCard r={result.readability} />}
 

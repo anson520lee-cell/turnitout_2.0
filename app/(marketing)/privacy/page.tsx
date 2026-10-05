@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 import { brand, localModel, retention, uploads } from "@/config/app";
-import { localModelEnabled } from "@/lib/local-model/jobs";
+import { deepseekEnabled } from "@/lib/deepseek";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 // Foundation text. Have it reviewed against the PDPO (Cap. 486) before launch.
 export default function PrivacyPage() {
-  const model = localModelEnabled();
+  const model = deepseekEnabled();
   return (
     <>
       <PageHeader eyebrow="Privacy" title="Privacy policy" body="How we handle your account, your writing and your documents." />
@@ -22,8 +22,8 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Account:</strong> email address, optional display name, sign-in records.</li>
           <li><strong>Free scans:</strong> the signal scores and risk level for each scan. {retention.storeScanText ? "The scanned text is also stored." : "The text you paste is analysed in memory and not stored."}</li>
-          {model && localModel.scanFeedback && (
-            <li><strong>Writing feedback on free scans:</strong> while our writing model is online, the text you scan is also passed to it so it can write you feedback. The text is held only until the model picks it up, and the feedback is deleted once it has been shown to you, both within {localModel.scanFeedbackMinutes} minutes. Neither is saved to your scan history.</li>
+          {model && (
+            <li><strong>Writing feedback on free scans:</strong> the text you scan is also sent to an outside AI provider (DeepSeek) so it can write you feedback. We don&rsquo;t store the text or the feedback, and neither is saved to your scan history.</li>
           )}
           <li><strong>Orders:</strong> the document or text you submit, its title, any notes, the service chosen, and the result we deliver.</li>
           <li><strong>Payments:</strong> made by Alipay, PayMe, bank transfer or card (Stripe). For Alipay, PayMe and bank transfer we store the payment reference you enter (transaction number or payer name), the amount and the status so we can match your payment. We never receive or store card details.</li>
@@ -35,10 +35,7 @@ export default function PrivacyPage() {
           <li>Access is limited to you and authorised staff, enforced by database access rules, and opened through signed links that expire after {uploads.signedUrlTtl} seconds.</li>
           <li>For screening, a staff member downloads your document and runs the screening on an external service (Turnitin). Screenings are configured not to store your paper in any repository.</li>
           {model && localModel.refinementDrafts && (
-            <li>For writing refinement, our writing model may prepare a first draft from your text. A staff member reviews and edits every draft, and nothing the model writes reaches you without that review. Drafts are deleted together with your text.</li>
-          )}
-          {model && (
-            <li>Our writing model runs on equipment we operate. Your text is not sent to an outside AI provider.</li>
+            <li>For writing refinement, an AI model (DeepSeek, an outside provider) may prepare a first draft from your text, so the text is sent to that provider. A staff member reviews and edits every draft, and nothing the model writes reaches you without that review. Drafts are deleted together with your text.</li>
           )}
           <li>We do not put document contents in analytics or logs.</li>
           <li>Every status change and file access is recorded in an audit log.</li>
@@ -56,6 +53,7 @@ export default function PrivacyPage() {
           <li><strong>Stripe:</strong> card payment processing.</li>
           <li><strong>Alipay, PayMe and your bank:</strong> when you pay by those methods, they process the payment under their own terms.</li>
           <li><strong>Turnitin:</strong> used by our staff to perform screening you order. Turnitin is a third-party service and is not affiliated with us.</li>
+          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for free-scan feedback and refinement drafts. It is not used for screening orders.</li>}
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>
         <h2>Your rights</h2>

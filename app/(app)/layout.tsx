@@ -13,3 +13,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
+// Refinement drafts are written by DeepSeek after the response (lib/local-model/jobs.ts).
+export const maxDuration = 300;

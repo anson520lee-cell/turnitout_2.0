@@ -11,6 +11,7 @@ import { notificationChannels } from "@/lib/notify";
 import { getScreeningProvider } from "@/lib/screening";
 import { getAnalyzer } from "@/lib/scanning";
 import { trustsProxyHeaders } from "@/lib/scanning/guest";
+import { deepseekEnabled, deepseekModel } from "@/lib/deepseek";
 import { localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
 import { formatDateTime } from "@/lib/utils";
 
@@ -49,15 +50,17 @@ export default async function AdminSettings() {
     ],
     ["Preliminary analyzer", getAnalyzer().id],
     [
-      "Local writing model",
+      "Writing model (DeepSeek)",
       <div key="m" className="space-y-1">
-        {!localModelEnabled()
+        {deepseekEnabled()
+          ? on(`On · ${deepseekModel()}`)
+          : !localModelEnabled()
           ? off("Off")
           : worker.online
             ? on(`Online${worker.model ? ` · ${worker.model}` : ""}`)
             : off(worker.lastSeenAt ? `Offline · last seen ${formatDateTime(worker.lastSeenAt)}` : "Waiting for the worker to connect")}
         <p className="text-[12px] text-fg-subtle">
-          Set {env("MODEL_WORKER_SECRET")}, then run the worker on your computer (README &gt; Local writing model). Scan feedback only runs while it&rsquo;s online.
+          Set {env("DEEPSEEK_API_KEY")} in Vercel to write free-scan feedback and refinement drafts with DeepSeek. Without it, drafts can still use the worker on your computer ({env("MODEL_WORKER_SECRET")}).
         </p>
       </div>,
     ],

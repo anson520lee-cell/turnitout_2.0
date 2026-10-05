@@ -2,17 +2,15 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { MessageSquareText } from "lucide-react";
-import type { ScanFeedbackStatus } from "@/lib/local-model/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { localModel } from "@/config/app";
 import { track } from "@/lib/analytics";
 
-type State = ScanFeedbackStatus | { status: "waiting" };
+type State = { status: "waiting" } | { status: "done"; feedback: string } | { status: "unavailable" };
 
-// Feedback is handed over once, then deleted on the server. Kept here so a
-// remount (React dev mode runs effects twice) doesn't lose it.
-const received = new Map<string, string>();
+// Feedback is requested once per scan. Kept here so a remount (React dev mode
+// runs effects twice) neither asks twice nor loses it.
+const requests = new Map<string, Promise<State>>();
 
 /** Model output → points: "- ", "* ", "• " or "1." starts a point; other lines continue it. */
 function toPoints(text: string): string[] {
@@ -27,61 +25,45 @@ function toPoints(text: string): string[] {
   return points;
 }
 
-function usePolledFeedback(jobId: string): State {
-  const [state, setState] = useState<State>(() => {
-    const done = received.get(jobId);
-    return done ? { status: "done", feedback: done } : { status: "waiting" };
-  });
+function useFeedback(ticket: string, text: string): State {
+  const [state, setState] = useState<State>({ status: "waiting" });
 
   useEffect(() => {
-    if (received.has(jobId)) return;
     let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = Date.now() + localModel.scanFeedbackMinutes * 60_000;
-    let misses = 0;
-
-    const tick = async () => {
-      let next: ScanFeedbackStatus | null = null;
-      try {
-        const res = await fetch(`/api/scan-feedback/${jobId}`, { cache: "no-store" });
-        if (res.ok) next = (await res.json()) as ScanFeedbackStatus;
-      } catch {
-        // Offline for a moment; try again below.
-      }
-      if (next?.status === "done") received.set(jobId, next.feedback);
+    let request = requests.get(ticket);
+    if (!request) {
+      request = fetch("/api/scan-feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ticket, text }),
+        cache: "no-store",
+      })
+        .then(async (res): Promise<State> => {
+          const data = res.ok ? ((await res.json()) as { feedback?: string }) : null;
+          return data?.feedback ? { status: "done", feedback: data.feedback } : { status: "unavailable" };
+        })
+        .catch((): State => ({ status: "unavailable" }));
+      requests.set(ticket, request);
+    }
+    request.then((next) => {
       if (stopped) return;
-      if (next) {
-        misses = 0;
-        setState(next);
-        if (next.status === "done") track("scan_feedback_shown");
-        if (next.status !== "queued" && next.status !== "running") return;
-      } else if (++misses >= 5) {
-        setState({ status: "unavailable" });
-        return;
-      }
-      if (Date.now() > deadline) {
-        setState({ status: "unavailable" });
-        return;
-      }
-      timer = setTimeout(tick, 2500);
-    };
-    tick();
+      setState(next);
+      if (next.status === "done") track("scan_feedback_shown");
+    });
     return () => {
       stopped = true;
-      clearTimeout(timer);
     };
-  }, [jobId]);
+  }, [ticket, text]);
 
   return state;
 }
 
 /**
- * Written feedback from the owner's local model, under a free scan. Appears
- * only when the scan queued a feedback job; the rest of the report never
- * waits on it.
+ * Written feedback from DeepSeek, under a free scan. Appears only when
+ * feedback is switched on; the rest of the report never waits on it.
  */
-export function ModelFeedback({ jobId }: { jobId: string }) {
-  const state = usePolledFeedback(jobId);
+export function ModelFeedback({ ticket, text }: { ticket: string; text: string }) {
+  const state = useFeedback(ticket, text);
 
   if (state.status === "unavailable") {
     return (
@@ -127,7 +109,7 @@ export function ModelFeedback({ jobId }: { jobId: string }) {
       ) : (
         <div className="relative mt-4">
           <p className="flex items-center gap-2 text-[13px] text-fg-muted">
-            {state.status === "running" ? "Our model is reading your text" : "Waiting for our writing model"}
+            Our model is reading your text
             <span aria-hidden className="inline-flex gap-1">
               {[0, 160, 320].map((d) => (
                 <span key={d} className="waiting-dot size-1 rounded-full bg-violet" style={{ animationDelay: `${d}ms` }} />
