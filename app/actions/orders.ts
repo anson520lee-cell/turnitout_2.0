@@ -20,12 +20,19 @@ import { autoTitle } from "@/lib/orders/limits";
 import { countWords, appUrl, shortId } from "@/lib/utils";
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
-import { devPaymentsEnabled, isStripeConfigured } from "@/lib/env";
+import { devPaymentsEnabled, isStripeConfigured, isSupabaseConfigured } from "@/lib/env";
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
 import type { Order } from "@/types/domain";
 
 type Fail = { ok: false; message: string };
+
+/** Guest submit message. Before accounts are connected, say so plainly instead of pointing at a sign-in that can't work yet. */
+function signInMessage(): string {
+  return isSupabaseConfigured
+    ? "Please sign in or create a free account to submit this."
+    : "Ordering opens as soon as accounts are connected. Nothing you pasted was sent or stored, so you can come back and paste it again.";
+}
 
 /** Unpaid orders one account may hold at once (keeps spam out of the owner's inbox). */
 const MAX_UNPAID_ORDERS = 10;
@@ -62,7 +69,7 @@ async function ownOrder(orderId: string, userId: string): Promise<Order | null> 
  */
 export async function createScreeningTextOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
   const user = await getSessionUser();
-  if (!user) return { ok: false, message: "Please sign in or create a free account to submit this." };
+  if (!user) return { ok: false, message: signInMessage() };
   const parsed = screeningTextOrderInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
   if (await tooManyUnpaid(user.id)) return { ok: false, message: TOO_MANY_UNPAID };
@@ -203,7 +210,7 @@ export async function confirmUpload(orderId: string): Promise<{ ok: true } | Fai
  */
 export async function createRefinementOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
   const user = await getSessionUser();
-  if (!user) return { ok: false, message: "Please sign in or create a free account to submit this." };
+  if (!user) return { ok: false, message: signInMessage() };
   const parsed = refinementOrderInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid order." };
   if (await tooManyUnpaid(user.id)) return { ok: false, message: TOO_MANY_UNPAID };

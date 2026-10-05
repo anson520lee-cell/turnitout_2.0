@@ -83,7 +83,7 @@ See `.env.example`. `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WE
 ### Supabase
 
 1. Create a project. Copy the URL, anon key and service role key into `.env.local`.
-2. Apply the schema: `supabase db push` (with the Supabase CLI linked), or paste `supabase/migrations/0001_init.sql` into the SQL editor. This creates the private `documents` and `reports` buckets with size and MIME limits.
+2. Apply the schema: `supabase db push` (with the Supabase CLI linked), or paste the whole of `supabase/setup.sql` (all three migrations in order) into the SQL editor and run it once. Step-by-step: `docs/SUPABASE_SETUP.md`. This creates the private `documents` and `reports` buckets with size and MIME limits.
 3. **Auth → URL configuration**: set Site URL to your app URL and add `<app-url>/auth/callback` to redirect URLs.
 4. Optional Google sign-in: enable the Google provider, then set `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=true`.
 5. Make yourself an admin (SQL editor):
