@@ -126,7 +126,7 @@ export function GreekText({
           ) : (
             <div
               key={i}
-              className={`relative overflow-hidden whitespace-pre font-mono leading-[1.35] ${textClass}`}
+              className={`font-code relative overflow-hidden whitespace-pre leading-[1.35] ${textClass}`}
               style={flaggedSet.has(i) ? { color: flagColor } : undefined}
             >
               {flaggedSet.has(i) && (

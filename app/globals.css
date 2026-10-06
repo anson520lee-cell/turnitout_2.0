@@ -25,8 +25,9 @@
   --color-warn: #f5c35b;
   --color-risk: #ff7a8a;
 
-  /* SF on Apple devices, Inter (its closest open relative) everywhere else. */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", var(--font-inter), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Georgia throughout. Devices without it (Android, Linux) get Gelasio, which
+     is drawn to the same widths, so the layout is identical. */
+  --font-sans: Georgia, var(--font-gelasio), "Times New Roman", Times, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --radius-xl: 14px;
@@ -926,51 +927,66 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
    Space + AI-learning theme
    ------------------------------------------------------------------ */
 
-/* 3D buttons: a solid edge under the face. Hover raises the button (longer
-   edge), pressing drives it down onto its base. --edge is the side colour,
-   --depth its height, --glowc the colour of the light it throws. */
-.btn-3d {
-  --depth: 5px;
+/* Liquid glass buttons. One pane of glass for every filled variant:
+   --tint is its colour, --fill how much of that colour is in the glass (the
+   primary is a deep blue glass, the secondary nearly clear), --edge-a the
+   strength of its edge. Light comes from above: a bright top edge, a soft
+   sheen across the upper half, the tint pooling at the bottom the way light
+   gathers in thick glass, and whatever is behind shows through, blurred.
+   Hover lifts and brightens it; pressing pushes it down. */
+.btn-glass {
+  --tint: 150 175 255;
+  --fill: 0.12;
+  border: 1px solid rgb(255 255 255 / var(--edge-a, 0.26));
+  background:
+    radial-gradient(120% 100% at 50% -35%, rgb(255 255 255 / 0.56), rgb(255 255 255 / 0.1) 46%, transparent 62%),
+    radial-gradient(85% 75% at 50% 125%, rgb(var(--tint) / 0.6), transparent 65%),
+    linear-gradient(180deg, rgb(var(--tint) / var(--fill)), rgb(var(--tint) / calc(var(--fill) * 0.62)));
+  backdrop-filter: blur(18px) saturate(190%) brightness(1.1);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / var(--sheen, 0.4)),
-    inset 0 -2px 4px rgb(0 0 0 / 0.22),
-    0 var(--depth) 0 var(--edge, #0b1020),
-    0 calc(var(--depth) + 1px) 0 rgb(0 0 0 / 0.5),
-    0 calc(var(--depth) + 8px) 18px -4px rgb(0 0 0 / 0.6),
-    0 calc(var(--depth) + 4px) 30px -8px rgb(var(--glowc, 91 140 255) / 0.55);
-  text-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
+    inset 0 1.5px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(255 255 255 / 0.14),
+    inset 0 -8px 14px -8px rgb(var(--tint) / 0.55),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 12px 26px -12px rgb(0 0 0 / 0.75),
+    0 8px 30px -10px rgb(var(--tint) / 0.5);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.28);
+  letter-spacing: -0.005em;
 }
-.btn-3d:hover {
+.btn-glass:hover {
   translate: 0 -2px;
+  filter: brightness(1.1) saturate(1.08);
+  border-color: rgb(255 255 255 / 0.42);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / var(--sheen, 0.4)),
-    inset 0 -2px 4px rgb(0 0 0 / 0.22),
-    0 calc(var(--depth) + 2px) 0 var(--edge, #0b1020),
-    0 calc(var(--depth) + 3px) 0 rgb(0 0 0 / 0.5),
-    0 calc(var(--depth) + 14px) 26px -4px rgb(0 0 0 / 0.65),
-    0 calc(var(--depth) + 8px) 40px -6px rgb(var(--glowc, 91 140 255) / 0.8);
+    inset 0 1.5px 0 rgb(255 255 255 / 0.75),
+    inset 0 -1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -10px 16px -8px rgb(var(--tint) / 0.7),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 20px 34px -14px rgb(0 0 0 / 0.8),
+    0 12px 40px -8px rgb(var(--tint) / 0.75);
 }
-.btn-3d:active,
-.btn-3d[data-pressed] {
-  translate: 0 calc(var(--depth) - 1px);
-  scale: 0.985;
+.btn-glass:active,
+.btn-glass[data-pressed] {
+  translate: 0 1px;
+  scale: 0.965;
+  filter: brightness(0.96);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / var(--sheen, 0.4)),
-    inset 0 2px 6px rgb(0 0 0 / 0.35),
-    0 1px 0 var(--edge, #0b1020),
-    0 2px 0 rgb(0 0 0 / 0.5),
-    0 3px 8px -2px rgb(0 0 0 / 0.6),
-    0 2px 14px -6px rgb(var(--glowc, 91 140 255) / 0.6);
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 3px 10px rgb(0 0 0 / 0.3),
+    inset 0 -6px 12px -8px rgb(var(--tint) / 0.5),
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 4px 12px -6px rgb(0 0 0 / 0.7),
+    0 3px 16px -8px rgb(var(--tint) / 0.5);
   transition:
-    translate 0.07s ease-out,
-    scale 0.07s ease-out,
-    box-shadow 0.07s ease-out,
-    background-color 0.1s ease,
-    border-color 0.1s ease,
-    color 0.1s ease,
-    filter 0.1s ease;
+    translate 0.08s ease-out,
+    scale 0.08s ease-out,
+    box-shadow 0.08s ease-out,
+    filter 0.08s ease-out,
+    border-color 0.1s ease;
 }
-.btn-3d:disabled { translate: none; }
+.btn-glass:disabled { translate: none; filter: none; }
 
 /* Sidebar items sit on the same kind of base when active. */
 .nav-3d {
@@ -1194,18 +1210,15 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
 }
 
 /* ------------------------------------------------------------------
-   Liquid glass. Type and surfaces in the manner of Apple's glass UI:
-   SF-style letterforms (the system font on Apple devices, Inter elsewhere),
-   tight optical tracking, headings cast in glass (a soft vertical gradient
-   with a lit top edge), and panes that are clearer, more saturated and
-   edged with light.
+   Liquid glass. Type and surfaces in the manner of Apple's glass UI, set in
+   Georgia: headings cast in glass (a soft vertical gradient with a lit top
+   edge), and panes that are clearer, more saturated and edged with light.
    ------------------------------------------------------------------ */
 body {
-  font-feature-settings: "ss01", "cv11", "calt", "kern";
-  letter-spacing: -0.011em;
-  font-optical-sizing: auto;
+  font-kerning: normal;
+  font-variant-numeric: lining-nums;
 }
-h1, h2, h3, h4 { letter-spacing: -0.032em; font-feature-settings: "ss01", "cv11", "calt"; }
+h1, h2, h3, h4 { letter-spacing: -0.014em; }
 
 /* Headings cast in glass. :where() keeps the specificity at zero so a
    heading that sets its own gradient (text-gradient, the title sheen) or
@@ -1221,15 +1234,18 @@ h1, h2, h3, h4 { letter-spacing: -0.032em; font-feature-settings: "ss01", "cv11"
    chip) keeps ordinary solid text. */
 :where(h1, h2) :where([class*="bg-"]:not([class*="bg-clip"]), .glass, .glass-strong) { -webkit-text-fill-color: currentColor; }
 
-/* Small capitals labels were set in a mono face; they are now the same
-   SF-style sans, medium weight and widely tracked. Mono stays for real code
-   and identifiers (anything not uppercase). */
+/* Small capitals labels were set in a mono face; they are now the text face,
+   bold and widely tracked. */
 .font-mono.uppercase {
   font-family: var(--font-sans);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.14em;
-  font-feature-settings: "ss01", "cv11", "tnum";
 }
+/* Everything else set in the mono face (order numbers, references, amounts)
+   is Georgia too; only the typed-code illustration keeps a fixed-width face
+   (see .font-code), because its indentation has to line up. */
+.font-mono { font-family: var(--font-sans); font-variant-numeric: lining-nums tabular-nums; }
+.font-code { font-family: var(--font-mono); }
 
 /* A clear glass pane: used by the Pattern Engine figure. */
 .liquid-glass {
