@@ -25,10 +25,7 @@
   --color-warn: #f5c35b;
   --color-risk: #ff7a8a;
 
-  /* Inter for reading text; Space Grotesk (a technical, geometric face) for
-     headings, buttons and labels; Geist Mono for numbers and code. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --radius-xl: 14px;
@@ -1211,40 +1208,9 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
 }
 
 /* ------------------------------------------------------------------
-   Liquid glass. Type and surfaces: Inter for text, Space Grotesk for
-   headings (cast in glass: a soft vertical gradient with a lit top edge),
-   buttons and labels, and panes that are clearer, more saturated and edged
-   with light.
+   Glass surfaces and the typed-code face. Type itself is the original
+   setup: Geist for text, Geist Mono for labels, numbers and code.
    ------------------------------------------------------------------ */
-body {
-  font-kerning: normal;
-  font-feature-settings: "cv11", "ss03", "calt";
-  letter-spacing: -0.011em;
-}
-h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.03em; }
-.btn-fx { font-family: var(--font-display); letter-spacing: -0.01em; }
-
-/* Headings cast in glass. :where() keeps the specificity at zero so a
-   heading that sets its own gradient (text-gradient, the title sheen) or
-   colour still wins. */
-:where(h1, h2):not(.sr-only) {
-  background-image: linear-gradient(178deg, #ffffff 6%, #eef3ff 34%, #b6c6ff 58%, #e9eeff 78%, #ffffff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.22)) drop-shadow(0 12px 28px rgb(91 140 255 / 0.32));
-}
-/* Anything inside a heading that carries its own background (a badge, a
-   chip) keeps ordinary solid text. */
-:where(h1, h2) :where([class*="bg-"]:not([class*="bg-clip"]), .glass, .glass-strong) { -webkit-text-fill-color: currentColor; }
-
-/* Small capitals labels are set in the display face, widely tracked. Numbers,
-   identifiers and code stay in the mono face. */
-.font-mono.uppercase {
-  font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: 0.16em;
-}
 .font-code { font-family: var(--font-mono); }
 
 /* The Pattern Engine instrument panel (components/landing/neural-engine.tsx). */

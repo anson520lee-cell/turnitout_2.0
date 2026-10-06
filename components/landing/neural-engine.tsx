@@ -7,13 +7,15 @@ import { ENGINE_SIGNALS } from "./engine-core";
  * signals are listed in text beside it.
  *
  * It is a real, tiny network running real forward passes, drawn on a canvas:
- * about every 1.6 seconds a new sample arrives (six random signal values),
+ * a new sample arrives every one to five seconds (six random signal values;
+ * the pace is uneven, some passes quick and some slow),
  * the values are multiplied through fixed random weights layer by layer
  * (tanh units), and a sigmoid turns the last sum into the estimate. What is
  * drawn is that arithmetic: each neuron glows by its activation, each
  * connection by weight × activation (cyan positive, violet negative), packets
- * ride the wavefront as it crosses the layers, and the dial scrambles while
- * the pass is in flight, then lands on the result. So the estimate moves
+ * ride the wavefront as it crosses the layers, and the dial hunts while the
+ * pass is in flight (wild jumps at first, then slower and closer as the
+ * answer firms up), then lands on the result. So the estimate moves
  * across the whole 0–100% range, sample after sample.
  *
  * The sample's strongest signal is marked and its row in the list lit; hover
@@ -26,7 +28,11 @@ const OUT = LAYERS.length - 1;
 const X = [0.34, 0.47, 0.6, 0.72, 0.872]; // layer x, fraction of the panel
 const TOP = 0.215;
 const BOTTOM = 0.815;
-const PERIOD = 1.6; // seconds per sample
+/** Seconds a sample takes. Uneven on purpose: quick ones, ordinary ones, and now and then a slow one. */
+const nextPeriod = () => {
+  const p = Math.random();
+  return p < 0.3 ? 0.8 + Math.random() * 0.5 : p < 0.8 ? 1.5 + Math.random() * 1.1 : 3 + Math.random() * 1.8;
+};
 const ARRIVE = [0.1, 0.27, 0.44, 0.61, 0.78]; // when the wavefront reaches each layer (fraction of the period)
 const CAPTIONS = ["IN·6", "H1·10", "H2·10", "H3·6", "OUT"];
 const SHORT = ["Variation", "Repetition", "Transitions", "Phrasing", "Lexical", "Paragraphs"];
@@ -110,7 +116,7 @@ export function NeuralEngine({
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       const cs = getComputedStyle(document.documentElement);
       const m = cs.getPropertyValue("--font-geist-mono").trim();
-      const d = cs.getPropertyValue("--font-space-grotesk").trim();
+      const d = cs.getPropertyValue("--font-geist-sans").trim();
       if (m) mono = `${m}, ui-monospace, monospace`;
       if (d) display = `${d}, ui-sans-serif, sans-serif`;
     }
@@ -438,23 +444,23 @@ export function NeuralEngine({
     let visible = false;
     let t0 = performance.now();
     let last = t0;
-    let cycle = -1;
-    let scrambleAt = 0;
+    let u = 0; // progress through the current sample, 0…1
+    let period = nextPeriod();
+    let nextJump = 0; // when the dial next changes while computing
 
     function frame(now: number) {
       raf = requestAnimationFrame(frame);
       if (!visible) return;
-      const dt = Math.min(0.05, (now - last) / 1000);
+      // never negative: the observer may stamp `last` a hair after this frame's own timestamp
+      const dt = clamp((now - last) / 1000, 0, 0.05);
       last = now;
       const time = (now - t0) / 1000;
-      const n = Math.floor(time / PERIOD);
-      const u = time / PERIOD - n;
-      if (n !== cycle) {
-        if (cycle >= 0) {
-          history.push(tgt[OUT][0]);
-          if (history.length > 24) history.shift();
-        }
-        cycle = n;
+      u += dt / period;
+      if (u >= 1) {
+        u = 0;
+        period = nextPeriod();
+        history.push(tgt[OUT][0]);
+        if (history.length > 24) history.shift();
         forward();
       }
       // each layer eases to its new activations once the wavefront reaches it
@@ -464,10 +470,14 @@ export function NeuralEngine({
         for (let i = 0; i < LAYERS[l]; i++) act[l][i] += (tgt[l][i] - act[l][i]) * rate;
       }
       if (u < ARRIVE[OUT]) {
-        // still computing: the readout scrambles
-        if (now - scrambleAt > 45) {
-          scrambleAt = now;
-          shown = Math.random() * 100;
+        // Still computing: the readout hunts for the answer. Early on it
+        // jumps anywhere, often; as the pass nears the output the jumps come
+        // slower and stay closer to where it will land.
+        if (now >= nextJump) {
+          const near = Math.pow(clamp(u / ARRIVE[OUT]), 1.6);
+          const target = tgt[OUT][0] * 100;
+          shown = clamp((target + (Math.random() * 100 - target) * (1 - near * 0.85)) / 100) * 100;
+          nextJump = now + (55 + near * 300) * (0.5 + Math.random()) * Math.min(1.8, period / 1.6);
         }
       } else {
         shown += (tgt[OUT][0] * 100 - shown) * (1 - Math.exp(-dt * 16));
