@@ -100,14 +100,22 @@ export function StaggerItem({
   className,
   children,
   tilt,
+  z,
+  hoverZ,
 }: {
   className?: string;
   children: React.ReactNode;
   tilt?: boolean | number;
+  /** Depth in px above its parent, when the parent keeps its children in 3D. */
+  z?: number;
+  /** Depth while hovered: the item rises toward the viewer. */
+  hoverZ?: number;
 }) {
   return (
     <motion.div
       className={["reveal-3d", className].filter(Boolean).join(" ")}
+      style={z !== undefined ? { z } : undefined}
+      whileHover={hoverZ !== undefined ? { z: hoverZ, transition: { type: "spring", stiffness: 260, damping: 22 } } : undefined}
       {...tiltProps(tilt)}
       variants={{
         hidden: hidden(30, 22),
