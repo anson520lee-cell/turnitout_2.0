@@ -55,7 +55,8 @@ export function PatternEngine() {
         <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.02fr] lg:gap-10">
           {/* The whole column leans with the cursor as one object, its blocks at
               different depths: the title and the numbers nearest, the signal
-              cards in two staggered planes that rise further on hover. */}
+              cards together on one plane (so they stay in line), each rising
+              a little on hover. */}
           <div className="[perspective:1400px]">
           <div data-tilt="4" className="[transform-style:preserve-3d]">
             <Reveal style={{ z: 18 }}>
@@ -96,7 +97,7 @@ export function PatternEngine() {
             </Reveal>
             <Stagger className="mt-7 grid gap-2 sm:grid-cols-2 [transform-style:preserve-3d]" gap={0.05}>
               {ENGINE_SIGNALS.map((name, i) => (
-                <StaggerItem key={name} z={(i + Math.floor(i / 2)) % 2 ? 26 : 42} hoverZ={86}>
+                <StaggerItem key={name} z={30} hoverZ={42}>
                   <div
                     ref={(el) => void (rows.current[i] = el)}
                     className="engine-signal h-full rounded-xl border px-3.5 py-3 transition-colors"
