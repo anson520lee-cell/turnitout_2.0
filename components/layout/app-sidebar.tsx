@@ -6,6 +6,7 @@ import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
+import { NeuralMark } from "@/components/ui/neural-mark";
 
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
@@ -39,7 +40,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
                 data-press
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
-                  active ? "bg-white/[0.07] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
+                  active ? "nav-3d -translate-y-px bg-gradient-to-b from-white/[0.11] to-white/[0.04] text-fg" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
                 )}
               >
                 <Icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
@@ -66,7 +67,13 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-[var(--line)] bg-ink-900/50 p-4 backdrop-blur-xl lg:flex">
-        <div className="mb-8 px-2 pt-1"><Logo /></div>
+        <div className="mb-6 px-2 pt-1">
+          <Logo />
+          <p className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
+            <NeuralMark className="text-accent" />
+            Pattern Engine online
+          </p>
+        </div>
         {list}
       </aside>
       <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--line)] bg-ink-950/80 px-4 backdrop-blur-xl lg:hidden">

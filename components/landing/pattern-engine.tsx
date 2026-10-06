@@ -5,7 +5,8 @@ import { ArrowRight, BookOpenText, EyeOff, ListChecks, Server } from "lucide-rea
 import { Container, Eyebrow } from "@/components/ui/section";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { buttonClasses } from "@/components/ui/button";
-import { EngineCore, ENGINE_SIGNALS } from "./engine-core";
+import { ENGINE_SIGNALS } from "./engine-core";
+import { NeuralEngine } from "./neural-engine";
 import { brand } from "@/config/app";
 
 /**
@@ -66,9 +67,10 @@ export function PatternEngine() {
             </Reveal>
             <Reveal delay={0.12}>
               <p className="mt-5 max-w-xl text-pretty text-[15.5px] leading-relaxed text-fg-muted">
-                Our free scan runs on our own analysis engine, built in-house. It reads how your writing is put
-                together using deterministic, explainable text statistics, so the same text always gets the same
-                reading, and every signal shows you what it measured and where.
+                Our free scan runs on our own analysis engine, built in-house. Picture it as a small network: six
+                writing signals go in, they are weighed together, and one estimate comes out. Every step is
+                deterministic, explainable text statistics, so the same text always gets the same reading, and
+                every signal shows you what it measured and where.
               </p>
             </Reveal>
             <Reveal delay={0.16}>
@@ -117,7 +119,7 @@ export function PatternEngine() {
             </Reveal>
           </div>
           <Reveal delay={0.1} flip={20}>
-            <EngineCore focus={focus} listItems={rows} />
+            <NeuralEngine focus={focus} listItems={rows} />
           </Reveal>
         </div>
 

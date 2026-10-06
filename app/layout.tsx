@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/motion/providers";
 import { InteractiveSurfaces } from "@/components/motion/interactive-surfaces";
+import { SpaceBackground } from "@/components/space/space-background";
 import { brand } from "@/config/app";
 import "./globals.css";
 
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
+        <SpaceBackground />
         <MotionProvider>{children}</MotionProvider>
         <InteractiveSurfaces />
       </body>
