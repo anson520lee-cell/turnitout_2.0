@@ -18,9 +18,7 @@ import { CLASS_NAMES, INPUT_NAMES, NET_LAYERS, classColor, createTrainer } from 
  *    readable. The neurons are small steady points; the motion is in the
  *    strands, which show the actual weights and carry signals threading
  *    the weave: forward along strong strands (cyan), backward along the ones
- *    whose gradient is large (violet). A readout in the corner gives the run's real loss,
- *    accuracy and loss curve, and the decision boundary as it forms.
- *    Scrolling trains it faster
+ *    whose gradient is large (violet). Scrolling trains it faster
  *  - a loss landscape in perspective along the bottom: it flows toward the
  *    viewer over time and as the page scrolls, and five optimisers (SGD,
  *    Momentum, RMSProp, Adam, AdaGrad) race down it from the same start,
@@ -366,13 +364,6 @@ export function SpaceBackground() {
     const trainer = createTrainer();
     let trainDebt = 0; // fractional training steps owed
     let holdFor = 0; // seconds a finished run is left on screen before the next starts
-    // the decision boundary thumbnail: the trainer paints it, small, every so often
-    const BN = 22;
-    const bmap = document.createElement("canvas");
-    bmap.width = bmap.height = BN;
-    const bctx = bmap.getContext("2d");
-    const bimg = bctx ? bctx.createImageData(BN, BN) : null;
-    let bAt = -1;
     // The two textures take a moment to paint, so they are built just after
     // the first frame instead of holding it up.
     let nebula: HTMLCanvasElement | null = null;
@@ -472,20 +463,21 @@ export function SpaceBackground() {
         k.clearRect(0, 0, sw, sh);
         // base wash so the void is never flat black
         const wash = k.createLinearGradient(0, 0, sw, sh);
-        wash.addColorStop(0, "rgba(28,38,110,0.34)");
-        wash.addColorStop(0.5, "rgba(10,12,40,0.08)");
-        wash.addColorStop(1, "rgba(70,36,120,0.3)");
+        // deep space: the wash is barely there, so black stays black
+        wash.addColorStop(0, "rgba(22,30,90,0.14)");
+        wash.addColorStop(0.5, "rgba(6,8,26,0.02)");
+        wash.addColorStop(1, "rgba(52,26,96,0.12)");
         k.fillStyle = wash;
         k.fillRect(0, 0, sw, sh);
         // two sheets of cloud drifting past each other
         const big = Math.max(sw, sh);
         k.globalCompositeOperation = "lighter";
-        k.globalAlpha = 0.52;
+        k.globalAlpha = 0.24;
         k.translate(sw * 0.62 + Math.sin(time * 0.021) * 30, sh * 0.42);
         k.rotate(-0.35 + Math.sin(time * 0.013) * 0.06);
         k.drawImage(nebula, -big * 0.95, -big * 0.7, big * 1.9, big * 1.4);
         k.setTransform(1, 0, 0, 1, 0, 0);
-        k.globalAlpha = 0.36;
+        k.globalAlpha = 0.16;
         k.translate(sw * 0.24 - Math.sin(time * 0.017) * 35, sh * 0.82);
         k.rotate(2.6 + Math.cos(time * 0.011) * 0.08);
         k.drawImage(nebula, -big * 0.8, -big * 0.6, big * 1.6, big * 1.2);
@@ -500,7 +492,7 @@ export function SpaceBackground() {
       const R = Math.min(Math.min(w, h) * (small ? 0.46 : 0.56), 540);
       c.save();
       c.globalCompositeOperation = "lighter";
-      c.globalAlpha = inApp.current ? 0.8 : 0.92;
+      c.globalAlpha = inApp.current ? 0.7 : 0.82;
       c.translate(small ? w * 0.82 : w * 0.83, h * 0.13 - off * 0.45);
       c.rotate(0.42);
       c.scale(1, 0.56);
@@ -629,7 +621,7 @@ export function SpaceBackground() {
       // horizon glow
       const hg = c.createLinearGradient(0, hor - h * 0.1, 0, hor + h * 0.16);
       hg.addColorStop(0, "rgba(91,140,255,0)");
-      hg.addColorStop(0.45, "rgba(110,150,255,0.13)");
+      hg.addColorStop(0.45, "rgba(110,150,255,0.07)");
       hg.addColorStop(1, "rgba(154,123,255,0)");
       c.fillStyle = hg;
       c.fillRect(0, hor - h * 0.1, w, h * 0.26);
@@ -778,9 +770,9 @@ export function SpaceBackground() {
       const x = w * 0.96;
       const y = h * 1.04 - off * 0.6;
       const body = c.createRadialGradient(x - r * 0.45, y - r * 0.5, r * 0.05, x, y, r);
-      body.addColorStop(0, "rgba(62,84,172,0.96)");
-      body.addColorStop(0.55, "rgba(22,28,74,0.97)");
-      body.addColorStop(1, "rgba(5,7,16,1)");
+      body.addColorStop(0, "rgba(34,48,112,0.97)");
+      body.addColorStop(0.5, "rgba(12,16,46,0.98)");
+      body.addColorStop(1, "rgba(3,4,10,1)");
       c.fillStyle = body;
       c.beginPath();
       c.arc(x, y, r, 0, Math.PI * 2);
@@ -788,7 +780,7 @@ export function SpaceBackground() {
       // atmosphere rim on the lit side
       const rim = c.createRadialGradient(x, y, r * 0.96, x, y, r * 1.06);
       rim.addColorStop(0, "rgba(95,216,245,0.0)");
-      rim.addColorStop(0.55, "rgba(120,170,255,0.32)");
+      rim.addColorStop(0.55, "rgba(120,170,255,0.22)");
       rim.addColorStop(1, "rgba(120,170,255,0)");
       c.fillStyle = rim;
       c.beginPath();
@@ -1074,67 +1066,6 @@ export function SpaceBackground() {
       c.restore();
     }
 
-    // ── the training readout: the run's real numbers, its loss curve, and what
-    // the network currently believes (the plane coloured by predicted class,
-    // with the spiral points it is learning from)
-    function drawReadout() {
-      const x0 = small ? 14 : inApp.current && w >= 1024 ? 284 : 34;
-      const TH = small ? 56 : 72;
-      const y0 = h - TH - (small ? 14 : 26);
-      c.save();
-      c.globalAlpha = 0.8;
-      // decision boundary thumbnail
-      if (bctx && bimg && (bAt < 0 || trainer.step - bAt >= 20 || trainer.step < bAt)) {
-        bAt = trainer.step;
-        trainer.boundary(BN, bimg.data);
-        bctx.putImageData(bimg, 0, 0);
-      }
-      c.imageSmoothingEnabled = true;
-      c.drawImage(bmap, x0, y0, TH, TH);
-      for (let p = 0; p < trainer.points.length; p += 6) {
-        c.fillStyle = `rgba(${classColor(trainer.points[p + 2])},0.9)`;
-        c.fillRect(x0 + ((trainer.points[p] + 1.1) / 2.2) * TH - 0.7, y0 + ((trainer.points[p + 1] + 1.1) / 2.2) * TH - 0.7, 1.4, 1.4);
-      }
-      c.strokeStyle = "rgba(148,163,255,0.3)";
-      c.lineWidth = 0.6;
-      c.strokeRect(x0 + 0.5, y0 + 0.5, TH, TH);
-      // numbers
-      const tx = x0 + TH + 12;
-      c.font = `10px ${MONO}`;
-      c.fillStyle = "rgba(190,205,240,0.85)";
-      c.fillText(`run ${String(trainer.run).padStart(2, "0")} · step ${String(trainer.step).padStart(4, "0")} · epoch ${trainer.epoch.toFixed(1)}`, tx, y0 + 9);
-      c.fillStyle = "rgba(120,228,255,0.95)";
-      c.fillText(`loss ${trainer.loss.toFixed(4)}   acc ${(trainer.acc * 100).toFixed(1)}%`, tx, y0 + 23);
-      c.fillStyle = "rgba(150,168,215,0.75)";
-      c.fillText(trainer.done ? "converged · restarting" : `Adam · lr ${trainer.lr} · batch 16`, tx, y0 + 37);
-      // loss curve
-      const bw = small ? 150 : 210;
-      const bh = TH - 44;
-      const by0 = y0 + 44;
-      c.strokeStyle = "rgba(148,163,255,0.2)";
-      c.lineWidth = 0.5;
-      c.strokeRect(tx + 0.5, by0 + 0.5, bw, bh);
-      if (trainer.history.length > 1) {
-        c.strokeStyle = "rgba(120,228,255,0.9)";
-        c.lineWidth = 0.9;
-        c.beginPath();
-        let ex2 = tx;
-        let ey2 = by0;
-        trainer.history.forEach((v, i) => {
-          ex2 = tx + (i / 89) * bw;
-          ey2 = by0 + bh - 2 - clamp(v / 1.15) * (bh - 4);
-          if (i === 0) c.moveTo(ex2, ey2);
-          else c.lineTo(ex2, ey2);
-        });
-        c.stroke();
-        c.fillStyle = "rgba(225,250,255,0.95)";
-        c.beginPath();
-        c.arc(ex2, ey2, 1.5, 0, Math.PI * 2);
-        c.fill();
-      }
-      c.restore();
-    }
-
     function drawProgress() {
       const max = Math.max(1, docH - h);
       const p = clamp(scrollY / max);
@@ -1162,7 +1093,6 @@ export function SpaceBackground() {
       drawField(time, dt, reduce);
       drawLandscape(time, dt, reduce);
       drawNet(time, dt, reduce);
-      drawReadout();
       if (!reduce) drawMeteors(dt);
       drawProgress();
     }
