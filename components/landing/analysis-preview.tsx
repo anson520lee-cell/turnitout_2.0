@@ -5,7 +5,7 @@ import { Container, SectionHeading } from "@/components/ui/section";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { NeuralStrip } from "@/components/space/neural-strip";
+import { FeatureSpace } from "@/components/ml/feature-space";
 
 /**
  * Interactive illustration of how the preliminary scan reads a paragraph.
@@ -108,9 +108,10 @@ export function AnalysisPreview() {
                 {s.level}
               </Badge>
             </div>
-            <div aria-hidden className="mt-5 rounded-xl border border-[var(--line)] bg-ink-900/40 px-4 pb-2 pt-3">
-              <NeuralStrip />
-              <p className="mt-1.5 text-center font-mono text-[9.5px] uppercase tracking-[0.16em] text-fg-subtle">signals → weights → estimate</p>
+            {/* where this example sits among other texts: it crosses the boundary when the example changes */}
+            <div aria-hidden className="mt-5 overflow-hidden rounded-xl border border-[var(--line)] bg-ink-900/50">
+              <FeatureSpace elevated={s.level === "Elevated"} className="block h-auto w-full" />
+              <p className="border-t border-[var(--line)] px-3 py-1.5 text-center font-mono text-[9.5px] uppercase tracking-[0.16em] text-fg-subtle">feature space · nearest neighbours</p>
             </div>
             <ul className="mt-6 space-y-5">
               {Object.entries(s.bars).map(([label, v]) => (

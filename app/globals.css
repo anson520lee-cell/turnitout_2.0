@@ -1243,3 +1243,32 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
   backdrop-filter: blur(30px) saturate(190%) brightness(1.08);
 }
 .liquid-glass:not(.absolute, .fixed, .sticky) { position: relative; }
+
+/* The feature-space figure (components/ml/feature-space.tsx). */
+.fs-dot { opacity: 0.55; animation: fs-dot 4.2s ease-in-out infinite; }
+@keyframes fs-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.95; }
+}
+.fs-run {
+  stroke: #f2f6ff;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.01 100;
+  filter: drop-shadow(0 0 2px rgb(200 220 255 / 0.9));
+  animation: fs-run 3.4s linear infinite;
+}
+@keyframes fs-run {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -100; }
+}
+.fs-ring { transform-box: fill-box; transform-origin: center; animation: fs-ring 2s ease-out infinite; }
+@keyframes fs-ring {
+  0% { scale: 0.5; opacity: 1; }
+  100% { scale: 1.7; opacity: 0; }
+}
+.fs-label { font-family: var(--font-mono); font-size: 4.4px; letter-spacing: 0.12em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) {
+  .fs-run { display: none; }
+  .fs-ring { opacity: 0.6; }
+}
