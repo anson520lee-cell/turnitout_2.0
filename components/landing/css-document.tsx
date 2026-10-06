@@ -1,3 +1,4 @@
+import { GreekText, type GreekRow } from "./greek-text";
 
 /**
  * CSS-only document with a scan line: mobile, reduced-motion and no-WebGL
@@ -9,9 +10,13 @@
  * (header, text lines with flagged spans, similarity gauge, bar chart), and
  * floating chips that sit in front of it.
  */
+const WIDTHS = [88, 94, 76, 91, 60, 0, 85, 92, 97, 71, 0, 90, 82];
+const ROWS: GreekRow[] = WIDTHS.map((w, i) => ({
+  len: Math.round(w * 0.4),
+  flagged: i === 3 || i === 9,
+}));
+
 export function CssDocument() {
-  const widths = [88, 94, 76, 91, 60, 0, 85, 92, 97, 71, 0, 90, 82];
-  const flagged = new Set([3, 9]);
   const bars = [38, 62, 44, 78, 52, 90, 34, 66];
   return (
     <div data-cursor className="absolute inset-0 grid place-items-center [perspective:1200px]">
@@ -43,19 +48,9 @@ export function CssDocument() {
               </span>
             </div>
 
-            <div className="space-y-[5%]">
-              {widths.map((w, i) =>
-                w === 0 ? (
-                  <div key={i} className="h-1.5" />
-                ) : flagged.has(i) ? (
-                  <div key={i} className="relative" style={{ width: `${w}%` }}>
-                    <div className="hl-pulse h-[5px] rounded-full bg-violet/70" style={{ animationDelay: `${i * 0.15}s` }} />
-                    <div className="absolute -inset-x-1 -inset-y-[3px] rounded-md border border-violet/30 bg-violet/[0.08]" />
-                  </div>
-                ) : (
-                  <div key={i} className="h-[5px] rounded-full bg-[#c6d3ff]/25" style={{ width: `${w}%` }} />
-                ),
-              )}
+            {/* random Greek text that decodes in a wave */}
+            <div className="absolute inset-x-[8%] bottom-[26%] top-[17%]">
+              <GreekText rows={ROWS} />
             </div>
 
             {/* mini chart + gauge */}

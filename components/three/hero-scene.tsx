@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { pointer } from "@/components/motion/pointer-engine";
+import { decodeLine } from "@/lib/greek-decode";
 
 /**
  * Hero scene: a translucent document with sheets behind it, a scan beam,
@@ -181,41 +182,103 @@ function Sheet({ z, opacity, edge, color = "#1a2550" }: { z: number; opacity: nu
   return <mesh geometry={geo} material={mat} position={[0, 0, z]} />;
 }
 
+const textFrag = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform vec3 uLightW;
+  uniform float uLightOn;
+  uniform vec2 uSize;
+  varying vec3 vWorld;
+  varying vec2 vLocal;
+  void main() {
+    vec2 uv = vLocal / uSize + 0.5;
+    vec4 t = texture2D(uMap, uv);
+    float d = distance(vWorld, uLightW);
+    float g = exp(-d * d * 2.6) * uLightOn;
+    gl_FragColor = vec4(t.rgb + vec3(0.55, 0.7, 1.0) * g * 0.5 * t.a, clamp(t.a * (1.0 + g * 0.8), 0.0, 1.0));
+  }
+`;
+
+/**
+ * The document's text: random Greek that decodes in a wave (see
+ * lib/greek-decode). Drawn into a canvas texture at ~15 fps and shown on one
+ * plane; the cursor light still brightens it through textFrag.
+ */
 function TextLines() {
   const rows = useMemo(() => {
-    const out: { y: number; w: number; x: number; hi: boolean }[] = [];
+    const out: { y: number; len: number; x0: number; hi: boolean }[] = [];
     let y = DOC_H / 2 - 0.42;
     let i = 0;
     while (y > -DOC_H / 2 + 0.3) {
       const para = i % 6 === 5;
       if (!para) {
         const w = (i % 6 === 4 ? 0.55 : 0.78 + ((i * 37) % 17) / 100) * (DOC_W - 0.5);
-        out.push({ y, w, x: -DOC_W / 2 + 0.25 + w / 2, hi: i === 3 || i === 9 || i === 14 });
+        out.push({ y, len: Math.round((w / (DOC_W - 0.5)) * 38), x0: -DOC_W / 2 + 0.25, hi: i === 3 || i === 9 || i === 14 });
       }
       y -= para ? 0.2 : 0.13;
       i++;
     }
     return out;
   }, []);
-  const [plain, marked] = useMemo(() => {
-    const make = (color: string, opacity: number) =>
+
+  const { canvas, tex } = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 1024;
+    c.height = Math.round(1024 * (DOC_H / DOC_W));
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return { canvas: c, tex: t };
+  }, []);
+
+  const mat = useMemo(
+    () =>
       new THREE.ShaderMaterial({
         vertexShader: worldVert,
-        fragmentShader: lineFrag,
+        fragmentShader: textFrag,
         transparent: true,
         depthWrite: false,
-        uniforms: { ...light, uColor: { value: rgb(color) }, uOpacity: { value: opacity } },
-      });
-    return [make("#8e9cc9", 0.3), make("#9a7bff", 0.8)];
-  }, []);
+        uniforms: {
+          ...light,
+          uMap: { value: tex },
+          uSize: { value: new THREE.Vector2(DOC_W, DOC_H) },
+        },
+      }),
+    [tex],
+  );
+
+  const last = useRef(-1);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (t - last.current < 0.066) return;
+    last.current = t;
+    const g = canvas.getContext("2d")!;
+    const px = canvas.width / DOC_W; // pixels per world unit
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    const fs = 0.072 * px;
+    g.font = `${fs}px ui-monospace, Consolas, "Courier New", monospace`;
+    g.textBaseline = "middle";
+    const cw = fs * 0.62; // fixed advance so rows line up whatever the fallback font
+    rows.forEach((r, i) => {
+      const d = decodeLine(r.len, i + 1, t);
+      const x = (r.x0 + DOC_W / 2) * px;
+      const y = (DOC_H / 2 - r.y) * px;
+      if (r.hi) {
+        g.fillStyle = "rgba(154,123,255,0.14)";
+        g.fillRect(x - 6, y - fs * 0.7, r.len * cw + 12, fs * 1.4);
+      }
+      g.fillStyle = r.hi ? "rgba(176,152,255,0.95)" : "rgba(172,186,235,0.55)";
+      const s = d.settled;
+      for (let k = 0; k < s.length; k++) g.fillText(s[k], x + k * cw, y);
+      g.fillStyle = "rgba(95,216,245,0.85)";
+      const n = d.noise;
+      for (let k = 0; k < n.length; k++) g.fillText(n[k], x + (s.length + k) * cw, y);
+    });
+    tex.needsUpdate = true;
+  });
+
   return (
-    <group position={[0, 0, 0.004]}>
-      {rows.map((r, i) => (
-        <mesh key={i} position={[r.x, r.y, 0]} material={r.hi ? marked : plain}>
-          <planeGeometry args={[r.w, 0.034]} />
-        </mesh>
-      ))}
-    </group>
+    <mesh position={[0, 0, 0.004]} material={mat}>
+      <planeGeometry args={[DOC_W, DOC_H]} />
+    </mesh>
   );
 }
 
