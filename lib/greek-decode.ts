@@ -1,18 +1,37 @@
 /**
- * Random Greek text with a "decoding" cycle, shared by the CSS document and
- * the WebGL hero document. It is a pure function of (line, time): no state,
- * so the same line renders the same on server and client for a given time.
+ * The document's text animation, shared by the CSS document and the WebGL
+ * hero document. It is a pure function of time, so there is no state to keep.
  *
- * Each cycle a line scrambles, a wave sweeps left to right and locks each
- * glyph into its final character, the line holds, then it scrambles again
- * into new text. `settled` is the locked prefix, `noise` the still-decoding
- * tail (drawn in an accent colour).
+ * One loop:
+ *   1. TYPE  - Python code is typed character by character with human
+ *              rhythm (uneven pace, hesitations, a pause at each line end)
+ *              and a blinking cursor.
+ *   2. SCAN  - a beam sweeps down the page; every glyph it crosses flickers
+ *              and turns into a random Greek letter.
+ *   3. HOLD  - the page stays Greek for a while, then clears and starts again
+ *              with freshly generated Greek.
  */
 
 const GLYPHS = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΘΛΞΠΣΦΨΩ";
-const CYCLE = 8.5; // seconds per full decode / hold / scramble loop
-const SWEEP = 0.34; // fraction of the cycle spent decoding
-const HOLD_END = 0.8; // after this the line scrambles back to noise
+
+export const CODE = [
+  "import numpy as np",
+  "from engine import scan",
+  "",
+  "def analyse(text):",
+  "    tokens = tokenize(text)",
+  "    score = 0.0",
+  "    for t in tokens:",
+  "        score += weight(t)",
+  "",
+  "    if score > LIMIT:",
+  "        flag(text)",
+  "    return round(score, 2)",
+  "result = analyse(doc)",
+  "print(result)",
+  "assert result < 1",
+  "# similarity: 0%",
+];
 
 /** Small integer hash -> [0, 1). */
 function h(a: number, b: number, c: number): number {
@@ -26,35 +45,106 @@ function glyph(a: number, b: number, c: number): string {
   return GLYPHS[Math.floor(h(a, b, c) * GLYPHS.length)];
 }
 
-export interface DecodedLine {
-  settled: string;
+function toGreek(line: string, row: number, epoch: number): string {
+  let s = "";
+  for (let j = 0; j < line.length; j++) s += line[j] === " " ? " " : glyph(row, j, epoch);
+  return s;
+}
+
+export interface FrameRow {
+  /** settled text: code, or Greek once the beam has passed */
+  text: string;
+  /** tail drawn in the accent colour: the cursor, or glyphs under the beam */
   noise: string;
+  /** true once the row has been converted */
+  greek: boolean;
 }
 
-/** `len` characters, `seed` identifies the line, `t` is seconds. */
-export function decodeLine(len: number, seed: number, t: number): DecodedLine {
-  const local = t + seed * 0.55;
-  const epoch = Math.floor(local / CYCLE);
-  const p = (local - epoch * CYCLE) / CYCLE;
-  const frame = Math.floor(t * 16);
-
-  let locked: number;
-  if (p < SWEEP) locked = Math.floor((p / SWEEP) * len);
-  else if (p < HOLD_END) locked = len;
-  else locked = 0;
-
-  let settled = "";
-  let noise = "";
-  for (let i = 0; i < len; i++) {
-    // word gaps, fixed per (line, epoch, position)
-    const gap = i > 0 && i < len - 1 && h(seed, i, epoch + 91) < 0.15;
-    if (i < locked) settled += gap ? " " : glyph(seed, i, epoch);
-    else noise += gap ? " " : glyph(seed + 7, i, frame);
-  }
-  return { settled, noise };
+export interface Frame {
+  rows: FrameRow[];
+  /** beam position in row units (0 = above the first row, n+1 = below the last), or null */
+  beam: number | null;
 }
 
-/** A fully decoded line, for the server render and reduced motion. */
-export function staticLine(len: number, seed: number): string {
-  return decodeLine(len, seed, (SWEEP + 0.2) * CYCLE - seed * 0.55).settled;
+export function createAnimator(lines: string[]) {
+  const n = lines.length;
+  const ct: number[][] = [];
+  const rowStart: number[] = [];
+  const rowEnd: number[] = [];
+
+  let time = 0.7;
+  lines.forEach((line, i) => {
+    rowStart.push(time);
+    const times: number[] = [];
+    if (!line) {
+      time += 0.25;
+    } else {
+      for (let j = 0; j < line.length; j++) {
+        let d = 0.03 + h(i, j, 5) * 0.06;
+        if (line[j] === " ") d *= 0.5;
+        if (h(i, j, 9) < 0.07) d += 0.35 + h(i, j, 11) * 0.35; // stops to think
+        time += d;
+        times.push(time);
+      }
+      time += 0.35 + h(i, 99, 3) * 0.35; // Enter
+    }
+    ct.push(times);
+    rowEnd.push(time);
+  });
+
+  const typeEnd = time;
+  const scanStart = typeEnd + 0.9;
+  const scanEnd = scanStart + 3.8;
+  const holdEnd = scanEnd + 4.5;
+  const cycle = holdEnd + 0.8;
+
+  return {
+    n,
+    cycle,
+    /** a finished, fully Greek page, for the server render and reduced motion */
+    staticRows(): FrameRow[] {
+      return lines.map((l, i) => ({ text: toGreek(l, i, 0), noise: "", greek: true }));
+    },
+    frame(t: number): Frame {
+      const epoch = Math.floor(t / cycle);
+      const tt = t - epoch * cycle;
+      const fr = Math.floor(t * 18);
+
+      if (tt >= holdEnd) {
+        return { rows: lines.map(() => ({ text: "", noise: "", greek: false })), beam: null };
+      }
+
+      if (tt < typeEnd) {
+        let active = lines.findIndex((_, i) => tt < rowEnd[i]);
+        if (active < 0) active = n - 1;
+        const rows = lines.map((line, i): FrameRow => {
+          if (i > active || tt < rowStart[i]) return { text: "", noise: "", greek: false };
+          if (i < active) return { text: line, noise: "", greek: false };
+          let k = 0;
+          while (k < ct[i].length && ct[i][k] <= tt) k++;
+          const lastT = k > 0 ? ct[i][k - 1] : rowStart[i];
+          const solid = tt - lastT < 0.5; // cursor stays lit while typing
+          const on = solid || Math.floor(tt * 2.2) % 2 === 0;
+          return { text: line.slice(0, k), noise: line && on ? "▌" : "", greek: false };
+        });
+        return { rows, beam: null };
+      }
+
+      const scanning = tt >= scanStart && tt < scanEnd;
+      const p = Math.min(1, Math.max(0, (tt - scanStart) / (scanEnd - scanStart)));
+      const pos = tt < scanStart ? -10 : tt >= scanEnd ? n + 10 : p * (n + 1);
+
+      const rows = lines.map((line, i): FrameRow => {
+        const d = pos - (i + 0.5);
+        if (d < -0.8) return { text: line, noise: "", greek: false };
+        if (d <= 0.8) {
+          let s = "";
+          for (let j = 0; j < line.length; j++) s += line[j] === " " ? " " : glyph(i + 5, j, fr);
+          return { text: "", noise: s, greek: true };
+        }
+        return { text: toGreek(line, i, epoch + 1), noise: "", greek: true };
+      });
+      return { rows, beam: scanning ? pos : null };
+    },
+  };
 }

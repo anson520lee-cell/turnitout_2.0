@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { pointer } from "@/components/motion/pointer-engine";
-import { decodeLine } from "@/lib/greek-decode";
+import { createAnimator, CODE } from "@/lib/greek-decode";
 
 /**
  * Hero scene: a translucent document with sheets behind it, a scan beam,
@@ -198,27 +198,33 @@ const textFrag = /* glsl */ `
   }
 `;
 
+/** Where the scan beam is, written by TextLines and read by ScanPlane. */
+const beamState = { on: false, y: 0 };
+
 /**
- * The document's text: random Greek that decodes in a wave (see
- * lib/greek-decode). Drawn into a canvas texture at ~15 fps and shown on one
- * plane; the cursor light still brightens it through textFrag.
+ * The document's text: Python typed character by character, then the scan
+ * beam turns every glyph into random Greek (see lib/greek-decode). Drawn into
+ * a canvas texture at ~18 fps on one plane; the cursor light still brightens
+ * it through textFrag.
  */
 function TextLines() {
   const rows = useMemo(() => {
-    const out: { y: number; len: number; x0: number; hi: boolean }[] = [];
+    const out: { y: number; x0: number; hi: boolean }[] = [];
     let y = DOC_H / 2 - 0.42;
     let i = 0;
     while (y > -DOC_H / 2 + 0.3) {
       const para = i % 6 === 5;
-      if (!para) {
-        const w = (i % 6 === 4 ? 0.55 : 0.78 + ((i * 37) % 17) / 100) * (DOC_W - 0.5);
-        out.push({ y, len: Math.round((w / (DOC_W - 0.5)) * 38), x0: -DOC_W / 2 + 0.25, hi: i === 3 || i === 9 || i === 14 });
-      }
+      if (!para) out.push({ y, x0: -DOC_W / 2 + 0.25, hi: i === 3 || i === 9 || i === 14 });
       y -= para ? 0.2 : 0.13;
       i++;
     }
     return out;
   }, []);
+
+  const anim = useMemo(() => {
+    const lines = CODE.filter(Boolean);
+    return createAnimator(rows.map((_, i) => lines[i % lines.length]));
+  }, [rows]);
 
   const { canvas, tex } = useMemo(() => {
     const c = document.createElement("canvas");
@@ -248,29 +254,40 @@ function TextLines() {
   const last = useRef(-1);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (t - last.current < 0.066) return;
+    if (t - last.current < 0.055) return;
     last.current = t;
+    const f = anim.frame(t);
+
+    // beam height in world units, interpolated between row positions
+    if (f.beam === null) beamState.on = false;
+    else {
+      const p = Math.min(Math.max(f.beam - 0.5, 0), rows.length - 1);
+      const i = Math.min(Math.floor(p), rows.length - 2);
+      beamState.on = true;
+      beamState.y = THREE.MathUtils.lerp(rows[i].y, rows[i + 1].y, p - i);
+    }
+
     const g = canvas.getContext("2d")!;
     const px = canvas.width / DOC_W; // pixels per world unit
     g.clearRect(0, 0, canvas.width, canvas.height);
-    const fs = 0.072 * px;
+    const fs = 0.08 * px;
     g.font = `${fs}px ui-monospace, Consolas, "Courier New", monospace`;
     g.textBaseline = "middle";
     const cw = fs * 0.62; // fixed advance so rows line up whatever the fallback font
     rows.forEach((r, i) => {
-      const d = decodeLine(r.len, i + 1, t);
+      const fr = f.rows[i];
       const x = (r.x0 + DOC_W / 2) * px;
       const y = (DOC_H / 2 - r.y) * px;
       if (r.hi) {
         g.fillStyle = "rgba(154,123,255,0.14)";
-        g.fillRect(x - 6, y - fs * 0.7, r.len * cw + 12, fs * 1.4);
+        g.fillRect(x - 6, y - fs * 0.7, 24 * cw + 12, fs * 1.4);
       }
-      g.fillStyle = r.hi ? "rgba(176,152,255,0.95)" : "rgba(172,186,235,0.55)";
-      const s = d.settled;
-      for (let k = 0; k < s.length; k++) g.fillText(s[k], x + k * cw, y);
-      g.fillStyle = "rgba(95,216,245,0.85)";
-      const n = d.noise;
-      for (let k = 0; k < n.length; k++) g.fillText(n[k], x + (s.length + k) * cw, y);
+      g.fillStyle = r.hi ? "rgba(176,152,255,0.95)" : fr.greek ? "rgba(160,175,230,0.5)" : "rgba(205,218,255,0.72)";
+      const s = fr.text;
+      for (let k = 0; k < s.length; k++) if (s[k] !== " ") g.fillText(s[k], x + k * cw, y);
+      g.fillStyle = "rgba(95,216,245,0.9)";
+      const n = fr.noise;
+      for (let k = 0; k < n.length; k++) if (n[k] !== " ") g.fillText(n[k], x + (s.length + k) * cw, y);
     });
     tex.needsUpdate = true;
   });
@@ -308,14 +325,15 @@ function ScanPlane() {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, []);
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (!ref.current) return;
-    const t = (Math.sin(clock.elapsedTime * 0.7) + 1) / 2;
-    // The beam's bright edge sits 0.5 below the group; keep it on the page.
-    ref.current.position.y = THREE.MathUtils.lerp(-DOC_H / 2 + 0.62, DOC_H / 2 + 0.38, t);
+    // Follows the text animation: visible only while it converts the page.
+    ref.current.visible = beamState.on;
+    // The beam's bright edge sits 0.5 below the group.
+    ref.current.position.y = beamState.y + 0.5;
   });
   return (
-    <group ref={ref}>
+    <group ref={ref} visible={false}>
       <mesh position={[0, -0.25, 0.05]}>
         <planeGeometry args={[DOC_W - 0.06, 0.5]} />
         <meshBasicMaterial map={tex} transparent blending={THREE.AdditiveBlending} depthWrite={false} />

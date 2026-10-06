@@ -1,4 +1,4 @@
-import { GreekText, type GreekRow } from "./greek-text";
+import { GreekText } from "./greek-text";
 
 /**
  * CSS-only document with a scan line: mobile, reduced-motion and no-WebGL
@@ -10,12 +10,6 @@ import { GreekText, type GreekRow } from "./greek-text";
  * (header, text lines with flagged spans, similarity gauge, bar chart), and
  * floating chips that sit in front of it.
  */
-const WIDTHS = [88, 94, 76, 91, 60, 0, 85, 92, 97, 71, 0, 90, 82];
-const ROWS: GreekRow[] = WIDTHS.map((w, i) => ({
-  len: Math.round(w * 0.4),
-  flagged: i === 3 || i === 9,
-}));
-
 export function CssDocument() {
   const bars = [38, 62, 44, 78, 52, 90, 34, 66];
   return (
@@ -50,7 +44,7 @@ export function CssDocument() {
 
             {/* random Greek text that decodes in a wave */}
             <div className="absolute inset-x-[8%] bottom-[26%] top-[17%]">
-              <GreekText rows={ROWS} />
+              <GreekText />
             </div>
 
             {/* mini chart + gauge */}
@@ -75,10 +69,6 @@ export function CssDocument() {
 
             {/* specular highlight that moves opposite the tilt */}
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(240px_circle_at_calc(30%+var(--cx,0)*45%)_calc(20%+var(--cy,0)*45%),rgb(200_215_255/0.16),transparent_70%)]" />
-            <div
-              className="absolute inset-x-0 top-0 h-16 motion-safe:animate-scan bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 [--scan-distance:420%]"
-              style={{ boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.45)" }}
-            />
           </div>
 
           {/* floating chips in front of the sheet */}

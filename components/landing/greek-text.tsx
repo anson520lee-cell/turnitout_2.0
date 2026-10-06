@@ -1,22 +1,27 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { decodeLine, staticLine } from "@/lib/greek-decode";
+import { useEffect, useMemo, useRef } from "react";
+import { createAnimator, CODE } from "@/lib/greek-decode";
 
-export interface GreekRow {
-  /** characters; 0 = blank paragraph gap */
-  len: number;
-  flagged?: boolean;
-}
+const LINES = CODE.slice(0, 13);
+const FLAGGED = new Set([7, 9]);
+
+const COLOR_CODE = "rgb(205 218 255 / 0.72)";
+const COLOR_GREEK = "rgb(160 175 230 / 0.5)";
+const COLOR_FLAG = "rgb(176 152 255 / 0.95)";
 
 /**
- * The document's text: rows of random Greek that decode in a wave. One
- * animation loop (~16 fps) drives every row, and it pauses while the block is
- * off-screen. With reduced motion it renders fully decoded, static text.
+ * The document's text: Python typed by an invisible hand, then a scan beam
+ * turns every glyph into random Greek (see lib/greek-decode). One loop
+ * (~16 fps) drives every row and pauses while off-screen. With reduced motion
+ * it shows the finished Greek page, static.
  */
-export function GreekText({ rows }: { rows: GreekRow[] }) {
+export function GreekText() {
+  const anim = useMemo(() => createAnimator(LINES), []);
   const root = useRef<HTMLDivElement>(null);
-  const settledRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const noiseRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const beamRef = useRef<HTMLDivElement>(null);
+  const aRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const bRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const initial = useMemo(() => anim.staticRows(), [anim]);
 
   useEffect(() => {
     const el = root.current;
@@ -30,17 +35,26 @@ export function GreekText({ rows }: { rows: GreekRow[] }) {
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      if (!visible || now - last < 62) return;
+      if (!visible || now - last < 55) return;
       last = now;
-      const t = (now - start) / 1000;
-      rows.forEach((r, i) => {
-        if (!r.len) return;
-        const d = decodeLine(r.len, i + 1, t);
-        const s = settledRefs.current[i];
-        const n = noiseRefs.current[i];
-        if (s) s.textContent = d.settled;
-        if (n) n.textContent = d.noise;
+      const f = anim.frame((now - start) / 1000);
+      f.rows.forEach((r, i) => {
+        const a = aRefs.current[i];
+        const b = bRefs.current[i];
+        if (a) {
+          a.textContent = r.text;
+          a.style.color = FLAGGED.has(i) ? COLOR_FLAG : r.greek ? COLOR_GREEK : COLOR_CODE;
+        }
+        if (b) b.textContent = r.noise;
       });
+      const beam = beamRef.current;
+      if (beam) {
+        if (f.beam === null) beam.style.opacity = "0";
+        else {
+          beam.style.opacity = "1";
+          beam.style.top = `${((f.beam - 0.5) / (anim.n - 1)) * 100}%`;
+        }
+      }
     };
 
     const io = new IntersectionObserver(([e]) => {
@@ -52,30 +66,37 @@ export function GreekText({ rows }: { rows: GreekRow[] }) {
       cancelAnimationFrame(raf);
       io.disconnect();
     };
-  }, [rows]);
+  }, [anim]);
 
   return (
-    <div ref={root} className="flex h-full flex-col justify-between" aria-hidden>
-      {rows.map((r, i) =>
-        r.len === 0 ? (
-          <div key={i} className="h-1.5" />
-        ) : (
-          <div
-            key={i}
-            className={`relative overflow-hidden whitespace-nowrap font-mono text-[9px] leading-[1.35] tracking-wide ${
-              r.flagged ? "text-violet" : "text-[#c6d3ff]/50"
-            }`}
-          >
-            {r.flagged && (
-              <span className="absolute inset-y-0 left-0 right-[20%] -z-0 rounded-sm bg-violet/[0.12] ring-1 ring-violet/30" />
-            )}
-            <span ref={(n) => void (settledRefs.current[i] = n)} className="relative">
-              {staticLine(r.len, i + 1)}
-            </span>
-            <span ref={(n) => void (noiseRefs.current[i] = n)} className="relative text-cyan/80" />
-          </div>
-        ),
-      )}
+    <div ref={root} className="relative h-full" aria-hidden>
+      <div className="flex h-full flex-col justify-between">
+        {LINES.map((line, i) =>
+          line === "" ? (
+            <div key={i} className="h-1.5" />
+          ) : (
+            <div key={i} className="relative overflow-hidden whitespace-pre font-mono text-[9px] leading-[1.35]">
+              {FLAGGED.has(i) && (
+                <span className="absolute inset-y-0 -left-1 right-[12%] rounded-sm bg-violet/[0.12] ring-1 ring-violet/30" />
+              )}
+              <span
+                ref={(n) => void (aRefs.current[i] = n)}
+                className="relative"
+                style={{ color: FLAGGED.has(i) ? COLOR_FLAG : COLOR_GREEK }}
+              >
+                {initial[i].text}
+              </span>
+              <span ref={(n) => void (bRefs.current[i] = n)} className="relative text-cyan/90" />
+            </div>
+          ),
+        )}
+      </div>
+      {/* scan beam, driven by the same clock as the text */}
+      <div
+        ref={beamRef}
+        className="pointer-events-none absolute -inset-x-[10%] h-7 -translate-y-full bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 opacity-0"
+        style={{ top: 0, boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.45)" }}
+      />
     </div>
   );
 }
