@@ -23,7 +23,7 @@ import { ModelDraftStatus } from "@/components/admin/model-draft";
 import { latestDraft, localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
 import { isScreening } from "@/lib/orders/status";
 import { serviceLabels } from "@/config/services";
-import { billableChars, formatHKD } from "@/config/pricing";
+import { billableChars, formatCredits } from "@/config/pricing";
 import { paymentMethodLabel, paymentReference } from "@/config/payments";
 import { formatBytes, formatDateTime, shortId } from "@/lib/utils";
 
@@ -84,15 +84,15 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
               <Row k="Word count" v={<WordCountForm orderId={order.id} value={order.word_count} />} />
               {order.source_text && <Row k="Characters" v={billableChars(order.source_text).toLocaleString("en-HK")} />}
               <Row k="Submitted" v={formatDateTime(order.created_at)} />
-              <Row k="Price" v={formatHKD(order.price)} />
+              <Row k="Price" v={formatCredits(order.price)} />
               <Row k="Pay reference" v={<span className="font-mono">{paymentReference(order.id)}</span>} />
-              <Row k="Payment" v={paid ? `${paymentMethodLabel(paid.provider)} · ${formatHKD(paid.amount)} · ${formatDateTime(order.paid_at)}` : pendingClaim ? "Claim waiting for you to verify" : "Not paid"} />
+              <Row k="Payment" v={paid ? `${paymentMethodLabel(paid.provider)} · ${formatCredits(paid.amount)} · ${formatDateTime(order.paid_at)}` : pendingClaim ? "Claim waiting for you to verify" : "Not paid"} />
               {succeeded.length > 1 && (
                 <Row
                   k="Paid twice"
                   v={
                     <span className="text-warn">
-                      {succeeded.map((p) => `${paymentMethodLabel(p.provider)} ${formatHKD(p.amount)}`).join(" + ")}. Refund the extra payment.
+                      {succeeded.map((p) => `${paymentMethodLabel(p.provider)} ${formatCredits(p.amount)}`).join(" + ")}. Refund the extra payment.
                     </span>
                   }
                 />

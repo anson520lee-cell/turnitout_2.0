@@ -1,7 +1,7 @@
 import type { Order, OrderFile, PaymentRow } from "@/types/domain";
 import { Card } from "@/components/ui/card";
 import { serviceLabels } from "@/config/services";
-import { billableChars, formatHKD } from "@/config/pricing";
+import { billableChars, formatCredits } from "@/config/pricing";
 import { paymentMethodLabel, paymentReference } from "@/config/payments";
 import { isScreening } from "@/lib/orders/status";
 import { formatBytes, formatDateTime } from "@/lib/utils";
@@ -15,7 +15,7 @@ export function OrderDetails({ order, file, payments }: { order: Order; file: Or
       <h2 className="text-[15px] font-semibold">Order details</h2>
       <dl className="mt-4 grid gap-x-6 gap-y-4 text-[13.5px] sm:grid-cols-2">
         <div><dt className="text-fg-subtle">Service</dt><dd className="mt-0.5">{serviceLabels[order.service_type]}</dd></div>
-        <div><dt className="text-fg-subtle">Price</dt><dd className="mt-0.5">{formatHKD(order.price)}</dd></div>
+        <div><dt className="text-fg-subtle">Price</dt><dd className="mt-0.5">{formatCredits(order.price)}</dd></div>
         <div><dt className="text-fg-subtle">Word count</dt><dd className="mt-0.5">{order.word_count?.toLocaleString("en-HK") ?? "Counted during processing"}</dd></div>
         {!screeningOrder && order.source_text && (
           <div><dt className="text-fg-subtle">Characters</dt><dd className="mt-0.5">{billableChars(order.source_text).toLocaleString("en-HK")}</dd></div>
@@ -36,7 +36,7 @@ export function OrderDetails({ order, file, payments }: { order: Order; file: Or
           {paid.map((p) => (
             <li key={p.id} className="flex justify-between gap-3">
               <span className="text-fg-muted">{paymentMethodLabel(p.provider)} · {formatDateTime(p.created_at)}</span>
-              <span>{formatHKD(p.amount)}</span>
+              <span>{formatCredits(p.amount)}</span>
             </li>
           ))}
         </ul>

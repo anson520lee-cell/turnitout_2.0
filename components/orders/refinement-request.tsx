@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
 import { RefinementVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
-import { billableChars, formatHKD, refinementPrice, refinementPricing } from "@/config/pricing";
+import { billableChars, formatCredits, refinementPrice, refinementPricing } from "@/config/pricing";
 import { refinement } from "@/config/app";
 import { disclaimers, refinementMinimumLabel, refinementRateLabel } from "@/config/services";
 import { refinementCharError } from "@/lib/orders/limits";
@@ -37,11 +37,11 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
           <div className="relative mt-6 grid gap-4 border-t border-[var(--line)] pt-6 sm:grid-cols-3">
             <div>
               <p className="text-[12px] text-fg-subtle">Rate</p>
-              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatHKD(refinementPricing.perBlock)}<span className="text-[13px] font-normal text-fg-subtle"> / {refinementPricing.blockChars} chars</span></p>
+              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatCredits(refinementPricing.perBlock)}<span className="text-[13px] font-normal text-fg-subtle"> / {refinementPricing.blockChars} chars</span></p>
             </div>
             <div>
               <p className="text-[12px] text-fg-subtle">Minimum</p>
-              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatHKD(refinementPricing.minimum)}<span className="text-[13px] font-normal text-fg-subtle"> · {minimumChars.toLocaleString("en-HK")} chars</span></p>
+              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatCredits(refinementPricing.minimum)}<span className="text-[13px] font-normal text-fg-subtle"> · {minimumChars.toLocaleString("en-HK")} chars</span></p>
             </div>
             <div>
               <p className="text-[12px] text-fg-subtle">Per order</p>
@@ -49,7 +49,7 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
             </div>
           </div>
           <p className="relative mt-3 text-[12px] text-fg-subtle">
-            Characters are counted with spaces, and runs of spaces or line breaks count once. Example: 4,250 characters = {formatHKD(refinementPrice(4250))}.
+            Characters are counted with spaces, and runs of spaces or line breaks count once. Example: 4,250 characters = {formatCredits(refinementPrice(4250))}.
           </p>
         </Card>
 
@@ -123,8 +123,8 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
                 {chars.toLocaleString("en-HK")} characters
               </span>
               <span>·</span>
-              <span className="text-fg">{formatHKD(refinementPrice(chars))}</span>
-              {chars < minimumChars && <span>(minimum {formatHKD(refinementPricing.minimum)} applies)</span>}
+              <span className="text-fg">{formatCredits(refinementPrice(chars))}</span>
+              {chars < minimumChars && <span>(minimum {formatCredits(refinementPricing.minimum)} applies)</span>}
             </span>
           );
         }}

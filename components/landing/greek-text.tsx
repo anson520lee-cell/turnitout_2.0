@@ -2,26 +2,54 @@
 import { useEffect, useMemo, useRef } from "react";
 import { createAnimator, CODE } from "@/lib/greek-decode";
 
-const LINES = CODE.slice(0, 13);
-const FLAGGED = new Set([7, 9]);
+/** The default page: 13 rows of the code-shaped text (blank rows are paragraph gaps). */
+export const GREEK_LINES = CODE.slice(0, 13);
+const DEFAULT_FLAGGED = [7, 9];
 
-const COLOR_CODE = "rgb(205 218 255 / 0.72)";
+const COLOR_TYPED = "rgb(205 218 255 / 0.72)";
 const COLOR_GREEK = "rgb(160 175 230 / 0.5)";
 const COLOR_FLAG = "rgb(176 152 255 / 0.95)";
 
+interface Props {
+  /** Code-shaped lines to type (stable identity, e.g. a module constant). */
+  lines?: string[];
+  /** Row indexes drawn as highlighted "flagged" sentences. */
+  flagged?: number[];
+  /** CSS colour of the flagged rows. */
+  flagColor?: string;
+  /** Font size classes for a smaller or larger page. */
+  textClass?: string;
+  /** Cut every line to this many characters (narrow pages). */
+  maxChars?: number;
+  /** Draw the synced scan beam. Turn off for a secondary page next to the main one. */
+  beam?: boolean;
+  className?: string;
+}
+
 /**
- * The document's text: Python typed by an invisible hand, then a scan beam
- * turns every glyph into random Greek (see lib/greek-decode). One loop
- * (~16 fps) drives every row and pauses while off-screen. With reduced motion
- * it shows the finished Greek page, static.
+ * The document's text: Greek letters laid out like Python, typed one by one
+ * by an invisible hand, then a scan beam re-rolls every letter (see
+ * lib/greek-decode). One loop (~18 fps) drives every row and pauses while
+ * off-screen. With reduced motion it shows a finished page, static. Fills its
+ * parent, which must have a height.
  */
-export function GreekText() {
-  const anim = useMemo(() => createAnimator(LINES), []);
+export function GreekText({
+  lines = GREEK_LINES,
+  flagged = DEFAULT_FLAGGED,
+  flagColor = COLOR_FLAG,
+  textClass = "text-[9px]",
+  maxChars,
+  beam = true,
+  className,
+}: Props) {
+  const rows = useMemo(() => (maxChars ? lines.map((l) => l.slice(0, maxChars)) : lines), [lines, maxChars]);
+  const anim = useMemo(() => createAnimator(rows), [rows]);
+  const flaggedSet = useMemo(() => new Set(flagged), [flagged]);
+  const initial = useMemo(() => anim.staticRows(), [anim]);
   const root = useRef<HTMLDivElement>(null);
   const beamRef = useRef<HTMLDivElement>(null);
   const aRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const bRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const initial = useMemo(() => anim.staticRows(), [anim]);
 
   useEffect(() => {
     const el = root.current;
@@ -43,16 +71,17 @@ export function GreekText() {
         const b = bRefs.current[i];
         if (a) {
           a.textContent = r.text;
-          a.style.color = FLAGGED.has(i) ? COLOR_FLAG : r.greek ? COLOR_GREEK : COLOR_CODE;
+          // Flagged rows take their colour from the row (it follows flagColor).
+          if (!flaggedSet.has(i)) a.style.color = r.greek ? COLOR_GREEK : COLOR_TYPED;
         }
         if (b) b.textContent = r.noise;
       });
-      const beam = beamRef.current;
-      if (beam) {
-        if (f.beam === null) beam.style.opacity = "0";
+      const bm = beamRef.current;
+      if (bm) {
+        if (f.beam === null) bm.style.opacity = "0";
         else {
-          beam.style.opacity = "1";
-          beam.style.top = `${((f.beam - 0.5) / (anim.n - 1)) * 100}%`;
+          bm.style.opacity = "1";
+          bm.style.top = `${((f.beam - 0.5) / (anim.n - 1)) * 100}%`;
         }
       }
     };
@@ -66,23 +95,33 @@ export function GreekText() {
       cancelAnimationFrame(raf);
       io.disconnect();
     };
-  }, [anim]);
+  }, [anim, flaggedSet]);
 
   return (
-    <div ref={root} className="relative h-full" aria-hidden>
+    <div ref={root} className={`relative h-full ${className ?? ""}`} aria-hidden>
       <div className="flex h-full flex-col justify-between">
-        {LINES.map((line, i) =>
+        {rows.map((line, i) =>
           line === "" ? (
-            <div key={i} className="h-1.5" />
+            <div key={i} className="h-1" />
           ) : (
-            <div key={i} className="relative overflow-hidden whitespace-pre font-mono text-[9px] leading-[1.35]">
-              {FLAGGED.has(i) && (
-                <span className="absolute inset-y-0 -left-1 right-[12%] rounded-sm bg-violet/[0.12] ring-1 ring-violet/30" />
+            <div
+              key={i}
+              className={`relative overflow-hidden whitespace-pre font-mono leading-[1.35] ${textClass}`}
+              style={flaggedSet.has(i) ? { color: flagColor } : undefined}
+            >
+              {flaggedSet.has(i) && (
+                <span
+                  className="absolute inset-y-0 -left-1 right-[12%] rounded-sm"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, currentColor 12%, transparent)",
+                    boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent)",
+                  }}
+                />
               )}
               <span
                 ref={(n) => void (aRefs.current[i] = n)}
                 className="relative"
-                style={{ color: FLAGGED.has(i) ? COLOR_FLAG : COLOR_GREEK }}
+                style={flaggedSet.has(i) ? undefined : { color: COLOR_GREEK }}
               >
                 {initial[i].text}
               </span>
@@ -91,12 +130,13 @@ export function GreekText() {
           ),
         )}
       </div>
-      {/* scan beam, driven by the same clock as the text */}
-      <div
-        ref={beamRef}
-        className="pointer-events-none absolute -inset-x-[10%] h-7 -translate-y-full bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 opacity-0"
-        style={{ top: 0, boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.45)" }}
-      />
+      {beam && (
+        <div
+          ref={beamRef}
+          className="pointer-events-none absolute -inset-x-[10%] h-7 -translate-y-full bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 opacity-0"
+          style={{ top: 0, boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.45)" }}
+        />
+      )}
     </div>
   );
 }

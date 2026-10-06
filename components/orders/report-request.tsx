@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
-import { formatHKD, screeningPrices, screeningWordRange } from "@/config/pricing";
+import { formatCredits, screeningPrices, screeningWordRange } from "@/config/pricing";
 import { disclaimers, reportService, wordRangeLabel } from "@/config/services";
 import { screeningWordError } from "@/lib/orders/limits";
 import { cn, countWords } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
-const price = formatHKD(screeningPrices[reportService]);
+const price = formatCredits(screeningPrices[reportService]);
 
 const STEPS = [
   { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${wordRangeLabel}, press Enter.` },

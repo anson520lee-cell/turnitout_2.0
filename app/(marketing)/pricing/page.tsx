@@ -5,13 +5,13 @@ import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeScan } from "@/config/app";
-import { formatHKD, refinementPrice, refinementPricing, screeningPrices } from "@/config/pricing";
+import { formatCredits, refinementPrice, refinementPricing, screeningPrices } from "@/config/pricing";
 import { enabledManualPayments } from "@/config/payments";
 import { refinementMinimumLabel, refinementRateLabel, reportService, wordRangeLabel } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `Free writing scans, ${formatHKD(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Pay by Alipay, PayMe or bank transfer.`,
+  description: `Free writing scans, ${formatCredits(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Prices are in credits (1 credit = HK$1).`,
   alternates: { canonical: "/pricing" },
 };
 
@@ -23,8 +23,8 @@ export default function PricingPage() {
     <>
       <PageHeader
         eyebrow="Pricing"
-        title="Start free. Pay per report."
-        body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day. A Turnitin AI & similarity report is ${formatHKD(screeningPrices[reportService])} flat. Writing refinement is priced by length.`}
+        title="Start free. Pay with credits."
+        body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day. A Turnitin AI & similarity report is ${formatCredits(screeningPrices[reportService])} flat. Writing refinement is priced by length.`}
       />
       <Container>
         <PricingCards />
@@ -33,7 +33,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
-              {formatHKD(screeningPrices[reportService])} per report for any document of {wordRangeLabel}. One report covers both the
+              {formatCredits(screeningPrices[reportService])} per report for any document of {wordRangeLabel}. One report covers both the
               AI-writing indicator and the similarity result from one screening run. A new screening after you revise is a new report.
             </p>
           </div>
@@ -47,22 +47,21 @@ export default function PricingPage() {
               {examples.map((e) => (
                 <li key={e.chars} className="flex justify-between">
                   <span>{e.chars.toLocaleString("en-HK")} chars</span>
-                  <span className="text-fg">{formatHKD(e.price)}</span>
+                  <span className="text-fg">{formatCredits(e.price)}</span>
                 </li>
               ))}
             </ul>
           </div>
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
-            <h2 className="text-[15px] font-semibold text-fg">How to pay</h2>
+            <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              {methods.join(", ")}. After paying you enter your payment reference on the order page; we confirm each payment by hand
-              and your order joins the queue straight away. Card payment is offered where available.
+              1 credit = HK$1. Top up on the Billing & Credits page by {methods.join(", ")}; card payment is offered where available. We confirm manual payments by hand, then the credits are yours to spend on any report or refinement.
             </p>
           </div>
         </div>
 
         <div className="mx-auto mt-16 max-w-3xl">
-          <FaqList items={faq.filter((f) => /guarantee|difference|include|cost|\bpay\b/i.test(f.q))} />
+          <FaqList items={faq.filter((f) => /guarantee|difference|include|cost|credits|\bpay\b/i.test(f.q))} />
         </div>
       </Container>
     </>

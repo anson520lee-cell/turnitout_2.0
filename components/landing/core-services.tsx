@@ -5,7 +5,7 @@ import { SpotlightCard } from "@/components/motion/spotlight-card";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
 import { freeScan } from "@/config/app";
-import { formatHKD, refinementPricing, screeningPrices } from "@/config/pricing";
+import { formatCredits, refinementPricing, screeningPrices } from "@/config/pricing";
 import { refinementRateLabel, reportService, serviceLabels, wordRangeLabel } from "@/config/services";
 
 const cards = [
@@ -22,7 +22,7 @@ const cards = [
     tag: <Badge tone="info">Human-processed</Badge>,
     title: serviceLabels[reportService],
     body: "Paste your text and press Enter. A reviewer runs a Turnitin screening with repository storage off and delivers the AI-writing indicator and similarity result it returned, plus the report file where available.",
-    meta: `${formatHKD(screeningPrices[reportService])} per report · ${wordRangeLabel}`,
+    meta: `${formatCredits(screeningPrices[reportService])} per report · ${wordRangeLabel}`,
     href: "/services/screening",
   },
   {
@@ -30,7 +30,7 @@ const cards = [
     tag: <Badge tone="progress">Human-reviewed</Badge>,
     title: "Writing Refinement",
     body: "Clarity, flow and style refinement of your own writing. Your meaning, citations and voice are kept.",
-    meta: `${refinementRateLabel} · min ${formatHKD(refinementPricing.minimum)}`,
+    meta: `${refinementRateLabel} · min ${formatCredits(refinementPricing.minimum)}`,
     href: "/services/refinement",
   },
 ];

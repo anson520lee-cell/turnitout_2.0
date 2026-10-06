@@ -3,7 +3,7 @@ import { assertAdmin } from "@/lib/auth/session";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { brand, freeScan, refinement, retention, uploads } from "@/config/app";
-import { formatHKD, screeningPrices } from "@/config/pricing";
+import { formatCredits, screeningPrices } from "@/config/pricing";
 import { refinementMinimumLabel, refinementRateLabel, reportService, serviceLabels, wordRangeLabel } from "@/config/services";
 import { isPlaceholder, manualPaymentList, referencePrefix } from "@/config/payments";
 import { isStripeConfigured, devPaymentsEnabled } from "@/lib/env";
@@ -134,7 +134,7 @@ export default async function AdminSettings() {
             <h2 className="text-[14px] font-semibold">Pricing (config/pricing.ts)</h2>
             <Rows
               rows={[
-                [serviceLabels[reportService], `${formatHKD(screeningPrices[reportService])} per report · ${wordRangeLabel}`],
+                [serviceLabels[reportService], `${formatCredits(screeningPrices[reportService])} per report · ${wordRangeLabel}`],
                 [serviceLabels.refinement, `${refinementRateLabel} · ${refinementMinimumLabel}`],
                 ["Refinement length", `${refinement.minChars.toLocaleString("en-HK")}–${refinement.maxChars.toLocaleString("en-HK")} characters per order`],
               ]}

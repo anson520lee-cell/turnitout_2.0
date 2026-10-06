@@ -2,6 +2,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { RiskLevel } from "@/lib/scanning/types";
 import { cn } from "@/lib/utils";
+import { GreekText } from "@/components/landing/greek-text";
+import { CODE } from "@/lib/greek-decode";
 
 /**
  * The 3D paper stack on the scan page's hero card. Decorative only.
@@ -16,11 +18,15 @@ import { cn } from "@/lib/utils";
  * On touch or with reduced motion none of these are set and it sits still.
  */
 
-const LINES = [88, 94, 76, 91, 60, 0, 85, 92, 97, 71, 0, 90, 82, 64];
-/** Lines drawn as "flagged" sentences, tinted by the last result. */
-const FLAGGED = new Set([3, 8]);
+const SCAN_LINES = CODE.slice(0, 14);
+/** Rows drawn as "flagged" sentences, tinted by the last result. */
+const FLAGGED = [7, 9];
 
-const levelLine: Record<RiskLevel, string> = { low: "bg-ok/70", moderate: "bg-warn/75", elevated: "bg-risk/75" };
+const levelColor: Record<RiskLevel, string> = {
+  low: "rgb(79 209 165 / 0.95)",
+  moderate: "rgb(245 195 91 / 0.95)",
+  elevated: "var(--color-risk, #f0616d)",
+};
 const levelDot: Record<RiskLevel, string> = { low: "bg-ok", moderate: "bg-warn", elevated: "bg-risk" };
 const levelLabel: Record<RiskLevel, string> = { low: "Low", moderate: "Moderate", elevated: "Elevated" };
 
@@ -73,26 +79,10 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
 
             {/* Front page: text lines, the scan beam and a highlight that follows the light. */}
             <div className="absolute inset-0 overflow-hidden rounded-2xl border border-[var(--line-strong)] bg-gradient-to-b from-ink-700/95 to-ink-800/95 p-[11%] shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_30px_60px_-24px_rgb(0_0_0/0.9)]">
-              <div className="space-y-[7%]">
-                {LINES.map((w, i) =>
-                  w === 0 ? (
-                    <div key={i} className="h-1.5" />
-                  ) : (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-[5px] rounded-full transition-colors duration-700",
-                        FLAGGED.has(i) ? (level ? levelLine[level] : "bg-violet/70") : "bg-[#c6d3ff]/25",
-                      )}
-                      style={{ width: `${w}%` }}
-                    />
-                  ),
-                )}
+              {/* Greek letters typed like code, then re-rolled by the scan beam. */}
+              <div className="absolute inset-[11%]">
+                <GreekText lines={SCAN_LINES} flagged={FLAGGED} flagColor={level ? levelColor[level] : undefined} textClass="text-[7.5px]" maxChars={28} />
               </div>
-              <div
-                className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 motion-safe:animate-scan [--scan-distance:430%]"
-                style={{ boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.5)" }}
-              />
               <div className="pointer-events-none absolute inset-0" style={specular} />
             </div>
 

@@ -10,7 +10,7 @@ import { FormMessage } from "@/components/ui/field";
 import { WaitingAnimation } from "@/components/ui/waiting";
 import { OrderTimeline } from "@/components/orders/order-timeline";
 import { OrderDetails } from "@/components/orders/order-details";
-import { PaymentPanel } from "@/components/orders/payment-panel";
+import { CreditPayPanel } from "@/components/billing/credit-pay-panel";
 import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { ScreeningReport } from "@/components/reports/screening-report";
 import { RefinementResult } from "@/components/reports/refinement-result";
@@ -18,9 +18,10 @@ import { getOrderBundle } from "@/lib/data/user";
 import { ACTIVE_STATUSES, isScreening, statusMeta } from "@/lib/orders/status";
 import { uuid } from "@/lib/validation/schemas";
 import { serviceLabels } from "@/config/services";
-import { formatHKD } from "@/config/pricing";
+import { CREDITS_PER_USD, formatCredits, toCredits, topUp } from "@/config/pricing";
 import { manualPayments, paymentReference } from "@/config/payments";
-import { devPaymentsEnabled, isStripeConfigured } from "@/lib/env";
+import { devPaymentsEnabled } from "@/lib/env";
+import { getCreditBalance } from "@/lib/credits";
 import { formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order" };
@@ -41,6 +42,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   const rejectedClaim = unpaid && !pendingClaim && claims[0]?.status === "rejected" ? claims[0] : null;
   const inProgress = ACTIVE_STATUSES.includes(order.status);
   const reference = paymentReference(order.id);
+  const balance = unpaid ? await getCreditBalance() : 0;
+  const shortfall = Math.max(0, toCredits(order.price) - balance);
+  const suggestedUsd = Math.min(topUp.maxUsd, Math.max(topUp.minUsd, Math.ceil(shortfall / CREDITS_PER_USD)));
 
   return (
     <>
@@ -111,7 +115,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               />
               <dl className="relative mx-auto mt-2 grid max-w-md gap-x-6 gap-y-3 rounded-xl border border-[var(--line)] bg-ink-900/40 p-4 text-[13px] sm:grid-cols-2">
                 <div><dt className="text-fg-subtle">Method</dt><dd className="mt-0.5">{manualPayments[pendingClaim.method].label}</dd></div>
-                <div><dt className="text-fg-subtle">Amount</dt><dd className="mt-0.5">{formatHKD(pendingClaim.amount)}</dd></div>
+                <div><dt className="text-fg-subtle">Amount</dt><dd className="mt-0.5">{formatCredits(pendingClaim.amount)}</dd></div>
                 <div className="min-w-0"><dt className="text-fg-subtle">Your reference</dt><dd className="mt-0.5 truncate">{pendingClaim.payer_reference}</dd></div>
                 <div><dt className="text-fg-subtle">Submitted</dt><dd className="mt-0.5">{formatDateTime(pendingClaim.created_at)}</dd></div>
               </dl>
@@ -122,11 +126,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h2 className="text-[15px] font-semibold">Payment</h2>
-                  <p className="mt-1 text-[13px] text-fg-muted">Your order joins the queue once payment is confirmed.</p>
+                  <p className="mt-1 text-[13px] text-fg-muted">Your order joins the queue as soon as you pay.</p>
                 </div>
                 <p className="text-right">
-                  <span className="text-gradient text-3xl font-semibold tracking-tight">{formatHKD(order.price)}</span>
-                  <span className="block font-mono text-[11.5px] text-fg-subtle">Ref {reference}</span>
+                  <span className="text-gradient text-3xl font-semibold tracking-tight">{formatCredits(order.price)}</span>
+                  <span className="block font-mono text-[11.5px] text-fg-subtle">Order #{shortId(order.id)}</span>
                 </p>
               </div>
               {rejectedClaim && (
@@ -139,11 +143,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                 </div>
               )}
               <div className="mt-6">
-                <PaymentPanel
+                <CreditPayPanel
                   orderId={order.id}
-                  amount={order.price}
-                  reference={reference}
-                  stripe={isStripeConfigured()}
+                  price={toCredits(order.price)}
+                  balance={balance}
+                  suggestedUsd={suggestedUsd}
                   devPayments={devPaymentsEnabled()}
                 />
               </div>
@@ -153,7 +157,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
             <OrderDetails order={order} file={file} payments={payments} />
             <p className="flex gap-2 px-1 text-[12px] leading-relaxed text-fg-subtle">
               <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              Only pay the exact amount shown, and include the reference {reference} so we can match your payment quickly.
+              Orders are paid with credits. Top up on the Billing &amp; Credits page, then come back to pay.
             </p>
           </div>
         </div>

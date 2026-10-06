@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { billableChars, currency, formatHKD, refinementPrice, screeningPrice } from "@/config/pricing";
+import { billableChars, currency, formatHKD, formatCredits, refinementPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
 import { acceptsClaims, manualPayments } from "@/config/payments";
 import { uploads } from "@/config/app";
@@ -99,7 +99,7 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     order: shortId(order.id),
     service: serviceLabels[reportService],
     words,
-    amount: formatHKD(price),
+    amount: formatCredits(price),
     email: user.email,
   });
   revalidatePath("/orders");
@@ -242,11 +242,84 @@ export async function createRefinementOrder(input: unknown): Promise<{ ok: true;
     service: serviceLabels.refinement,
     words,
     characters: chars,
-    amount: formatHKD(price),
+    amount: formatCredits(price),
     email: user.email,
   });
   revalidatePath("/orders");
   return { ok: true, orderId: order.id };
+}
+
+/**
+ * Pays an order with credits: spends the price in one atomic step (only if the
+ * balance covers it), then marks the order paid through the same path as every
+ * other payment. If marking it paid fails, the credits are returned.
+ */
+export async function payOrderWithCredits(orderId: string): Promise<{ ok: true } | Fail> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Please sign in again." };
+  const order = await ownOrder(orderId, user.id);
+  if (!order) return { ok: false, message: "Order not found." };
+  if (order.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (order.service_type !== "refinement" && !order.source_text) {
+    const admin = createAdminClient();
+    const { data: file } = await admin.from("order_files").select("verified").eq("order_id", order.id).maybeSingle();
+    if (!file?.verified) return { ok: false, message: "Your document hasn't finished uploading. Please upload it again." };
+  }
+  if (await hasPendingClaim(order.id)) {
+    return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
+  }
+
+  const db = createAdminClient();
+  const credits = toCredits(order.price);
+  const { data: tx, error } = await db.rpc("credit_spend", {
+    p_user: user.id,
+    p_amount: credits,
+    p_order: order.id,
+    p_note: `Order ${shortId(order.id)}`,
+  });
+  if (error) return { ok: false, message: "We couldn't use your credits. Please try again." };
+  if (!tx) {
+    const { data: acct } = await db.from("credit_accounts").select("balance").eq("user_id", user.id).maybeSingle<{ balance: number }>();
+    const have = acct?.balance ?? 0;
+    return {
+      ok: false,
+      message: `Not enough credits: this order needs ${credits.toLocaleString("en-US")} and you have ${have.toLocaleString("en-US")}. Top up on the Billing & Credits page.`,
+    };
+  }
+
+  const res = await markOrderPaid({
+    orderId: order.id,
+    provider: "credits",
+    providerPaymentId: String(tx),
+    amount: order.price,
+    currency: order.currency,
+  });
+  if (!res.ok || !res.newlyPaid) {
+    // Nothing was bought: undo the payment record and give the credits back.
+    await db.from("payments").delete().eq("provider", "credits").eq("provider_payment_id", String(tx));
+    await db.rpc("credit_add", {
+      p_user: user.id,
+      p_amount: credits,
+      p_kind: "refund",
+      p_order: order.id,
+      p_topup: null,
+      p_note: `Refund: order ${shortId(order.id)} could not be paid`,
+    });
+    revalidatePath(`/orders/${order.id}`);
+    return { ok: false, message: res.ok ? "This order has already been paid or closed. Your credits were returned." : "We couldn't complete the payment. Your credits were returned; please try again." };
+  }
+
+  notifyOwner("payment_confirmed", {
+    order: shortId(order.id),
+    service: serviceLabels[order.service_type],
+    method: "Credits",
+    amount: formatCredits(order.price),
+    email: user.email,
+  });
+  revalidatePath(`/orders/${order.id}`);
+  revalidatePath("/orders");
+  revalidatePath("/billing");
+  return { ok: true };
 }
 
 /** Creates a Stripe Checkout Session from the stored order price and redirects. */

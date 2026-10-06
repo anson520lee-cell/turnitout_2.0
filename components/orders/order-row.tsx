@@ -4,7 +4,7 @@ import type { Order } from "@/types/domain";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { serviceLabels } from "@/config/services";
-import { formatHKD } from "@/config/pricing";
+import { formatCredits } from "@/config/pricing";
 import { formatDate, shortId } from "@/lib/utils";
 import { isScreening } from "@/lib/orders/status";
 
@@ -26,7 +26,7 @@ export function OrderRow({ order, href, paymentPending }: { order: Order; href?:
             {serviceLabels[order.service_type]} · #{shortId(order.id)} · {formatDate(order.created_at)}
           </p>
         </div>
-        <span className="hidden text-[13px] text-fg-muted sm:block">{formatHKD(order.price)}</span>
+        <span className="hidden text-[13px] text-fg-muted sm:block">{formatCredits(order.price)}</span>
         {paymentPending && order.status === "awaiting_payment" ? (
           <Badge tone="warn" dot>Confirming payment</Badge>
         ) : (

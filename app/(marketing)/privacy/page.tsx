@@ -26,7 +26,7 @@ export default function PrivacyPage() {
             <li><strong>Writing feedback on free scans:</strong> the text you scan is also sent to an outside AI provider (DeepSeek) so it can write you feedback. We don&rsquo;t store the text or the feedback, and neither is saved to your scan history.</li>
           )}
           <li><strong>Orders:</strong> the document or text you submit, its title, any notes, the service chosen, and the result we deliver.</li>
-          <li><strong>Payments:</strong> made by Alipay, PayMe, bank transfer or card (Stripe). For Alipay, PayMe and bank transfer we store the payment reference you enter (transaction number or payer name), the amount and the status so we can match your payment. We never receive or store card details.</li>
+          <li><strong>Payments:</strong> you top up credits by Alipay, PayMe, PayPal, bank transfer, crypto or card (Stripe), and spend credits on orders. We keep your credit balance and transaction history. For manual top-ups we store the payment reference you enter (transaction number or payer name), the amount and the status so we can match your payment. We never receive or store card details.</li>
           <li><strong>Free scans without an account:</strong> to enforce the daily limit we keep a salted one-way hash of your IP address (never the address itself) and a count for the day. Old counts are deleted automatically. Results of scans made without an account are not saved.</li>
         </ul>
         <h2>How documents are handled</h2>

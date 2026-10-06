@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, } from "framer-motion";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
+import { GreekText } from "@/components/landing/greek-text";
+import { CODE } from "@/lib/greek-decode";
+
+const WAIT_LINES = CODE.slice(0, 10);
+const WAIT_FLAGGED = [4, 7];
 
 /**
  * The "please wait" state: a 3D document with a scan beam, a progress
@@ -46,16 +51,9 @@ export function WaitingAnimation({
           animate={reduce ? undefined : { rotateY: [-18, 18, -18], rotateX: [10, 4, 10] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         >
-          <div className="space-y-2">
-            {[86, 94, 72, 90, 64, 0, 88, 80, 93, 58].map((w, k) =>
-              w ? (
-                <div key={k} className={cn("h-[4px] rounded-full", k === 3 || k === 7 ? "bg-violet/70" : "bg-[#c6d3ff]/25")} style={{ width: `${w}%` }} />
-              ) : (
-                <div key={k} className="h-1" />
-              ),
-            )}
+          <div className="absolute inset-3">
+            <GreekText lines={WAIT_LINES} flagged={WAIT_FLAGGED} maxChars={15} textClass="text-[6px]" />
           </div>
-          <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-transparent via-cyan/20 to-cyan/70 motion-safe:animate-scan [--scan-distance:360%]" style={{ boxShadow: "0 10px 26px -6px rgb(95 216 245 / 0.6)" }} />
         </motion.div>
       </div>
       <p className="mt-7 text-[17px] font-semibold tracking-tight">{title}</p>

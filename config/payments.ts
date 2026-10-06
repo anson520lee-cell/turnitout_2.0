@@ -44,7 +44,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "alipay",
     label: "Alipay",
     short: "Scan the QR code in AlipayHK or Alipay.",
-    enabled: true,
+    enabled: false, // credits are bought in USD / crypto only; set true to offer the HKD methods again
     payee: [
       { label: "Account", value: "REPLACE: Alipay account (phone or email)", copy: true },
       { label: "Account name", value: "REPLACE: account holder name" },
@@ -63,7 +63,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "payme",
     label: "PayMe",
     short: "Pay with PayMe from HSBC.",
-    enabled: true,
+    enabled: false,
     payee: [
       { label: "PayMe name", value: "REPLACE: PayMe display name" },
       { label: "PayMe link", value: "REPLACE: PayMe link", copy: true },
@@ -91,10 +91,10 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     ],
     link: "REPLACE: PayPal.me link",
     qrImage: null,
-    note: "Choose \"Friends & Family\" or \"Goods & Services\" as shown in the steps, and send the exact HKD amount.",
+    note: "Choose \"Friends & Family\" or \"Goods & Services\" as shown in the steps, and send the exact USD amount.",
     steps: [
       "Open PayPal and send money to the email or PayPal.me link shown here.",
-      "Send the exact amount in HKD (or the same amount in your own currency if PayPal converts it).",
+      "Send the exact amount in US dollars (USD).",
       "Put the reference code in the payment note.",
       "Come back here and enter your PayPal transaction ID.",
     ],
@@ -105,7 +105,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "bank_transfer",
     label: "Bank transfer",
     short: "FPS or a local bank transfer in HKD.",
-    enabled: true,
+    enabled: false,
     payee: [
       { label: "Bank", value: "REPLACE: bank name" },
       { label: "Account name", value: "REPLACE: account holder name" },
@@ -136,7 +136,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     note: "Send only USDT on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
     steps: [
       "Open your wallet or exchange and choose USDT on the network shown here.",
-      "Send the amount shown (1 USDT is about US$1; the HK$ price is converted at today's rate by you).",
+      "Send the amount shown (1 USDT is worth about US$1, so send the same number of USDT as the US$ amount).",
       "Copy the transaction ID (TXID) when the transfer is sent.",
       "Come back here and paste the TXID.",
     ],
@@ -156,7 +156,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     note: "Send only USDC on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
     steps: [
       "Open your wallet or exchange and choose USDC on the network shown here.",
-      "Send the amount shown (1 USDC is about US$1; the HK$ price is converted at today's rate by you).",
+      "Send the amount shown (1 USDC is worth about US$1, so send the same number of USDC as the US$ amount).",
       "Copy the transaction ID (TXID) when the transfer is sent.",
       "Come back here and paste the TXID.",
     ],
@@ -173,10 +173,10 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
       { label: "Wallet address", value: "REPLACE: Bitcoin wallet address", copy: true },
     ],
     qrImage: "/payments/bitcoin-qr.png",
-    note: "Send only Bitcoin (BTC) to this address. The BTC amount depends on today's exchange rate; send the equivalent of the HK$ price. Network fees are paid by you.",
+    note: "Send only Bitcoin (BTC) to this address. The BTC amount depends on today's exchange rate; send the equivalent of the US$ amount. Network fees are paid by you.",
     steps: [
       "Open your Bitcoin wallet or exchange and send BTC to the address shown here.",
-      "Send the BTC equivalent of the HK$ amount at today's rate.",
+      "Send the BTC equivalent of the US$ amount at today's rate.",
       "Copy the transaction ID (TXID) when the transfer is sent.",
       "Come back here and paste the TXID.",
     ],
@@ -214,8 +214,20 @@ export function acceptsClaims(m: ManualPaymentConfig): boolean {
   return m.enabled && (payeeReady(m) || process.env.NODE_ENV !== "production");
 }
 
+/** Methods where the customer may pick any amount (min US$5): the crypto ones. */
+export const CRYPTO_METHODS = ["usdt", "usdc", "bitcoin"] as const;
+
+export function isCryptoMethod(v: string): boolean {
+  return (CRYPTO_METHODS as readonly string[]).includes(v);
+}
+
 /** Code the customer puts in the transfer note, so the admin can match it. */
 export const referencePrefix = "ZP";
+
+/** Reference for a credit top-up, taken from the account id so it is stable per customer. */
+export function topupReference(userId: string): string {
+  return `${referencePrefix}-${userId.slice(0, 8).toUpperCase()}`;
+}
 
 export function paymentReference(orderId: string): string {
   return `${referencePrefix}-${orderId.slice(0, 8).toUpperCase()}`;
@@ -225,6 +237,7 @@ export function paymentReference(orderId: string): string {
 export function paymentMethodLabel(provider: string): string {
   if (isManualPaymentMethod(provider)) return manualPayments[provider].label;
   if (provider === "stripe") return "Card / Google Pay (Stripe)";
+  if (provider === "credits") return "Credits";
   if (provider === "dev") return "Simulated (dev)";
   return provider;
 }

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { adminMetrics, adminOrders } from "@/lib/data/admin";
 import { OrdersTable } from "@/components/admin/orders-table";
+import { TopupReview, type PendingTopup } from "@/components/admin/topup-review";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatHKD } from "@/config/pricing";
 import { paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
@@ -9,8 +11,32 @@ import { formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin" };
 
+async function pendingTopups(): Promise<PendingTopup[]> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("credit_topups")
+    .select("id,usd,amount,method,payer_reference,created_at,user_id")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(100);
+  const rows = data ?? [];
+  const ids = [...new Set(rows.map((r) => r.user_id as string))];
+  const { data: profs } = ids.length ? await db.from("profiles").select("id,email").in("id", ids) : { data: [] };
+  const emails = new Map((profs ?? []).map((p) => [p.id as string, p.email as string]));
+  return rows.map((r) => ({
+    id: r.id as string,
+    usd: r.usd as number,
+    amount: r.amount as number,
+    method: r.method as string,
+    methodLabel: paymentMethodLabel(r.method as string),
+    reference: (r.payer_reference as string | null) ?? null,
+    email: emails.get(r.user_id as string) ?? "—",
+    createdAt: formatDateTime(r.created_at as string),
+  }));
+}
+
 export default async function AdminHome() {
-  const [m, orders] = await Promise.all([adminMetrics(), adminOrders(200)]);
+  const [m, orders, topupRows] = await Promise.all([adminMetrics(), adminOrders(200), pendingTopups()]);
   const queue = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).reverse(); // oldest first
   // Customers waiting on us to find their Alipay / PayMe / bank payment come first.
   const toVerify = orders
@@ -39,6 +65,17 @@ export default async function AdminHome() {
           </div>
         ))}
       </div>
+      {topupRows.length > 0 && (
+        <>
+          <h2 className="mt-10 text-[16px] font-semibold">
+            Top-ups to verify <span className="text-fg-subtle">· oldest first</span>
+          </h2>
+          <p className="mt-1 text-[12.5px] text-fg-muted">Check the account for the reference and amount, then confirm to add the credits.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {topupRows.map((t) => <TopupReview key={t.id} t={t} />)}
+          </div>
+        </>
+      )}
       {toVerify.length > 0 && (
         <>
           <h2 className="mt-10 text-[16px] font-semibold">

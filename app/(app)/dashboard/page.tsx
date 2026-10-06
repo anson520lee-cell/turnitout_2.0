@@ -11,7 +11,7 @@ import { getRemainingScans } from "@/lib/scanning/usage";
 import { listOrders, listPendingClaimOrderIds, listScans } from "@/lib/data/user";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
 import { freeScan } from "@/config/app";
-import { formatHKD, refinementPricing, screeningPrices } from "@/config/pricing";
+import { formatCredits, refinementPricing, screeningPrices } from "@/config/pricing";
 import { reportService } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 
@@ -71,8 +71,8 @@ export default async function DashboardPage() {
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         {[
           { href: "/scan", icon: ScanText, t: "Run free scan", d: "Preliminary estimate", tag: "Free" },
-          { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "Turnitin AI & similarity", tag: formatHKD(screeningPrices[reportService]) },
-          { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatHKD(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`, tag: `From ${formatHKD(refinementPricing.minimum)}` },
+          { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "Turnitin AI & similarity", tag: formatCredits(screeningPrices[reportService]) },
+          { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`, tag: `From ${formatCredits(refinementPricing.minimum)}` },
         ].map((q) => (
           <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
             <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>

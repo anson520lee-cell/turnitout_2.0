@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Shield, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
@@ -14,10 +14,11 @@ const nav = [
   { href: "/orders", label: "Orders", icon: FileStack },
   { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
   { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
+  { href: "/billing", label: "Billing & Credits", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean }) {
+export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin: boolean; credits: number }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const items = isAdmin ? [...nav, { href: "/admin", label: "Admin", icon: Shield }] : nav;
@@ -43,6 +44,9 @@ export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean
               >
                 <Icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
                 {label}
+                {href === "/billing" && (
+                  <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[11px] text-accent">{credits.toLocaleString("en-US")}</span>
+                )}
               </Link>
             </li>
           );

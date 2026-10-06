@@ -1,5 +1,5 @@
 import { brand, freeScan, retention } from "./app";
-import { formatHKD, screeningPrices } from "./pricing";
+import { formatCredits, screeningPrices } from "./pricing";
 import { enabledManualPayments } from "./payments";
 import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportService, wordRangeLabel } from "./services";
 
@@ -27,15 +27,15 @@ export const faq: FaqItem[] = [
   },
   {
     q: "How much does it cost?",
-    a: `A report is ${formatHKD(screeningPrices[reportService])} for any document of ${wordRangeLabel}. Writing refinement is ${refinementRateLabel}, rounded up. ${refinementMinimumLabel}. The free scan costs nothing.`,
+    a: `A report is ${formatCredits(screeningPrices[reportService])} for any document of ${wordRangeLabel}. Writing refinement is ${refinementRateLabel}, rounded up. ${refinementMinimumLabel}. The free scan costs nothing.`,
   },
   {
     q: "How do I submit my text?",
-    a: "Press the button on the report or refinement page, paste your text into the box and press Enter. You can also load a .docx, .pdf or .txt file into the box; the text is extracted in your browser. You then choose how to pay on the order page.",
+    a: "Press the button on the report or refinement page, paste your text into the box and press Enter. You can also load a .docx, .pdf or .txt file into the box; the text is extracted in your browser. You then pay for it with credits on the order page.",
   },
   {
-    q: "How do I pay?",
-    a: `By ${payMethods}, with card payment where available. The order page shows the exact amount, the account details and a reference code to put in your payment note. After paying, enter your transaction number or payer name there. We confirm each payment by hand, and your order joins the queue as soon as it is confirmed. If we can't find a payment, we tell you on the order page and you can submit the details again.`,
+    q: "How do credits work?",
+    a: `Everything is paid for with credits (1 credit = HK$1). Top up on the Billing & Credits page by ${payMethods}, with card payment where available. For a manual payment, the page shows the account details and a reference code for your payment note; after paying, enter your transaction number or payer name there. We confirm each payment by hand and add the credits as soon as it is confirmed. Card payments are credited automatically. Then pay for a report or refinement with one click on its order page.`,
   },
   {
     q: "Are you affiliated with Turnitin?",

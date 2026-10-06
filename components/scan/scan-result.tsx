@@ -14,7 +14,7 @@ import { ReadabilityCard } from "./readability-card";
 import { ModelFeedback } from "./model-feedback";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
-import { formatHKD, screeningPrices } from "@/config/pricing";
+import { formatCredits, screeningPrices } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -195,7 +195,7 @@ function NextStep() {
           onClick={() => track("screening_service_clicked", { from: "scan_result" })}
           className={buttonClasses("primary", "md")}
         >
-          Get AI &amp; similarity report · {formatHKD(screeningPrices.combined_screening)}
+          Get AI &amp; similarity report · {formatCredits(screeningPrices.combined_screening)}
           <ArrowRight className="size-4" />
         </Link>
         <Link href="/services/refinement" onClick={() => track("refinement_service_clicked", { from: "scan_result" })} className={buttonClasses("ghost", "md")}>

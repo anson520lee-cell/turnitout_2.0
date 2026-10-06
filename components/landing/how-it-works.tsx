@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
-import { formatHKD, screeningPrices } from "@/config/pricing";
+import { formatCredits, screeningPrices } from "@/config/pricing";
 import { enabledManualPayments } from "@/config/payments";
 import { reportService } from "@/config/services";
 
@@ -22,8 +22,8 @@ export const steps = [
   },
   {
     n: "04",
-    title: "Pay once",
-    body: `${formatHKD(screeningPrices[reportService])} per AI & similarity report, by ${methods}.`,
+    title: "Pay with credits",
+    body: `${formatCredits(screeningPrices[reportService])} per AI & similarity report. Top up credits by ${methods}.`,
   },
   { n: "05", title: "Receive your result", body: "Our team runs a Turnitin screening, records exactly what it returned, and sends you the report." },
 ];

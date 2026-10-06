@@ -10,6 +10,7 @@ import {
 import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
+import { GreekText } from "@/components/landing/greek-text";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
@@ -63,14 +64,8 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         style={{ opacity: docOpacity, y: docY, z: docZ, rotateX: docRotX, rotateY: -12 }}
         className="glass-strong absolute left-[26%] top-[12%] h-[70%] w-[48%] rounded-2xl p-[5%] [transform-style:preserve-3d]"
       >
-        <div className="space-y-2.5">
-          {[90, 96, 72, 88, 0, 93, 80, 95, 64, 0, 86, 91].map((w, i) =>
-            w ? (
-              <div key={i} className={cn("h-[5px] rounded-full", i === 2 || i === 7 ? "bg-violet/70" : "bg-[#c6d3ff]/25")} style={{ width: `${w}%` }} />
-            ) : (
-              <div key={i} className="h-2" />
-            ),
-          )}
+        <div className="absolute inset-[5%]">
+          <GreekText maxChars={26} textClass="text-[8px]" />
         </div>
       </motion.div>
       {/* signal labels */}
