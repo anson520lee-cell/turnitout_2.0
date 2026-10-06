@@ -897,3 +897,23 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
   [data-tilt] { transform: none !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* CssDocument extras: floating chips, pulsing flagged spans, growing bars. */
+.chip-float { animation: chip-float 6s ease-in-out infinite; }
+@keyframes chip-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.hl-pulse { animation: hl-pulse 3s ease-in-out infinite; }
+@keyframes hl-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.bar-grow { transform-origin: bottom; animation: bar-grow 3.6s ease-in-out infinite; }
+@keyframes bar-grow {
+  0%, 100% { transform: scaleY(0.7); }
+  50% { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip-float, .hl-pulse, .bar-grow { animation: none; }
+}
