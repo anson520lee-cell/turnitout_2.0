@@ -442,107 +442,6 @@ function Particles({
   );
 }
 
-type V3 = [number, number, number];
-
-/**
- * A small network around the document: two layers of neurons on the way in
- * (left) and two on the way out (right). Signals run in from the left, through
- * the page, and out to the right.
- */
-const LAYER_IN: V3[] = [
-  [-2.12, 1.1, 0.25],
-  [-2.18, 0.38, 0.5],
-  [-2.12, -0.36, 0.3],
-  [-2.18, -1.08, 0.5],
-];
-const LAYER_IN2: V3[] = [
-  [-1.62, 0.8, 0.42],
-  [-1.58, 0.02, 0.56],
-  [-1.62, -0.78, 0.42],
-];
-const LAYER_OUT2: V3[] = [
-  [1.6, 0.82, 0.46],
-  [1.56, 0.04, 0.6],
-  [1.6, -0.74, 0.42],
-];
-const LAYER_OUT: V3[] = [
-  [2.14, 0.44, 0.3],
-  [2.18, -0.4, 0.46],
-];
-const NODES: V3[] = [...LAYER_IN, ...LAYER_IN2, ...LAYER_OUT2, ...LAYER_OUT];
-
-/** Every connection, with the stage it belongs to (0 = first hop … 3 = last) and a small phase offset. */
-const SEGS: { a: V3; b: V3; stage: number; o: number }[] = [];
-LAYER_IN.forEach((a, i) => LAYER_IN2.forEach((b, j) => SEGS.push({ a, b, stage: 0, o: ((i * 3 + j * 5) % 7) * 0.03 })));
-LAYER_IN2.forEach((a, i) => SEGS.push({ a, b: [-DOC_W / 2, a[1] * 0.8, 0.02], stage: 1, o: i * 0.04 }));
-LAYER_OUT2.forEach((b, i) => SEGS.push({ a: [DOC_W / 2, b[1] * 0.8, 0.02], b, stage: 2, o: i * 0.04 }));
-LAYER_OUT2.forEach((a, i) => LAYER_OUT.forEach((b, j) => SEGS.push({ a, b, stage: 3, o: ((i * 2 + j * 3) % 5) * 0.04 })));
-
-function Nodes() {
-  const glow = useGlowTexture();
-  const dots = useRef<(THREE.Mesh | null)[]>([]);
-  const halos = useRef<(THREE.Sprite | null)[]>([]);
-  const tmp = useMemo(() => new THREE.Vector3(), []);
-  const lineGeo = useMemo(() => {
-    const pts: THREE.Vector3[] = [];
-    SEGS.forEach((s) => {
-      pts.push(new THREE.Vector3(s.a[0], s.a[1], s.a[2]));
-      pts.push(new THREE.Vector3(s.b[0], s.b[1], s.b[2]));
-    });
-    return new THREE.BufferGeometry().setFromPoints(pts);
-  }, []);
-  // one signal per connection, moved along it every frame
-  const pulseGeo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(SEGS.length * 3), 3));
-    return g;
-  }, []);
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const pos = pulseGeo.getAttribute("position") as THREE.BufferAttribute;
-    SEGS.forEach((s, i) => {
-      const ph = t * 0.6 - s.stage * 0.25 + s.o;
-      const u = ph - Math.floor(ph);
-      pos.setXYZ(i, s.a[0] + (s.b[0] - s.a[0]) * u, s.a[1] + (s.b[1] - s.a[1]) * u, s.a[2] + (s.b[2] - s.a[2]) * u);
-    });
-    pos.needsUpdate = true;
-    NODES.forEach((_, i) => {
-      const m = dots.current[i];
-      const h = halos.current[i];
-      if (!m || !h) return;
-      m.getWorldPosition(tmp);
-      const near = Math.exp(-tmp.distanceToSquared(light.uLightW.value) * 1.4) * light.uLightOn.value;
-      // neurons fire in layer order, a beat apart
-      const layer = i < 4 ? 0 : i < 7 ? 1 : i < 10 ? 3 : 4;
-      const fire = Math.pow(Math.max(0, Math.sin(t * 0.6 * Math.PI * 2 - layer * 1.57)), 6);
-      m.scale.setScalar(1 + fire * 0.7 + near * 0.9);
-      h.scale.setScalar(0.26 + fire * 0.3 + near * 0.55);
-      (h.material as THREE.SpriteMaterial).opacity = 0.22 + fire * 0.5 + near * 0.6;
-    });
-  });
-  return (
-    <group>
-      <lineSegments geometry={lineGeo}>
-        <lineBasicMaterial color="#6f9bff" transparent opacity={0.26} />
-      </lineSegments>
-      <points geometry={pulseGeo}>
-        <pointsMaterial map={glow} color="#c8f3ff" size={0.13} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-      </points>
-      {NODES.map((p, i) => (
-        <group key={i} position={p}>
-          <mesh ref={(el) => void (dots.current[i] = el)}>
-            <sphereGeometry args={[0.03, 16, 16]} />
-            <meshBasicMaterial color={i % 2 ? "#9a7bff" : "#5fd8f5"} />
-          </mesh>
-          <sprite ref={(el) => void (halos.current[i] = el)}>
-            <spriteMaterial map={glow} color={i % 2 ? "#b9a6ff" : "#8feaff"} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-          </sprite>
-        </group>
-      ))}
-    </group>
-  );
-}
-
 /** The light itself: a soft glow riding just above the document. */
 function LightGlow() {
   const glow = useGlowTexture();
@@ -671,7 +570,6 @@ export default function HeroScene() {
           <Sheet z={0} opacity={0.5} edge={0.42} />
           <TextLines />
           <ScanPlane />
-          <Nodes />
         </Rig>
         <LightGlow />
         <Particles count={70} seed={19} radius={[1.6, 3.4]} spread={0.35} z={1.9} size={2.4} depth={0.55} />
