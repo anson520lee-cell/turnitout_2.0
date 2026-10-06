@@ -406,7 +406,6 @@ export function SpaceBackground() {
     let lx = new Float32Array(0);
     let ly = new Float32Array(0);
     const ex = new Float32Array(net.edges.length);
-    const ey = new Float32Array(net.edges.length);
     let lastPass = -1;
 
     let scrollY = window.scrollY;
@@ -529,7 +528,7 @@ export function SpaceBackground() {
         // fade in from the distance, and out just before a neuron passes the eye
         fa[i] = clamp((FIELD_NEAR + FIELD_DEPTH - zz) / 1.1) * clamp((zz - FIELD_NEAR) / 0.3);
       }
-      const lit = 0.03 + energy * 0.6;
+      const lit = energy * 0.5; // nothing at all while the page is still
       c.save();
       c.globalCompositeOperation = "lighter";
       c.lineCap = "round";
@@ -543,8 +542,10 @@ export function SpaceBackground() {
         c.strokeStyle = `hsla(${nodes[a].hue},95%,74%,${al.toFixed(3)})`;
         c.lineWidth = Math.min(1.7, 0.3 + 0.42 / zm);
         c.beginPath();
+        // a bowed link: the midpoint pushed sideways, alternately one way and the other
+        const bow = (e % 2 ? 0.2 : -0.2) + ((e % 5) - 2) * 0.03;
         c.moveTo(fx[a], fy[a]);
-        c.lineTo(fx[b], fy[b]);
+        c.quadraticCurveTo((fx[a] + fx[b]) / 2 - (fy[b] - fy[a]) * bow, (fy[a] + fy[b]) / 2 + (fx[b] - fx[a]) * bow, fx[b], fy[b]);
         c.stroke();
       }
       // signals: scrolling fires them along the mesh
@@ -563,8 +564,14 @@ export function SpaceBackground() {
           const b = field.edges[p.e][p.rev ? 0 : 1];
           if (Math.abs(fz[a] - fz[b]) > 1.3) continue;
           const al = Math.min(fa[a], fa[b]);
-          const x = fx[a] + (fx[b] - fx[a]) * p.u;
-          const y = fy[a] + (fy[b] - fy[a]) * p.u;
+          // along the same bow as the link it rides
+          const bow = (p.e % 2 ? 0.2 : -0.2) + ((p.e % 5) - 2) * 0.03;
+          const sgn = p.rev ? -1 : 1;
+          const mxq = (fx[a] + fx[b]) / 2 - (fy[b] - fy[a]) * bow * sgn;
+          const myq = (fy[a] + fy[b]) / 2 + (fx[b] - fx[a]) * bow * sgn;
+          const v = 1 - p.u;
+          const x = v * v * fx[a] + 2 * v * p.u * mxq + p.u * p.u * fx[b];
+          const y = v * v * fy[a] + 2 * v * p.u * myq + p.u * p.u * fy[b];
           const r = Math.min(3.2, 0.9 + 0.8 / ((fz[a] + fz[b]) / 2));
           c.fillStyle = `rgba(215,245,255,${(al * (0.5 + energy * 0.5)).toFixed(3)})`;
           c.beginPath();
@@ -806,7 +813,7 @@ export function SpaceBackground() {
     }
 
     function drawStars(time: number) {
-      const streak = Math.abs(vel) > 6;
+      const streak = false; // stars stay points; the scroll shows in the neural field, not as streaks
       const dir = vel > 0 ? 1 : -1;
       for (const s of stars) {
         const x = s.x * w;
@@ -910,12 +917,12 @@ export function SpaceBackground() {
         px[i] = n.fx * w + n.z * sway + Math.sin(time * 0.21 + n.ph) * 7;
         py[i] = n.fy * h + n.z * lift + Math.cos(time * 0.17 + n.ph * 1.7) * 7;
       }
+      // Every strand is an S-curve: it leaves its neuron level, sweeps across,
+      // and arrives level, so strands run together like fibres instead of
+      // criss-crossing as straight lines. ex is where the sweep happens.
       for (let i = 0; i < net.edges.length; i++) {
         const e = net.edges[i];
-        const dx = px[e.b] - px[e.a];
-        const dy = py[e.b] - py[e.a];
-        ex[i] = (px[e.a] + px[e.b]) / 2 - dy * e.c;
-        ey[i] = (py[e.a] + py[e.b]) / 2 + dx * e.c;
+        ex[i] = (px[e.a] + px[e.b]) / 2 + (px[e.b] - px[e.a]) * e.c;
       }
 
       // every few seconds a new sample is followed through the network
@@ -925,7 +932,7 @@ export function SpaceBackground() {
         trainer.probe();
       }
 
-      const dim = (small ? 0.75 : 1) * (inApp.current ? 1 : 0.85);
+      const dim = (small ? 0.75 : 1) * (inApp.current ? 0.9 : 0.8);
       c.save();
       c.lineCap = "round";
 
@@ -944,33 +951,34 @@ export function SpaceBackground() {
         wmax[l] = m;
         gmax[l] = g;
       }
+      // only the stronger half of the weights is drawn at all: fewer, clearer strands
       c.lineWidth = 0.5;
       for (const sign of [1, -1]) {
-        for (let bucket = 0; bucket < 3; bucket++) {
-          c.strokeStyle = `rgba(${sign > 0 ? "110,215,245" : "165,140,255"},${((0.04 + bucket * 0.045) * dim).toFixed(3)})`;
+        for (let bucket = 1; bucket < 3; bucket++) {
+          c.strokeStyle = `rgba(${sign > 0 ? "110,215,245" : "165,140,255"},${((bucket === 1 ? 0.028 : 0.058) * dim).toFixed(3)})`;
           c.beginPath();
           for (let i = 0; i < net.edges.length; i++) {
             const e = net.edges[i];
             const wv = trainer.W[e.l][e.q];
             if (wv * sign <= 0) continue;
             const m = Math.abs(wv) / wmax[e.l];
-            if ((m < 0.33 ? 0 : m < 0.66 ? 1 : 2) !== bucket) continue;
+            if ((m < 0.4 ? 0 : m < 0.7 ? 1 : 2) !== bucket) continue;
             c.moveTo(px[e.a], py[e.a]);
-            c.quadraticCurveTo(ex[i], ey[i], px[e.b], py[e.b]);
+            c.bezierCurveTo(ex[i], py[e.a], ex[i], py[e.b], px[e.b], py[e.b]);
           }
           c.stroke();
         }
       }
       // strands being corrected hardest right now (largest gradients)
       if (!still && !trainer.done) {
-        c.strokeStyle = `rgba(235,242,255,${(0.14 * dim).toFixed(3)})`;
+        c.strokeStyle = `rgba(235,242,255,${(0.075 * dim).toFixed(3)})`;
         c.lineWidth = 0.6;
         c.beginPath();
         for (let i = 0; i < net.edges.length; i++) {
           const e = net.edges[i];
-          if (trainer.G[e.l][e.q] / gmax[e.l] < 0.62) continue;
+          if (trainer.G[e.l][e.q] / gmax[e.l] < 0.7) continue;
           c.moveTo(px[e.a], py[e.a]);
-          c.quadraticCurveTo(ex[i], ey[i], px[e.b], py[e.b]);
+          c.bezierCurveTo(ex[i], py[e.a], ex[i], py[e.b], px[e.b], py[e.b]);
         }
         c.stroke();
       }
@@ -985,46 +993,53 @@ export function SpaceBackground() {
           const e = net.edges[i];
           const m = Math.abs(trainer.W[e.l][e.q]) / wmax[e.l];
           const g = trainer.done ? 0 : trainer.G[e.l][e.q] / gmax[e.l];
-          const back = g > 0.5 && e.ph > 0.6;
-          if (!back && (m < 0.4 || e.ph > 0.6)) continue;
+          const back = g > 0.55 && e.ph > 0.7;
+          if (!back && (m < 0.45 || e.ph > 0.42)) continue;
           // where the comet's head is along the strand; it rests between runs
-          const beat = (netPhase * (back ? 0.34 : 0.27) + e.ph * 7.3 + e.l * 0.31) % 1.6;
-          if (beat > 1.22) continue;
+          const beat = (netPhase * (back ? 0.3 : 0.24) + e.ph * 7.3 + e.l * 0.31) % 1.7;
+          if (beat > 1.3) continue;
           const head = Math.min(1, beat);
-          const tail = Math.max(0, beat - 0.3);
+          const tail = Math.max(0, beat - 0.34);
           if (tail >= head) continue;
           const a = back ? e.b : e.a;
           const b = back ? e.a : e.b;
-          // the stretch of the strand between tail and head, as its own curve
-          const q0x = px[a] + (ex[i] - px[a]) * tail;
-          const q0y = py[a] + (ey[i] - py[a]) * tail;
-          const q1x = ex[i] + (px[b] - ex[i]) * tail;
-          const q1y = ey[i] + (py[b] - ey[i]) * tail;
-          const sx = q0x + (q1x - q0x) * tail;
-          const sy = q0y + (q1y - q0y) * tail;
-          const cxp = q0x + (q1x - q0x) * head;
-          const cyp = q0y + (q1y - q0y) * head;
-          const h0x = px[a] + (ex[i] - px[a]) * head;
-          const h0y = py[a] + (ey[i] - py[a]) * head;
-          const h1x = ex[i] + (px[b] - ex[i]) * head;
-          const h1y = ey[i] + (py[b] - ey[i]) * head;
-          const hx = h0x + (h1x - h0x) * head;
-          const hy = h0y + (h1y - h0y) * head;
+          const x0 = px[a];
+          const y0 = py[a];
+          const x3 = px[b];
+          const y3 = py[b];
+          const xm = ex[i];
+          // points along the strand from tail to head (cubic: level out, sweep, level in)
+          const SEG = 7;
+          let hx = x0;
+          let hy = y0;
+          let sx = x0;
+          let sy = y0;
+          c.beginPath();
+          for (let k = 0; k <= SEG; k++) {
+            const t = tail + ((head - tail) * k) / SEG;
+            const u = 1 - t;
+            const bx = u * u * u * x0 + 3 * u * u * t * xm + 3 * u * t * t * xm + t * t * t * x3;
+            const by = u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y3 + t * t * t * y3;
+            if (k === 0) {
+              sx = bx;
+              sy = by;
+              c.moveTo(bx, by);
+            } else c.lineTo(bx, by);
+            hx = bx;
+            hy = by;
+          }
           const col = back ? "178,150,255" : "120,228,255";
-          const al = (back ? 0.5 : 0.3 + m * 0.3) * dim;
+          const al = (back ? 0.36 : 0.2 + m * 0.22) * dim;
           const grad = c.createLinearGradient(sx, sy, hx, hy);
           grad.addColorStop(0, `rgba(${col},0)`);
           grad.addColorStop(1, `rgba(${col},${al.toFixed(3)})`);
           c.strokeStyle = grad;
-          c.lineWidth = 1;
-          c.beginPath();
-          c.moveTo(sx, sy);
-          c.quadraticCurveTo(cxp, cyp, hx, hy);
+          c.lineWidth = 0.9;
           c.stroke();
           if (beat < 1) {
-            c.fillStyle = `rgba(235,248,255,${Math.min(0.9, al * 1.5).toFixed(3)})`;
+            c.fillStyle = `rgba(235,248,255,${Math.min(0.85, al * 1.7).toFixed(3)})`;
             c.beginPath();
-            c.arc(hx, hy, 1.15, 0, Math.PI * 2);
+            c.arc(hx, hy, 1.05, 0, Math.PI * 2);
             c.fill();
           }
         }
@@ -1033,7 +1048,7 @@ export function SpaceBackground() {
       // ── neurons: small, steady points. They mark where strands meet; they do not flash.
       c.font = `9px ${MONO}`;
       const r = small ? 1.2 : 1.5;
-      c.fillStyle = `rgba(160,180,240,${(0.3 * dim).toFixed(3)})`;
+      c.fillStyle = `rgba(160,180,240,${(0.2 * dim).toFixed(3)})`;
       c.beginPath();
       for (let i = 0; i < net.nodes.length; i++) {
         c.moveTo(px[i] + r, py[i]);
@@ -1174,16 +1189,16 @@ export function SpaceBackground() {
       // random meteors; a fast scroll shakes a few loose
       nextMeteor -= step;
       if (nextMeteor <= 0) {
-        if (Math.random() < 0.22) {
+        if (Math.random() < 0.12) {
           const n = 4 + Math.floor(Math.random() * 6);
           for (let i = 0; i < n; i++) queued.push(i * rand(0.12, 0.38));
           nextMeteor = rand(3.5, 7);
         } else {
           spawnMeteor();
-          nextMeteor = rand(0.35, 1.7);
+          nextMeteor = rand(1, 3.4);
         }
       }
-      if (Math.abs(vel) > 28 && Math.random() < 0.05) spawnMeteor(true);
+      if (Math.abs(vel) > 28 && Math.random() < 0.02) spawnMeteor(true);
       for (let i = queued.length - 1; i >= 0; i--) {
         queued[i] -= step;
         if (queued[i] <= 0) {
