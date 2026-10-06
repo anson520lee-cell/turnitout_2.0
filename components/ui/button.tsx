@@ -18,11 +18,11 @@ export function buttonClasses(variant: Variant = "primary", size: Size = "md", c
     size === "md" && "h-10 px-5 text-sm",
     size === "lg" && "h-12 px-7 text-[15px]",
     // Liquid glass: every filled variant is the same pane of glass, tinted (see .btn-glass in globals.css).
-    variant === "primary" && "btn-primary btn-glass magnetic text-white [--tint:98_148_255] [--fill:0.68]",
-    variant === "secondary" && "btn-glass magnetic text-fg [--tint:205_218_255] [--fill:0.1]",
-    variant === "outline" && "btn-glass magnetic text-fg [--tint:150_175_255] [--fill:0.04] [--edge-a:0.34]",
+    variant === "primary" && "btn-primary btn-glass magnetic text-white [--tint:96_150_255] [--fill:0.26] [--edge-a:0.3]",
+    variant === "secondary" && "btn-glass magnetic text-fg [--tint:205_218_255] [--fill:0.05]",
+    variant === "outline" && "btn-glass magnetic text-fg [--tint:150_175_255] [--fill:0.015] [--edge-a:0.3]",
     variant === "ghost" && "text-fg-muted hover:bg-white/[0.07] hover:text-fg active:bg-white/[0.1]",
-    variant === "danger" && "btn-glass text-[#ffd9de] [--tint:255_110_128] [--fill:0.3]",
+    variant === "danger" && "btn-glass text-[#ffd9de] [--tint:255_110_128] [--fill:0.14]",
     className,
   );
 }
