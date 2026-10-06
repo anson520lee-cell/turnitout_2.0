@@ -25,9 +25,10 @@
   --color-warn: #f5c35b;
   --color-risk: #ff7a8a;
 
-  /* Georgia throughout. Devices without it (Android, Linux) get Gelasio, which
-     is drawn to the same widths, so the layout is identical. */
-  --font-sans: Georgia, var(--font-gelasio), "Times New Roman", Times, serif;
+  /* Inter for reading text; Space Grotesk (a technical, geometric face) for
+     headings, buttons and labels; Geist Mono for numbers and code. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --radius-xl: 14px;
@@ -1210,15 +1211,18 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
 }
 
 /* ------------------------------------------------------------------
-   Liquid glass. Type and surfaces in the manner of Apple's glass UI, set in
-   Georgia: headings cast in glass (a soft vertical gradient with a lit top
-   edge), and panes that are clearer, more saturated and edged with light.
+   Liquid glass. Type and surfaces: Inter for text, Space Grotesk for
+   headings (cast in glass: a soft vertical gradient with a lit top edge),
+   buttons and labels, and panes that are clearer, more saturated and edged
+   with light.
    ------------------------------------------------------------------ */
 body {
   font-kerning: normal;
-  font-variant-numeric: lining-nums;
+  font-feature-settings: "cv11", "ss03", "calt";
+  letter-spacing: -0.011em;
 }
-h1, h2, h3, h4 { letter-spacing: -0.014em; }
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.03em; }
+.btn-fx { font-family: var(--font-display); letter-spacing: -0.01em; }
 
 /* Headings cast in glass. :where() keeps the specificity at zero so a
    heading that sets its own gradient (text-gradient, the title sheen) or
@@ -1234,18 +1238,31 @@ h1, h2, h3, h4 { letter-spacing: -0.014em; }
    chip) keeps ordinary solid text. */
 :where(h1, h2) :where([class*="bg-"]:not([class*="bg-clip"]), .glass, .glass-strong) { -webkit-text-fill-color: currentColor; }
 
-/* Small capitals labels were set in a mono face; they are now the text face,
-   bold and widely tracked. */
+/* Small capitals labels are set in the display face, widely tracked. Numbers,
+   identifiers and code stay in the mono face. */
 .font-mono.uppercase {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.16em;
 }
-/* Everything else set in the mono face (order numbers, references, amounts)
-   is Georgia too; only the typed-code illustration keeps a fixed-width face
-   (see .font-code), because its indentation has to line up. */
-.font-mono { font-family: var(--font-sans); font-variant-numeric: lining-nums tabular-nums; }
 .font-code { font-family: var(--font-mono); }
+
+/* The Pattern Engine instrument panel (components/landing/neural-engine.tsx). */
+.hud-panel {
+  background:
+    radial-gradient(120% 70% at 85% 0%, rgb(95 216 245 / 0.1), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, rgb(154 123 255 / 0.12), transparent 62%),
+    linear-gradient(180deg, rgb(9 14 34 / 0.8), rgb(5 8 20 / 0.88));
+  border: 1px solid rgb(130 180 255 / 0.26);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    inset 0 0 60px rgb(70 120 255 / 0.1),
+    0 0 0 1px rgb(0 0 0 / 0.4),
+    0 40px 90px -34px rgb(0 0 0 / 0.95),
+    0 0 70px -24px rgb(95 216 245 / 0.45);
+  backdrop-filter: blur(26px) saturate(170%);
+}
+.hud-panel:not(.absolute, .fixed, .sticky) { position: relative; }
 
 /* A clear glass pane: used by the Pattern Engine figure. */
 .liquid-glass {

@@ -684,7 +684,7 @@ export function SpaceBackground() {
       c.beginPath();
       c.arc(ox, oy, 16, 0, Math.PI * 2);
       c.fill();
-      c.font = "10px Georgia, 'Times New Roman', serif";
+      c.font = "10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
       c.fillStyle = "rgba(255,215,170,0.8)";
       c.fillText("∇L", ox + 10, oy - 9);
     }
@@ -951,7 +951,7 @@ export function SpaceBackground() {
       }
 
       // ── neurons: a small core, a fine ring, a glow while firing
-      c.font = "9px Georgia, 'Times New Roman', serif";
+      c.font = "9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
       for (let i = 0; i < net.nodes.length; i++) {
         const n = net.nodes[i];
         const r = (1.6 + pk[i] * 1.5) * (small ? 0.9 : 1);
@@ -991,7 +991,7 @@ export function SpaceBackground() {
       const bh = 30;
       const hx = cx - bw / 2;
       const hy = cy + 255 * S + 28;
-      c.font = "10px Georgia, 'Times New Roman', serif";
+      c.font = "10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
       c.fillStyle = "rgba(170,190,235,0.75)";
       c.fillText(
         `iter ${String(iter).padStart(5, "0")}   ε ${String(epoch).padStart(3, "0")}   λ ${loss.toFixed(4)}   σ ${sim.toFixed(1)}%`,
