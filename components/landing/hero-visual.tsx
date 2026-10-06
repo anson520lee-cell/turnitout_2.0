@@ -77,8 +77,8 @@ export function HeroVisual() {
   return (
     <div ref={root} className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
       {/* radial lighting, and a contact shadow the document floats over */}
-      <div data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.28),rgb(154_123_255/0.12)_55%,transparent_75%)]" />
-      <div data-depth="-1" className="absolute inset-0 bg-grid [mask-image:radial-gradient(closest-side,black,transparent)] opacity-50" />
+      <div data-depth="-2" className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(110_130_255/0.17)_22%,rgb(130_125_255/0.09)_42%,rgb(154_123_255/0.04)_62%,rgb(154_123_255/0.012)_80%,transparent)]" />
+      <div data-depth="-1" className="absolute inset-[-12%] bg-grid [mask-image:radial-gradient(closest-side,black_30%,transparent)] opacity-50" />
       <div data-depth="-3" className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]" />
       {use3D ? <HeroScene /> : <CssDocument />}
       {LABELS.map((l, i) => (

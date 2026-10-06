@@ -600,11 +600,17 @@ export default function HeroScene() {
   }, []);
 
   return (
-    <div ref={wrap} className="absolute inset-0">
+    // The canvas bleeds 18% past the visual on every side (the camera widens to
+    // keep the document the same size) and fades out toward its own edges, so
+    // particles, halos and the light never end in a hard rectangular cut.
+    <div
+      ref={wrap}
+      className="absolute -inset-[18%] [mask-image:radial-gradient(closest-side,#000_74%,transparent)]"
+    >
       <Canvas
         dpr={[1, 1.75]}
         frameloop={visible ? "always" : "never"}
-        camera={{ position: [0, 0, 6.2], fov: 38 }}
+        camera={{ position: [0, 0, 6.2], fov: 50.2 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         aria-hidden
       >
