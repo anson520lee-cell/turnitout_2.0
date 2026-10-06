@@ -5,6 +5,7 @@ import { Container, SectionHeading } from "@/components/ui/section";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NeuralStrip } from "@/components/space/neural-strip";
 
 /**
  * Interactive illustration of how the preliminary scan reads a paragraph.
@@ -106,6 +107,10 @@ export function AnalysisPreview() {
               <Badge tone={s.level === "Elevated" ? "danger" : "success"} dot>
                 {s.level}
               </Badge>
+            </div>
+            <div aria-hidden className="mt-5 rounded-xl border border-[var(--line)] bg-ink-900/40 px-4 pb-2 pt-3">
+              <NeuralStrip />
+              <p className="mt-1.5 text-center font-mono text-[9.5px] uppercase tracking-[0.16em] text-fg-subtle">signals → weights → estimate</p>
             </div>
             <ul className="mt-6 space-y-5">
               {Object.entries(s.bars).map(([label, v]) => (

@@ -8,8 +8,10 @@ import { usePathname } from "next/navigation";
  * One fixed canvas behind the app, drawn back to front:
  *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
  *    (slow scroll parallax)
- *  - three depth layers of twinkling stars; scrolling pulls them into
- *    "warp" streaks proportional to scroll speed
+ *  - three depth layers of twinkling stars
+ *  - the neural field: a loose 3D mesh of neurons the page flies through as
+ *    it scrolls; the faster the scroll, the brighter the mesh and the more
+ *    signals race along it (and the central network computes faster)
  *  - the 0% pattern machine: a deep neural network in perspective, woven
  *    from hair-thin bowed strands. It iterates fast (an epoch every 0.8s):
  *    forward passes in cyan and backprop in violet run through each other,
@@ -162,56 +164,153 @@ function makeNebula(): HTMLCanvasElement {
   return cvs;
 }
 
-/** A spiral galaxy sprite: two arms of several thousand stars around a warm core. Built once, drawn rotating. */
+/**
+ * A spiral galaxy sprite, built once and drawn rotating. Tens of thousands of
+ * faint points add up to smooth light, the way a real disc does:
+ * an exponential stellar disc, two major and two minor logarithmic arms with
+ * clumpy brightness, a warm bulge, blue young clusters and pink star-forming
+ * regions along the arms, soft glow lanes, dark dust carved along the arms'
+ * inner edges, and a faint halo.
+ */
 function makeGalaxy(): HTMLCanvasElement {
-  const N = 600;
+  const N = 1024;
   const cvs = document.createElement("canvas");
   cvs.width = cvs.height = N;
   const g = cvs.getContext("2d");
   if (!g) return cvs;
   g.translate(N / 2, N / 2);
-  const haze = g.createRadialGradient(0, 0, 0, 0, 0, N * 0.48);
-  haze.addColorStop(0, "rgba(150,140,255,0.34)");
-  haze.addColorStop(0.35, "rgba(100,120,255,0.12)");
-  haze.addColorStop(1, "rgba(80,100,255,0)");
-  g.fillStyle = haze;
-  g.fillRect(-N / 2, -N / 2, N, N);
+  const R = N * 0.48;
+  const TAU = Math.PI * 2;
+  const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
+  const WIND = 2.9;
+  const spiral = (r: number) => WIND * Math.log(1 + r / (R * 0.16));
+  const dot = (x: number, y: number, size: number) => g.fillRect(x - size / 2, y - size / 2, size, size);
+  const blob = (x: number, y: number, r: number, col: string, a: number) => {
+    const b = g.createRadialGradient(x, y, 0, x, y, r);
+    b.addColorStop(0, `rgba(${col},${a})`);
+    b.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = b;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+
+  // halo
+  blob(0, 0, R, "120,135,255", 0.13);
   g.globalCompositeOperation = "lighter";
-  // luminous lanes along the two arms
-  for (let i = 0; i < 300; i++) {
-    const rr = 0.08 + Math.random() * 0.9;
-    const r = rr * N * 0.46;
-    const th = (i % 2) * Math.PI + rr * 7.4 + (Math.random() - 0.5) * 0.3;
-    const x = Math.cos(th) * r;
-    const y = Math.sin(th) * r;
-    const br = 10 + Math.random() * 20;
-    const lane = g.createRadialGradient(x, y, 0, x, y, br);
-    lane.addColorStop(0, `rgba(${rr < 0.4 ? "200,180,255" : "120,150,255"},0.075)`);
-    lane.addColorStop(1, "rgba(120,150,255,0)");
-    g.fillStyle = lane;
-    g.fillRect(x - br, y - br, br * 2, br * 2);
+
+  // the smooth disc: brightness falls off exponentially with radius
+  for (let i = 0; i < 70000; i++) {
+    const r = Math.min(R, -Math.log(1 - Math.random()) * R * 0.27);
+    const th = Math.random() * TAU;
+    const warm = Math.max(0, 1 - r / (R * 0.5));
+    g.fillStyle = `rgba(${Math.round(190 + 65 * warm)},${Math.round(200 + 35 * warm)},${Math.round(255 - 30 * warm)},${0.035 + Math.random() * 0.08})`;
+    dot(Math.cos(th) * r, Math.sin(th) * r, 1.3);
   }
-  for (let i = 0; i < 9000; i++) {
-    const arm = i % 2;
-    const rr = Math.pow(Math.random(), 0.8);
-    const r = rr * N * 0.47;
-    const spread = (Math.random() - 0.5 + Math.random() - 0.5) * 0.75 * (1 - rr * 0.3);
-    const th = arm * Math.PI + rr * 7.4 + spread;
-    const warm = 1 - rr;
-    const pink = Math.random() < 0.08;
-    g.fillStyle = pink
-      ? `rgba(255,140,210,${0.25 + Math.random() * 0.45})`
-      : `rgba(${Math.round(150 + 105 * warm)},${Math.round(175 + 60 * warm)},255,${0.22 + Math.random() * 0.6})`;
-    const sz = Math.random() < 0.06 ? 2 : 1.1;
-    g.fillRect(Math.cos(th) * r, Math.sin(th) * r, sz, sz);
+
+  // the arms
+  const ARMS: [number, number][] = [
+    [0, 1],
+    [Math.PI, 1],
+    [Math.PI * 0.5, 0.42],
+    [Math.PI * 1.5, 0.42],
+  ];
+  for (const [phase, strength] of ARMS) {
+    const count = Math.round(46000 * strength);
+    for (let i = 0; i < count; i++) {
+      // broad, diffuse arms that thin out and fade toward the rim
+      const r = R * (0.06 + 0.9 * Math.pow(Math.random(), 1.1));
+      const k = r / R;
+      const fade = Math.pow(1 - k, 0.7);
+      const th = phase + spiral(r) + gauss() * (0.62 - 0.2 * k) + (Math.random() - 0.5) * 0.25;
+      // clumps: the arm is brighter in knots along its length
+      const clump = 0.55 + 0.45 * Math.sin(spiral(r) * 5.3 + phase * 3) * Math.sin(r * 0.031 + phase);
+      const x = Math.cos(th) * r;
+      const y = Math.sin(th) * r;
+      const p = Math.random();
+      if (p < 0.005) {
+        // a young blue cluster
+        blob(x, y, 3 + Math.random() * 4, "170,205,255", 0.2 * strength * fade);
+        g.fillStyle = `rgba(225,238,255,${(0.85 * fade + 0.1).toFixed(2)})`;
+        dot(x, y, 1.5);
+      } else if (p < 0.009 && k > 0.18) {
+        // a pink star-forming region
+        blob(x, y, 4 + Math.random() * 6, "255,110,180", 0.17 * strength * fade);
+        g.fillStyle = `rgba(255,190,220,${(0.7 * fade + 0.1).toFixed(2)})`;
+        dot(x, y, 1.3);
+      } else {
+        const warm = Math.max(0, 1 - k * 2.4);
+        g.fillStyle = `rgba(${Math.round(155 + 100 * warm)},${Math.round(185 + 50 * warm)},${Math.round(255 - 40 * warm)},${((0.04 + Math.random() * 0.13) * strength * (0.5 + clump) * (0.25 + fade)).toFixed(3)})`;
+        dot(x, y, Math.random() < 0.08 ? 1.7 : 1.1);
+      }
+    }
+    // glow that follows the arm
+    for (let i = 0; i < 260 * strength; i++) {
+      const r = R * (0.1 + 0.88 * Math.random());
+      const th = phase + spiral(r) + gauss() * 0.16;
+      blob(Math.cos(th) * r, Math.sin(th) * r, 22 + Math.random() * 44, r < R * 0.35 ? "210,190,255" : "110,150,255", (0.034 * strength + 0.012) * (1.15 - r / R));
+    }
   }
-  const core = g.createRadialGradient(0, 0, 0, 0, 0, N * 0.17);
-  core.addColorStop(0, "rgba(255,244,225,0.95)");
-  core.addColorStop(0.3, "rgba(225,200,255,0.5)");
-  core.addColorStop(1, "rgba(150,140,255,0)");
-  g.fillStyle = core;
-  g.fillRect(-N / 2, -N / 2, N, N);
+
+  // dust: dark lanes on the inner (trailing) edge of the two major arms
+  g.globalCompositeOperation = "destination-out";
+  for (const phase of [0, Math.PI]) {
+    for (let i = 0; i < 520; i++) {
+      const r = R * (0.12 + 0.7 * Math.random());
+      const th = phase + spiral(r) - 0.42 + gauss() * 0.12;
+      blob(Math.cos(th) * r, Math.sin(th) * r, 6 + Math.random() * 14, "0,0,0", 0.07 + Math.random() * 0.08);
+    }
+  }
+  g.globalCompositeOperation = "lighter";
+
+  // the bulge: old, warm stars packed round the centre, slightly barred
+  for (let i = 0; i < 11000; i++) {
+    const r = Math.abs(gauss()) * R * 0.26;
+    const th = Math.random() * TAU;
+    g.fillStyle = `rgba(255,${Math.round(225 + Math.random() * 20)},${Math.round(190 + Math.random() * 30)},${0.05 + Math.random() * 0.1})`;
+    dot(Math.cos(th) * r * 1.25, Math.sin(th) * r * 0.85, 1.2);
+  }
+  blob(0, 0, R * 0.2, "255,236,208", 0.5);
+  blob(0, 0, R * 0.075, "255,250,240", 0.95);
+
+  // a scatter of foreground stars across the whole disc
+  for (let i = 0; i < 260; i++) {
+    const r = Math.sqrt(Math.random()) * R;
+    const th = Math.random() * TAU;
+    g.fillStyle = `rgba(240,245,255,${0.35 + Math.random() * 0.55})`;
+    dot(Math.cos(th) * r, Math.sin(th) * r, Math.random() < 0.2 ? 1.9 : 1.2);
+  }
   return cvs;
+}
+
+/**
+ * The neural field: a loose 3D mesh of neurons the page flies through as it
+ * scrolls. Each neuron is wired to its nearest neighbours.
+ */
+interface FieldNode { x: number; y: number; z: number; hue: number }
+const FIELD_DEPTH = 3.2;
+const FIELD_NEAR = 0.22;
+
+function makeField(n: number) {
+  const nodes: FieldNode[] = Array.from({ length: n }, () => ({
+    x: rand(-1.75, 1.75),
+    y: rand(-1.05, 1.05),
+    z: rand(0, FIELD_DEPTH),
+    hue: Math.random() < 0.4 ? 262 : 192,
+  }));
+  const edges: [number, number][] = [];
+  const seen = new Set<number>();
+  nodes.forEach((a, i) => {
+    const near = nodes
+      .map((b, j) => ({ j, d: j === i ? Infinity : (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + ((a.z - b.z) * 1.4) ** 2 }))
+      .sort((p, q) => p.d - q.d)
+      .slice(0, 3);
+    for (const { j } of near) {
+      const key = Math.min(i, j) * 1000 + Math.max(i, j);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push([i, j]);
+    }
+  });
+  return { nodes, edges };
 }
 
 /** Signed-in areas get the full show; public pages keep it quieter behind their own visuals. */
@@ -241,14 +340,30 @@ export function SpaceBackground() {
     const meteors: Meteor[] = [];
     const queued: number[] = []; // seconds until a queued shower meteor appears
     const net = makeNet();
-    const nebula = makeNebula();
+    // The two textures take a moment to paint, so they are built just after
+    // the first frame instead of holding it up.
+    let nebula: HTMLCanvasElement | null = null;
+    let galaxy: HTMLCanvasElement | null = null;
+    const texTimer = window.setTimeout(() => {
+      nebula = makeNebula();
+      galaxy = makeGalaxy();
+      skyAge = 99;
+      if (reduce) draw(0, 0);
+    }, 80);
     // The clouds drift slowly, so they are painted into a half-resolution
     // layer every few frames and that layer is blitted, instead of blending
     // two full-screen textures on every frame.
     const sky = document.createElement("canvas");
     const skyCtx = sky.getContext("2d");
     let skyAge = 99;
-    const galaxy = makeGalaxy();
+    let field = makeField(110);
+    let fx = new Float32Array(0);
+    let fy = new Float32Array(0);
+    let fz = new Float32Array(0);
+    let fa = new Float32Array(0);
+    const fieldPulses: { e: number; u: number; sp: number; rev: boolean }[] = [];
+    let energy = 0; // 0…1, how hard the page is being scrolled
+    let netPhase = 0; // the network's clock: it runs faster while scrolling
     // gradient descent on the loss landscape: the optimiser's position, velocity and trail
     const opt = { x: 2.1, z: 6, vx: 0, vz: 0, age: 0 };
     const trail: number[] = [];
@@ -289,6 +404,12 @@ export function SpaceBackground() {
       cv.height = Math.round(h * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       stars = makeStars(small ? 150 : 420);
+      field = makeField(small ? 44 : 110);
+      fx = new Float32Array(field.nodes.length);
+      fy = new Float32Array(field.nodes.length);
+      fz = new Float32Array(field.nodes.length);
+      fa = new Float32Array(field.nodes.length);
+      fieldPulses.length = 0;
       sky.width = Math.max(2, Math.round(w / 2));
       sky.height = Math.max(2, Math.round(h / 2));
       skyAge = 99;
@@ -315,7 +436,7 @@ export function SpaceBackground() {
 
     function drawNebula(time: number, off: number) {
       const k = skyCtx;
-      if (k && ++skyAge > 5) {
+      if (k && nebula && ++skyAge > 5) {
         skyAge = 0;
         const sw = sky.width;
         const sh = sky.height;
@@ -348,15 +469,101 @@ export function SpaceBackground() {
     }
 
     function drawGalaxy(time: number, off: number) {
-      const R = Math.min(w, h) * (small ? 0.5 : 0.62);
+      if (!galaxy) return;
+      // top right, clear of the headings; drawn close to the sprite's own size
+      const R = Math.min(Math.min(w, h) * (small ? 0.46 : 0.56), 540);
       c.save();
       c.globalCompositeOperation = "lighter";
-      c.globalAlpha = inApp.current ? 0.7 : 0.85;
-      c.translate(small ? w * 0.2 : w * 0.16, h * 0.14 - off * 0.45);
-      c.rotate(-0.5);
-      c.scale(1, 0.44);
-      c.rotate(time * 0.03);
+      c.globalAlpha = inApp.current ? 0.8 : 0.92;
+      c.translate(small ? w * 0.82 : w * 0.83, h * 0.13 - off * 0.45);
+      c.rotate(0.42);
+      c.scale(1, 0.56);
+      c.rotate(-time * 0.022);
       c.drawImage(galaxy, -R, -R, R * 2, R * 2);
+      c.restore();
+    }
+
+    // ── the neural field. Scrolling flies the camera through it: neurons rush
+    // past, and the harder the page is scrolled the brighter the mesh burns
+    // and the more signals race along it.
+    function drawField(time: number, dt: number, still: boolean) {
+      const F = h * 0.9;
+      const zOff = scrollY * 0.0019 + time * 0.03;
+      const nodes = field.nodes;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        let zz = (n.z - zOff) % FIELD_DEPTH;
+        if (zz < 0) zz += FIELD_DEPTH;
+        zz += FIELD_NEAR;
+        const k = F / zz;
+        fx[i] = w / 2 + n.x * (w / h) * 0.58 * k;
+        fy[i] = h / 2 + n.y * k;
+        fz[i] = zz;
+        // fade in from the distance, and out just before a neuron passes the eye
+        fa[i] = clamp((FIELD_NEAR + FIELD_DEPTH - zz) / 1.1) * clamp((zz - FIELD_NEAR) / 0.3);
+      }
+      const lit = 0.085 + energy * 0.6;
+      c.save();
+      c.globalCompositeOperation = "lighter";
+      c.lineCap = "round";
+      for (let e = 0; e < field.edges.length; e++) {
+        const a = field.edges[e][0];
+        const b = field.edges[e][1];
+        if (Math.abs(fz[a] - fz[b]) > 1.3) continue; // the pair straddles the wrap
+        const al = Math.min(fa[a], fa[b]) * lit;
+        if (al < 0.012) continue;
+        const zm = (fz[a] + fz[b]) / 2;
+        c.strokeStyle = `hsla(${nodes[a].hue},95%,74%,${al.toFixed(3)})`;
+        c.lineWidth = Math.min(1.7, 0.3 + 0.42 / zm);
+        c.beginPath();
+        c.moveTo(fx[a], fy[a]);
+        c.lineTo(fx[b], fy[b]);
+        c.stroke();
+      }
+      // signals: scrolling fires them along the mesh
+      if (!still) {
+        if (fieldPulses.length < 90 && Math.random() < 0.03 + energy * 1.6) {
+          fieldPulses.push({ e: Math.floor(Math.random() * field.edges.length), u: 0, sp: rand(1.2, 2.6), rev: Math.random() < 0.5 });
+        }
+        for (let i = fieldPulses.length - 1; i >= 0; i--) {
+          const p = fieldPulses[i];
+          p.u += p.sp * dt * (1 + energy * 1.5);
+          if (p.u >= 1 || p.e >= field.edges.length) {
+            fieldPulses.splice(i, 1);
+            continue;
+          }
+          const a = field.edges[p.e][p.rev ? 1 : 0];
+          const b = field.edges[p.e][p.rev ? 0 : 1];
+          if (Math.abs(fz[a] - fz[b]) > 1.3) continue;
+          const al = Math.min(fa[a], fa[b]);
+          const x = fx[a] + (fx[b] - fx[a]) * p.u;
+          const y = fy[a] + (fy[b] - fy[a]) * p.u;
+          const r = Math.min(3.2, 0.9 + 0.8 / ((fz[a] + fz[b]) / 2));
+          c.fillStyle = `rgba(215,245,255,${(al * (0.5 + energy * 0.5)).toFixed(3)})`;
+          c.beginPath();
+          c.arc(x, y, r, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = `hsla(${nodes[a].hue},95%,70%,${(al * 0.22).toFixed(3)})`;
+          c.beginPath();
+          c.arc(x, y, r * 3.4, 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+      for (let i = 0; i < nodes.length; i++) {
+        if (fa[i] < 0.02 || fx[i] < -40 || fx[i] > w + 40 || fy[i] < -40 || fy[i] > h + 40) continue;
+        const r = Math.min(5.5, 0.7 + 1.1 / fz[i]);
+        const al = fa[i] * (0.3 + energy * 0.7);
+        if (energy > 0.12) {
+          c.fillStyle = `hsla(${nodes[i].hue},95%,70%,${(al * 0.16).toFixed(3)})`;
+          c.beginPath();
+          c.arc(fx[i], fy[i], r * 4.5, 0, Math.PI * 2);
+          c.fill();
+        }
+        c.fillStyle = `hsla(${nodes[i].hue},95%,82%,${al.toFixed(3)})`;
+        c.beginPath();
+        c.arc(fx[i], fy[i], r, 0, Math.PI * 2);
+        c.fill();
+      }
       c.restore();
     }
 
@@ -458,6 +665,7 @@ export function SpaceBackground() {
       const ok = f / opt.z;
       const ox = w / 2 + opt.x * ok;
       const oy = hor + (camY - landscape(opt.x, opt.z, time, flow)) * ok;
+      if (Math.abs(vel) > 3) trail.length = 0; // the surface is rushing past: an old trail would no longer lie on it
       trail.push(ox, oy);
       if (trail.length > 90) trail.splice(0, 2);
       if (trail.length > 3) {
@@ -521,7 +729,7 @@ export function SpaceBackground() {
     }
 
     function drawStars(time: number) {
-      const streak = Math.abs(vel) > 2.5;
+      const streak = Math.abs(vel) > 6;
       const dir = vel > 0 ? 1 : -1;
       for (const s of stars) {
         const x = s.x * w;
@@ -531,7 +739,7 @@ export function SpaceBackground() {
         const a = clamp(s.z * 0.9 * tw + 0.1);
         const col = `hsla(${s.hue},90%,${s.big ? 88 : 80}%,`;
         if (streak) {
-          const len = Math.min(58, Math.abs(vel) * s.z * 1.7);
+          const len = Math.min(22, Math.abs(vel) * s.z * 0.7);
           c.strokeStyle = col + a * 0.9 + ")";
           c.lineWidth = s.s;
           c.beginPath();
@@ -593,7 +801,7 @@ export function SpaceBackground() {
 
     function drawNet(time: number, dt: number, still: boolean) {
       const L = LAYERS.length;
-      const S = small ? Math.min(w / 900, h / 760) * 1.35 : Math.min(w / 1500, h / 720);
+      const S = (small ? Math.min(w / 900, h / 760) * 1.35 : Math.min(w / 1500, h / 720)) * (1 + energy * 0.1);
       const cx = small ? w * 0.5 : w * 0.6;
       const cy = h * 0.5 + Math.sin(scrollY * 0.0011) * 36;
       const yaw = 0.3 + Math.sin(time * 0.14) * 0.3 + Math.sin(scrollY * 0.0013) * 0.3 + (mxSmooth - 0.5) * 0.4;
@@ -630,7 +838,7 @@ export function SpaceBackground() {
       // in flight, half a network apart, so cyan and violet signals keep
       // crossing each other.
       const range = L + 1.2;
-      const base = still ? 2.4 : time * WAVE_SPEED;
+      const base = still ? 2.4 : netPhase;
       const fwd = [(base % range) - 0.6, ((base + range / 2) % range) - 0.6];
       const bwd = still
         ? [-9, -9]
@@ -846,6 +1054,7 @@ export function SpaceBackground() {
       drawGalaxy(time, off);
       drawStars(time);
       drawPlanet(off);
+      drawField(time, dt, reduce);
       drawLandscape(time, dt, reduce);
       drawNet(time, dt, reduce);
       if (!reduce) drawMeteors(dt);
@@ -863,6 +1072,8 @@ export function SpaceBackground() {
       const dv = scrollY - lastScrollY;
       lastScrollY = scrollY;
       vel += (dv - vel) * 0.18;
+      energy += (clamp(Math.abs(vel) / 24) - energy) * (Math.abs(vel) / 24 > energy ? 0.2 : 0.035);
+      netPhase += dt * WAVE_SPEED * (1 + energy * 2.6);
       mxSmooth += (mx - mxSmooth) * 0.04;
       // Public pages and phones run at half rate; they have their own visuals to pay for.
       acc += dt;
@@ -919,6 +1130,7 @@ export function SpaceBackground() {
     }
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(texTimer);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("scroll", onStillScroll);

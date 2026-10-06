@@ -4,6 +4,7 @@ import type { RiskLevel } from "@/lib/scanning/types";
 import { cn } from "@/lib/utils";
 import { GreekText } from "@/components/landing/greek-text";
 import { CODE } from "@/lib/greek-decode";
+import { NeuralHalo } from "@/components/ml/ml-visuals";
 
 /**
  * The 3D paper stack on the scan page's hero card. Decorative only.
@@ -60,6 +61,10 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
     <div aria-hidden data-cursor className={cn("relative mx-auto h-[250px] w-full max-w-[380px] select-none sm:h-[290px]", className)}>
       <div data-depth="2" className="absolute inset-[6%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.3),rgb(154_123_255/0.1)_55%,transparent)]" />
       <div data-depth="-3" className="absolute inset-x-[24%] bottom-[3%] h-9 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.75),transparent)]" />
+      {/* neurons around the page, feeding the reading inward */}
+      <div data-depth="-1" className="absolute inset-[-4%] opacity-80">
+        <NeuralHalo className="engine-spin [--spin:120s]" />
+      </div>
 
       <div className="absolute inset-0 [perspective:900px]">
         <div
@@ -81,7 +86,7 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
             <div className="absolute inset-0 overflow-hidden rounded-2xl border border-[var(--line-strong)] bg-gradient-to-b from-ink-700/95 to-ink-800/95 p-[11%] shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_30px_60px_-24px_rgb(0_0_0/0.9)]">
               {/* Greek letters typed like code, then re-rolled by the scan beam. */}
               <div className="absolute inset-[11%]">
-                <GreekText lines={SCAN_LINES} flagged={FLAGGED} flagColor={level ? levelColor[level] : undefined} textClass="text-[7.5px]" maxChars={28} />
+                <GreekText lines={SCAN_LINES} flagged={FLAGGED} flagColor={level ? levelColor[level] : undefined} textClass="text-[7.5px]" maxChars={28} caption />
               </div>
               <div className="pointer-events-none absolute inset-0" style={specular} />
             </div>

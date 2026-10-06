@@ -5,13 +5,14 @@ import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion"
 import { cn } from "@/lib/utils";
 import { GreekText } from "@/components/landing/greek-text";
 import { CODE } from "@/lib/greek-decode";
+import { NeuralHalo } from "@/components/ml/ml-visuals";
 
 const WAIT_LINES = CODE.slice(0, 10);
 const WAIT_FLAGGED = [4, 7];
 
 /**
- * The "please wait" state: a 3D document with a scan beam, a progress
- * shimmer and step text that cycles. Used by the paste dialog while a
+ * The "please wait" state: a 3D document read by a sliding kernel inside a
+ * ring of firing neurons, a progress shimmer and step text that cycles. Used by the paste dialog while a
  * request runs and by the order page while a report is being prepared.
  */
 export function WaitingAnimation({
@@ -41,10 +42,9 @@ export function WaitingAnimation({
     <div role="status" aria-live="polite" className={cn("flex flex-col items-center py-6 text-center", className)}>
       <div className="orbit-stage relative size-44" aria-hidden>
         <div className="absolute inset-[-30%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.35),transparent)] blur-xl motion-safe:animate-pulse" />
-        <div className="engine-spin waiting-halo absolute inset-0 rounded-full [--spin:6s]" />
-        <div className="orbit-rig absolute inset-0">
-          <div className="orbit-ring size-full [--spin:11s]" />
-          <div className="orbit-ring size-[64%] [--spin:16s] [--tiltx:-24deg]" />
+        {/* a ring of neurons working around the document */}
+        <div className="absolute inset-[-14%]">
+          <NeuralHalo className="engine-spin [--spin:36s]" />
         </div>
         <motion.div
           className="glass-strong absolute left-1/2 top-1/2 h-36 w-28 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl p-3 [transform-style:preserve-3d]"

@@ -11,6 +11,7 @@ import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { GreekText } from "@/components/landing/greek-text";
+import { NeuralHalo } from "@/components/ml/ml-visuals";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
@@ -58,6 +59,14 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         className="absolute left-[8%] right-[8%] top-[46%] h-[48%] rounded-[28px] border border-accent/40 bg-[linear-gradient(180deg,rgb(91_140_255/0.18),rgb(154_123_255/0.05))] shadow-[0_0_60px_rgb(91_140_255/0.35)] [transform-style:preserve-3d]"
       >
         <div className="absolute inset-0 rounded-[28px] bg-grid opacity-70" />
+        {/* stacked like the layers of a network: the document passes through each */}
+        <div className="absolute inset-0 rounded-[28px] border border-violet/30 bg-grid opacity-45 [transform:translateZ(-44px)]" />
+        <div className="absolute inset-0 rounded-[28px] border border-cyan/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
+        <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
+      </motion.div>
+      {/* the signals: neurons light up around the document while it is read */}
+      <motion.div aria-hidden style={{ opacity: sigOpacity }} className="absolute inset-[-3%]">
+        <NeuralHalo className="engine-spin [--spin:90s]" />
       </motion.div>
       {/* document */}
       <motion.div
@@ -65,7 +74,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         className="glass-strong absolute left-[26%] top-[12%] h-[70%] w-[48%] rounded-2xl p-[5%] [transform-style:preserve-3d]"
       >
         <div className="absolute inset-[5%]">
-          <GreekText maxChars={26} textClass="text-[8px]" />
+          <GreekText maxChars={26} textClass="text-[8px]" caption />
         </div>
       </motion.div>
       {/* signal labels */}

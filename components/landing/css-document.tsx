@@ -1,4 +1,5 @@
 import { GreekText } from "./greek-text";
+import { NeuralHalo } from "@/components/ml/ml-visuals";
 
 /**
  * CSS-only document with a scan line: mobile, reduced-motion and no-WebGL
@@ -6,9 +7,9 @@ import { GreekText } from "./greek-text";
  * pointer engine running it turns toward the cursor (--cx/--cy) and a
  * highlight slides across it; otherwise it floats at a fixed angle.
  *
- * Depth layers (back to front): orbit rings, two ghost sheets, the document
- * (header, text lines with flagged spans, similarity gauge, bar chart), and
- * floating chips that sit in front of it.
+ * Depth layers (back to front): a ring of neurons feeding inward, two ghost
+ * sheets, the document (header, text read by a sliding kernel, activation
+ * bars, gauge), and floating chips that sit in front of it.
  */
 export function CssDocument() {
   const bars = [38, 62, 44, 78, 52, 90, 34, 66];
@@ -16,15 +17,9 @@ export function CssDocument() {
     <div data-cursor className="absolute inset-0 grid place-items-center [perspective:1200px]">
       <div className="relative h-[72%] w-[56%] [transform-style:preserve-3d] [transform:rotateX(calc(8deg+var(--cy,0)*-10deg))_rotateY(calc(-14deg+var(--cx,0)*16deg))]">
         <div className="doc-bob absolute inset-0 [transform-style:preserve-3d]">
-          {/* orbit rings behind the sheet */}
-          <div className="pointer-events-none absolute -inset-[22%] [transform:translate3d(0,0,-110px)]" aria-hidden>
-            <div className="engine-spin absolute inset-0 rounded-full border border-dashed border-accent/20 [--spin:60s]" />
-            <div className="engine-spin-rev absolute inset-[12%] rounded-full border border-violet/20 [--spin:44s]">
-              <span className="absolute -top-[3px] left-1/2 h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_12px_2px_rgb(154_123_255/0.8)]" />
-            </div>
-            <div className="engine-spin absolute inset-[26%] rounded-full border border-cyan/15 [--spin:30s]">
-              <span className="absolute -bottom-[3px] left-1/2 h-1.5 w-1.5 rounded-full bg-cyan shadow-[0_0_12px_2px_rgb(95_216_245/0.8)]" />
-            </div>
+          {/* a ring of neurons behind the sheet, feeding signals into it */}
+          <div className="pointer-events-none absolute -inset-x-[38%] -inset-y-[16%] [transform:translate3d(0,0,-110px)]" aria-hidden>
+            <NeuralHalo className="engine-spin [--spin:150s]" />
           </div>
 
           <div className="absolute inset-0 rounded-2xl border border-violet/20 bg-violet/[0.04] [transform:translate3d(28px,-26px,-60px)]" />
@@ -42,19 +37,21 @@ export function CssDocument() {
               </span>
             </div>
 
-            {/* random Greek text that decodes in a wave */}
+            {/* the text arrives token by token, then a kernel reads features off it */}
             <div className="absolute inset-x-[8%] bottom-[26%] top-[17%]">
-              <GreekText />
+              <GreekText caption />
             </div>
 
             {/* mini chart + gauge */}
             <div className="absolute inset-x-[8%] bottom-[7%] flex items-end gap-[6%]">
-              <div className="flex h-9 flex-1 items-end gap-[5%]">
+              {/* neuron activations: they keep firing at different strengths */}
+              <div className="relative flex h-9 flex-1 items-end gap-[5%]">
+                <span className="absolute -top-2.5 left-0 font-mono text-[6px] uppercase tracking-[0.16em] text-fg-subtle">activations</span>
                 {bars.map((h, i) => (
                   <div
                     key={i}
-                    className="bar-grow flex-1 rounded-sm bg-gradient-to-t from-accent/10 to-accent/60"
-                    style={{ height: `${h}%`, animationDelay: `${i * 0.18}s` }}
+                    className="act-bar flex-1 rounded-sm bg-gradient-to-t from-accent/10 to-accent/60"
+                    style={{ height: `${h}%`, animationDelay: `${-i * 0.31}s`, animationDuration: `${1.2 + (i % 3) * 0.4}s` }}
                   />
                 ))}
               </div>
@@ -87,7 +84,7 @@ export function CssDocument() {
           <div className="absolute -right-[10%] bottom-[8%] [transform:translate3d(0,0,60px)]" aria-hidden>
             <div className="chip-float glass-strong flex items-center gap-2 rounded-xl px-3 py-2 [animation-delay:-4.6s]">
               <span className="h-2 w-2 rounded-full bg-cyan shadow-[0_0_10px_2px_rgb(95_216_245/0.7)]" />
-              <span className="font-mono text-[10px] text-fg-muted">Analysis engine</span>
+              <span className="font-mono text-[10px] text-fg-muted">6 signals → 1 estimate</span>
             </div>
           </div>
         </div>

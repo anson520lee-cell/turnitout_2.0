@@ -2,6 +2,7 @@ import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
 import { LayoutGrid, ScanText, FileStack, Settings, FileText } from "lucide-react";
+import { NeuralStrip } from "@/components/space/neural-strip";
 
 /** Static illustration of the dashboard. No real data. */
 export function DashboardPreview() {
@@ -52,6 +53,13 @@ export function DashboardPreview() {
                     <p className="text-[12px] text-fg-muted">Reports ready</p>
                     <p className="mt-2 text-2xl font-semibold">1</p>
                   </div>
+                </div>
+                <div className="mt-4 flex items-center gap-5 rounded-2xl border border-[var(--line)] bg-ink-900/60 p-4">
+                  <div className="shrink-0">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">Pattern Engine · ready</p>
+                    <p className="mt-1 text-[13px] text-fg-muted">Six signals in, one estimate out.</p>
+                  </div>
+                  <NeuralStrip className="ml-auto max-w-[340px]" />
                 </div>
                 <div className="mt-5 rounded-2xl border border-[var(--line)] bg-ink-900/40">
                   {rows.map((r) => (

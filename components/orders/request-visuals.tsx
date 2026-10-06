@@ -4,6 +4,8 @@ import { DepthLayer, DepthStage } from "./depth-stage";
 import { cn } from "@/lib/utils";
 import { GreekText } from "@/components/landing/greek-text";
 import { CODE } from "@/lib/greek-decode";
+import { AttentionGrid, LossCurve, SoftmaxBars } from "@/components/ml/ml-visuals";
+import { NeuralStrip } from "@/components/space/neural-strip";
 
 /**
  * Illustrations for the report and refinement request pages. They show what
@@ -38,26 +40,6 @@ function Chip({ icon: Icon, label, tone }: { icon: typeof Sparkles; label: strin
   );
 }
 
-/** Rings drawn empty on purpose: the report fills in real values, the illustration never does. */
-function EmptyRing({ className, hue }: { className?: string; hue: string }) {
-  return (
-    <svg viewBox="0 0 44 44" className={className}>
-      <circle cx="22" cy="22" r="18" fill="none" stroke="rgb(255 255 255 / 0.08)" strokeWidth="4" />
-      <circle
-        cx="22"
-        cy="22"
-        r="18"
-        fill="none"
-        stroke={hue}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray="10 103"
-        className="origin-center motion-safe:animate-[spin_3.2s_linear_infinite]"
-      />
-    </svg>
-  );
-}
-
 export function ReportVisual({ className }: { className?: string }) {
   return (
     <DepthStage className={cn("w-full", className)} tilt={16}>
@@ -77,14 +59,15 @@ export function ReportVisual({ className }: { className?: string }) {
             <div className="h-2 w-24 rounded-full bg-[#c6d3ff]/35" />
           </div>
           <div className="absolute inset-x-5 bottom-5 top-[60px]">
-            <GreekText lines={MAIN_LINES} flagged={MAIN_FLAGGED} maxChars={30} />
+            <GreekText lines={MAIN_LINES} flagged={MAIN_FLAGGED} maxChars={30} caption />
           </div>
         </div>
       </DepthLayer>
       {/* what the report contains */}
       <DepthLayer depth={70} drift={10} className="left-[2%] top-[18%]">
         <div className="glass-strong flex items-center gap-3 rounded-2xl px-3.5 py-3 shadow-[0_24px_50px_-20px_rgb(0_0_0/0.9)]">
-          <EmptyRing className="size-9" hue="#5b8cff" />
+          {/* class probabilities that never settle: the report fills in the real value */}
+          <SoftmaxBars className="size-9" bars={4} />
           <div>
             <p className="text-[12px] font-semibold">AI-writing indicator</p>
             <p className="text-[10.5px] text-fg-subtle">as returned</p>
@@ -93,7 +76,8 @@ export function ReportVisual({ className }: { className?: string }) {
       </DepthLayer>
       <DepthLayer depth={95} drift={14} className="right-[1%] top-[40%]">
         <div className="glass-strong flex items-center gap-3 rounded-2xl px-3.5 py-3 shadow-[0_24px_50px_-20px_rgb(0_0_0/0.9)]">
-          <EmptyRing className="size-9" hue="#9a7bff" />
+          {/* a match map between the text and its sources, likewise never a result */}
+          <div className="size-9"><AttentionGrid n={4} /></div>
           <div>
             <p className="text-[12px] font-semibold">Similarity</p>
             <p className="text-[10.5px] text-fg-subtle">as returned</p>
@@ -132,6 +116,19 @@ export function RefinementVisual({ className }: { className?: string }) {
       <DepthLayer depth={90} drift={12} className="left-[36%] top-[2%]">
         <div className="glass-strong grid size-12 place-items-center rounded-2xl text-violet shadow-[0_20px_40px_-16px_rgb(154_123_255/0.6)]">
           <PenLine className="size-5" />
+        </div>
+      </DepthLayer>
+      {/* the draft passes through the model on its way to the refined page */}
+      <DepthLayer depth={62} drift={8} className="left-[27%] top-[42%] w-[44%]">
+        <div className="glass rounded-xl px-2.5 py-2 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.9)]">
+          <NeuralStrip />
+        </div>
+      </DepthLayer>
+      {/* each pass brings the draft closer: a loss curve falling */}
+      <DepthLayer depth={84} drift={10} className="right-[1%] top-[0%] w-[26%]">
+        <div className="glass-strong rounded-xl px-2.5 pb-1.5 pt-2 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.9)]">
+          <p className="mb-1 font-mono text-[8.5px] uppercase tracking-[0.16em] text-fg-subtle">loss</p>
+          <LossCurve />
         </div>
       </DepthLayer>
       <DepthLayer depth={75} drift={10} className="bottom-[2%] left-[2%]">

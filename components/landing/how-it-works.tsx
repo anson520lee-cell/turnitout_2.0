@@ -50,6 +50,10 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
             style={{ scaleY }}
             className="absolute left-[15px] top-2 bottom-2 w-px origin-top bg-gradient-to-b from-cyan via-accent to-violet shadow-[0_0_12px_rgb(91_140_255/0.8)] sm:left-[23px]"
           />
+          <span
+            aria-hidden
+            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(95_216_245/0.9)] sm:left-[22px]"
+          />
           <ol className="space-y-6">
             {steps.map((s, i) => (
               <li key={s.n} className="relative">
