@@ -1285,3 +1285,53 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .faq-row, .faq-row:hover, .faq-row[data-open] { transform: none; }
 }
+
+/* The token spectrum round the scroll-story document (components/ml/token-spectrum.tsx). */
+.spec-bar { transform-box: fill-box; transform-origin: left center; animation: spec-bar 1.8s ease-in-out infinite alternate; }
+@keyframes spec-bar {
+  from { transform: scaleX(0.32); }
+  to { transform: scaleX(1); }
+}
+.spec-sweep { animation: engine-spin 9s linear infinite; }
+
+/* The dashboard scene (components/landing/dashboard-preview.tsx). */
+.dash-card {
+  border-radius: 18px;
+  border: 1px solid rgb(148 163 255 / 0.16);
+  background: linear-gradient(180deg, rgb(20 27 52 / 0.92), rgb(10 14 30 / 0.92));
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 26px 50px -24px rgb(0 0 0 / 0.95), 0 0 44px -22px rgb(91 140 255 / 0.55);
+}
+/* a rim of light running round the frame */
+.dash-rim {
+  position: absolute;
+  inset: -1.5px;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(from var(--rim), transparent 0deg 190deg, rgb(95 216 245 / 0.9) 262deg, #ffffff 300deg, rgb(154 123 255 / 0.9) 332deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: rim-spin 7s linear infinite;
+}
+.dash-draw { stroke-dasharray: 100; stroke-dashoffset: 100; animation: dash-draw 4.5s ease-out infinite; }
+@keyframes dash-draw {
+  0% { stroke-dashoffset: 100; }
+  45%, 100% { stroke-dashoffset: 0; }
+}
+.dash-dot { opacity: 0; animation: dash-dot 4.5s ease-out infinite; }
+@keyframes dash-dot {
+  0%, 40% { opacity: 0; }
+  48%, 100% { opacity: 1; }
+}
+.dash-ping { animation: dash-ping 1.4s ease-out infinite; }
+@keyframes dash-ping {
+  from { scale: 1; opacity: 0.9; }
+  to { scale: 2.6; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-draw { stroke-dashoffset: 0; }
+  .dash-dot { opacity: 1; }
+  .dash-ping, .spec-sweep { animation: none; }
+  .dash-rim { animation: none; }
+}

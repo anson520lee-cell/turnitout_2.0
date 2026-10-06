@@ -11,7 +11,7 @@ import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { GreekText } from "@/components/landing/greek-text";
-import { NeuralHalo } from "@/components/ml/ml-visuals";
+import { TokenSpectrum } from "@/components/ml/token-spectrum";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
@@ -47,6 +47,8 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
   const layerZ = useTransform(through, [0, 1], [-120, 40]);
   const layerOpacity = useTransform([layer, report] as never, ([l, r]: number[]) => l * 0.9 * (1 - r));
   const sigOpacity = useTransform([signals, signalsOut] as never, ([a, b]: number[]) => a * b);
+  // the spectrum is there, quietly, as soon as the document is; it comes up to full while the signals are read
+  const specOpacity = useTransform([docIn, sigOpacity, report] as never, ([d, s, r]: number[]) => d * (0.4 + 0.6 * s) * (1 - r));
   const reportScale = useTransform(report, [0, 1], [0.92, 1]);
   const ring = useTransform(report, [0, 1], [0, 1]);
 
@@ -64,9 +66,9 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         <div className="absolute inset-0 rounded-[28px] border border-cyan/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
         <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
       </motion.div>
-      {/* the signals: neurons light up around the document while it is read */}
-      <motion.div aria-hidden style={{ opacity: sigOpacity }} className="absolute inset-[-3%]">
-        <NeuralHalo className="engine-spin [--spin:90s]" />
+      {/* round the document: a spectrum of per-token readings, strongest where the four signals are */}
+      <motion.div aria-hidden style={{ opacity: specOpacity }} className="absolute inset-[-13%]">
+        <TokenSpectrum className="size-full" />
       </motion.div>
       {/* document */}
       <motion.div
