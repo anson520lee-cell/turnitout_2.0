@@ -4,6 +4,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { HeroVisual } from "./hero-visual";
+import { Greeting } from "./greeting";
 import { freeScan } from "@/config/app";
 
 /** Extrusion layers behind the headline, nearest first. */
@@ -76,6 +77,8 @@ export function Hero() {
       <Backdrop />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
         <div>
+          {/* a different welcome on every visit */}
+          <Greeting className="mb-5" />
           <Reveal aboveFold>
             <Eyebrow>Academic writing screening</Eyebrow>
           </Reveal>
