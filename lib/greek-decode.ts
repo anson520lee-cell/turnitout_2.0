@@ -60,10 +60,22 @@ export interface FrameRow {
   greek: boolean;
 }
 
+/**
+ * Where the loop is, read as a tiny ML pipeline: the text arrives and is
+ * tokenised (type), a window slides over it extracting features (scan), the
+ * signals are weighed into an estimate (hold), then the page clears.
+ */
+export type FramePhase = "type" | "scan" | "hold" | "clear";
+
 export interface Frame {
   rows: FrameRow[];
   /** beam position in row units (0 = above the first row, n+1 = below the last), or null */
   beam: number | null;
+  phase: FramePhase;
+  /** progress through the current phase, 0…1 */
+  p: number;
+  /** characters on the page so far (used for the token counter) */
+  chars: number;
 }
 
 export function createAnimator(lines: string[]) {
@@ -111,7 +123,7 @@ export function createAnimator(lines: string[]) {
       const fr = Math.floor(t * 18);
 
       if (tt >= holdEnd) {
-        return { rows: lines.map(() => ({ text: "", noise: "", greek: false })), beam: null };
+        return { rows: lines.map(() => ({ text: "", noise: "", greek: false })), beam: null, phase: "clear", p: 0, chars: 0 };
       }
 
       if (tt < typeEnd) {
@@ -127,7 +139,9 @@ export function createAnimator(lines: string[]) {
           const on = solid || Math.floor(tt * 2.2) % 2 === 0;
           return { text: toGreek(line, i, epoch * 2).slice(0, k), noise: line && on ? "▌" : "", greek: false };
         });
-        return { rows, beam: null };
+        let chars = 0;
+        for (const r of rows) chars += r.text.length;
+        return { rows, beam: null, phase: "type", p: tt / typeEnd, chars };
       }
 
       const scanning = tt >= scanStart && tt < scanEnd;
@@ -144,7 +158,9 @@ export function createAnimator(lines: string[]) {
         }
         return { text: toGreek(line, i, epoch * 2 + 1), noise: "", greek: true };
       });
-      return { rows, beam: scanning ? pos : null };
+      const total = lines.reduce((a, l) => a + l.length, 0);
+      if (tt < scanEnd) return { rows, beam: scanning ? pos : null, phase: "scan", p, chars: total };
+      return { rows, beam: null, phase: "hold", p: (tt - scanEnd) / (holdEnd - scanEnd), chars: total };
     },
   };
 }

@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
  * The signed-in backdrop: deep space.
  *
  * One fixed canvas behind the app, drawn back to front:
- *  - nebula glow, a large planet in the corner (slow scroll parallax)
+ *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
+ *    (slow scroll parallax)
  *  - three depth layers of twinkling stars; scrolling pulls them into
  *    "warp" streaks proportional to scroll speed
  *  - the 0% pattern machine: a deep neural network in perspective, woven
@@ -15,6 +16,9 @@ import { usePathname } from "next/navigation";
  *    updated weights flash, Greek glyphs flicker on the neurons, a loss
  *    curve falls and the similarity readout converges on 0%. It turns
  *    slowly with the cursor and with scroll
+ *  - a loss landscape in perspective along the bottom: it flows toward the
+ *    viewer over time and as the page scrolls, and an optimiser (the warm
+ *    point, ∇L) rolls downhill on it by gradient descent
  *  - meteors that fall at random, now and then in showers
  *  - a thin scroll-progress line on the top edge
  *
@@ -87,6 +91,129 @@ function makeNet() {
   return { nodes, edges, layerNodes };
 }
 
+/** A cloud texture: domain-warped fractal noise coloured blue → violet → magenta with cyan filaments. Built once. */
+function makeNebula(): HTMLCanvasElement {
+  const N = 384;
+  const cvs = document.createElement("canvas");
+  cvs.width = cvs.height = N;
+  const g = cvs.getContext("2d");
+  if (!g) return cvs;
+  const P = new Uint8Array(512);
+  for (let i = 0; i < 256; i++) P[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = P[i];
+    P[i] = P[j];
+    P[j] = t;
+  }
+  for (let i = 0; i < 256; i++) P[i + 256] = P[i];
+  const lat = (x: number, y: number) => P[(P[x & 255] + y) & 255] / 255;
+  const noise = (x: number, y: number) => {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const fx = x - xi;
+    const fy = y - yi;
+    const u = fx * fx * (3 - 2 * fx);
+    const v = fy * fy * (3 - 2 * fy);
+    const a = lat(xi, yi);
+    const b = lat(xi + 1, yi);
+    const d = lat(xi, yi + 1);
+    const e = lat(xi + 1, yi + 1);
+    return a + (b - a) * u + (d - a) * v + (a - b - d + e) * u * v;
+  };
+  const fbm = (x: number, y: number) => {
+    let sum = 0;
+    let amp = 0.5;
+    let f = 1;
+    for (let o = 0; o < 5; o++) {
+      sum += amp * noise(x * f, y * f);
+      amp *= 0.5;
+      f *= 2;
+    }
+    return sum;
+  };
+  const img = g.createImageData(N, N);
+  const C1 = [50, 105, 255];
+  const C2 = [150, 90, 255];
+  const C3 = [240, 95, 205];
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const nx = (x / N) * 3.6;
+      const ny = (y / N) * 3.6;
+      const q = fbm(nx + 3.1, ny + 1.7);
+      const n = fbm(nx + q * 1.7, ny + q * 1.7 + 5.2);
+      const m = fbm(nx * 1.6 + 9.4, ny * 1.6 + 2.8);
+      // fade to nothing at the border so the texture can be drawn at any size
+      const edge = clamp(Math.min(Math.min(x, N - 1 - x), Math.min(y, N - 1 - y)) / (N * 0.2));
+      const d = clamp((n - 0.4) / 0.36) * edge * edge * (3 - 2 * edge);
+      const t = clamp((m - 0.32) / 0.38);
+      const A = t < 0.5 ? C1 : C2;
+      const B = t < 0.5 ? C2 : C3;
+      const k = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+      const hi = clamp((n - 0.66) / 0.14); // bright cyan filaments in the densest folds
+      const o = (y * N + x) * 4;
+      img.data[o] = A[0] + (B[0] - A[0]) * k + (120 - 60) * hi;
+      img.data[o + 1] = A[1] + (B[1] - A[1]) * k + 120 * hi;
+      img.data[o + 2] = A[2] + (B[2] - A[2]) * k;
+      img.data[o + 3] = d * d * 235;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return cvs;
+}
+
+/** A spiral galaxy sprite: two arms of several thousand stars around a warm core. Built once, drawn rotating. */
+function makeGalaxy(): HTMLCanvasElement {
+  const N = 600;
+  const cvs = document.createElement("canvas");
+  cvs.width = cvs.height = N;
+  const g = cvs.getContext("2d");
+  if (!g) return cvs;
+  g.translate(N / 2, N / 2);
+  const haze = g.createRadialGradient(0, 0, 0, 0, 0, N * 0.48);
+  haze.addColorStop(0, "rgba(150,140,255,0.34)");
+  haze.addColorStop(0.35, "rgba(100,120,255,0.12)");
+  haze.addColorStop(1, "rgba(80,100,255,0)");
+  g.fillStyle = haze;
+  g.fillRect(-N / 2, -N / 2, N, N);
+  g.globalCompositeOperation = "lighter";
+  // luminous lanes along the two arms
+  for (let i = 0; i < 300; i++) {
+    const rr = 0.08 + Math.random() * 0.9;
+    const r = rr * N * 0.46;
+    const th = (i % 2) * Math.PI + rr * 7.4 + (Math.random() - 0.5) * 0.3;
+    const x = Math.cos(th) * r;
+    const y = Math.sin(th) * r;
+    const br = 10 + Math.random() * 20;
+    const lane = g.createRadialGradient(x, y, 0, x, y, br);
+    lane.addColorStop(0, `rgba(${rr < 0.4 ? "200,180,255" : "120,150,255"},0.075)`);
+    lane.addColorStop(1, "rgba(120,150,255,0)");
+    g.fillStyle = lane;
+    g.fillRect(x - br, y - br, br * 2, br * 2);
+  }
+  for (let i = 0; i < 9000; i++) {
+    const arm = i % 2;
+    const rr = Math.pow(Math.random(), 0.8);
+    const r = rr * N * 0.47;
+    const spread = (Math.random() - 0.5 + Math.random() - 0.5) * 0.75 * (1 - rr * 0.3);
+    const th = arm * Math.PI + rr * 7.4 + spread;
+    const warm = 1 - rr;
+    const pink = Math.random() < 0.08;
+    g.fillStyle = pink
+      ? `rgba(255,140,210,${0.25 + Math.random() * 0.45})`
+      : `rgba(${Math.round(150 + 105 * warm)},${Math.round(175 + 60 * warm)},255,${0.22 + Math.random() * 0.6})`;
+    const sz = Math.random() < 0.06 ? 2 : 1.1;
+    g.fillRect(Math.cos(th) * r, Math.sin(th) * r, sz, sz);
+  }
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, N * 0.17);
+  core.addColorStop(0, "rgba(255,244,225,0.95)");
+  core.addColorStop(0.3, "rgba(225,200,255,0.5)");
+  core.addColorStop(1, "rgba(150,140,255,0)");
+  g.fillStyle = core;
+  g.fillRect(-N / 2, -N / 2, N, N);
+  return cvs;
+}
+
 /** Signed-in areas get the full show; public pages keep it quieter behind their own visuals. */
 const APP_ROUTES = /^\/(dashboard|scan|orders|services|billing|settings|admin)(\/|$)/;
 
@@ -114,11 +241,24 @@ export function SpaceBackground() {
     const meteors: Meteor[] = [];
     const queued: number[] = []; // seconds until a queued shower meteor appears
     const net = makeNet();
+    const nebula = makeNebula();
+    // The clouds drift slowly, so they are painted into a half-resolution
+    // layer every few frames and that layer is blitted, instead of blending
+    // two full-screen textures on every frame.
+    const sky = document.createElement("canvas");
+    const skyCtx = sky.getContext("2d");
+    let skyAge = 99;
+    const galaxy = makeGalaxy();
+    // gradient descent on the loss landscape: the optimiser's position, velocity and trail
+    const opt = { x: 2.1, z: 6, vx: 0, vz: 0, age: 0 };
+    const trail: number[] = [];
     const px = new Float32Array(net.nodes.length);
     const py = new Float32Array(net.nodes.length);
     const pk = new Float32Array(net.nodes.length);
     const act = new Float32Array(net.nodes.length);
     const actBack = new Float32Array(net.nodes.length);
+    let lx = new Float32Array(0);
+    let ly = new Float32Array(0);
     const ex = new Float32Array(net.edges.length);
     const ey = new Float32Array(net.edges.length);
 
@@ -148,7 +288,10 @@ export function SpaceBackground() {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      stars = makeStars(small ? 90 : 190);
+      stars = makeStars(small ? 150 : 420);
+      sky.width = Math.max(2, Math.round(w / 2));
+      sky.height = Math.max(2, Math.round(h / 2));
+      skyAge = 99;
       docH = document.documentElement.scrollHeight;
       if (reduce) draw(0, 0);
     }
@@ -162,7 +305,7 @@ export function SpaceBackground() {
         y: fromTop ? -30 : rand(0, h * 0.55),
         vx: Math.cos(ang) * speed,
         vy: Math.sin(ang) * speed,
-        len: rand(90, 230) * (fromScroll ? 0.8 : 1),
+        len: rand(120, 320) * (fromScroll ? 0.8 : 1),
         age: 0,
         max: 3,
         w: rand(1.1, 2.3),
@@ -170,24 +313,172 @@ export function SpaceBackground() {
       });
     }
 
-    function drawNebula(off: number) {
-      const blobs: [number, number, number, string][] = [
-        [0.18, 0.1, 0.62, "91,140,255"],
-        [0.88, 0.5, 0.66, "154,123,255"],
-        [0.4, 0.98, 0.55, "95,216,245"],
-      ];
-      const r0 = Math.max(w, h);
-      for (const [bx, by, br, col] of blobs) {
-        const x = bx * w;
-        const y = by * h - off;
-        const r = br * r0;
-        const g = c.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, `rgba(${col},0.13)`);
-        g.addColorStop(0.5, `rgba(${col},0.045)`);
-        g.addColorStop(1, `rgba(${col},0)`);
-        c.fillStyle = g;
-        c.fillRect(0, 0, w, h);
+    function drawNebula(time: number, off: number) {
+      const k = skyCtx;
+      if (k && ++skyAge > 5) {
+        skyAge = 0;
+        const sw = sky.width;
+        const sh = sky.height;
+        k.setTransform(1, 0, 0, 1, 0, 0);
+        k.globalCompositeOperation = "source-over";
+        k.globalAlpha = 1;
+        k.clearRect(0, 0, sw, sh);
+        // base wash so the void is never flat black
+        const wash = k.createLinearGradient(0, 0, sw, sh);
+        wash.addColorStop(0, "rgba(28,38,110,0.34)");
+        wash.addColorStop(0.5, "rgba(10,12,40,0.08)");
+        wash.addColorStop(1, "rgba(70,36,120,0.3)");
+        k.fillStyle = wash;
+        k.fillRect(0, 0, sw, sh);
+        // two sheets of cloud drifting past each other
+        const big = Math.max(sw, sh);
+        k.globalCompositeOperation = "lighter";
+        k.globalAlpha = 0.52;
+        k.translate(sw * 0.62 + Math.sin(time * 0.021) * 30, sh * 0.42);
+        k.rotate(-0.35 + Math.sin(time * 0.013) * 0.06);
+        k.drawImage(nebula, -big * 0.95, -big * 0.7, big * 1.9, big * 1.4);
+        k.setTransform(1, 0, 0, 1, 0, 0);
+        k.globalAlpha = 0.36;
+        k.translate(sw * 0.24 - Math.sin(time * 0.017) * 35, sh * 0.82);
+        k.rotate(2.6 + Math.cos(time * 0.011) * 0.08);
+        k.drawImage(nebula, -big * 0.8, -big * 0.6, big * 1.6, big * 1.2);
       }
+      // drawn a little oversized so the scroll parallax never shows an edge
+      c.drawImage(sky, -w * 0.04, -h * 0.1 - off * 0.8, w * 1.08, h * 1.2);
+    }
+
+    function drawGalaxy(time: number, off: number) {
+      const R = Math.min(w, h) * (small ? 0.5 : 0.62);
+      c.save();
+      c.globalCompositeOperation = "lighter";
+      c.globalAlpha = inApp.current ? 0.7 : 0.85;
+      c.translate(small ? w * 0.2 : w * 0.16, h * 0.14 - off * 0.45);
+      c.rotate(-0.5);
+      c.scale(1, 0.44);
+      c.rotate(time * 0.03);
+      c.drawImage(galaxy, -R, -R, R * 2, R * 2);
+      c.restore();
+    }
+
+    // ── the loss landscape: a surface in perspective under the page. It flows
+    // toward the viewer over time and when the page scrolls, and an optimiser
+    // (the bright point) rolls downhill on it by gradient descent.
+    function landscape(x: number, z: number, time: number, flow: number) {
+      const zz = z + flow;
+      return (
+        0.27 * Math.sin(x * 1.2 + time * 0.2) * Math.cos(zz * 0.85) +
+        0.13 * Math.sin(x * 2.5 - zz * 1.6 + time * 0.3) -
+        0.44 * Math.exp(-((x - 0.3) * (x - 0.3) + (z - 4.3) * (z - 4.3)) / 2.4)
+      );
+    }
+
+    function drawLandscape(time: number, dt: number, still: boolean) {
+      const COLS = small ? 34 : 64;
+      const ROWS = small ? 14 : 22;
+      const X = 6;
+      const Z0 = 1.3;
+      const Z1 = 8.2;
+      const hor = h * 0.6;
+      const f = h * 0.85;
+      const camY = 0.74;
+      const flow = time * 0.22 + scrollY * 0.0042;
+      const A = inApp.current ? 0.42 : 0.36;
+
+      // horizon glow
+      const hg = c.createLinearGradient(0, hor - h * 0.1, 0, hor + h * 0.16);
+      hg.addColorStop(0, "rgba(91,140,255,0)");
+      hg.addColorStop(0.45, "rgba(110,150,255,0.13)");
+      hg.addColorStop(1, "rgba(154,123,255,0)");
+      c.fillStyle = hg;
+      c.fillRect(0, hor - h * 0.1, w, h * 0.26);
+
+      const n = (COLS + 1) * ROWS;
+      if (lx.length !== n) {
+        lx = new Float32Array(n);
+        ly = new Float32Array(n);
+      }
+      for (let j = 0; j < ROWS; j++) {
+        const z = Z0 + (j / (ROWS - 1)) * (Z1 - Z0);
+        const k = f / z;
+        for (let i = 0; i <= COLS; i++) {
+          const x = (i / COLS - 0.5) * 2 * X;
+          const o = j * (COLS + 1) + i;
+          lx[o] = w / 2 + x * k;
+          ly[o] = hor + (camY - landscape(x, z, time, flow)) * k;
+        }
+      }
+      c.lineWidth = 0.7;
+      // contour rows, far to near
+      for (let j = ROWS - 1; j >= 0; j--) {
+        const d = j / (ROWS - 1);
+        c.strokeStyle = `hsla(${188 + 72 * d},92%,${70 - 8 * d}%,${(Math.pow(1 - d, 1.25) * A + 0.035).toFixed(3)})`;
+        c.beginPath();
+        let pen = false;
+        for (let i = 0; i <= COLS; i++) {
+          const o = j * (COLS + 1) + i;
+          if (lx[o] < -80 || lx[o] > w + 80) {
+            pen = false;
+            continue;
+          }
+          if (pen) c.lineTo(lx[o], ly[o]);
+          else c.moveTo(lx[o], ly[o]);
+          pen = true;
+        }
+        c.stroke();
+      }
+      // the lines running away from the viewer
+      c.strokeStyle = `rgba(140,150,255,${(A * 0.26).toFixed(3)})`;
+      c.beginPath();
+      for (let i = 0; i <= COLS; i++) {
+        if (lx[i] < -w * 0.6 || lx[i] > w * 1.6) continue;
+        c.moveTo(lx[i], ly[i]);
+        for (let j = 1; j < ROWS; j++) c.lineTo(lx[j * (COLS + 1) + i], ly[j * (COLS + 1) + i]);
+      }
+      c.stroke();
+
+      // gradient descent: step against the slope, with a little momentum
+      if (!still) {
+        const e = 0.04;
+        const gx = (landscape(opt.x + e, opt.z, time, flow) - landscape(opt.x - e, opt.z, time, flow)) / (2 * e);
+        const gz = (landscape(opt.x, opt.z + e, time, flow) - landscape(opt.x, opt.z - e, time, flow)) / (2 * e);
+        opt.vx = opt.vx * 0.9 - gx * 0.55 * dt;
+        opt.vz = opt.vz * 0.9 - gz * 0.55 * dt;
+        opt.x += opt.vx;
+        opt.z += opt.vz;
+        opt.age += dt;
+        if (opt.age > 8 || Math.abs(opt.x) > 3 || opt.z < 2.3 || opt.z > 7.4) {
+          opt.x = rand(-2.4, 2.6);
+          opt.z = rand(3.4, 6.6);
+          opt.vx = 0;
+          opt.vz = 0;
+          opt.age = 0;
+          trail.length = 0;
+        }
+      }
+      const ok = f / opt.z;
+      const ox = w / 2 + opt.x * ok;
+      const oy = hor + (camY - landscape(opt.x, opt.z, time, flow)) * ok;
+      trail.push(ox, oy);
+      if (trail.length > 90) trail.splice(0, 2);
+      if (trail.length > 3) {
+        c.strokeStyle = "rgba(255,190,120,0.55)";
+        c.lineWidth = 1.2;
+        c.beginPath();
+        c.moveTo(trail[0], trail[1]);
+        for (let i = 2; i < trail.length; i += 2) c.lineTo(trail[i], trail[i + 1]);
+        c.stroke();
+      }
+      const og = c.createRadialGradient(ox, oy, 0, ox, oy, 16);
+      og.addColorStop(0, "rgba(255,225,170,0.95)");
+      og.addColorStop(0.3, "rgba(255,170,90,0.45)");
+      og.addColorStop(1, "rgba(255,150,80,0)");
+      c.fillStyle = og;
+      c.beginPath();
+      c.arc(ox, oy, 16, 0, Math.PI * 2);
+      c.fill();
+      c.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+      c.fillStyle = "rgba(255,215,170,0.8)";
+      c.fillText("∇L", ox + 10, oy - 9);
     }
 
     function drawPlanet(off: number) {
@@ -195,9 +486,9 @@ export function SpaceBackground() {
       const x = w * 0.96;
       const y = h * 1.04 - off * 0.6;
       const body = c.createRadialGradient(x - r * 0.45, y - r * 0.5, r * 0.05, x, y, r);
-      body.addColorStop(0, "rgba(70,96,190,0.42)");
-      body.addColorStop(0.55, "rgba(30,38,92,0.5)");
-      body.addColorStop(1, "rgba(6,8,18,0.85)");
+      body.addColorStop(0, "rgba(62,84,172,0.96)");
+      body.addColorStop(0.55, "rgba(22,28,74,0.97)");
+      body.addColorStop(1, "rgba(5,7,16,1)");
       c.fillStyle = body;
       c.beginPath();
       c.arc(x, y, r, 0, Math.PI * 2);
@@ -374,7 +665,7 @@ export function SpaceBackground() {
         if (e.flash > 0) e.flash = Math.max(0, e.flash - dt * 2.4);
       }
 
-      const baseA = (small ? 0.6 : 0.9) * (inApp.current ? 1 : 0.5);
+      const baseA = (small ? 0.6 : 0.9) * (inApp.current ? 1 : 0.78);
       c.save();
       c.globalAlpha = baseA;
 
@@ -551,9 +842,11 @@ export function SpaceBackground() {
     function draw(time: number, dt: number) {
       c.clearRect(0, 0, w, h);
       const off = Math.sin(scrollY * 0.0009) * 80;
-      drawNebula(off);
-      drawPlanet(off);
+      drawNebula(time, off);
+      drawGalaxy(time, off);
       drawStars(time);
+      drawPlanet(off);
+      drawLandscape(time, dt, reduce);
       drawNet(time, dt, reduce);
       if (!reduce) drawMeteors(dt);
       drawProgress();
@@ -579,13 +872,13 @@ export function SpaceBackground() {
       // random meteors; a fast scroll shakes a few loose
       nextMeteor -= step;
       if (nextMeteor <= 0) {
-        if (Math.random() < 0.16) {
-          const n = 3 + Math.floor(Math.random() * 4);
+        if (Math.random() < 0.22) {
+          const n = 4 + Math.floor(Math.random() * 6);
           for (let i = 0; i < n; i++) queued.push(i * rand(0.12, 0.38));
-          nextMeteor = rand(5, 9);
+          nextMeteor = rand(3.5, 7);
         } else {
           spawnMeteor();
-          nextMeteor = rand(0.6, 2.4);
+          nextMeteor = rand(0.35, 1.7);
         }
       }
       if (Math.abs(vel) > 28 && Math.random() < 0.05) spawnMeteor(true);

@@ -23,13 +23,17 @@ interface Props {
   maxChars?: number;
   /** Draw the synced scan beam. Turn off for a secondary page next to the main one. */
   beam?: boolean;
+  /** Show the pipeline step in the corner: tokenize → extract features → weigh signals → estimate. */
+  caption?: boolean;
   className?: string;
 }
 
 /**
- * The document's text: Greek letters laid out like Python, typed one by one
- * by an invisible hand, then a scan beam re-rolls every letter (see
- * lib/greek-decode). One loop (~18 fps) drives every row and pauses while
+ * The document's text, staged as a small ML pipeline: Greek letters laid out
+ * like Python are typed one by one (the text arriving, token by token), then
+ * a beam sweeps down with a kernel window sliding along it, like a
+ * convolution reading features off each row, and re-rolls every letter (see
+ * lib/greek-decode). `caption` names the step in the corner. One loop (~18 fps) drives every row and pauses while
  * off-screen. With reduced motion it shows a finished page, static. Fills its
  * parent, which must have a height.
  */
@@ -40,6 +44,7 @@ export function GreekText({
   textClass = "text-[9px]",
   maxChars,
   beam = true,
+  caption = false,
   className,
 }: Props) {
   const rows = useMemo(() => (maxChars ? lines.map((l) => l.slice(0, maxChars)) : lines), [lines, maxChars]);
@@ -48,6 +53,7 @@ export function GreekText({
   const initial = useMemo(() => anim.staticRows(), [anim]);
   const root = useRef<HTMLDivElement>(null);
   const beamRef = useRef<HTMLDivElement>(null);
+  const capRef = useRef<HTMLSpanElement>(null);
   const aRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const bRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
@@ -76,6 +82,20 @@ export function GreekText({
         }
         if (b) b.textContent = r.noise;
       });
+      const cap = capRef.current;
+      if (cap) {
+        const text =
+          f.phase === "type"
+            ? `tokenize · ${Math.round(f.chars / 4)} tok`
+            : f.phase === "scan"
+              ? f.p < 0.55
+                ? "extract features"
+                : "weigh signals"
+              : f.phase === "hold"
+                ? "estimate ready"
+                : "";
+        if (cap.textContent !== text) cap.textContent = text;
+      }
       const bm = beamRef.current;
       if (bm) {
         if (f.beam === null) bm.style.opacity = "0";
@@ -135,7 +155,18 @@ export function GreekText({
           ref={beamRef}
           className="pointer-events-none absolute -inset-x-[10%] h-7 -translate-y-full bg-gradient-to-b from-transparent via-cyan/15 to-cyan/60 opacity-0"
           style={{ top: 0, boxShadow: "0 12px 30px -6px rgb(95 216 245 / 0.45)" }}
-        />
+        >
+          {/* the kernel: a window sliding along the row being read */}
+          <span className="kernel-slide absolute bottom-0 aspect-square h-[58%] rounded-[2px] border border-white/80 bg-cyan/25 shadow-[0_0_10px_rgb(95_216_245/0.9)]" />
+        </div>
+      )}
+      {caption && (
+        <span
+          ref={capRef}
+          className="pointer-events-none absolute right-0 top-0 rounded-sm bg-ink-950/75 px-1 py-px font-mono text-[6.5px] uppercase leading-none tracking-[0.12em] text-cyan"
+        >
+          estimate ready
+        </span>
       )}
     </div>
   );

@@ -257,10 +257,8 @@ html[data-interactive] .light-layers { display: block; }
 /* A large soft light behind the content, so glass panes glow from behind as
    it passes, and a faint grid that shows only where the light falls.
    z-index -20 puts it right above the page background and under everything
-   else, including other decorative -z-10 layers. The grid is faded out by a
-   vignette painted in the page's own background colour rather than by a
-   mask: the layer sits directly on that colour, so the vignette is invisible
-   and nothing has to be re-masked as the grid slides inside its window. */
+   else, including other decorative -z-10 layers. Nothing in it is opaque:
+   the space backdrop (a canvas at the same depth) shows through. */
 .light-back {
   position: fixed;
   left: 0;
@@ -280,6 +278,11 @@ html[data-pointer] .light-back { opacity: 1; }
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* The grid fades out with a mask. It used to be covered by a vignette in
+     the page colour, which showed as a dark square once the space backdrop
+     sat behind it. */
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgb(0 0 0 / 0.45) 34%, transparent 62%);
+  mask-image: radial-gradient(closest-side, #000 0%, rgb(0 0 0 / 0.45) 34%, transparent 62%);
 }
 .light-back-grid {
   position: absolute;
@@ -293,11 +296,7 @@ html[data-pointer] .light-back { opacity: 1; }
   background-size: 48px 48px;
   will-change: transform;
 }
-.light-back-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(closest-side, transparent 0%, rgb(4 6 11 / 0.55) 34%, var(--color-ink-950) 62%);
-}
+.light-back-vignette { display: none; }
 .light-back-glow {
   position: absolute;
   inset: 0;
@@ -1114,4 +1113,11 @@ html[data-pointer] .trust-strip::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .ne-pulse { opacity: 0; }
   .synapse > i { display: none; }
+}
+
+/* The kernel window sliding along the scan beam (components/landing/greek-text.tsx). */
+.kernel-slide { left: 8%; animation: kernel-slide 1.05s ease-in-out infinite alternate; }
+@keyframes kernel-slide {
+  from { left: 8%; }
+  to { left: 86%; }
 }
