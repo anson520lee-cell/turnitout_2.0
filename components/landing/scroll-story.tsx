@@ -54,7 +54,12 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[460px] [perspective:1100px]">
-      <div aria-hidden className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.18),transparent)]" />
+      <div aria-hidden data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.18),transparent)]" />
+      {/* Everything below leans with the cursor as one object, and its parts sit
+          at different depths (spectrum behind, document in the middle, labels and
+          report in front), so they slide against each other as it turns. The
+          wrapper carries no blur of its own, which would flatten its children. */}
+      <div data-tilt="11" className="absolute inset-0 [transform-style:preserve-3d]">
       {/* verification field */}
       <motion.div
         style={{ opacity: layerOpacity, z: layerZ, rotateX: 64 }}
@@ -67,7 +72,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
       </motion.div>
       {/* round the document: a spectrum of per-token readings, strongest where the four signals are */}
-      <motion.div aria-hidden style={{ opacity: specOpacity }} className="absolute inset-[-13%]">
+      <motion.div aria-hidden style={{ opacity: specOpacity, z: -90 }} className="absolute inset-[-13%]">
         <TokenSpectrum className="size-full" />
       </motion.div>
       {/* document */}
@@ -84,7 +89,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         <motion.div
           key={s.t}
           // Pulled toward the centre on phones so the labels stay on screen.
-          style={{ opacity: sigOpacity, left: `calc(50% + ${s.x} * var(--spread))`, top: `calc(50% + ${s.y})` }}
+          style={{ opacity: sigOpacity, z: 70 + i * 14, left: `calc(50% + ${s.x} * var(--spread))`, top: `calc(50% + ${s.y})` }}
           className="absolute [--spread:0.55] sm:[--spread:1]"
         >
           <div className="glass flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
@@ -95,7 +100,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
       ))}
       {/* report card */}
       <motion.div
-        style={{ opacity: report, scale: reportScale }}
+        style={{ opacity: report, scale: reportScale, z: 50 }}
         className="glass-strong absolute inset-[12%] rounded-3xl p-6"
       >
         <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ok">Screening complete</p>
@@ -123,6 +128,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         </div>
         <p className="mt-5 text-[11px] text-fg-subtle">Illustration. Values appear only after a real screening.</p>
       </motion.div>
+      </div>
     </div>
   );
 }
