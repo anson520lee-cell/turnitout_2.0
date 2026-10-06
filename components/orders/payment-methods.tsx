@@ -1,4 +1,4 @@
-import { CreditCard, Landmark, Smartphone, Wallet, type LucideIcon } from "lucide-react";
+import { Bitcoin, CircleDollarSign, Coins, CreditCard, Landmark, Smartphone, Wallet, type LucideIcon } from "lucide-react";
 import { enabledManualPayments, type ManualPaymentMethod } from "@/config/payments";
 import { cn } from "@/lib/utils";
 
@@ -6,7 +6,11 @@ import { cn } from "@/lib/utils";
 export const methodIcons: Record<ManualPaymentMethod | "card", LucideIcon> = {
   alipay: Wallet,
   payme: Smartphone,
+  paypal: Wallet,
   bank_transfer: Landmark,
+  usdt: CircleDollarSign,
+  usdc: Coins,
+  bitcoin: Bitcoin,
   card: CreditCard,
 };
 
@@ -26,7 +30,7 @@ export function PaymentMethodStrip({ className, card = false }: { className?: st
       })}
       {card && (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-white/[0.03] px-2.5 py-1 text-fg-muted">
-          <CreditCard className="size-3.5" aria-hidden /> Card
+          <CreditCard className="size-3.5" aria-hidden /> Card / Google Pay
         </span>
       )}
     </div>

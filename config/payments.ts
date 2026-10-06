@@ -9,7 +9,7 @@
  * Nothing here is secret: all of it is shown to paying customers.
  */
 
-export const MANUAL_PAYMENT_METHODS = ["alipay", "payme", "bank_transfer"] as const;
+export const MANUAL_PAYMENT_METHODS = ["alipay", "payme", "paypal", "bank_transfer", "usdt", "usdc", "bitcoin"] as const;
 export type ManualPaymentMethod = (typeof MANUAL_PAYMENT_METHODS)[number];
 
 export interface PayeeDetail {
@@ -24,6 +24,8 @@ export interface ManualPaymentConfig {
   label: string;
   /** One line under the method name. */
   short: string;
+  /** Optional warning or hint shown above the payee details (e.g. "use the right network"). */
+  note?: string;
   enabled: boolean;
   payee: PayeeDetail[];
   /** Optional pay link (e.g. a PayMe business link). Opened in a new tab. */
@@ -77,6 +79,28 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     referenceLabel: "Your PayMe name or transaction ID",
     referencePlaceholder: "e.g. Chan Tai Man",
   },
+  paypal: {
+    id: "paypal",
+    label: "PayPal",
+    short: "Send the amount to our PayPal.me link or email.",
+    enabled: true,
+    payee: [
+      { label: "PayPal name", value: "REPLACE: PayPal display name" },
+      { label: "PayPal email", value: "REPLACE: PayPal email", copy: true },
+      { label: "PayPal.me link", value: "REPLACE: PayPal.me link", copy: true },
+    ],
+    link: "REPLACE: PayPal.me link",
+    qrImage: null,
+    note: "Choose \"Friends & Family\" or \"Goods & Services\" as shown in the steps, and send the exact HKD amount.",
+    steps: [
+      "Open PayPal and send money to the email or PayPal.me link shown here.",
+      "Send the exact amount in HKD (or the same amount in your own currency if PayPal converts it).",
+      "Put the reference code in the payment note.",
+      "Come back here and enter your PayPal transaction ID.",
+    ],
+    referenceLabel: "PayPal transaction ID",
+    referencePlaceholder: "e.g. 5TY05013RG002845M",
+  },
   bank_transfer: {
     id: "bank_transfer",
     label: "Bank transfer",
@@ -97,6 +121,67 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     ],
     referenceLabel: "Name on your account or transfer reference",
     referencePlaceholder: "e.g. CHAN TAI MAN / FPS ref FRN2026…",
+  },
+
+  usdt: {
+    id: "usdt",
+    label: "USDT",
+    short: "Tether stablecoin, sent on the network shown.",
+    enabled: true,
+    payee: [
+      { label: "Network", value: "REPLACE: network (e.g. TRON TRC-20)" },
+      { label: "Wallet address", value: "REPLACE: USDT wallet address", copy: true },
+    ],
+    qrImage: "/payments/usdt-qr.png",
+    note: "Send only USDT on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
+    steps: [
+      "Open your wallet or exchange and choose USDT on the network shown here.",
+      "Send the amount shown (1 USDT is about US$1; the HK$ price is converted at today's rate by you).",
+      "Copy the transaction ID (TXID) when the transfer is sent.",
+      "Come back here and paste the TXID.",
+    ],
+    referenceLabel: "Transaction ID (TXID)",
+    referencePlaceholder: "e.g. 0x4f1c… or a 64-character TRON hash",
+  },
+  usdc: {
+    id: "usdc",
+    label: "USDC",
+    short: "Circle stablecoin, sent on the network shown.",
+    enabled: true,
+    payee: [
+      { label: "Network", value: "REPLACE: network (e.g. Ethereum ERC-20, Base, Solana)" },
+      { label: "Wallet address", value: "REPLACE: USDC wallet address", copy: true },
+    ],
+    qrImage: "/payments/usdc-qr.png",
+    note: "Send only USDC on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
+    steps: [
+      "Open your wallet or exchange and choose USDC on the network shown here.",
+      "Send the amount shown (1 USDC is about US$1; the HK$ price is converted at today's rate by you).",
+      "Copy the transaction ID (TXID) when the transfer is sent.",
+      "Come back here and paste the TXID.",
+    ],
+    referenceLabel: "Transaction ID (TXID)",
+    referencePlaceholder: "e.g. 0x9a2e… or a Solana signature",
+  },
+  bitcoin: {
+    id: "bitcoin",
+    label: "Bitcoin",
+    short: "Send BTC on the Bitcoin network.",
+    enabled: true,
+    payee: [
+      { label: "Network", value: "Bitcoin (on-chain)" },
+      { label: "Wallet address", value: "REPLACE: Bitcoin wallet address", copy: true },
+    ],
+    qrImage: "/payments/bitcoin-qr.png",
+    note: "Send only Bitcoin (BTC) to this address. The BTC amount depends on today's exchange rate; send the equivalent of the HK$ price. Network fees are paid by you.",
+    steps: [
+      "Open your Bitcoin wallet or exchange and send BTC to the address shown here.",
+      "Send the BTC equivalent of the HK$ amount at today's rate.",
+      "Copy the transaction ID (TXID) when the transfer is sent.",
+      "Come back here and paste the TXID.",
+    ],
+    referenceLabel: "Transaction ID (TXID)",
+    referencePlaceholder: "e.g. a 64-character hex transaction hash",
   },
 };
 
@@ -139,7 +224,7 @@ export function paymentReference(orderId: string): string {
 /** Human label for a `payments.provider` / `payment_claims.method` value. */
 export function paymentMethodLabel(provider: string): string {
   if (isManualPaymentMethod(provider)) return manualPayments[provider].label;
-  if (provider === "stripe") return "Card (Stripe)";
+  if (provider === "stripe") return "Card / Google Pay (Stripe)";
   if (provider === "dev") return "Simulated (dev)";
   return provider;
 }

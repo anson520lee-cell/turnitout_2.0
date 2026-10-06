@@ -106,6 +106,9 @@ function ManualMethod({
                 <CopyValue value={reference} label="reference code" />
               </dd>
             </div>
+            {method.note && (
+              <div className="bg-warn/[0.07] px-3.5 py-2.5 text-[12px] leading-relaxed text-warn">{method.note}</div>
+            )}
             {method.payee.map((p) => (
               <div key={p.label} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                 <dt className="shrink-0 text-fg-subtle">{p.label}</dt>
@@ -226,7 +229,7 @@ export function PaymentPanel({
         <div role="tablist" aria-label="Payment method" className="flex flex-wrap gap-1.5 rounded-2xl border border-[var(--line)] bg-ink-900/50 p-1.5">
           {tabs.map((t) => {
             const Icon = methodIcons[t];
-            const label = t === "card" ? "Card" : manual.find((m) => m.id === t)?.label;
+            const label = t === "card" ? "Card / Google Pay" : manual.find((m) => m.id === t)?.label;
             const active = t === tab;
             return (
               <button
@@ -288,7 +291,7 @@ export function PaymentPanel({
             />
           ) : stripe && tab === "card" ? (
             <div className="rounded-2xl border border-[var(--line)] bg-ink-900/40 p-5 text-center">
-              <p className="text-[13px] text-fg-muted">Pay by Visa, Mastercard and other cards through Stripe&rsquo;s secure checkout.</p>
+              <p className="text-[13px] text-fg-muted">Pay by Visa, Mastercard, Google Pay, Apple Pay and other cards through Stripe&rsquo;s secure checkout. The wallets you can use depend on your device.</p>
               <Button
                 size="lg"
                 className="mt-4 w-full"
@@ -304,7 +307,7 @@ export function PaymentPanel({
                   });
                 }}
               >
-                <CreditCard className="size-4" /> Pay {price} by card
+                <CreditCard className="size-4" /> Pay {price} by card or Google Pay
               </Button>
               <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-fg-subtle">
                 <Lock className="size-3" /> Secure checkout by Stripe

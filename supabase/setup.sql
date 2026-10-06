@@ -423,7 +423,7 @@ create table public.payment_claims (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
-  method text not null check (method in ('alipay', 'payme', 'bank_transfer')),
+  method text not null check (method in ('alipay', 'payme', 'paypal', 'bank_transfer', 'usdt', 'usdc', 'bitcoin')),
   payer_reference text not null check (char_length(payer_reference) between 1 and 200),
   amount integer not null check (amount > 0),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'rejected')),
