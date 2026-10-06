@@ -3,11 +3,11 @@
  * hero document. It is a pure function of time, so there is no state to keep.
  *
  * One loop:
- *   1. TYPE  - Python code is typed character by character with human
+ *   1. TYPE  - Greek letters, laid out like Python code, are typed one by one with human
  *              rhythm (uneven pace, hesitations, a pause at each line end)
  *              and a blinking cursor.
  *   2. SCAN  - a beam sweeps down the page; every glyph it crosses flickers
- *              and turns into a random Greek letter.
+ *              and is re-rolled into a different Greek letter.
  *   3. HOLD  - the page stays Greek for a while, then clears and starts again
  *              with freshly generated Greek.
  */
@@ -119,13 +119,13 @@ export function createAnimator(lines: string[]) {
         if (active < 0) active = n - 1;
         const rows = lines.map((line, i): FrameRow => {
           if (i > active || tt < rowStart[i]) return { text: "", noise: "", greek: false };
-          if (i < active) return { text: line, noise: "", greek: false };
+          if (i < active) return { text: toGreek(line, i, epoch * 2), noise: "", greek: false };
           let k = 0;
           while (k < ct[i].length && ct[i][k] <= tt) k++;
           const lastT = k > 0 ? ct[i][k - 1] : rowStart[i];
           const solid = tt - lastT < 0.5; // cursor stays lit while typing
           const on = solid || Math.floor(tt * 2.2) % 2 === 0;
-          return { text: line.slice(0, k), noise: line && on ? "▌" : "", greek: false };
+          return { text: toGreek(line, i, epoch * 2).slice(0, k), noise: line && on ? "▌" : "", greek: false };
         });
         return { rows, beam: null };
       }
@@ -136,13 +136,13 @@ export function createAnimator(lines: string[]) {
 
       const rows = lines.map((line, i): FrameRow => {
         const d = pos - (i + 0.5);
-        if (d < -0.8) return { text: line, noise: "", greek: false };
+        if (d < -0.8) return { text: toGreek(line, i, epoch * 2), noise: "", greek: false };
         if (d <= 0.8) {
           let s = "";
           for (let j = 0; j < line.length; j++) s += line[j] === " " ? " " : glyph(i + 5, j, fr);
           return { text: "", noise: s, greek: true };
         }
-        return { text: toGreek(line, i, epoch + 1), noise: "", greek: true };
+        return { text: toGreek(line, i, epoch * 2 + 1), noise: "", greek: true };
       });
       return { rows, beam: scanning ? pos : null };
     },
