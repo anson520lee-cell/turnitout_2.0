@@ -95,7 +95,7 @@ export function PatternEngine() {
                 ))}
               </dl>
             </Reveal>
-            <Stagger className="mt-7 grid gap-2 sm:grid-cols-2 [transform-style:preserve-3d]" gap={0.05}>
+            <Stagger className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-x-5 [transform-style:preserve-3d]" gap={0.05}>
               {ENGINE_SIGNALS.map((name, i) => (
                 <StaggerItem key={name} z={30} hoverZ={42}>
                   <div
