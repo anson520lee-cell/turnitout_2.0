@@ -192,11 +192,11 @@ function sample(cl: Cloud): boolean {
   return true;
 }
 
-/** Scroll position -> assembly progress: 0 as the heading enters at the bottom, 1 once it is above ~55% of the window. */
+/** Scroll position -> assembly progress: 0 just before the heading enters at the bottom, 1 once it has risen to ~40% of the window. */
 function scrollProgress(el: HTMLElement) {
   const r = el.getBoundingClientRect();
   const y = r.top + r.height / 2;
-  return clamp((innerHeight * 0.98 - y) / (innerHeight * 0.66), 0, 1);
+  return clamp((innerHeight * 1.08 - y) / (innerHeight * 0.66), 0, 1);
 }
 
 function frame(now: number) {
