@@ -21,7 +21,7 @@ const samples = {
       { t: "it offers students a wide range of tools. ", k: "phrase" },
       { t: "Additionally, ", k: "transition" },
       { t: "it helps teachers save time on grading. ", k: null },
-      { t: "In today\u2019s fast-paced world, ", k: "phrase" },
+      { t: "In today’s fast-paced world, ", k: "phrase" },
       { t: "online platforms have become increasingly important. ", k: null },
       { t: "Moreover, ", k: "transition" },
       { t: "they provide a wealth of information at the click of a button. ", k: "phrase" },
@@ -29,6 +29,18 @@ const samples = {
       { t: "students can learn at their own pace. ", k: null },
       { t: "Additionally, ", k: "transition" },
       { t: "teachers can track progress more easily. ", k: null },
+      { t: "It is important to note that ", k: "phrase" },
+      { t: "digital tools also help students collaborate with their peers. ", k: null },
+      { t: "Moreover, ", k: "transition" },
+      { t: "they make learning more engaging and interactive. ", k: "phrase" },
+      { t: "Furthermore, ", k: "transition" },
+      { t: "access to quality education is no longer limited by location. ", k: null },
+      { t: "However, ", k: "transition" },
+      { t: "it is worth noting that challenges remain. ", k: "phrase" },
+      { t: "Moreover, ", k: "transition" },
+      { t: "not every student has equal access to technology. ", k: null },
+      { t: "Furthermore, ", k: "transition" },
+      { t: "educators must navigate a rapidly evolving digital landscape. ", k: "phrase" },
       { t: "In conclusion, it is clear that ", k: "phrase" },
       { t: "technology plays a vital role in shaping the future of learning.", k: "phrase" },
     ],
@@ -46,7 +58,12 @@ const samples = {
       { t: "We moved it to a Tuesday morning, cut the questions from 32 to 14, and asked tutors to share the link in class. ", k: null },
       { t: "That brought 163 replies. ", k: null },
       { t: "The extra answers changed one finding: ", k: null },
-      { t: "first-years, not finalists, were the group least likely to use the library after six.", k: null },
+      { t: "first-years, not finalists, were the group least likely to use the library after six. ", k: null },
+      { t: "We had expected the opposite. ", k: null },
+      { t: "Finalists, after all, were the ones writing dissertations, and the library’s own door counts showed them there until closing. ", k: null },
+      { t: "But the door counts could not say who was coming in at seven, and the survey could. ", k: null },
+      { t: "Ten of the first-years we followed up with mentioned the same thing, a shuttle bus that stops running at 6.15. ", k: null },
+      { t: "It also shaped our one recommendation: before extending opening hours, ask whether the students who most need them can get home.", k: null },
     ],
     bars: { "Sentence Variation": 12, "Transition Patterns": 8, "Phrase Uniformity": 10, "Lexical Diversity": 15 },
     level: "Low" as const,
@@ -68,7 +85,7 @@ export function AnalysisPreview() {
           body="The free scan measures concrete properties of your text and explains each one. It doesn't return a made-up AI percentage."
         />
         <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-          <Card strong tilt={4} className="p-6 sm:p-7">
+          <Card strong tilt={4} className="flex flex-col p-6 sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div role="tablist" aria-label="Example text" className="inline-flex rounded-xl border border-[var(--line)] bg-ink-900/60 p-1">
                 {(Object.keys(samples) as Key[]).map((k) => (
@@ -96,7 +113,7 @@ export function AnalysisPreview() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35 }}
-                className="mt-6 font-serif text-[17px] leading-[1.85] text-fg/90"
+                className="mt-6 flex-1 font-serif text-[17px] leading-[1.85] text-fg/90"
               >
                 {s.text.map((seg, i) => (
                   <span

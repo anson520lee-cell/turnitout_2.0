@@ -56,7 +56,7 @@ export function Greeting({ className }: { className?: string }) {
   }, []);
 
   return (
-    <p className={`greeting flex min-h-[1.5em] items-center gap-2.5 ${className ?? ""}`} data-on={text ? "" : undefined}>
+    <p className={`greeting flex min-h-[1.5em] items-center justify-center gap-3 ${className ?? ""}`} data-on={text ? "" : undefined}>
       <span aria-hidden className="greeting-mark">✦</span>
       <span>{text ?? " "}</span>
     </p>

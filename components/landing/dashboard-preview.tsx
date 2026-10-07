@@ -239,8 +239,9 @@ export function DashboardPreview() {
               </div>
             </div>
 
-            {/* in front of everything: a note when the report lands */}
-            <div className="pointer-events-none absolute -right-3 top-[92px] hidden lg:block" style={z(40)}>
+            {/* in front of everything: a note when the report lands, hanging off the
+                bottom-right corner so it never covers the stat cards */}
+            <div className="pointer-events-none absolute -bottom-7 right-4 hidden lg:block xl:-right-6" style={z(40)}>
               <AnimatePresence>
                 {ready && (
                   <motion.div
