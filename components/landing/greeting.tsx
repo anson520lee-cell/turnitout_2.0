@@ -3,35 +3,38 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { playCloud } from "@/components/motion/entrance-engine";
 
 /**
- * A line of welcome at the very top of the site, different on every visit.
- * None of them mention a time of day, so any of them fits whenever someone
- * arrives.
+ * An everyday greeting at the very top of the site, different on every visit:
+ * just how you would greet someone, with no pitch for the site. None of them
+ * mention a time of day, so any of them fits whenever someone arrives.
+ *
+ * It is set large, sized so the line spans about two thirds of the window, and
+ * dissolves into the headline below as the page scrolls (entrance-engine.ts).
  *
  * The server sends an empty line of the same height; the greeting is chosen
  * in the browser (a random pick can't match between server and browser) and
  * assembles from a particle cloud. It avoids showing the same one twice in a row.
  */
 export const GREETINGS = [
-  "Ready when you are.",
-  "Welcome. The page is yours.",
-  "Hello, wordsmith.",
-  "A fresh pair of eyes, at your service.",
-  "Every draft deserves a second look.",
-  "Shall we take a look?",
-  "Bring a draft. Leave with clarity.",
-  "Your words, read with care.",
-  "Let’s read between the lines.",
-  "Calm, clear, and ready to scan.",
-  "Good writing begins with an honest read.",
-  "Hello, careful writer.",
-  "Clarity is one scan away.",
-  "Pull up a chair, and bring your draft.",
-  "Know your draft before anyone else does.",
-  "A quiet place to check your work.",
-  "Paste a paragraph. See it plainly.",
-  "Curious what your draft is saying?",
-  "Let’s make sure it sounds like you.",
-  "Nice to see you. What are we reading?",
+  "Feeling well?",
+  "How are you today?",
+  "How’s your day going?",
+  "Hey, how are you?",
+  "Long time no see.",
+  "How have you been?",
+  "What’s new with you?",
+  "Doing alright?",
+  "Nice to see you.",
+  "How’s everything?",
+  "Had something to eat yet?",
+  "How’s it going?",
+  "Good to have you back.",
+  "Hope you’re doing well.",
+  "Everything okay?",
+  "How was your week?",
+  "Hey there, stranger.",
+  "Taking it easy today?",
+  "How are you feeling?",
+  "Got a minute?",
 ];
 
 const KEY = "greeting:last";
@@ -57,13 +60,26 @@ export function Greeting({ className }: { className?: string }) {
     setText(GREETINGS[i]);
   }, []);
 
-  // the sentence has just been set: hide it and let the cloud build it, before paint
+  // size the line to about two thirds of the window, then let the cloud build it, before paint
   useLayoutEffect(() => {
-    if (text && ref.current) playCloud(ref.current, 250);
+    const el = ref.current;
+    if (!text || !el) return;
+    const fit = () => {
+      const small = window.innerWidth < 640;
+      const want = window.innerWidth * (small ? 0.86 : 0.66);
+      el.style.fontSize = "100px";
+      const w = el.scrollWidth || 1;
+      const size = Math.min((100 * want) / w, window.innerHeight * 0.3);
+      el.style.fontSize = `${Math.max(size, 26)}px`;
+    };
+    fit();
+    playCloud(el, 250);
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
   }, [text]);
 
   return (
-    <p ref={ref} className={`greeting flex min-h-[1.5em] items-center justify-center gap-3 ${className ?? ""}`}>
+    <p ref={ref} className={`greeting flex min-h-[1.5em] items-center justify-center gap-[0.35em] whitespace-nowrap ${className ?? ""}`}>
       <span aria-hidden className="greeting-mark">✦</span>
       <span>{text ?? " "}</span>
     </p>

@@ -76,8 +76,9 @@ export function Hero() {
     <section className="noise relative overflow-hidden pt-32 pb-20 sm:pt-40 lg:pb-28">
       <Backdrop />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
-        {/* a different welcome on every visit, centred above the headline */}
-        <div className="flex justify-center lg:col-span-2 lg:-mb-6">
+        {/* a different everyday greeting on every visit, filling the first screen; it
+            dissolves into the headline below as the page scrolls */}
+        <div className="flex min-h-[calc(86vh-9rem)] items-center justify-center lg:col-span-2">
           <Greeting />
         </div>
         <div>
