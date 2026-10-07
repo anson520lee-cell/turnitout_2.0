@@ -9,8 +9,11 @@ import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { topupReference } from "@/config/payments";
 import { isStripeConfigured } from "@/lib/env";
+import { availableCoins, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
 import { CREDITS_PER_USD, formatUSD, screeningPrices, refinementPricing, toCredits, topUp } from "@/config/pricing";
 import { formatDateTime } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Billing & Credits" };
 
@@ -34,6 +37,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const user = await requireUser("/billing");
   const sp = await searchParams;
   const [balance, topups, txs] = await Promise.all([getCreditBalance(), listCreditTopups(), listCreditTransactions()]);
+  const { data: cryptoRows } = await (await createClient()).from("crypto_payments").select("id,topup_id,status").order("created_at", { ascending: false }).limit(50);
+  const cryptoByTopup = new Map((cryptoRows ?? []).map((r) => [r.topup_id as string, r.id as string]));
+  const cryptoCoins = isNowPaymentsConfigured() ? await availableCoins() : [];
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
   const reportCredits = toCredits(screeningPrices.combined_screening);
@@ -77,7 +83,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 className="text-[15px] font-semibold">Top up</h2>
           <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars or crypto.</p>
           <div className="mt-5">
-            <TopUpPanel stripe={isStripeConfigured()} reference={topupReference(user.id)} initialUsd={initialUsd} />
+            <TopUpPanel stripe={isStripeConfigured()} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
           </div>
         </Card>
       </div>
@@ -89,10 +95,15 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             {topups.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <span>
-                  {formatUSD(t.usd)} <span className="text-fg-subtle">→ {n(t.amount)} credits · {t.method.replace(/_/g, " ")}</span>
+                  {formatUSD(t.usd)} <span className="text-fg-subtle">→ {n(t.amount)} credits · {t.method === "nowpayments" ? "crypto" : t.method.replace(/_/g, " ")}</span>
                   <span className="block text-[12px] text-fg-subtle">{formatDateTime(t.created_at)}{t.admin_note ? ` · ${t.admin_note}` : ""}</span>
                 </span>
-                <Badge tone={statusTone[t.status]}>{statusLabel[t.status]}</Badge>
+                <span className="flex items-center gap-2">
+                  {cryptoByTopup.has(t.id) && (
+                    <Link href={`/billing/crypto/${cryptoByTopup.get(t.id)}`} className="text-[12.5px] text-accent hover:underline">View payment</Link>
+                  )}
+                  <Badge tone={statusTone[t.status]}>{statusLabel[t.status]}</Badge>
+                </span>
               </li>
             ))}
           </ul>

@@ -7,6 +7,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/payments/stripe";
 import { isStripeConfigured } from "@/lib/env";
+import { availableCoins, createPayment, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
 import { acceptsClaims, claimReference, isCryptoMethod, MANUAL_PAYMENT_METHODS, manualPayments } from "@/config/payments";
 import { formatUSD, topUp, topUpAmountError, topUpCurrency, usdToCredits } from "@/config/pricing";
 import { audit } from "@/lib/audit";
@@ -138,4 +139,88 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
   });
   revalidatePath("/billing");
   return { ok: true };
+}
+
+const MAX_CRYPTO_PER_HOUR = 8;
+const MAX_OPEN_CRYPTO = 3;
+
+/**
+ * Crypto top-up through NOWPayments (USDT, USDC, BTC). The browser sends only
+ * the dollar amount and which coin; the server makes the top-up, asks
+ * NOWPayments for the address and exact coin amount, and returns the id of the
+ * payment page. Credits are added later, only by the signed webhook (or our
+ * own check against the NOWPayments API), never by anything the browser says.
+ */
+export async function startCryptoPayment(usd: number, coinId: string): Promise<{ ok: true; id: string } | Fail> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Please sign in again." };
+  if (!isNowPaymentsConfigured()) return { ok: false, message: "Crypto payment isn't available yet. Please use another method." };
+  const problem = amountProblem(Number(usd), true);
+  if (problem) return { ok: false, message: problem };
+  const coin = (await availableCoins()).find((c) => c.id === coinId);
+  if (!coin) return { ok: false, message: "Choose one of the listed coins and networks." };
+
+  const db = createAdminClient();
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const [{ count: recent }, { count: open }] = await Promise.all([
+    db.from("crypto_payments").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", since),
+    db.from("crypto_payments").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", ["waiting", "confirming"]).gt("expires_at", new Date().toISOString()),
+  ]);
+  if ((recent ?? 0) >= MAX_CRYPTO_PER_HOUR) return { ok: false, message: "You've started a lot of payments. Please wait a little before starting another." };
+  if ((open ?? 0) >= MAX_OPEN_CRYPTO) return { ok: false, message: "You already have crypto payments waiting. Finish or let those expire first." };
+
+  const credits = usdToCredits(usd);
+  const { data: topup, error } = await db
+    .from("credit_topups")
+    .insert({ user_id: user.id, usd, amount: credits, method: "nowpayments", status: "awaiting_payment" })
+    .select("id")
+    .single();
+  if (error || !topup) return { ok: false, message: "We couldn't start the payment. Please try again." };
+
+  const fail = async (message: string): Promise<Fail> => {
+    await db.from("credit_topups").update({ status: "cancelled" }).eq("id", topup.id);
+    return { ok: false, message };
+  };
+
+  let created;
+  try {
+    created = await createPayment({ orderId: topup.id, usd, coin, callbackUrl: `${appUrl()}/api/payments/nowpayments/webhook` });
+  } catch (e) {
+    console.error("[nowpayments] create payment failed", e instanceof Error ? e.message : e);
+    const m = e instanceof Error ? e.message.toLowerCase() : "";
+    return fail(m.includes("minimal") || m.includes("amount")
+      ? "That amount is too small for this coin. Try a larger amount or another coin."
+      : "We couldn't create the payment right now. Please try again in a moment.");
+  }
+
+  const payAmount = Number(created.pay_amount);
+  if (!created.payment_id || !created.pay_address || !Number.isFinite(payAmount) || payAmount <= 0) {
+    return fail("We couldn't create the payment right now. Please try again in a moment.");
+  }
+  const expires = created.valid_until ?? created.expiration_estimate_date ?? new Date(Date.now() + 20 * 60_000).toISOString();
+  const { data: row, error: insErr } = await db
+    .from("crypto_payments")
+    .insert({
+      order_id: topup.id,
+      topup_id: topup.id,
+      user_id: user.id,
+      usd,
+      pay_currency: coin.id,
+      network: coin.network,
+      pay_amount: payAmount,
+      pay_address: created.pay_address,
+      np_payment_id: String(created.payment_id),
+      status: "waiting",
+      expires_at: new Date(expires).toISOString(),
+      raw: created,
+    })
+    .select("id")
+    .single();
+  if (insErr || !row) {
+    console.error("[nowpayments] saving payment failed", insErr?.message);
+    return fail("We couldn't save the payment. Please try again.");
+  }
+  await audit("crypto_payment_started", { actorId: user.id, detail: { topup: topup.id, usd, coin: coin.id } });
+  revalidatePath("/billing");
+  return { ok: true, id: row.id };
 }
