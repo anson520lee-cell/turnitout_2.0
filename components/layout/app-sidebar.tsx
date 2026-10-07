@@ -2,21 +2,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, ScanText, FileStack, FileCheck2, PenLine, Settings, Shield, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
+import { NeuralMark } from "@/components/ui/neural-mark";
 
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
   { href: "/scan", label: "Free Scan", icon: ScanText },
+  { href: "/scan/history", label: "Scan History", icon: History },
   { href: "/orders", label: "Orders", icon: FileStack },
-  { href: "/services/screening", label: "Screening", icon: FileCheck2 },
-  { href: "/services/refinement", label: "Writing Review", icon: PenLine },
+  { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
+  { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
+  { href: "/billing", label: "Billing & Credits", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean }) {
+export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin: boolean; credits: number }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const items = isAdmin ? [...nav, { href: "/admin", label: "Admin", icon: Shield }] : nav;
@@ -25,20 +28,26 @@ export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean
     <nav aria-label="App" className="flex flex-1 flex-col">
       <ul className="space-y-0.5">
         {items.map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== "/dashboard" && path.startsWith(href));
+          // The longest matching item wins, so /scan/history doesn't also light up /scan.
+          const matches = (h: string) => path === h || (h !== "/dashboard" && path.startsWith(`${h}/`));
+          const active = matches(href) && !items.some((o) => o.href.length > href.length && matches(o.href));
           return (
             <li key={href}>
               <Link
                 href={href}
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
+                data-press
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
-                  active ? "bg-white/[0.07] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
+                  active ? "nav-3d -translate-y-px bg-gradient-to-b from-white/[0.11] to-white/[0.04] text-fg" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
                 )}
               >
                 <Icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
                 {label}
+                {href === "/billing" && (
+                  <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[11px] text-accent">{credits.toLocaleString("en-US")}</span>
+                )}
               </Link>
             </li>
           );
@@ -57,11 +66,17 @@ export function AppSidebar({ email, isAdmin }: { email: string; isAdmin: boolean
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-[var(--line)] bg-ink-900/50 p-4 backdrop-blur-xl lg:flex">
-        <div className="mb-8 px-2 pt-1"><Logo /></div>
+      <aside className="sidebar-glass sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 lg:flex">
+        <div className="mb-6 px-2 pt-1">
+          <Logo />
+          <p className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
+            <NeuralMark className="text-accent" />
+            Pattern Engine online
+          </p>
+        </div>
         {list}
       </aside>
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--line)] bg-ink-950/80 px-4 backdrop-blur-xl lg:hidden">
+      <div className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
           className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5"

@@ -8,15 +8,24 @@ import { cn } from "@/lib/utils";
 export function FaqList({ items }: { items: FaqItem[] }) {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <div className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)] bg-ink-900/40">
+    // The outer box gives the depth its perspective; the tilting wrapper keeps
+    // its children in 3D (it carries no blur itself, which would flatten them).
+    <div className="[perspective:1300px]">
+      <div data-tilt="5" className="faq-3d relative">
+        {/* two ghost panes behind, then the pane the questions sit on */}
+        <div aria-hidden className="absolute inset-0 rounded-[22px] border border-violet/20 bg-violet/[0.04] [transform:translate3d(16px,14px,-70px)]" />
+        <div aria-hidden className="absolute inset-0 rounded-[22px] border border-accent/20 bg-accent/[0.04] [transform:translate3d(8px,7px,-35px)]" />
+        <div aria-hidden className="glass-strong absolute inset-0 rounded-[22px]" />
+        <div className="faq-3d relative space-y-1 p-2 [transform:translateZ(1px)]">
       {items.map((it, i) => {
         const isOpen = open === i;
         return (
-          <div key={it.q}>
+          <div key={it.q} className="faq-row" data-open={isOpen ? "" : undefined}>
             <h3>
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-6 px-5 py-5 text-left text-[15px] font-medium text-fg transition hover:bg-white/[0.02] sm:px-6"
+                data-press
+                className="flex w-full items-center justify-between gap-6 rounded-[14px] px-5 py-[18px] text-left text-[15px] font-medium text-fg sm:px-6"
                 aria-expanded={isOpen}
                 aria-controls={`faq-${i}`}
                 id={`faq-q-${i}`}
@@ -45,6 +54,8 @@ export function FaqList({ items }: { items: FaqItem[] }) {
           </div>
         );
       })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,11 @@ import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 
-export const metadata: Metadata = { title: "About" };
+export const metadata: Metadata = {
+  title: "About",
+  description: "Who runs 0%, what the site does and doesn’t do, and how we handle your writing.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (
@@ -17,9 +21,9 @@ export default function AboutPage() {
       <Container className="prose-doc max-w-3xl">
         <h2>What we do</h2>
         <p>
-          We offer three things: a free preliminary scan that measures writing patterns, a paid screening service where a
-          person on our team runs your document through a Turnitin screening workflow and delivers what it returned, and
-          human writing review for clarity and flow.
+          We offer three things: a free preliminary scan that measures writing patterns, a paid AI &amp; similarity report where a
+          person on our team runs your text through a Turnitin screening workflow and delivers what it returned, and
+          Writing Refinement: clarity, flow and style refinement of your own writing.
         </p>
         <h2>What we don&rsquo;t do</h2>
         <ul>

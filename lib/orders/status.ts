@@ -27,7 +27,7 @@ export const statusMeta: Record<
   awaiting_payment: {
     label: "Awaiting payment",
     tone: "neutral",
-    customerHint: "Complete checkout to place this order in the queue.",
+    customerHint: "Pay below to place this order in the queue.",
   },
   paid: {
     label: "Paid",
@@ -98,8 +98,10 @@ export function flowFor(type: ServiceType): OrderStatus[] {
 }
 
 /**
- * Transitions an admin may make by hand. "paid" is only ever set by the
- * verified Stripe webhook (or the dev-only payment switch), never by a form.
+ * Transitions an admin may make by hand. "paid" is only ever set by
+ * markOrderPaid: from the verified Stripe webhook, from an admin confirming a
+ * manual payment claim (Alipay / PayMe / bank transfer), or from the dev-only
+ * payment switch. Never by a status form.
  */
 export function nextStatuses(type: ServiceType, current: OrderStatus): OrderStatus[] {
   if (current === "completed" || current === "cancelled") return [];

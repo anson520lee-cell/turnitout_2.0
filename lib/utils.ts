@@ -10,6 +10,15 @@ export function countWords(text: string): number {
   return m ? m.length : 0;
 }
 
+/**
+ * Character count, not word count: CJK text has no spaces, so a run of
+ * Chinese characters matches `countWords` as a single "word" and badly
+ * undercounts. Free scan measures length this way instead.
+ */
+export function countChars(text: string): number {
+  return text.trim().length;
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-HK", {

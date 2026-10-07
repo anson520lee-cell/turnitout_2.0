@@ -21,6 +21,9 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
   // Menu state is tied to the path it was opened on, so navigating closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = openOn === pathname;
+  // Which link the glass pill sits under: the hovered one, else the current page.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const pill = hovered ?? links.find((l) => l.href === pathname)?.href ?? null;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -39,17 +42,32 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
         )}
       >
         <Logo />
-        <ul className="hidden items-center gap-1 md:flex">
+        <ul className="hidden items-center gap-1 md:flex" onPointerLeave={() => setHovered(null)}>
           {links.map((l) => (
-            <li key={l.href}>
+            <li key={l.href} className="relative">
+              {pill === l.href && (
+                <motion.span
+                  layoutId="nav-pill"
+                  aria-hidden
+                  className="absolute inset-0 rounded-lg border border-white/[0.07] bg-white/[0.05] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_6px_20px_-10px_rgb(91_140_255/0.6)]"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
               <Link
                 href={l.href}
+                onPointerEnter={() => setHovered(l.href)}
+                onFocus={() => setHovered(l.href)}
+                onBlur={() => setHovered(null)}
+                data-press
                 className={cn(
-                  "rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition hover:text-fg",
+                  "relative block rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg",
                   pathname === l.href && "text-fg",
                 )}
               >
                 {l.label}
+                {pathname === l.href && (
+                  <span aria-hidden className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
+                )}
               </Link>
             </li>
           ))}
@@ -73,7 +91,7 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
         </div>
         <button
           type="button"
-          className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
+          className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -95,7 +113,7 @@ export function Navbar({ signedIn }: { signedIn: boolean }) {
             <ul className="grid gap-1">
               {links.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
+                  <Link href={l.href} data-press className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
                     {l.label}
                   </Link>
                 </li>

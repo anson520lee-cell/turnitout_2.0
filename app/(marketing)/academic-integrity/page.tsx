@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 
-export const metadata: Metadata = { title: "Academic integrity" };
+export const metadata: Metadata = {
+  title: "Academic integrity",
+  description: "Our academic integrity policy: we check and polish your own writing, and never disguise authorship or AI-generated text.",
+  alternates: { canonical: "/academic-integrity" },
+};
 
 export default function IntegrityPage() {
   return (
@@ -23,7 +27,7 @@ export default function IntegrityPage() {
         <ul>
           <li><strong>Preliminary scan:</strong> an estimate of writing patterns, useful for understanding false-positive risk. It is not evidence of authorship.</li>
           <li><strong>Screening:</strong> the observed result of a screening at one point in time. It is not a judgement about you.</li>
-          <li><strong>Writing review:</strong> clarity and style editing that keeps your meaning, argument, citations and voice. We don&rsquo;t write new content or arguments for you.</li>
+          <li><strong>Writing Refinement:</strong> clarity, flow and style refinement of your own writing that keeps your meaning, argument, citations and voice. We don&rsquo;t write new content or arguments for you.</li>
         </ul>
         <h2>What we won&rsquo;t do</h2>
         <ul>

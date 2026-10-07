@@ -2,14 +2,19 @@
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown, Info, ArrowRight } from "lucide-react";
+import { ChevronDown, Info, ArrowRight, Download } from "lucide-react";
 import type { AnalysisResult, RiskLevel, Signal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { RiskGauge } from "./risk-gauge";
 import { SignalRadar } from "./signal-radar";
+import { SentenceHighlights } from "./sentence-highlights";
+import { ReadabilityCard } from "./readability-card";
+import { ModelFeedback } from "./model-feedback";
+import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
+import { formatCredits, screeningPrices } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -22,7 +27,8 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
     <li className="border-b border-[var(--line)] last:border-0">
       <button
         type="button"
-        className="flex w-full items-center gap-4 py-4 text-left"
+        data-press
+        className="-mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 rounded-xl px-3 py-4 text-left hover:bg-white/[0.03]"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
@@ -51,20 +57,43 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
   );
 }
 
-export function ScanResult({ result, createdAt }: { result: AnalysisResult; createdAt?: string }) {
+export function ScanResult({
+  result,
+  createdAt,
+  feedback,
+}: {
+  result: AnalysisResult;
+  createdAt?: string;
+  /** Live scans only: the local model's written feedback, fetched as it arrives. */
+  feedback?: { ticket: string; text: string } | null;
+}) {
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
   return (
     <div className="space-y-5">
+      <div className="hidden print:block">
+        <p className="text-[20px] font-semibold">{brand.name} · Preliminary scan report</p>
+        <p className="text-[12px] text-fg-subtle" suppressHydrationWarning>{createdAt ?? new Date().toLocaleString()}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="accent" dot>Preliminary risk estimate</Badge>
         <Badge>Website-generated · not a Turnitin result</Badge>
-        {createdAt && <span className="text-[12px] text-fg-subtle">{createdAt}</span>}
+        {createdAt && <span className="text-[12px] text-fg-subtle print:hidden">{createdAt}</span>}
+        <button
+          type="button"
+          onClick={() => {
+            track("scan_report_downloaded");
+            window.print();
+          }}
+          className={buttonClasses("secondary", "sm", "ml-auto print:hidden")}
+        >
+          <Download className="size-3.5" /> Download report (PDF)
+        </button>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
-        <Card strong className="flex flex-col items-center justify-center p-6">
+        <Card strong tilt={5} className="flex flex-col items-center justify-center p-6">
           <RiskGauge level={result.overallRisk} />
           <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
             {[
@@ -79,10 +108,16 @@ export function ScanResult({ result, createdAt }: { result: AnalysisResult; crea
             ))}
           </div>
         </Card>
-        <Card className="p-5">
+        <Card tilt={5} className="p-5">
           <SignalRadar signals={result.signals} />
         </Card>
       </div>
+
+      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} />}
+
+      {result.readability && <ReadabilityCard r={result.readability} />}
+
+      {result.sentences && result.sentences.length > 0 && <SentenceHighlights sentences={result.sentences} />}
 
       <Card className="px-5 sm:px-6">
         <h2 className="pt-5 text-[15px] font-semibold">Writing signals</h2>
@@ -107,7 +142,7 @@ export function ScanResult({ result, createdAt }: { result: AnalysisResult; crea
                     <span className="font-mono text-[11px] text-fg-subtle">¶ {p.index + 1} · {p.words} words</span>
                     <Badge tone={levelTone[p.level]}>{levelLabel[p.level]}</Badge>
                   </div>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">{p.excerpt}</p>
+                  {p.excerpt && <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">{p.excerpt}</p>}
                   {p.notes.length > 0 && (
                     <ul className="mt-2 flex flex-wrap gap-1.5">
                       {p.notes.map((n) => (
@@ -138,39 +173,33 @@ export function ScanResult({ result, createdAt }: { result: AnalysisResult; crea
         </p>
       </Card>
 
-      <NextStep />
+      <div className="print:hidden">
+        <NextStep />
+      </div>
     </div>
   );
 }
 
 function NextStep() {
-  const types = [
-    { href: "/services/screening?type=ai_screening", label: "Request AI screening" },
-    { href: "/services/screening?type=similarity_screening", label: "Request similarity screening" },
-    { href: "/services/screening?type=combined_screening", label: "Request AI + similarity screening" },
-  ];
   return (
     <div className="glass-strong relative overflow-hidden rounded-2xl p-6 sm:p-8">
       <div aria-hidden className="absolute -right-16 -top-16 size-56 rounded-full bg-accent/20 blur-3xl" />
       <p className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Optional next step</p>
       <h2 className="relative mt-2 text-xl font-semibold tracking-tight">Need the actual screening result?</h2>
       <p className="relative mt-1.5 max-w-xl text-[13.5px] text-fg-muted">
-        This scan is our estimate. A screening order runs your document through Turnitin, processed by a person, and delivers the result it returned.
+        This scan is our estimate. A report runs your text through Turnitin, processed by a person, and delivers the result it returned.
       </p>
       <div className="relative mt-5 flex flex-wrap gap-2">
-        {types.map((t, i) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            onClick={() => track("screening_service_clicked", { from: "scan_result" })}
-            className={buttonClasses(i === 2 ? "primary" : "secondary", "md")}
-          >
-            {t.label}
-            {i === 2 && <ArrowRight className="size-4" />}
-          </Link>
-        ))}
+        <Link
+          href="/services/screening"
+          onClick={() => track("screening_service_clicked", { from: "scan_result" })}
+          className={buttonClasses("primary", "md")}
+        >
+          Get AI &amp; similarity report · {formatCredits(screeningPrices.combined_screening)}
+          <ArrowRight className="size-4" />
+        </Link>
         <Link href="/services/refinement" onClick={() => track("refinement_service_clicked", { from: "scan_result" })} className={buttonClasses("ghost", "md")}>
-          Request writing review
+          Writing refinement
         </Link>
       </div>
     </div>

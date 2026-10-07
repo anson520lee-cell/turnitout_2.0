@@ -48,7 +48,7 @@ export function Comparison() {
           body="We keep these apart everywhere: on this page, in your results, in your dashboard and on every receipt."
         />
         <div className="relative mt-14 grid gap-5 md:grid-cols-2">
-          <Reveal className="glass rounded-2xl p-7 sm:p-8">
+          <Reveal tilt={4} className="glass rounded-2xl p-7 sm:p-8">
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan">Free preliminary scan</p>
             <h3 className="mt-3 text-2xl font-semibold tracking-tight">Preliminary risk estimate</h3>
             <p className="mt-2 text-[14px] text-fg-muted">A fast first-pass reading of your writing patterns.</p>
@@ -59,7 +59,7 @@ export function Comparison() {
               Run free scan
             </Link>
           </Reveal>
-          <Reveal delay={0.1} className="glass-strong relative overflow-hidden rounded-2xl p-7 sm:p-8">
+          <Reveal delay={0.1} tilt={4} className="glass-strong relative overflow-hidden rounded-2xl p-7 sm:p-8">
             <div aria-hidden className="absolute -right-24 -top-24 size-64 rounded-full bg-accent/20 blur-3xl" />
             <p className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Screening service</p>
             <h3 className="relative mt-3 text-2xl font-semibold tracking-tight">Actual screening result</h3>
@@ -68,7 +68,7 @@ export function Comparison() {
               {paid.map(([l, y]) => <Row key={l} label={l} yes={y} />)}
             </ul>
             <Link href="/services/screening" className={buttonClasses("primary", "md", "relative mt-7 w-full")}>
-              Request screening
+              Get report
               <ArrowRight className="size-4" />
             </Link>
           </Reveal>

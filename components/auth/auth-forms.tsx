@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { createAccount } from "@/app/actions/account";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input } from "@/components/ui/field";
 import { GoogleButton, Divider } from "./google-button";
@@ -79,23 +80,14 @@ export function LoginForm({ google }: { google: boolean }) {
 }
 
 export function SignupForm({ google }: { google: boolean }) {
+  const router = useRouter();
   const params = useSearchParams();
   const next = safeNext(params.get("next"), "/scan");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  if (done) {
-    return (
-      <>
-        <Heading title="Check your email" body={<>We sent a confirmation link to <span className="text-fg">{email}</span>. Open it to activate your account.</>} />
-        <FormMessage tone="info">The link opens this site and signs you in. It can take a minute to arrive; check spam too.</FormMessage>
-      </>
-    );
-  }
 
   return (
     <>
@@ -113,21 +105,17 @@ export function SignupForm({ google }: { google: boolean }) {
           setError(null);
           if (password.length < 8) return setError("Use a password of at least 8 characters.");
           setLoading(true);
-          const { data, error } = await createClient().auth.signUp({
-            email,
-            password,
-            options: {
-              data: { display_name: name.trim() },
-              emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-            },
-          });
+          const created = await createAccount({ email, password, name });
+          if (!created.ok) {
+            setLoading(false);
+            return setError(created.message);
+          }
+          const { error } = await createClient().auth.signInWithPassword({ email, password });
           setLoading(false);
           if (error) return setError(friendly(error.message));
-          if (data.user && data.user.identities?.length === 0) {
-            return setError("An account with this email already exists. Try logging in.");
-          }
           track("signup_completed");
-          setDone(true);
+          router.replace(next);
+          router.refresh();
         }}
       >
         <Field label="Name" htmlFor="name" hint="Optional. Shown only to you.">

@@ -86,7 +86,10 @@ export function ScreeningReport({
         <dl className="relative mt-6 grid gap-4 border-t border-[var(--line)] pt-5 text-[13px] sm:grid-cols-3">
           <div>
             <dt className="text-fg-subtle">Document</dt>
-            <dd className="mt-1 flex items-center gap-1.5 truncate"><FileText className="size-3.5 shrink-0 text-fg-subtle" />{file?.file_name ?? "—"}</dd>
+            <dd className="mt-1 flex items-center gap-1.5 truncate">
+              <FileText className="size-3.5 shrink-0 text-fg-subtle" />
+              {file?.file_name ?? (order.word_count ? `Pasted text · ${order.word_count.toLocaleString("en-HK")} words` : "Pasted text")}
+            </dd>
           </div>
           <div>
             <dt className="text-fg-subtle">Screening provider</dt>
@@ -129,8 +132,8 @@ export function ScreeningReport({
       </p>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/services/screening" className={buttonClasses("secondary", "md")}>Request another screening</Link>
-        <Link href="/services/refinement" className={buttonClasses("ghost", "md")}>Request writing review</Link>
+        <Link href="/services/screening" className={buttonClasses("secondary", "md")}>Get another report</Link>
+        <Link href="/services/refinement" className={buttonClasses("ghost", "md")}>Writing refinement</Link>
       </div>
     </div>
   );

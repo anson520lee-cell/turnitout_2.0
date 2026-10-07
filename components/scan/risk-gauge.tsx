@@ -1,5 +1,6 @@
 "use client";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, } from "framer-motion";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import type { RiskLevel } from "@/lib/scanning/types";
 
 const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
@@ -10,7 +11,7 @@ const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
 
 /** Three-band gauge. Shows a level, deliberately not a percentage. */
 export function RiskGauge({ level }: { level: RiskLevel }) {
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const idx = LEVELS.findIndex((l) => l.id === level);
   const angle = -60 + idx * 60; // centre of each band
   const r = 80;

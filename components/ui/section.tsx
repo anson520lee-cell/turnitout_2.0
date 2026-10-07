@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/reveal";
+import { NeuralMark } from "@/components/ui/neural-mark";
 
 export function Container({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)}>{children}</div>;
@@ -29,7 +30,12 @@ export function SectionHeading({
 }) {
   return (
     <Reveal className={cn("max-w-2xl", align === "center" && "mx-auto text-center", className)}>
-      {eyebrow && <Eyebrow className="mb-4">{eyebrow}</Eyebrow>}
+      {eyebrow && (
+        <Eyebrow className={cn("mb-4 flex items-center gap-2.5", align === "center" && "justify-center")}>
+          <NeuralMark />
+          {eyebrow}
+        </Eyebrow>
+      )}
       <h2 className="text-balance text-3xl font-semibold tracking-tight text-fg sm:text-[40px] sm:leading-[1.1]">
         {title}
       </h2>

@@ -2,13 +2,17 @@ import type { ReactNode } from "react";
 
 export function AppHeader({ title, body, actions, eyebrow }: { title: ReactNode; body?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        {eyebrow && <div className="mb-2">{eyebrow}</div>}
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
-        {body && <p className="mt-1.5 max-w-2xl text-[14px] text-fg-muted">{body}</p>}
+    <div className="mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          {eyebrow && <div className="mb-2">{eyebrow}</div>}
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
+          {body && <p className="mt-1.5 max-w-2xl text-[14px] text-fg-muted">{body}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {/* a synapse: a signal runs from one neuron to the other */}
+      <div aria-hidden className="synapse mt-5"><i /></div>
     </div>
   );
 }

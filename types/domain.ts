@@ -1,4 +1,5 @@
 import type { ServiceType } from "@/config/pricing";
+import type { ManualPaymentMethod } from "@/config/payments";
 import type { OrderStatus } from "@/lib/orders/status";
 import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
 
@@ -90,6 +91,29 @@ export interface PaymentRow {
   amount: number;
   currency: string;
   status: string;
+  created_at: string;
+}
+
+export type PaymentClaimStatus = "pending" | "confirmed" | "rejected";
+
+/**
+ * A customer's "I have paid" report for a manual payment (Alipay, PayMe,
+ * bank transfer). It never marks an order paid by itself: an admin checks
+ * the account and confirms it, which calls markOrderPaid.
+ */
+export interface PaymentClaim {
+  id: string;
+  order_id: string;
+  user_id: string;
+  method: ManualPaymentMethod;
+  /** What the customer entered to identify their payment (transaction id, payer name). */
+  payer_reference: string;
+  amount: number;
+  status: PaymentClaimStatus;
+  /** Shown to the customer when a claim is rejected. */
+  admin_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
 }
 

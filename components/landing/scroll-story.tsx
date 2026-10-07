@@ -3,18 +3,20 @@ import { useRef, useState } from "react";
 import {
   motion,
   useMotionValueEvent,
-  useReducedMotion,
   useScroll,
   useTransform,
   type MotionValue,
 } from "framer-motion";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
+import { GreekText } from "@/components/landing/greek-text";
+import { TokenSpectrum } from "@/components/ml/token-spectrum";
 
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
   { label: "Writing signals", body: "Sentence rhythm, transitions, phrasing and structure are measured and explained." },
-  { label: "Request screening", body: "If you need an actual result, request a screening and upload the document." },
+  { label: "Get report", body: "If you need an actual result, press Get report, paste your text and press Enter." },
   { label: "Verification", body: "A reviewer runs a Turnitin screening with repository storage off." },
   { label: "Screening complete", body: "The returned result and report arrive in your dashboard." },
 ];
@@ -45,40 +47,50 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
   const layerZ = useTransform(through, [0, 1], [-120, 40]);
   const layerOpacity = useTransform([layer, report] as never, ([l, r]: number[]) => l * 0.9 * (1 - r));
   const sigOpacity = useTransform([signals, signalsOut] as never, ([a, b]: number[]) => a * b);
+  // the spectrum is there, quietly, as soon as the document is; it comes up to full while the signals are read
+  const specOpacity = useTransform([docIn, sigOpacity, report] as never, ([d, s, r]: number[]) => d * (0.4 + 0.6 * s) * (1 - r));
   const reportScale = useTransform(report, [0, 1], [0.92, 1]);
   const ring = useTransform(report, [0, 1], [0, 1]);
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[460px] [perspective:1100px]">
-      <div aria-hidden className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.18),transparent)]" />
+      <div aria-hidden data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.18),transparent)]" />
+      {/* Everything below leans with the cursor as one object, and its parts sit
+          at different depths (spectrum behind, document in the middle, labels and
+          report in front), so they slide against each other as it turns. The
+          wrapper carries no blur of its own, which would flatten its children. */}
+      <div data-tilt="11" className="absolute inset-0 [transform-style:preserve-3d]">
       {/* verification field */}
       <motion.div
         style={{ opacity: layerOpacity, z: layerZ, rotateX: 64 }}
         className="absolute left-[8%] right-[8%] top-[46%] h-[48%] rounded-[28px] border border-accent/40 bg-[linear-gradient(180deg,rgb(91_140_255/0.18),rgb(154_123_255/0.05))] shadow-[0_0_60px_rgb(91_140_255/0.35)] [transform-style:preserve-3d]"
       >
         <div className="absolute inset-0 rounded-[28px] bg-grid opacity-70" />
+        {/* stacked like the layers of a network: the document passes through each */}
+        <div className="absolute inset-0 rounded-[28px] border border-violet/30 bg-grid opacity-45 [transform:translateZ(-44px)]" />
+        <div className="absolute inset-0 rounded-[28px] border border-cyan/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
+        <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
+      </motion.div>
+      {/* round the document: a spectrum of per-token readings, strongest where the four signals are */}
+      <motion.div aria-hidden style={{ opacity: specOpacity, z: -90 }} className="absolute inset-[-13%]">
+        <TokenSpectrum className="size-full" />
       </motion.div>
       {/* document */}
       <motion.div
         style={{ opacity: docOpacity, y: docY, z: docZ, rotateX: docRotX, rotateY: -12 }}
         className="glass-strong absolute left-[26%] top-[12%] h-[70%] w-[48%] rounded-2xl p-[5%] [transform-style:preserve-3d]"
       >
-        <div className="space-y-2.5">
-          {[90, 96, 72, 88, 0, 93, 80, 95, 64, 0, 86, 91].map((w, i) =>
-            w ? (
-              <div key={i} className={cn("h-[5px] rounded-full", i === 2 || i === 7 ? "bg-violet/70" : "bg-[#c6d3ff]/25")} style={{ width: `${w}%` }} />
-            ) : (
-              <div key={i} className="h-2" />
-            ),
-          )}
+        <div className="absolute inset-[5%]">
+          <GreekText maxChars={26} textClass="text-[8px]" caption />
         </div>
       </motion.div>
       {/* signal labels */}
       {SIGNALS.map((s, i) => (
         <motion.div
           key={s.t}
-          style={{ opacity: sigOpacity, left: `calc(50% + ${s.x})`, top: `calc(50% + ${s.y})` }}
-          className="absolute"
+          // Pulled toward the centre on phones so the labels stay on screen.
+          style={{ opacity: sigOpacity, z: 70 + i * 14, left: `calc(50% + ${s.x} * var(--spread))`, top: `calc(50% + ${s.y})` }}
+          className="absolute [--spread:0.55] sm:[--spread:1]"
         >
           <div className="glass flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
             <span className={cn("size-1.5 rounded-full", i % 2 ? "bg-violet" : "bg-cyan")} />
@@ -88,7 +100,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
       ))}
       {/* report card */}
       <motion.div
-        style={{ opacity: report, scale: reportScale }}
+        style={{ opacity: report, scale: reportScale, z: 50 }}
         className="glass-strong absolute inset-[12%] rounded-3xl p-6"
       >
         <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ok">Screening complete</p>
@@ -116,13 +128,14 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         </div>
         <p className="mt-5 text-[11px] text-fg-subtle">Illustration. Values appear only after a real screening.</p>
       </motion.div>
+      </div>
     </div>
   );
 }
 
 export function ScrollStory() {
   const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -131,7 +144,7 @@ export function ScrollStory() {
 
   if (reduce) {
     return (
-      <section className="py-24">
+      <section ref={ref} className="py-24">
         <Container>
           <Eyebrow>From draft to report</Eyebrow>
           <ol className="mt-8 grid gap-4 md:grid-cols-5">
@@ -150,17 +163,17 @@ export function ScrollStory() {
 
   return (
     <section ref={ref} className="relative h-[420vh]" aria-label="From draft to report">
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <Container className="grid items-center gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+      <div className="sticky top-0 flex h-svh items-center overflow-hidden pt-16 lg:pt-0">
+        <Container className="grid items-center gap-4 sm:gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <div className="order-2 lg:order-1">
             <Eyebrow>From draft to report</Eyebrow>
             <ol className="mt-6 space-y-1">
               {stages.map((s, i) => (
                 <li key={s.label}>
                   <motion.div
-                    animate={{ opacity: i === active ? 1 : 0.32 }}
+                    animate={{ opacity: i === active ? 1 : 0.6 }}
                     transition={{ duration: 0.4 }}
-                    className="flex gap-4 rounded-xl py-3"
+                    className="flex gap-4 rounded-xl py-2 sm:py-3"
                   >
                     <span className={cn("mt-2 h-px w-6 shrink-0 transition-all duration-500", i === active ? "w-10 bg-accent" : "bg-fg-subtle/50")} />
                     <div>
@@ -178,7 +191,8 @@ export function ScrollStory() {
               ))}
             </ol>
           </div>
-          <div className="order-1 lg:order-2">
+          {/* On short phone screens the whole stage is zoomed down so it and the steps both fit. */}
+          <div className="order-1 max-lg:[@media(max-height:760px)]:[zoom:0.72] lg:order-2">
             <Stage progress={scrollYProgress} />
           </div>
         </Container>

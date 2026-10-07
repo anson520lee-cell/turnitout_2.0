@@ -4,21 +4,25 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
+/**
+ * Button look for <button> and <Link>: capsules of liquid glass. `btn-fx`
+ * gives every variant the shared press feedback (sink, spring back, ripple
+ * from the press point; see the "Press and hover feedback" section of
+ * globals.css), `btn-glass` the glass itself, and the primary button a rim of
+ * light that runs around its edge on hover.
+ */
 export function buttonClasses(variant: Variant = "primary", size: Size = "md", className?: string) {
   return cn(
-    "group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50",
-    size === "sm" && "h-8 px-3 text-[13px]",
-    size === "md" && "h-10 px-4 text-sm",
-    size === "lg" && "h-12 px-6 text-[15px]",
-    variant === "primary" &&
-      "bg-gradient-to-b from-[#6c97ff] to-accent-strong text-white glow-accent hover:-translate-y-px hover:brightness-110 active:translate-y-0",
-    variant === "secondary" &&
-      "glass text-fg hover:-translate-y-px hover:border-[var(--line-strong)] hover:bg-white/[0.06]",
-    variant === "outline" &&
-      "border border-[var(--line-strong)] bg-transparent text-fg hover:bg-white/[0.04]",
-    variant === "ghost" && "text-fg-muted hover:bg-white/[0.05] hover:text-fg",
-    variant === "danger" &&
-      "border border-risk/30 bg-risk/10 text-risk hover:bg-risk/15",
+    "btn-fx group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium disabled:pointer-events-none disabled:opacity-50",
+    size === "sm" && "h-8 px-3.5 text-[13px]",
+    size === "md" && "h-10 px-5 text-sm",
+    size === "lg" && "h-12 px-7 text-[15px]",
+    // Liquid glass: every filled variant is the same pane of glass, tinted (see .btn-glass in globals.css).
+    variant === "primary" && "btn-primary btn-glass magnetic text-white [--tint:150_185_255] [--fill:0.07] [--edge-a:0.38]",
+    variant === "secondary" && "btn-glass magnetic text-fg [--tint:205_218_255] [--fill:0.03]",
+    variant === "outline" && "btn-glass magnetic text-fg [--tint:150_175_255] [--fill:0] [--edge-a:0.3]",
+    variant === "ghost" && "text-fg-muted hover:bg-white/[0.07] hover:text-fg active:bg-white/[0.1]",
+    variant === "danger" && "btn-glass text-[#ffd9de] [--tint:255_110_128] [--fill:0.1]",
     className,
   );
 }
