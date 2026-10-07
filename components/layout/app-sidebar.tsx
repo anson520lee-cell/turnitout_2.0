@@ -66,7 +66,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-[var(--line)] bg-ink-900/50 p-4 backdrop-blur-xl lg:flex">
+      <aside className="sidebar-glass sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 lg:flex">
         <div className="mb-6 px-2 pt-1">
           <Logo />
           <p className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
@@ -76,7 +76,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
         </div>
         {list}
       </aside>
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--line)] bg-ink-950/80 px-4 backdrop-blur-xl lg:hidden">
+      <div className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
           className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5"
