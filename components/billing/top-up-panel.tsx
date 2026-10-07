@@ -174,7 +174,7 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
         </div>
       ) : (
         <div className="mt-2">
-          <FormMessage tone="info">Payment isn&rsquo;t set up yet. Please contact support to top up.</FormMessage>
+          <FormMessage tone="info">Crypto payment (USDT, USDC, BTC) is being set up. Please check back soon.</FormMessage>
         </div>
       )}
 

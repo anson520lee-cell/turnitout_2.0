@@ -8,7 +8,6 @@ import { TopUpPanel } from "@/components/billing/top-up-panel";
 import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { topupReference } from "@/config/payments";
-import { isStripeConfigured } from "@/lib/env";
 import { availableCoins, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
 import { CREDITS_PER_USD, formatUSD, screeningPrices, refinementPricing, toCredits, topUp } from "@/config/pricing";
 import { formatDateTime } from "@/lib/utils";
@@ -83,7 +82,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 className="text-[15px] font-semibold">Top up</h2>
           <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars or crypto.</p>
           <div className="mt-5">
-            <TopUpPanel stripe={isStripeConfigured()} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
+            <TopUpPanel stripe={false} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
           </div>
         </Card>
       </div>

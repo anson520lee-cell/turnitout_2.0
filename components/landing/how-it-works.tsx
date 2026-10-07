@@ -4,13 +4,9 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { formatCredits, screeningPrices } from "@/config/pricing";
-import { enabledManualPayments } from "@/config/payments";
 import { reportService } from "@/config/services";
 
-const methods = enabledManualPayments()
-  .map((m) => (m.id === "bank_transfer" ? "bank transfer" : m.label))
-  .join(", ")
-  .replace(/, ([^,]*)$/, " or $1");
+const methods = "crypto (USDT, USDC or BTC)";
 
 export const steps = [
   { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },

@@ -83,7 +83,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "paypal",
     label: "PayPal",
     short: "Send the amount to our PayPal.me link or email.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
       { label: "PayPal name", value: "REPLACE: PayPal display name" },
       { label: "PayPal email", value: "REPLACE: PayPal email", copy: true },
@@ -127,7 +127,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "usdt",
     label: "USDT",
     short: "Tether stablecoin, sent on the network shown.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
       { label: "Network", value: "REPLACE: network (e.g. TRON TRC-20)" },
       { label: "Wallet address", value: "REPLACE: USDT wallet address", copy: true },
@@ -147,7 +147,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "usdc",
     label: "USDC",
     short: "Circle stablecoin, sent on the network shown.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
       { label: "Network", value: "REPLACE: network (e.g. Ethereum ERC-20, Base, Solana)" },
       { label: "Wallet address", value: "REPLACE: USDC wallet address", copy: true },
@@ -167,7 +167,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "bitcoin",
     label: "Bitcoin",
     short: "Send BTC on the Bitcoin network.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
       { label: "Network", value: "Bitcoin (on-chain)" },
       { label: "Wallet address", value: "REPLACE: Bitcoin wallet address", copy: true },
