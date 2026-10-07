@@ -1380,39 +1380,6 @@ html[data-interactive] [data-depth] {
   .dash-rim { animation: none; }
 }
 
-/* The welcome line at the top of the site (components/landing/greeting.tsx):
-   one centred sentence in plain Georgia with a soft glow, no box. It
-   assembles from a particle cloud (components/motion/entrance-engine.ts). */
-.greeting {
-  max-width: 100%;
-  text-align: center;
-  font-family: Georgia, "Times New Roman", serif;
-  font-style: normal;
-  font-weight: 400;
-  font-size: clamp(40px, 8vw, 120px); /* replaced by the fit in greeting.tsx */
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  color: rgb(247 249 255 / 0.98);
-  text-shadow:
-    0 0 0.4em rgb(120 160 255 / 0.5),
-    0 0 1em rgb(130 110 255 / 0.28),
-    0 1px 2px rgb(0 0 0 / 0.35);
-}
-.greeting-mark {
-  font-style: normal;
-  font-size: 0.45em;
-  color: var(--color-cyan);
-  text-shadow: 0 0 14px rgb(95 216 245 / 0.9);
-  animation: greeting-mark 4s ease-in-out infinite;
-}
-@keyframes greeting-mark {
-  0%, 100% { opacity: 0.65; rotate: 0deg; scale: 1; }
-  50% { opacity: 1; rotate: 45deg; scale: 1.15; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .greeting-mark { animation: none; }
-}
-
 /* Heading entrance: until components/motion/entrance-engine.ts has measured
    the page, its headings stay out of sight (it removes the class). */
 html.ent-pre :is(.depth-title, h1, h2) {

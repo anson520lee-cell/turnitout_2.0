@@ -6,14 +6,13 @@
  * from in front of the camera and settles into the letters, and the real text
  * fades in underneath. The assembly is tied to the scroll position, not to a
  * clock, so it runs backwards when you scroll back and the cloud swirls with
- * your scroll speed. Headings already on screen at load (and the welcome line)
- * assemble once by themselves, since there is nothing to scroll yet.
+ * your scroll speed. Headings already on screen at load assemble once by themselves, since there is nothing to scroll yet.
  *
  * Everything else on the page keeps its own entrance (`Reveal`). Nothing runs
  * under `prefers-reduced-motion`.
  */
 
-const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only,.greeting";
+const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only";
 const LETTER = /[\p{L}\p{N}]/u;
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -193,116 +192,6 @@ function sample(cl: Cloud): boolean {
   return true;
 }
 
-/* ------------------------------------------------------------------ link: one block dissolves into the next */
-
-type Link = {
-  a: HTMLElement; // the welcome line
-  b: HTMLElement; // the headline it turns into
-  prog: number;
-  active: boolean;
-  ready: boolean;
-  n: number;
-  ax: Float32Array;
-  ay: Float32Array;
-  bx: Float32Array;
-  by: Float32Array;
-  delay: Float32Array;
-  zs: Float32Array;
-  sw: Float32Array;
-  sc: Float32Array; // how far it bursts outward mid-flight
-  sd: Float32Array;
-  sz: Float32Array;
-  br: Float32Array;
-};
-const links = new Set<Link>();
-const linkTarget = () => clamp(scrollY / (innerHeight * 0.7), 0, 1);
-
-function ranked(xs: number[], n: number): number[] {
-  const idx = xs.map((_, i) => i).sort((i, j) => xs[i] - xs[j]);
-  const out: number[] = new Array(n);
-  for (let k = 0; k < n; k++) {
-    const f = (k / n) * idx.length + (Math.random() - 0.5) * idx.length * 0.08;
-    out[k] = idx[clamp(Math.floor(f), 0, idx.length - 1)];
-  }
-  return out;
-}
-
-function prepLink(l: Link): boolean {
-  const A = rasterise(l.a, 34, 9000);
-  const B = rasterise(l.b, 23, 12000);
-  if (!A || !B) return false;
-  const n = Math.min(Math.max(A.x.length, B.x.length), 12000);
-  const ia = ranked(A.x, n);
-  const ib = ranked(B.x, n);
-  l.n = n;
-  l.ax = new Float32Array(n);
-  l.ay = new Float32Array(n);
-  l.bx = new Float32Array(n);
-  l.by = new Float32Array(n);
-  l.delay = new Float32Array(n);
-  l.zs = new Float32Array(n);
-  l.sw = new Float32Array(n);
-  l.sc = new Float32Array(n);
-  l.sd = new Float32Array(n);
-  l.sz = new Float32Array(n);
-  l.br = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    l.ax[i] = A.x[ia[i]];
-    l.ay[i] = A.y[ia[i]];
-    l.bx[i] = B.x[ib[i]];
-    l.by[i] = B.y[ib[i]];
-    l.delay[i] = Math.random() * 0.4;
-    l.zs[i] = Math.random();
-    l.sw[i] = (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.35);
-    const a = Math.random() * Math.PI * 2;
-    const r = 20 + Math.random() * 170;
-    l.sc[i] = Math.cos(a) * r;
-    l.sd[i] = Math.sin(a) * r;
-    l.sz[i] = 0.6 + Math.random() * 0.9;
-    l.br[i] = 0.55 + Math.random() * 0.45;
-  }
-  l.ready = true;
-  return true;
-}
-
-function drawLink(l: Link, now: number) {
-  if (!ctx) return;
-  const p = l.prog;
-  const ra = l.a.getBoundingClientRect();
-  const rb = l.b.getBoundingClientRect();
-  const tm = now * 0.0016;
-  const drift = vel * 5;
-  const hold = smooth(0, 0.1, p); // the dots take over from the letters
-  const fade = 1 - smooth(0.82, 1, p);
-  ctx.globalCompositeOperation = "lighter";
-  ctx.fillStyle = "#fff";
-  for (let i = 0; i < l.n; i++) {
-    const q = clamp((p - l.delay[i]) / 0.55, 0, 1);
-    const e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;
-    const sx = ra.left + l.ax[i];
-    const sy = ra.top + l.ay[i];
-    const tx = rb.left + l.bx[i];
-    const ty = rb.top + l.by[i];
-    const dx = tx - sx;
-    const dy = ty - sy;
-    const len = Math.hypot(dx, dy) || 1;
-    const lift = Math.sin(Math.PI * e);
-    const bow = l.sw[i] * len * lift;
-    const wob = lift * 6;
-    const x = sx + dx * e - (dy / len) * bow + l.sc[i] * lift * 0.6 + Math.sin(tm * (1 + l.zs[i]) + i) * wob;
-    const y = sy + dy * e + (dx / len) * bow + l.sd[i] * lift * 0.6 + Math.cos(tm * 1.3 + i * 0.7) * wob - drift * l.zs[i] * lift;
-    if (x < -20 || x > innerWidth + 20 || y < -20 || y > innerHeight + 20) continue;
-    const s = l.sz[i] * (0.9 + 0.9 * l.zs[i] * lift);
-    const twinkle = 0.8 + 0.2 * Math.sin(tm * 3 + i * 1.7);
-    const a = hold * l.br[i] * twinkle * fade * (1 - 0.25 * l.zs[i] * lift);
-    if (a <= 0.015) continue;
-    ctx.globalAlpha = a;
-    ctx.fillRect(x - s / 2, y - s / 2, s, s);
-  }
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
-}
-
 /** Scroll position -> assembly progress: 0 as the heading enters at the bottom, 1 once it is above ~55% of the window. */
 function scrollProgress(el: HTMLElement) {
   const r = el.getBoundingClientRect();
@@ -322,30 +211,6 @@ function frame(now: number) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, layer.width, layer.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  for (const l of [...links]) {
-    if (!l.a.isConnected || !l.b.isConnected) {
-      links.delete(l);
-      continue;
-    }
-    const target = linkTarget();
-    const d = target - l.prog;
-    if (Math.abs(d) > 0.0015) {
-      l.prog += d * 0.09;
-      busy = true;
-    } else l.prog = target;
-    const p = l.prog;
-    if (p > 0.001) {
-      l.active = true;
-      l.a.style.opacity = String(1 - smooth(0, 0.16, p));
-    } else if (l.active) {
-      l.active = false;
-      l.a.style.opacity = "";
-    }
-    l.b.style.opacity = p >= 0.999 ? "" : String(smooth(0.7, 1, p));
-    if (p >= 0.999) l.b.style.transition = "";
-    if (p > 0.001 && p < 0.999 && (l.ready || prepLink(l))) drawLink(l, now);
   }
 
   for (const cl of [...clouds]) {
@@ -494,38 +359,10 @@ export function startEntrance(): () => void {
   });
 
   ensureLayer();
-  // the welcome line dissolves into the page's main headline as you scroll
-  const greet = document.querySelector<HTMLElement>(".greeting");
-  const headline = document.querySelector<HTMLElement>(".depth-title");
-  let linked: HTMLElement | null = null;
-  if (greet && headline && mine.includes(headline)) {
-    linked = headline;
-    links.add({
-      a: greet,
-      b: headline,
-      prog: linkTarget(),
-      active: false,
-      ready: false,
-      n: 0,
-      ax: new Float32Array(0),
-      ay: new Float32Array(0),
-      bx: new Float32Array(0),
-      by: new Float32Array(0),
-      delay: new Float32Array(0),
-      zs: new Float32Array(0),
-      sw: new Float32Array(0),
-      sc: new Float32Array(0),
-      sd: new Float32Array(0),
-      sz: new Float32Array(0),
-      br: new Float32Array(0),
-    });
-    headline.style.transition = "none";
-    headline.style.opacity = linkTarget() >= 0.999 ? "" : "0";
-  }
   let order = 0;
   for (const el of mine) {
-    if (el === linked) continue;
-    if (scrollProgress(el) >= 0.999) {
+    const box = el.getBoundingClientRect();
+    if (box.top + box.height / 2 < innerHeight * 0.8) {
       // already on screen: nothing to scroll yet, so assemble once on a clock
       playCloud(el, 150 + order++ * 120);
     } else {
@@ -539,7 +376,6 @@ export function startEntrance(): () => void {
 
   const onScroll = () => wake();
   const onResize = () => {
-    for (const l of links) l.ready = false;
     for (const c of clouds) c.ready = false;
     wake();
   };
@@ -550,12 +386,6 @@ export function startEntrance(): () => void {
   return () => {
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("resize", onResize);
-    for (const l of links) {
-      l.a.style.opacity = "";
-      l.b.style.opacity = "";
-      l.b.style.transition = "";
-    }
-    links.clear();
     for (const cl of clouds) {
       cl.el.style.opacity = "";
       cl.el.style.transition = "";

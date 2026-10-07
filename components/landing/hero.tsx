@@ -4,7 +4,6 @@ import { buttonClasses } from "@/components/ui/button";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { HeroVisual } from "./hero-visual";
-import { Greeting } from "./greeting";
 import { freeScan } from "@/config/app";
 
 /** Extrusion layers behind the headline, nearest first. */
@@ -76,11 +75,6 @@ export function Hero() {
     <section className="noise relative overflow-hidden pt-32 pb-20 sm:pt-40 lg:pb-28">
       <Backdrop />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
-        {/* a different everyday greeting on every visit, filling the first screen; it
-            dissolves into the headline below as the page scrolls */}
-        <div className="flex min-h-[calc(86vh-9rem)] items-center justify-center lg:col-span-2">
-          <Greeting />
-        </div>
         <div>
           <Reveal aboveFold>
             <Eyebrow>Academic writing screening</Eyebrow>
