@@ -263,7 +263,7 @@ export function DashboardPreview() {
             </div>
             {/* and a result from the free scan, hanging off the bottom-left
                 corner below the sidebar's Credits box rather than over it */}
-            <div className="pointer-events-none absolute -bottom-7 -left-8 hidden lg:block" style={z(34)}>
+            <div className="pointer-events-none absolute -bottom-7 left-4 hidden lg:block xl:-left-8" style={z(34)}>
               <div className="chip-float glass-strong w-[190px] rounded-2xl p-3.5 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-fg-muted">Free scan</span>
