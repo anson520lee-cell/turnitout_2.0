@@ -348,9 +348,10 @@ html[data-pointer] .light-halo { opacity: 1; }
 /* Tilt: surfaces marked data-tilt="8" (degrees, scaled up a little by the
    engine) lean toward the cursor on a spring. The engine writes --rx/--ry,
    --lift (0…1 while hovered) and --gx/--gy (-0.5…0.5). No CSS transition:
-   the spring does the easing, including the settle on release. */
+   the spring does the easing, including the settle on release. A surface
+   can set --persp (default 1000px) to flatten its lean. */
 html[data-interactive] [data-tilt] {
-  transform: perspective(1000px) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) translateZ(calc(var(--lift, 0) * 12px));
+  transform: perspective(var(--persp, 1000px)) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) translateZ(calc(var(--lift, 0) * 12px));
   transition: border-color 0.3s ease;
   will-change: transform;
   /* A glare band that slides across the pane as it leans. */

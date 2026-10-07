@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * The dashboard, shown as a live scene instead of a flat screenshot. A glass
- * frame leans with the cursor, a rim of light runs round it, and its parts sit
- * at different depths: the cards above the frame, the order pipeline above the
- * cards, two floating notes in front. One example order walks through the
+ * frame leans gently with the cursor, a rim of light runs round it, and its
+ * parts sit a few pixels apart in depth: the cards just above the frame, the
+ * order pipeline a touch higher, two floating notes in front. The depth is
+ * kept shallow on purpose, so it reads as a calm product shot that is subtly
+ * dimensional rather than a 3D toy. One example order walks through the
  * pipeline on a loop (paid, queued, screening, review, ready), and everything
  * that depends on it moves with it: the progress line, the ring, the order's
  * badge, the "reports ready" count and the note that slides in when it lands.
@@ -29,7 +31,7 @@ const NAV = [
   { icon: FileCheck2, label: "Get Report" },
   { icon: Wallet, label: "Billing & Credits" },
 ];
-/** Depth of a layer above the frame, in px. */
+/** Depth of a layer above the frame, in px (kept small: a hint of depth, not a stack). */
 const z = (px: number) => ({ transform: `translateZ(${px}px)` });
 
 export function DashboardPreview() {
@@ -67,9 +69,9 @@ export function DashboardPreview() {
           title="Every scan and order in one place."
           body="Remaining free scans, live order status, and reports ready to open."
         />
-        <Reveal className="relative mx-auto mt-16 max-w-5xl [perspective:1800px]">
+        <Reveal className="relative mx-auto mt-16 max-w-5xl [perspective:3200px]">
           {/* light behind the frame */}
-          <div aria-hidden data-depth="-2" className="pointer-events-none absolute -inset-x-[8%] -inset-y-[14%]">
+          <div aria-hidden data-depth="-1" className="pointer-events-none absolute -inset-x-[8%] -inset-y-[14%]">
             <div className="absolute left-[6%] top-[10%] size-[46%] rounded-full bg-accent/25 blur-[90px]" />
             <div className="absolute right-[4%] top-[30%] size-[42%] rounded-full bg-violet/25 blur-[100px]" />
             <div className="absolute bottom-0 left-[34%] size-[34%] rounded-full bg-cyan/15 blur-[90px]" />
@@ -78,8 +80,8 @@ export function DashboardPreview() {
           <div
             ref={root}
             aria-hidden
-            data-tilt="6"
-            className="relative rounded-[28px] [--rx0:9deg] [transform-style:preserve-3d] [transform:perspective(1000px)_rotateX(9deg)]"
+            data-tilt="2.5"
+            className="relative rounded-[28px] [--persp:2400px] [--rx0:3deg] [transform-style:preserve-3d] [transform:perspective(2400px)_rotateX(3deg)]"
           >
             {/* the frame: glass, and a rim of light running round it */}
             <div className="glass-strong absolute inset-0 rounded-[28px]" />
@@ -100,7 +102,7 @@ export function DashboardPreview() {
 
               <div className="flex [transform-style:preserve-3d]">
                 {/* sidebar */}
-                <div className="hidden w-[200px] shrink-0 border-r border-[var(--line)] p-4 md:block" style={z(14)}>
+                <div className="hidden w-[200px] shrink-0 border-r border-[var(--line)] p-4 md:block" style={z(6)}>
                   <p className="px-2 text-[18px] font-semibold tracking-tight">0%</p>
                   <div className="mt-5 space-y-1">
                     {NAV.map((n, i) => (
@@ -128,7 +130,7 @@ export function DashboardPreview() {
                 <div className="min-w-0 flex-1 p-4 sm:p-6 [transform-style:preserve-3d]">
                   {/* three numbers, each a card lifted off the frame */}
                   <div className="grid gap-3 sm:grid-cols-3 [transform-style:preserve-3d]">
-                    <div className="dash-card" style={z(34)}>
+                    <div className="dash-card" style={z(12)}>
                       <p className="text-[12px] text-fg-muted">Free scans today</p>
                       <p className="mt-1.5 text-[26px] font-semibold leading-none tracking-tight">
                         2 <span className="text-[13px] font-normal text-fg-subtle">of 3 left</span>
@@ -139,7 +141,7 @@ export function DashboardPreview() {
                         <span className="h-1.5 flex-1 rounded-full bg-white/10" />
                       </div>
                     </div>
-                    <div className="dash-card" style={z(52)}>
+                    <div className="dash-card" style={z(16)}>
                       <p className="text-[12px] text-fg-muted">Scans this week</p>
                       <p className="mt-1.5 text-[26px] font-semibold leading-none tracking-tight">11</p>
                       <svg viewBox="0 0 120 26" className="mt-2 h-[26px] w-full overflow-visible">
@@ -153,7 +155,7 @@ export function DashboardPreview() {
                         <circle cx="120" cy="2" r="2.6" fill="#c9bcff" className="dash-dot" />
                       </svg>
                     </div>
-                    <div className="dash-card" style={z(34)}>
+                    <div className="dash-card" style={z(12)}>
                       <p className="text-[12px] text-fg-muted">Reports ready</p>
                       <p className="mt-1.5 flex items-center gap-2 text-[26px] font-semibold leading-none tracking-tight">
                         <motion.span key={ready ? "b" : "a"} initial={{ scale: 1.5, color: "#4fd1a5" }} animate={{ scale: 1, color: "#e9edf7" }} transition={{ duration: 0.6 }}>
@@ -166,7 +168,7 @@ export function DashboardPreview() {
                   </div>
 
                   {/* the order in flight */}
-                  <div className="dash-card mt-3" style={{ ...z(74), padding: 20 }}>
+                  <div className="dash-card mt-3" style={{ ...z(22), padding: 20 }}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">Order in progress</p>
@@ -221,7 +223,7 @@ export function DashboardPreview() {
                   </div>
 
                   {/* the list */}
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)] bg-ink-900/50" style={z(22)}>
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)] bg-ink-900/50" style={z(8)}>
                     {[
                       { t: "Sociology essay – final", tone: STEP_TONE[step], s: STEPS[step] },
                       { t: "Lab report 3", tone: "success" as Tone, s: "Ready" },
@@ -238,7 +240,7 @@ export function DashboardPreview() {
             </div>
 
             {/* in front of everything: a note when the report lands */}
-            <div className="pointer-events-none absolute -right-3 top-[92px] hidden lg:block" style={z(130)}>
+            <div className="pointer-events-none absolute -right-3 top-[92px] hidden lg:block" style={z(40)}>
               <AnimatePresence>
                 {ready && (
                   <motion.div
@@ -259,8 +261,9 @@ export function DashboardPreview() {
                 )}
               </AnimatePresence>
             </div>
-            {/* and a result from the free scan */}
-            <div className="pointer-events-none absolute -left-6 bottom-[70px] hidden lg:block" style={z(110)}>
+            {/* and a result from the free scan, hanging off the bottom-left
+                corner below the sidebar's Credits box rather than over it */}
+            <div className="pointer-events-none absolute -bottom-7 -left-8 hidden lg:block" style={z(34)}>
               <div className="chip-float glass-strong w-[190px] rounded-2xl p-3.5 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] text-fg-muted">Free scan</span>
@@ -276,7 +279,7 @@ export function DashboardPreview() {
               </div>
             </div>
           </div>
-          <p className="mt-10 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>
+          <p className="mt-14 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>
         </Reveal>
       </Container>
     </section>
