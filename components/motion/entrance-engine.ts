@@ -48,6 +48,7 @@ type Cloud = {
   br: Float32Array; // brightness
   n: number;
   ready: boolean;
+  fresh: boolean; // the paths need re-rolling before the next approach
 };
 
 const clouds = new Set<Cloud>();
@@ -79,6 +80,44 @@ function dropLayer() {
   layer.remove();
   layer = null;
   ctx = null;
+}
+
+/**
+ * Give every particle a fresh, different journey: a start point outside the
+ * window (any side, any distance), a curved path with its own bow, its own
+ * depth and its own timing. Called again each time a heading is approached.
+ */
+function randomize(cl: Cloud) {
+  const W = innerWidth;
+  const H = innerHeight;
+  for (let i = 0; i < cl.n; i++) {
+    const side = Math.floor(Math.random() * 4);
+    const out = 20 + Math.pow(Math.random(), 1.5) * 300; // how far beyond the edge
+    const along = Math.random();
+    let x: number;
+    let y: number;
+    if (side === 0) {
+      x = -out;
+      y = along * H * 1.3 - H * 0.15;
+    } else if (side === 1) {
+      x = W + out;
+      y = along * H * 1.3 - H * 0.15;
+    } else if (side === 2) {
+      x = along * W * 1.3 - W * 0.15;
+      y = -out;
+    } else {
+      x = along * W * 1.3 - W * 0.15;
+      y = H + out;
+    }
+    cl.sx[i] = x;
+    cl.sy[i] = y;
+    cl.sw[i] = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.4); // sideways bow of the path
+    cl.zs[i] = Math.random(); // depth: 1 is close to the camera
+    cl.delay[i] = Math.random() * 0.5;
+    cl.sz[i] = 0.6 + Math.random() * 0.9;
+    cl.br[i] = 0.55 + Math.random() * 0.45;
+  }
+  cl.fresh = false;
 }
 
 /** Rasterise the heading's visible text; the lit pixels become particle targets. */
@@ -114,7 +153,7 @@ function sample(cl: Cloud): boolean {
       if (r) c.fillText(ch, r.left - rect.left, r.top - rect.top + r.height / 2);
     }
   }
-  let step = Math.max(2, Math.round(size / 19));
+  let step = Math.max(2, Math.round(size / 23));
   const px = c.getImageData(0, 0, W, H).data;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -126,7 +165,7 @@ function sample(cl: Cloud): boolean {
         xs.push(i);
         ys.push(j);
       }
-    if (xs.length <= 11000) break;
+    if (xs.length <= 14000) break;
     step += 1;
   }
   if (!xs.length) return false;
@@ -141,17 +180,7 @@ function sample(cl: Cloud): boolean {
   cl.sw = new Float32Array(n);
   cl.sz = new Float32Array(n);
   cl.br = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    cl.delay[i] = Math.random() * 0.45;
-    cl.zs[i] = 0.3 + Math.random() * 0.6; // how far in front of the camera it starts
-    cl.sw[i] = (Math.random() - 0.5) * 2.6;
-    cl.sz[i] = 0.45 + Math.random() * 0.75;
-    cl.br[i] = 0.35 + Math.random() * 0.65;
-    const a = Math.random() * Math.PI * 2;
-    const r = 50 + Math.pow(Math.random(), 0.7) * 420;
-    cl.sx[i] = Math.cos(a) * r;
-    cl.sy[i] = Math.sin(a) * r * 0.85;
-  }
+  randomize(cl);
   cl.ready = true;
   return true;
 }
@@ -176,8 +205,6 @@ function frame(now: number) {
     ctx.clearRect(0, 0, layer.width, layer.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  const cx = innerWidth / 2;
-  const cy = innerHeight / 2;
 
   for (const cl of [...clouds]) {
     if (!cl.el.isConnected) {
@@ -214,7 +241,11 @@ function frame(now: number) {
       p = cl.prog;
       cl.el.style.opacity = p >= 0.999 ? "" : String(smooth(0.66, 0.98, p));
       if (p >= 0.999) cl.el.style.transition = "";
-      if (p <= 0.001 || p >= 0.999) continue;
+      if (p <= 0.001) {
+        cl.fresh = true;
+        continue;
+      }
+      if (p >= 0.999) continue;
       if (!cl.ready && !sample(cl)) {
         cl.el.style.opacity = "";
         clouds.delete(cl);
@@ -222,6 +253,7 @@ function frame(now: number) {
       }
     }
     if (!ctx || !cl.ready) continue;
+    if (cl.fresh) randomize(cl);
     const rect = cl.el.getBoundingClientRect();
     if (rect.bottom < -200 || rect.top > innerHeight + 200) continue;
     const fade = cl.mode === "time" ? 1 - smooth(0.8, 1.06, p) : 1 - smooth(0.93, 1, p);
@@ -230,25 +262,24 @@ function frame(now: number) {
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = "#fff";
     for (let i = 0; i < cl.n; i++) {
-      const q = clamp((p - cl.delay[i]) / 0.55, 0, 1);
-      const e = ease(q);
+      const q = clamp((p - cl.delay[i]) / 0.5, 0, 1);
+      if (q <= 0) continue;
+      const e = 1 - Math.pow(1 - q, 2.2 + cl.zs[i] * 1.2); // nearer ones arrive more abruptly
       const r = 1 - e;
-      const k = 1 / (1 - cl.zs[i] * r); // perspective: nearer = larger, further from the centre
-      // the offset spirals in: it shrinks and untwists as the particle arrives
-      const ang = cl.sw[i] * r * r;
-      const ca = Math.cos(ang);
-      const sa = Math.sin(ang);
-      const ox = (cl.sx[i] * ca - cl.sy[i] * sa) * r + Math.sin(tm + i) * 3 * r;
-      const oy = (cl.sx[i] * sa + cl.sy[i] * ca) * r + Math.cos(tm * 1.3 + i * 0.7) * 3 * r;
-      const bx = rect.left + cl.rx[i];
-      const by = rect.top + cl.ry[i];
-      const x = cx + (bx + ox - cx) * k;
-      const y = cy + (by + oy - cy) * k - drift * (k - 1) * r;
+      const tx = rect.left + cl.rx[i];
+      const ty = rect.top + cl.ry[i];
+      const dx = tx - cl.sx[i];
+      const dy = ty - cl.sy[i];
+      const len = Math.hypot(dx, dy) || 1;
+      const bow = cl.sw[i] * len * Math.sin(Math.PI * e); // curved, never a straight line
+      const wob = 5 * r;
+      const x = cl.sx[i] + dx * e - (dy / len) * bow + Math.sin(tm * (1 + cl.zs[i]) + i) * wob;
+      const y = cl.sy[i] + dy * e + (dx / len) * bow + Math.cos(tm * 1.3 + i * 0.7) * wob - drift * cl.zs[i] * r;
       if (x < -20 || x > innerWidth + 20 || y < -20 || y > innerHeight + 20) continue;
-      // small points; the nearer ones are a touch larger and softer
-      const s = cl.sz[i] * (1 + 0.5 * r) * Math.min(k, 2.2);
+      // small points; the ones nearer the camera are a touch larger and softer
+      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r);
       const twinkle = 0.8 + 0.2 * Math.sin(tm * 3 + i * 1.7);
-      const a = (0.18 + 0.82 * e) * cl.br[i] * twinkle * fade * (k > 1.6 ? 0.75 : 1);
+      const a = (0.55 + 0.45 * e) * cl.br[i] * twinkle * fade * (1 - 0.25 * cl.zs[i] * r);
       if (a <= 0.015) continue;
       ctx.globalAlpha = a;
       ctx.fillRect(x - s / 2, y - s / 2, s, s);
@@ -283,6 +314,7 @@ function mk(el: HTMLElement, mode: Cloud["mode"]): Cloud {
     br: new Float32Array(0),
     n: 0,
     ready: false,
+    fresh: false,
   };
 }
 
