@@ -56,6 +56,7 @@ let ctx: CanvasRenderingContext2D | null = null;
 let raf = 0;
 let lastScrollY = 0;
 let vel = 0; // smoothed scroll speed, px per frame
+let lastNow = 0;
 
 function ensureLayer() {
   if (layer) return;
@@ -201,6 +202,8 @@ function scrollProgress(el: HTMLElement) {
 
 function frame(now: number) {
   raf = 0;
+  const dt = clamp(lastNow ? now - lastNow : 16, 8, 64);
+  lastNow = now;
   const sy = scrollY;
   vel += (clamp(sy - lastScrollY, -120, 120) - vel) * 0.25;
   lastScrollY = sy;
@@ -242,7 +245,7 @@ function frame(now: number) {
       cl.target = scrollProgress(cl.el);
       const d = cl.target - cl.prog;
       if (Math.abs(d) > 0.0015) {
-        cl.prog += d * 0.075;
+        cl.prog += d * (1 - Math.exp(-dt / 40)); // follows the scroll closely: fast scroll, fast assembly
         busy = true;
       } else cl.prog = cl.target;
       p = cl.prog;
