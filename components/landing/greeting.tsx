@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { playCloud } from "@/components/motion/entrance-engine";
 
 /**
  * A line of welcome at the very top of the site, different on every visit.
@@ -8,7 +9,7 @@ import { useEffect, useState } from "react";
  *
  * The server sends an empty line of the same height; the greeting is chosen
  * in the browser (a random pick can't match between server and browser) and
- * fades in. It avoids showing the same one twice in a row.
+ * assembles from a particle cloud. It avoids showing the same one twice in a row.
  */
 export const GREETINGS = [
   "Ready when you are.",
@@ -37,6 +38,7 @@ const KEY = "greeting:last";
 
 export function Greeting({ className }: { className?: string }) {
   const [text, setText] = useState<string | null>(null);
+  const ref = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     let last = -1;
@@ -55,10 +57,15 @@ export function Greeting({ className }: { className?: string }) {
     setText(GREETINGS[i]);
   }, []);
 
+  // the sentence has just been set: hide it and let the cloud build it, before paint
+  useLayoutEffect(() => {
+    if (text && ref.current) playCloud(ref.current, 250);
+  }, [text]);
+
   return (
-    <p className={`greeting flex min-h-[1.5em] items-center justify-center gap-3 ${className ?? ""}`} data-on={text ? "" : undefined}>
+    <p ref={ref} className={`greeting flex min-h-[1.5em] items-center justify-center gap-3 ${className ?? ""}`}>
       <span aria-hidden className="greeting-mark">✦</span>
-      <span>{text ?? " "}</span>
+      <span>{text ?? " "}</span>
     </p>
   );
 }
