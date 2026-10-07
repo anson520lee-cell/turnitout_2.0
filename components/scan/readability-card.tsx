@@ -1,5 +1,6 @@
 import type { Readability } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
+import { HudCorners, HudLabel, Tile } from "@/components/ui/hud";
 
 function easeLabel(score: number) {
   if (score >= 70) return "Easy to read";
@@ -19,24 +20,26 @@ export function ReadabilityCard({ r }: { r: Readability }) {
   ];
   return (
     <Card tilt={3} className="p-5 sm:p-6">
+      <HudCorners />
+      <HudLabel className="mb-2">Clarity scan</HudLabel>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[15px] font-semibold">Readability</h2>
         <span className="text-[12px] text-fg-subtle">Clarity measures, separate from the risk estimate</span>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
         {stats.map(([k, v, hint]) => (
-          <div key={k} className="rounded-xl border border-[var(--line)] bg-ink-900/50 px-3 py-3">
-            <dt className="text-[11.5px] text-fg-subtle">{k}</dt>
-            <dd className="mt-1 text-[20px] font-semibold tracking-tight">{v}</dd>
+          <Tile key={k}>
+            <dt className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-subtle">{k}</dt>
+            <dd className="tile-num mt-1.5 text-[24px] font-semibold tracking-tight">{v}</dd>
             {hint && <dd className="text-[11px] text-fg-subtle">{hint}</dd>}
-          </div>
+          </Tile>
         ))}
       </dl>
       {r.readingEase !== null && (
         <div className="mt-4" aria-hidden>
-          <div className="relative h-1.5 rounded-full bg-gradient-to-r from-risk/70 via-warn/70 to-ok/70">
+          <div className="relative h-2 rounded-full bg-gradient-to-r from-risk/80 via-warn/80 to-ok/80 shadow-[0_0_18px_-2px_rgb(120_160_255/0.35)]">
             <span
-              className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_10px_rgb(255_255_255/0.6)]"
+              className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_0_4px_rgb(255_255_255/0.12),0_0_16px_rgb(255_255_255/0.8)]"
               style={{ left: `${r.readingEase}%` }}
             />
           </div>

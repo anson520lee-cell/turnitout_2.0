@@ -1385,3 +1385,109 @@ html[data-interactive] [data-depth] {
 html.ent-pre :is(.depth-title, h1, h2) {
   visibility: hidden;
 }
+
+/* ------------------------------------------------------------------
+   Signed-in modules: instrument-panel details shared by the charts,
+   stat tiles and meters so they match the landing page's engine look.
+   ------------------------------------------------------------------ */
+.hud-corners > i {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgb(150 190 255 / 0.5);
+  opacity: 0.7;
+  transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+.hud-corners > i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 4px; }
+.hud-corners > i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 4px; }
+.hud-corners > i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 4px; }
+.hud-corners > i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 4px; }
+.glass:hover > .hud-corners > i,
+.glass-strong:hover > .hud-corners > i { opacity: 1; border-color: rgb(190 225 255 / 0.9); }
+
+.hud-dot {
+  width: 6px; height: 6px; border-radius: 99px;
+  background: var(--color-cyan);
+  box-shadow: 0 0 0 3px rgb(95 216 245 / 0.14), 0 0 10px var(--color-cyan);
+  animation: hud-blink 2.4s ease-in-out infinite;
+}
+@keyframes hud-blink { 50% { opacity: 0.45; box-shadow: 0 0 0 3px rgb(95 216 245 / 0.05), 0 0 4px var(--color-cyan); } }
+
+.tile {
+  position: relative;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(120px circle at 50% -20%, rgb(150 185 255 / 0.16), transparent 70%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.01)),
+    rgb(8 12 26 / 0.55);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 10px 24px -14px rgb(0 0 0 / 0.8);
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.3s ease, box-shadow 0.35s ease;
+}
+.tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-strong);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 16px 32px -14px rgb(0 0 0 / 0.85), 0 0 26px -8px rgb(91 140 255 / 0.55);
+}
+.tile-num {
+  background: linear-gradient(180deg, #ffffff, #b5c6ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.segbar { display: grid; gap: 3px; height: 8px; }
+.segbar > i {
+  border-radius: 2px;
+  background: rgb(148 163 255 / 0.1);
+  transition: background 0.3s ease;
+}
+.segbar > i[data-on] {
+  --c: var(--color-accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 100%, white 30%), var(--c));
+  box-shadow: 0 0 8px -1px var(--c);
+  animation: seg-on 0.5s ease-out both;
+}
+.segbar[data-tone="ok"] > i[data-on] { --c: var(--color-ok); }
+.segbar[data-tone="warn"] > i[data-on] { --c: var(--color-warn); }
+.segbar[data-tone="risk"] > i[data-on] { --c: var(--color-risk); }
+@keyframes seg-on { from { opacity: 0; transform: scaleY(0.3); } }
+
+/* radar + gauge */
+.radar-sweep { transform-origin: center; transform-box: fill-box; animation: engine-spin 7s linear infinite; }
+.radar-vertex { transform-box: fill-box; transform-origin: center; animation: neuron-fire 2.8s ease-in-out infinite; }
+.gauge-ticks { animation: engine-spin 60s linear infinite; transform-origin: 100px 100px; }
+.gauge-needle-glow { filter: drop-shadow(0 0 5px rgb(180 215 255 / 0.9)); }
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep, .radar-vertex, .gauge-ticks, .hud-dot, .segbar > i[data-on] { animation: none; }
+}
+
+/* Every signed-in panel gets the instrument-panel corner brackets, unless it
+   already draws its own (HudCorners) or uses ::after for something else. */
+.app-main :is(.glass, .glass-strong):not(.noise, .absolute, .fixed, .sticky):not(:has(> .hud-corners))::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 8px;
+  --b: rgb(150 190 255 / 0.5);
+  background:
+    linear-gradient(var(--b), var(--b)) top left / 10px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) top left / 1px 10px no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / 10px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) top right / 1px 10px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / 10px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom left / 1px 10px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / 10px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) bottom right / 1px 10px no-repeat;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+.app-main :is(.glass, .glass-strong):hover::after { opacity: 1; }
+
+/* list rows: a lit edge slides in on hover */
+.app-main li > a { position: relative; transition: background 0.25s ease, padding-left 0.25s ease; }
+.app-main li > a::before {
+  content: ""; position: absolute; left: 0; top: 18%; bottom: 18%; width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-cyan), var(--color-violet));
+  box-shadow: 0 0 10px var(--color-cyan);
+  opacity: 0; transform: scaleY(0.2); transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.app-main li > a:hover::before { opacity: 1; transform: scaleY(1); }
