@@ -1,5 +1,4 @@
 import { Hero } from "@/components/landing/hero";
-import { TrustStrip } from "@/components/landing/trust-strip";
 import { PatternEngine } from "@/components/landing/pattern-engine";
 import { CoreServices } from "@/components/landing/core-services";
 import { AnalysisPreview } from "@/components/landing/analysis-preview";
@@ -21,7 +20,6 @@ export default function HomePage() {
   return (
     <>
       <Hero />
-      <TrustStrip />
       <PatternEngine />
       <CoreServices />
       <AnalysisPreview />

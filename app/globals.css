@@ -763,24 +763,6 @@ html[data-interactive] [data-depth] {
   to { transform: translate3d(5%, 4%, 0) scale(1.12); }
 }
 
-/* A line of light along the trust strip's top and bottom edges, under the cursor. */
-.trust-strip::before,
-.trust-strip::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  pointer-events: none;
-  background: radial-gradient(260px 1px at calc(50% + var(--cx, 0) * 50%) 50%, rgb(190 210 255 / 0.9), transparent);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-.trust-strip::before { top: -1px; }
-.trust-strip::after { bottom: -1px; }
-html[data-pointer] .trust-strip::before,
-html[data-pointer] .trust-strip::after { opacity: 1; }
-
 /* Footer wordmark, lit by a highlight that follows the cursor. */
 .footer-wordmark {
   background:
