@@ -2,8 +2,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { CreditCard, Lock } from "lucide-react";
-import { startTopupCheckout, submitTopupClaim } from "@/app/actions/credits";
+import { Bitcoin, CreditCard, Lock } from "lucide-react";
+import { startCryptoPayment, startTopupCheckout, submitTopupClaim } from "@/app/actions/credits";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { WaitingAnimation } from "@/components/ui/waiting";
@@ -14,7 +14,14 @@ import { formatUSD, screeningPrices, topUp, topUpAmountError, usdToCredits, toCr
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
-type Tab = ManualPaymentMethod | "card";
+type Tab = ManualPaymentMethod | "card" | "crypto";
+
+export interface CryptoCoin {
+  id: string;
+  asset: string;
+  network: string;
+  hint?: string;
+}
 
 const DEFAULT_USD = 20;
 const REPORT_CREDITS = toCredits(screeningPrices.combined_screening);
@@ -25,10 +32,13 @@ const PRESETS = topUp.presetsUsd as readonly number[];
  * accepts any whole amount from US$5), then pay by card, PayPal or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
-export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean; reference: string; initialUsd?: number }) {
+export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {
   const router = useRouter();
-  const manual = enabledManualPayments();
-  const tabs: Tab[] = [...(stripe ? (["card"] as const) : []), ...manual.map((m) => m.id)];
+  const auto = cryptoCoins.length > 0;
+  // With automatic crypto (NOWPayments) on, the hand-confirmed crypto tabs are redundant.
+  const manual = enabledManualPayments().filter((m) => !(auto && isCryptoMethod(m.id)));
+  const tabs: Tab[] = [...(stripe ? (["card"] as const) : []), ...(auto ? (["crypto"] as const) : []), ...manual.map((m) => m.id)];
+  const [coin, setCoin] = useState<string>(cryptoCoins[0]?.id ?? "");
   const [tab, setTab] = useState<Tab>(tabs[0] ?? "card");
   const [usd, setUsd] = useState<number | null>(initialUsd && !topUpAmountError(initialUsd) ? initialUsd : DEFAULT_USD);
   const [custom, setCustom] = useState(initialUsd && !PRESETS.includes(initialUsd) && !topUpAmountError(initialUsd) ? String(initialUsd) : "");
@@ -36,19 +46,19 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
   const [pending, start] = useTransition();
   const [submitted, setSubmitted] = useState(false);
 
-  const crypto = tab !== "card" && isCryptoMethod(tab);
+  const crypto = tab === "crypto" || (tab !== "card" && isCryptoMethod(tab));
   const isPreset = usd !== null && PRESETS.includes(usd);
   const problem =
     usd === null ? "Enter a whole number of US dollars." : topUpAmountError(usd) ?? (!crypto && !isPreset ? "Choose one of the amounts above." : null);
   const credits = usd !== null && !problem ? usdToCredits(usd) : 0;
   const reports = Math.floor(credits / REPORT_CREDITS);
-  const current = tab === "card" ? null : manual.find((m) => m.id === tab) ?? null;
+  const current = tab === "card" || tab === "crypto" ? null : manual.find((m) => m.id === tab) ?? null;
 
   const pickTab = (t: Tab) => {
     setTab(t);
     setError(null);
     // Custom amounts are for crypto only; other methods fall back to a preset.
-    if (!(t !== "card" && isCryptoMethod(t)) && usd !== null && !PRESETS.includes(usd)) {
+    if (!(t === "crypto" || (t !== "card" && isCryptoMethod(t))) && usd !== null && !PRESETS.includes(usd)) {
       setUsd(DEFAULT_USD);
       setCustom("");
     }
@@ -133,8 +143,8 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
       {tabs.length > 0 ? (
         <div role="tablist" aria-label="Payment method" className="mt-2 flex flex-wrap gap-1.5 rounded-2xl border border-[var(--line)] bg-ink-900/50 p-1.5">
           {tabs.map((t) => {
-            const Icon = methodIcons[t];
-            const label = t === "card" ? "Card / Google Pay" : manual.find((m) => m.id === t)?.label;
+            const Icon = t === "crypto" ? Bitcoin : methodIcons[t];
+            const label = t === "card" ? "Card / Google Pay" : t === "crypto" ? "Crypto · USDT / USDC / BTC" : manual.find((m) => m.id === t)?.label;
             const active = t === tab;
             return (
               <button
@@ -216,6 +226,52 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
               </Button>
               <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-fg-subtle">
                 <Lock className="size-3" /> Secure checkout by Stripe
+              </p>
+            </div>
+          ) : tab === "crypto" ? (
+            <div className="rounded-2xl border border-[var(--line)] bg-ink-900/40 p-5">
+              <p className="text-[13px] text-fg-muted">
+                Pay with USDT, USDC or Bitcoin. Choose the coin and network your wallet will send on; you&rsquo;ll get an exact amount and address on the next screen, and your credits are added automatically once the payment is confirmed.
+              </p>
+              <p className="mt-4 text-[12px] font-medium uppercase tracking-wide text-fg-subtle">Coin and network</p>
+              <div role="radiogroup" aria-label="Coin and network" className="mt-2 grid gap-2 sm:grid-cols-2">
+                {cryptoCoins.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={coin === c.id}
+                    data-press
+                    onClick={() => setCoin(c.id)}
+                    className={cn(
+                      "rounded-xl border px-3.5 py-2.5 text-left transition",
+                      coin === c.id ? "border-accent/50 bg-accent/[0.12] text-fg" : "border-[var(--line)] bg-ink-900/40 text-fg-muted hover:border-[var(--line-strong)] hover:text-fg",
+                    )}
+                  >
+                    <span className="block text-[14px] font-semibold">{c.asset}</span>
+                    <span className="block text-[12px] text-fg-subtle">{c.network}{c.hint ? ` · ${c.hint}` : ""}</span>
+                  </button>
+                ))}
+              </div>
+              <Button
+                size="lg"
+                className="mt-5 w-full"
+                loading={pending}
+                disabled={pending || Boolean(problem) || usd === null || !coin}
+                onClick={() => {
+                  setError(null);
+                  track("crypto_payment_started", { coin });
+                  start(async () => {
+                    const res = await startCryptoPayment(usd ?? 0, coin);
+                    if (res.ok) router.push(`/billing/crypto/${res.id}`);
+                    else setError(res.message);
+                  });
+                }}
+              >
+                <Bitcoin className="size-4" /> {usd !== null && !problem ? `Pay ${formatUSD(usd)} with crypto` : "Choose an amount"}
+              </Button>
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-fg-subtle">
+                <Lock className="size-3" /> Payments are processed by NOWPayments
               </p>
             </div>
           ) : null}
