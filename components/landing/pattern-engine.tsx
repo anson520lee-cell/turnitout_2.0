@@ -53,33 +53,32 @@ export function PatternEngine() {
       </div>
       <Container className="relative">
         <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.02fr] lg:gap-10">
-          {/* The whole column leans with the cursor as one object, its blocks at
-              different depths: the title and the numbers nearest, the signal
-              cards together on one plane (so they stay in line), each rising
-              a little on hover. */}
+          {/* The whole column leans with the cursor as one object. Its blocks share
+              one plane, so they stay in a single tidy column with common left
+              and right edges; only a signal card rises a little on hover. */}
           <div className="[perspective:1400px]">
-          <div data-tilt="4" className="[transform-style:preserve-3d]">
-            <Reveal style={{ z: 18 }}>
+          <div data-tilt="4" className="max-w-xl [transform-style:preserve-3d] lg:max-w-none">
+            <Reveal>
               <Eyebrow className="flex items-center gap-2">
                 <span className="size-1.5 rounded-full bg-cyan shadow-[0_0_10px_#5fd8f5]" aria-hidden />
                 Built in-house
               </Eyebrow>
             </Reveal>
-            <Reveal delay={0.06} style={{ z: 48 }}>
+            <Reveal delay={0.06}>
               <h2 id="engine-title" className="mt-4 text-balance text-3xl font-semibold tracking-tight text-fg sm:text-[44px] sm:leading-[1.08]">
                 Meet the <span data-cursor className="depth-title-sheen">{brand.name} Pattern Engine</span>.
               </h2>
             </Reveal>
-            <Reveal delay={0.12} style={{ z: 10 }}>
-              <p className="mt-5 max-w-xl text-pretty text-[15.5px] leading-relaxed text-fg-muted">
+            <Reveal delay={0.12}>
+              <p className="mt-5 text-pretty text-[15.5px] leading-relaxed text-fg-muted">
                 Our free scan runs on our own analysis engine, built in-house. Picture it as a small network: six
                 writing signals go in, they are weighed together, and one estimate comes out. Every step is
                 deterministic, explainable text statistics, so the same text always gets the same reading, and
                 every signal shows you what it measured and where.
               </p>
             </Reveal>
-            <Reveal delay={0.16} style={{ z: 62 }}>
-              <dl className="mt-7 grid max-w-md grid-cols-3 gap-3">
+            <Reveal delay={0.16}>
+              <dl className="mt-7 grid grid-cols-3 gap-3">
                 {SPECS.map((s) => (
                   <div key={s.label} className="engine-spec rounded-2xl border px-4 py-3">
                     <dt className="sr-only">{s.label}</dt>
@@ -97,7 +96,7 @@ export function PatternEngine() {
             </Reveal>
             <Stagger className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-x-5 [transform-style:preserve-3d]" gap={0.05}>
               {ENGINE_SIGNALS.map((name, i) => (
-                <StaggerItem key={name} z={30} hoverZ={42}>
+                <StaggerItem key={name} z={0} hoverZ={12}>
                   <div
                     ref={(el) => void (rows.current[i] = el)}
                     className="engine-signal h-full rounded-xl border px-3.5 py-3 transition-colors"
@@ -113,7 +112,7 @@ export function PatternEngine() {
                 </StaggerItem>
               ))}
             </Stagger>
-            <Reveal delay={0.1} style={{ z: 66 }} className="mt-8 flex flex-wrap items-center gap-3">
+            <Reveal delay={0.1} className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/scan" className={buttonClasses("primary", "lg")}>
                 Try the engine free
                 <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
