@@ -1,12 +1,17 @@
 /**
- * Headings that answer the scroll wheel.
+ * Headings made of particles.
  *
- * Every h1/h2 below the fold is a cloud of particles until you scroll it into
- * view: as the heading rises from the bottom of the window the cloud rushes in
- * from in front of the camera and settles into the letters, and the real text
- * fades in underneath. The assembly is tied to the scroll position, not to a
- * clock, so it runs backwards when you scroll back and the cloud swirls with
- * your scroll speed. Headings already on screen at load assemble once by themselves, since there is nothing to scroll yet.
+ * Every h1/h2 is drawn as a field of small white particles that sit exactly
+ * where the letters of its real text are. The real text stays in the page (for
+ * search engines, screen readers, copy and paste, and as the template the
+ * particles are sampled from) but is not painted: what you see is the
+ * particles, before, during and after the assembly.
+ *
+ * Below the fold the assembly follows the scroll position, not a clock: the
+ * particles start outside the window, drift in from every side on curved paths
+ * and settle into the letter shapes as the heading rises, so it runs backwards
+ * when you scroll back, and fast or slow scrolling assembles fast or slow.
+ * Headings already on screen at load assemble once by themselves.
  *
  * Everything else on the page keeps its own entrance (`Reveal`). Nothing runs
  * under `prefers-reduced-motion`.
@@ -14,10 +19,10 @@
 
 const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only";
 const LETTER = /[\p{L}\p{N}]/u;
+const DOT = 1.35; // resting particle size, CSS px
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-const ease = (u: number) => 1 - Math.pow(1 - u, 3);
 const smooth = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
@@ -28,26 +33,29 @@ const smooth = (a: number, b: number, v: number) => {
 type Cloud = {
   el: HTMLElement;
   mode: "time" | "scroll";
+  text: string; // the text the particles were sampled from
   // time mode
   start: number;
   dur: number;
-  shown: boolean;
   // scroll mode
   target: number; // where the scroll position says progress should be
   prog: number; // eased progress actually drawn
   // geometry: particle targets relative to the element's top-left
+  w: number;
+  h: number;
   rx: Float32Array;
   ry: Float32Array;
   delay: Float32Array;
   zs: Float32Array;
-  sx: Float32Array;
+  sx: Float32Array; // start, viewport coordinates, outside the window
   sy: Float32Array;
-  sw: Float32Array; // spiral twist on the way in
-  sz: Float32Array; // size
-  br: Float32Array; // brightness
+  sw: Float32Array; // sideways bow of the path
+  sz: Float32Array; // size in flight
+  br: Float32Array; // brightness in flight
   n: number;
   ready: boolean;
   fresh: boolean; // the paths need re-rolling before the next approach
+  sprite: HTMLCanvasElement | null; // the finished heading, drawn once
 };
 
 const clouds = new Set<Cloud>();
@@ -58,11 +66,14 @@ let lastScrollY = 0;
 let vel = 0; // smoothed scroll speed, px per frame
 let lastNow = 0;
 
+const dprNow = () => Math.min(window.devicePixelRatio || 1, 2);
+
 function ensureLayer() {
   if (layer) return;
   layer = document.createElement("canvas");
   layer.setAttribute("aria-hidden", "true");
-  layer.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:90";
+  // under the fixed header (z-50), over the page
+  layer.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30";
   document.body.appendChild(layer);
   ctx = layer.getContext("2d");
   fit();
@@ -70,7 +81,7 @@ function ensureLayer() {
 }
 function fit() {
   if (!layer) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = dprNow();
   layer.width = Math.round(innerWidth * dpr);
   layer.height = Math.round(innerHeight * dpr);
 }
@@ -111,7 +122,7 @@ function randomize(cl: Cloud) {
     }
     cl.sx[i] = x;
     cl.sy[i] = y;
-    cl.sw[i] = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.4); // sideways bow of the path
+    cl.sw[i] = (Math.random() < 0.5 ? -1 : 1) * (0.08 + Math.random() * 0.4);
     cl.zs[i] = Math.random(); // depth: 1 is close to the camera
     cl.delay[i] = Math.random() * 0.5;
     cl.sz[i] = 0.6 + Math.random() * 0.9;
@@ -121,15 +132,18 @@ function randomize(cl: Cloud) {
 }
 
 /**
- * Rasterise an element's visible text; the lit pixels are returned relative to
- * its top-left corner. `perPx` is the font size divided by the grid step: a
- * bigger number gives a denser cloud.
+ * Rasterise the heading's real text (the template); the lit pixels, relative to
+ * its top-left corner, are where the particles go. `perPx` is the font size
+ * divided by the grid step: a bigger number gives a denser field.
  */
-function rasterise(el: HTMLElement, perPx: number, cap = 14000): { x: number[]; y: number[] } | null {
+function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; y: number[] } | null {
   const rect = el.getBoundingClientRect();
-  const W = Math.ceil(rect.width);
-  const H = Math.ceil(rect.height);
-  if (!W || !H || W > 3000 || H > 1200) return null;
+  // layout size, free of any transform an entrance animation has on the heading right now
+  const W = el.offsetWidth;
+  const H = el.offsetHeight;
+  if (!W || !H || !rect.width || !rect.height || W > 3000 || H > 1200) return null;
+  const kx = W / rect.width;
+  const ky = H / rect.height;
   const cv = document.createElement("canvas");
   cv.width = W;
   cv.height = H;
@@ -153,10 +167,10 @@ function rasterise(el: HTMLElement, perPx: number, cap = 14000): { x: number[]; 
       rg.setStart(t, i);
       rg.setEnd(t, i + 1);
       const r = rg.getClientRects()[0];
-      if (r) c.fillText(ch, r.left - rect.left, r.top - rect.top + r.height / 2);
+      if (r) c.fillText(ch, (r.left - rect.left) * kx, (r.top - rect.top + r.height / 2) * ky);
     }
   }
-  let step = Math.max(2, Math.round(size / perPx));
+  let step = Math.max(1.6, size / perPx);
   const px = c.getImageData(0, 0, W, H).data;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -164,23 +178,27 @@ function rasterise(el: HTMLElement, perPx: number, cap = 14000): { x: number[]; 
     xs.length = 0;
     ys.length = 0;
     for (let j = 0; j < H; j += step)
-      for (let i = 0; i < W; i += step) if (px[(j * W + i) * 4 + 3] > 120) {
+      for (let i = 0; i < W; i += step) if (px[(Math.floor(j) * W + Math.floor(i)) * 4 + 3] > 120) {
         xs.push(i);
         ys.push(j);
       }
     if (xs.length <= cap) break;
-    step += 1;
+    step += 0.3;
   }
   return xs.length ? { x: xs, y: ys } : null;
 }
 
 function sample(cl: Cloud): boolean {
-  const pts = rasterise(cl.el, 23);
+  const pts = rasterise(cl.el, 40, 18000);
   if (!pts) return false;
   const n = pts.x.length;
+  cl.w = cl.el.offsetWidth;
+  cl.h = cl.el.offsetHeight;
+  cl.text = cl.el.textContent ?? "";
   cl.n = n;
-  cl.rx = Float32Array.from(pts.x);
-  cl.ry = Float32Array.from(pts.y);
+  // a touch of grain so the letters read as particles, not as a grid
+  cl.rx = Float32Array.from(pts.x, (v) => v + (Math.random() - 0.5) * 0.9);
+  cl.ry = Float32Array.from(pts.y, (v) => v + (Math.random() - 0.5) * 0.9);
   cl.delay = new Float32Array(n);
   cl.zs = new Float32Array(n);
   cl.sx = new Float32Array(n);
@@ -188,9 +206,27 @@ function sample(cl: Cloud): boolean {
   cl.sw = new Float32Array(n);
   cl.sz = new Float32Array(n);
   cl.br = new Float32Array(n);
+  cl.sprite = null;
   randomize(cl);
   cl.ready = true;
   return true;
+}
+
+/** The finished heading: every particle at rest, drawn once and reused while scrolling. */
+function makeSprite(cl: Cloud): HTMLCanvasElement {
+  const dpr = dprNow();
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil((cl.w + 8) * dpr);
+  cv.height = Math.ceil((cl.h + 8) * dpr);
+  const c = cv.getContext("2d")!;
+  c.scale(dpr, dpr);
+  c.fillStyle = "#fff";
+  // a faint halo first, then the crisp dots
+  c.globalAlpha = 0.06;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT, cl.ry[i] + 4 - DOT, DOT * 2, DOT * 2);
+  c.globalAlpha = 0.97;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT / 2, cl.ry[i] + 4 - DOT / 2, DOT, DOT);
+  return cv;
 }
 
 /** Scroll position -> assembly progress: 0 just before the heading enters at the bottom, 1 once it has risen to ~40% of the window. */
@@ -221,6 +257,9 @@ function frame(now: number) {
       clouds.delete(cl);
       continue;
     }
+    // the heading's text changed: sample it again
+    if (cl.ready && (cl.el.textContent ?? "") !== cl.text) cl.ready = false;
+
     let p: number;
     if (cl.mode === "time") {
       const u = (now - cl.start) / cl.dur;
@@ -228,19 +267,8 @@ function frame(now: number) {
         busy = true;
         continue;
       }
-      if (u >= 1.08) {
-        cl.el.style.transition = "";
-        cl.el.style.opacity = "";
-        clouds.delete(cl);
-        continue;
-      }
-      if (!cl.shown && u > 0.72) {
-        cl.shown = true;
-        cl.el.style.transition = "opacity 0.9s ease";
-        cl.el.style.opacity = "1";
-      }
-      p = u;
-      busy = true;
+      p = clamp(u, 0, 1);
+      if (u < 1) busy = true;
     } else {
       cl.target = scrollProgress(cl.el);
       const d = cl.target - cl.prog;
@@ -249,24 +277,30 @@ function frame(now: number) {
         busy = true;
       } else cl.prog = cl.target;
       p = cl.prog;
-      cl.el.style.opacity = p >= 0.999 ? "" : String(smooth(0.66, 0.98, p));
-      if (p >= 0.999) cl.el.style.transition = "";
       if (p <= 0.001) {
-        cl.fresh = true;
-        continue;
-      }
-      if (p >= 0.999) continue;
-      if (!cl.ready && !sample(cl)) {
-        cl.el.style.opacity = "";
-        clouds.delete(cl);
+        cl.fresh = true; // re-roll the paths for the next approach
         continue;
       }
     }
-    if (!ctx || !cl.ready) continue;
-    if (cl.fresh) randomize(cl);
+    if (!ctx) continue;
     const rect = cl.el.getBoundingClientRect();
-    if (rect.bottom < -200 || rect.top > innerHeight + 200) continue;
-    const fade = cl.mode === "time" ? 1 - smooth(0.8, 1.06, p) : 1 - smooth(0.93, 1, p);
+    if (rect.bottom < -60 || rect.top > innerHeight + 60) continue;
+    if (!cl.ready && !sample(cl)) {
+      cl.el.style.opacity = ""; // nothing to sample: show the plain text
+      clouds.delete(cl);
+      continue;
+    }
+
+    // finished: the heading is the sprite
+    const kx = rect.width / cl.w;
+    const ky = rect.height / cl.h;
+    if (p >= 0.999) {
+      if (!cl.sprite) cl.sprite = makeSprite(cl);
+      ctx.drawImage(cl.sprite, rect.left - 4 * kx, rect.top - 4 * ky, (cl.w + 8) * kx, (cl.h + 8) * ky);
+      continue;
+    }
+
+    if (cl.fresh) randomize(cl);
     const drift = vel * 5;
     const tm = now * 0.0016;
     ctx.globalCompositeOperation = "lighter";
@@ -276,8 +310,8 @@ function frame(now: number) {
       if (q <= 0) continue;
       const e = 1 - Math.pow(1 - q, 2.2 + cl.zs[i] * 1.2); // nearer ones arrive more abruptly
       const r = 1 - e;
-      const tx = rect.left + cl.rx[i];
-      const ty = rect.top + cl.ry[i];
+      const tx = rect.left + cl.rx[i] * kx;
+      const ty = rect.top + cl.ry[i] * ky;
       const dx = tx - cl.sx[i];
       const dy = ty - cl.sy[i];
       const len = Math.hypot(dx, dy) || 1;
@@ -286,10 +320,10 @@ function frame(now: number) {
       const x = cl.sx[i] + dx * e - (dy / len) * bow + Math.sin(tm * (1 + cl.zs[i]) + i) * wob;
       const y = cl.sy[i] + dy * e + (dx / len) * bow + Math.cos(tm * 1.3 + i * 0.7) * wob - drift * cl.zs[i] * r;
       if (x < -20 || x > innerWidth + 20 || y < -20 || y > innerHeight + 20) continue;
-      // small points; the ones nearer the camera are a touch larger and softer
-      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r);
+      // in flight each particle is its own size and brightness; on arrival they all match
+      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r) * r + DOT * e;
       const twinkle = 0.8 + 0.2 * Math.sin(tm * 3 + i * 1.7);
-      const a = (0.55 + 0.45 * e) * cl.br[i] * twinkle * fade * (1 - 0.25 * cl.zs[i] * r);
+      const a = (cl.br[i] * twinkle * (1 - 0.25 * cl.zs[i] * r)) * r + 0.96 * e;
       if (a <= 0.015) continue;
       ctx.globalAlpha = a;
       ctx.fillRect(x - s / 2, y - s / 2, s, s);
@@ -308,11 +342,13 @@ function mk(el: HTMLElement, mode: Cloud["mode"]): Cloud {
   return {
     el,
     mode,
+    text: "",
     start: 0,
     dur: 3200,
-    shown: false,
     target: 0,
     prog: 0,
+    w: 0,
+    h: 0,
     rx: new Float32Array(0),
     ry: new Float32Array(0),
     delay: new Float32Array(0),
@@ -325,21 +361,8 @@ function mk(el: HTMLElement, mode: Cloud["mode"]): Cloud {
     n: 0,
     ready: false,
     fresh: false,
+    sprite: null,
   };
-}
-
-/** Assemble an element's text from a cloud once, on a clock (for text already on screen at load). */
-export function playCloud(el: HTMLElement, delay = 0) {
-  if (reduced() || !el.isConnected) return;
-  ensureLayer();
-  const cl = mk(el, "time");
-  cl.start = performance.now() + delay;
-  if (!sample(cl)) return;
-  el.style.transition = "none";
-  el.style.opacity = "0";
-  el.style.visibility = "";
-  clouds.add(cl);
-  wake();
 }
 
 /* ------------------------------------------------------------------ page scan */
@@ -352,6 +375,7 @@ export function startEntrance(): () => void {
   const seen = new Set<HTMLElement>();
   const mine: HTMLElement[] = [];
   lastScrollY = scrollY;
+  lastNow = 0;
 
   document.querySelectorAll<HTMLElement>("h1,h2").forEach((h) => {
     if (h.closest(SKIP_SEL) || !h.getClientRects().length || !LETTER.test(h.textContent ?? "")) return;
@@ -363,23 +387,25 @@ export function startEntrance(): () => void {
 
   ensureLayer();
   let order = 0;
+  const t0 = performance.now();
   for (const el of mine) {
     const box = el.getBoundingClientRect();
-    if (box.top + box.height / 2 < innerHeight * 0.8) {
-      // already on screen: nothing to scroll yet, so assemble once on a clock
-      playCloud(el, 150 + order++ * 120);
-    } else {
-      const cl = mk(el, "scroll");
-      el.style.opacity = "0";
-      el.style.transition = "none";
-      clouds.add(cl);
-    }
+    const onScreen = box.top + box.height / 2 < innerHeight * 0.8;
+    const cl = mk(el, onScreen ? "time" : "scroll");
+    if (onScreen) cl.start = t0 + 150 + order++ * 120; // already visible: assemble once on a clock
+    // the real text stays in the page as the template, but is not painted
+    el.style.opacity = "0";
+    el.style.transition = "none";
+    clouds.add(cl);
   }
   document.documentElement.classList.remove("ent-pre");
 
   const onScroll = () => wake();
   const onResize = () => {
-    for (const c of clouds) c.ready = false;
+    for (const c of clouds) {
+      c.ready = false;
+      c.sprite = null;
+    }
     wake();
   };
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -392,7 +418,6 @@ export function startEntrance(): () => void {
     for (const cl of clouds) {
       cl.el.style.opacity = "";
       cl.el.style.transition = "";
-      cl.el.style.visibility = "";
     }
     clouds.clear();
     if (raf) cancelAnimationFrame(raf);
