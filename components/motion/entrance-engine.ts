@@ -1,7 +1,7 @@
 /**
  * Headings made of particles.
  *
- * Every h1/h2 is drawn as a field of small white particles that sit exactly
+ * Every h1/h2/h3 is drawn as a field of small white particles that sit exactly
  * where the letters of its real text are. The real text stays in the page (for
  * search engines, screen readers, copy and paste, and as the template the
  * particles are sampled from) but is not painted: what you see is the
@@ -19,7 +19,8 @@
 
 const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only";
 const LETTER = /[\p{L}\p{N}]/u;
-const DOT = 1.4; // resting particle size, CSS px
+const DOT = 1.4; // resting particle size for display headings, CSS px
+const DOT_SMALL = 1.05; // for card and sub-headings
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -53,6 +54,7 @@ type Cloud = {
   sz: Float32Array; // size in flight
   br: Float32Array; // brightness in flight
   n: number;
+  dot: number; // resting particle size
   ready: boolean;
   fresh: boolean; // the paths need re-rolling before the next approach
   sprite: HTMLCanvasElement | null; // the finished heading, drawn once
@@ -136,7 +138,7 @@ function randomize(cl: Cloud) {
  * its top-left corner, are where the particles go. `perPx` is the font size
  * divided by the grid step: a bigger number gives a denser field.
  */
-function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; y: number[] } | null {
+function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; y: number[]; size: number } | null {
   const rect = el.getBoundingClientRect();
   // layout size, free of any transform an entrance animation has on the heading right now
   const W = el.offsetWidth;
@@ -170,7 +172,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
       if (r) c.fillText(ch, (r.left - rect.left) * kx, (r.top - rect.top + r.height / 2) * ky);
     }
   }
-  let step = Math.max(1.25, size / perPx);
+  let step = Math.max(size < 26 ? 1 : 1.25, size / perPx);
   const px = c.getImageData(0, 0, W, H).data;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -185,13 +187,14 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
     if (xs.length <= cap) break;
     step += 0.3;
   }
-  return xs.length ? { x: xs, y: ys } : null;
+  return xs.length ? { x: xs, y: ys, size } : null;
 }
 
 function sample(cl: Cloud): boolean {
   const pts = rasterise(cl.el, 54, 22000);
   if (!pts) return false;
   const n = pts.x.length;
+  cl.dot = pts.size < 26 ? DOT_SMALL : DOT;
   cl.w = cl.el.offsetWidth;
   cl.h = cl.el.offsetHeight;
   cl.text = cl.el.textContent ?? "";
@@ -214,6 +217,7 @@ function sample(cl: Cloud): boolean {
 
 /** The finished heading: every particle at rest, drawn once and reused while scrolling. */
 function makeSprite(cl: Cloud): HTMLCanvasElement {
+  const D = cl.dot;
   const dpr = dprNow();
   const cv = document.createElement("canvas");
   cv.width = Math.ceil((cl.w + 8) * dpr);
@@ -222,12 +226,13 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
   c.scale(dpr, dpr);
   c.fillStyle = "#fff";
   // a soft halo, a brighter ring, then the crisp white core
-  c.globalAlpha = 0.05;
-  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT * 1.5, cl.ry[i] + 4 - DOT * 1.5, DOT * 3, DOT * 3);
-  c.globalAlpha = 0.16;
-  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT, cl.ry[i] + 4 - DOT, DOT * 2, DOT * 2);
+  const small = D < 1.2; // small headings stay crisp: less glow
+  c.globalAlpha = small ? 0 : 0.05;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D * 1.5, cl.ry[i] + 4 - D * 1.5, D * 3, D * 3);
+  c.globalAlpha = small ? 0.07 : 0.16;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D, cl.ry[i] + 4 - D, D * 2, D * 2);
   c.globalAlpha = 1;
-  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT * 0.6, cl.ry[i] + 4 - DOT * 0.6, DOT * 1.2, DOT * 1.2);
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D * 0.6, cl.ry[i] + 4 - D * 0.6, D * 1.2, D * 1.2);
   return cv;
 }
 
@@ -332,7 +337,7 @@ function frame(now: number) {
       const y = cy + (py - cy) * k;
       if (x < -30 || x > innerWidth + 30 || y < -30 || y > innerHeight + 30) continue;
       // in flight each particle is its own size and brightness; on arrival they all match
-      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r) * Math.min(k, 2.2) * r + DOT * e;
+      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r) * Math.min(k, 2.2) * r + cl.dot * e;
       const twinkle = 0.8 + 0.2 * Math.sin(tm * 3 + i * 1.7);
       const a = (cl.br[i] * twinkle * (1 - 0.25 * cl.zs[i] * r)) * r + 0.96 * e;
       if (a <= 0.015) continue;
@@ -370,6 +375,7 @@ function mk(el: HTMLElement, mode: Cloud["mode"]): Cloud {
     sz: new Float32Array(0),
     br: new Float32Array(0),
     n: 0,
+    dot: DOT,
     ready: false,
     fresh: false,
     sprite: null,
@@ -388,7 +394,7 @@ export function startEntrance(): () => void {
   lastScrollY = scrollY;
   lastNow = 0;
 
-  document.querySelectorAll<HTMLElement>("h1,h2").forEach((h) => {
+  document.querySelectorAll<HTMLElement>("h1,h2,h3").forEach((h) => {
     if (h.closest(SKIP_SEL) || !h.getClientRects().length || !LETTER.test(h.textContent ?? "")) return;
     const el = (h.closest(".depth-title") as HTMLElement | null) ?? h;
     if (seen.has(el)) return;

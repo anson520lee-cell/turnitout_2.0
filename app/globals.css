@@ -1382,6 +1382,6 @@ html[data-interactive] [data-depth] {
 
 /* Heading entrance: until components/motion/entrance-engine.ts has measured
    the page, its headings stay out of sight (it removes the class). */
-html.ent-pre :is(.depth-title, h1, h2) {
+html.ent-pre :is(.depth-title, h1, h2, h3) {
   visibility: hidden;
 }
