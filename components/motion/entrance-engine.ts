@@ -19,7 +19,7 @@
 
 const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only,footer";
 const LETTER = /[\p{L}\p{N}]/u;
-const DOT = 1.4; // resting particle size for display headings, CSS px
+const DOT = 1.15; // resting particle size for display headings, CSS px
 const DOT_SMALL = 1.05; // for card and sub-headings
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -172,7 +172,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
       if (r) c.fillText(ch, (r.left - rect.left) * kx, (r.top - rect.top + r.height / 2) * ky);
     }
   }
-  let step = Math.max(size < 26 ? 1 : 1.25, size / perPx);
+  let step = Math.max(1, size / perPx);
   const px = c.getImageData(0, 0, W, H).data;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -191,7 +191,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
 }
 
 function sample(cl: Cloud): boolean {
-  const pts = rasterise(cl.el, 54, 22000);
+  const pts = rasterise(cl.el, 64, 30000);
   if (!pts) return false;
   const n = pts.x.length;
   cl.dot = pts.size < 26 ? DOT_SMALL : DOT;
@@ -200,8 +200,8 @@ function sample(cl: Cloud): boolean {
   cl.text = cl.el.textContent ?? "";
   cl.n = n;
   // a touch of grain so the letters read as particles, not as a grid
-  cl.rx = Float32Array.from(pts.x, (v) => v + (Math.random() - 0.5) * 0.9);
-  cl.ry = Float32Array.from(pts.y, (v) => v + (Math.random() - 0.5) * 0.9);
+  cl.rx = Float32Array.from(pts.x, (v) => v + (Math.random() - 0.5) * 0.35);
+  cl.ry = Float32Array.from(pts.y, (v) => v + (Math.random() - 0.5) * 0.35);
   cl.delay = new Float32Array(n);
   cl.zs = new Float32Array(n);
   cl.sx = new Float32Array(n);
@@ -227,9 +227,9 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
   c.fillStyle = "#fff";
   // a soft halo, a brighter ring, then the crisp white core
   const small = D < 1.2; // small headings stay crisp: less glow
-  c.globalAlpha = small ? 0 : 0.05;
+  c.globalAlpha = small ? 0 : 0.025;
   for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D * 1.5, cl.ry[i] + 4 - D * 1.5, D * 3, D * 3);
-  c.globalAlpha = small ? 0.07 : 0.16;
+  c.globalAlpha = small ? 0.04 : 0.06;
   for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D, cl.ry[i] + 4 - D, D * 2, D * 2);
   c.globalAlpha = 1;
   for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - D * 0.6, cl.ry[i] + 4 - D * 0.6, D * 1.2, D * 1.2);
@@ -308,9 +308,7 @@ function frame(now: number) {
     const ky = rect.height / cl.h;
     if (p >= 0.999) {
       if (!cl.sprite) cl.sprite = makeSprite(cl);
-      ctx.globalCompositeOperation = "lighter"; // overlapping glow adds up: whiter, brighter
       ctx.drawImage(cl.sprite, rect.left - 4 * kx, rect.top - 4 * ky, (cl.w + 8) * kx, (cl.h + 8) * ky);
-      ctx.globalCompositeOperation = "source-over";
       continue;
     }
 
