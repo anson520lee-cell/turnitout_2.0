@@ -1385,3 +1385,22 @@ html[data-interactive] [data-depth] {
 html.ent-pre :is(.depth-title, h1, h2) {
   visibility: hidden;
 }
+
+/* Dashboard engine schematic (components/dashboard/engine-schematic.tsx):
+   one thin read line sweeping the layers, and the gauge arc easing round. */
+.es-read { animation: es-read 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes es-read {
+  0% { transform: translateX(0); opacity: 0; }
+  8% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(312px); opacity: 0; }
+}
+.es-arc { animation: es-arc 4.2s ease-in-out infinite; }
+@keyframes es-arc {
+  0%, 70% { stroke-dashoffset: 0; }
+  85% { stroke-dashoffset: -20; }
+  100% { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .es-read, .es-arc { animation: none; }
+}

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { OrderRow } from "@/components/orders/order-row";
 import { NeuralMark } from "@/components/ui/neural-mark";
-import { NeuralStrip } from "@/components/space/neural-strip";
+import { EngineSchematic } from "@/components/dashboard/engine-schematic";
 import { requireUser } from "@/lib/auth/session";
 import { getRemainingScans } from "@/lib/scanning/usage";
 import { listOrders, listPendingClaimOrderIds, listScans } from "@/lib/data/user";
@@ -71,7 +71,6 @@ export default async function DashboardPage() {
       </div>
 
       <Card strong className="noise mt-5 overflow-hidden p-5 sm:p-6">
-        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-violet/20 blur-3xl" />
         <div className="relative grid items-center gap-6 md:grid-cols-[1fr_1.15fr]">
           <div>
             <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-accent">
@@ -85,7 +84,7 @@ export default async function DashboardPage() {
               Run a scan <ArrowRight className="size-4" />
             </Link>
           </div>
-          <NeuralStrip className="max-w-[460px] justify-self-end" />
+          <EngineSchematic className="max-w-[500px] justify-self-end" />
         </div>
       </Card>
 
