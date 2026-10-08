@@ -19,7 +19,7 @@
 
 const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only";
 const LETTER = /[\p{L}\p{N}]/u;
-const DOT = 1.35; // resting particle size, CSS px
+const DOT = 1.4; // resting particle size, CSS px
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -170,7 +170,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
       if (r) c.fillText(ch, (r.left - rect.left) * kx, (r.top - rect.top + r.height / 2) * ky);
     }
   }
-  let step = Math.max(1.6, size / perPx);
+  let step = Math.max(1.25, size / perPx);
   const px = c.getImageData(0, 0, W, H).data;
   const xs: number[] = [];
   const ys: number[] = [];
@@ -189,7 +189,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
 }
 
 function sample(cl: Cloud): boolean {
-  const pts = rasterise(cl.el, 40, 18000);
+  const pts = rasterise(cl.el, 54, 22000);
   if (!pts) return false;
   const n = pts.x.length;
   cl.w = cl.el.offsetWidth;
@@ -221,11 +221,13 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
   const c = cv.getContext("2d")!;
   c.scale(dpr, dpr);
   c.fillStyle = "#fff";
-  // a faint halo first, then the crisp dots
-  c.globalAlpha = 0.06;
+  // a soft halo, a brighter ring, then the crisp white core
+  c.globalAlpha = 0.05;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT * 1.5, cl.ry[i] + 4 - DOT * 1.5, DOT * 3, DOT * 3);
+  c.globalAlpha = 0.16;
   for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT, cl.ry[i] + 4 - DOT, DOT * 2, DOT * 2);
-  c.globalAlpha = 0.97;
-  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT / 2, cl.ry[i] + 4 - DOT / 2, DOT, DOT);
+  c.globalAlpha = 1;
+  for (let i = 0; i < cl.n; i++) c.fillRect(cl.rx[i] + 4 - DOT * 0.6, cl.ry[i] + 4 - DOT * 0.6, DOT * 1.2, DOT * 1.2);
   return cv;
 }
 
@@ -296,13 +298,17 @@ function frame(now: number) {
     const ky = rect.height / cl.h;
     if (p >= 0.999) {
       if (!cl.sprite) cl.sprite = makeSprite(cl);
+      ctx.globalCompositeOperation = "lighter"; // overlapping glow adds up: whiter, brighter
       ctx.drawImage(cl.sprite, rect.left - 4 * kx, rect.top - 4 * ky, (cl.w + 8) * kx, (cl.h + 8) * ky);
+      ctx.globalCompositeOperation = "source-over";
       continue;
     }
 
     if (cl.fresh) randomize(cl);
     const drift = vel * 5;
     const tm = now * 0.0016;
+    const cx = innerWidth / 2;
+    const cy = innerHeight / 2;
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = "#fff";
     for (let i = 0; i < cl.n; i++) {
@@ -317,11 +323,16 @@ function frame(now: number) {
       const len = Math.hypot(dx, dy) || 1;
       const bow = cl.sw[i] * len * Math.sin(Math.PI * e); // curved, never a straight line
       const wob = 5 * r;
-      const x = cl.sx[i] + dx * e - (dy / len) * bow + Math.sin(tm * (1 + cl.zs[i]) + i) * wob;
-      const y = cl.sy[i] + dy * e + (dx / len) * bow + Math.cos(tm * 1.3 + i * 0.7) * wob - drift * cl.zs[i] * r;
-      if (x < -20 || x > innerWidth + 20 || y < -20 || y > innerHeight + 20) continue;
+      const px = cl.sx[i] + dx * e - (dy / len) * bow + Math.sin(tm * (1 + cl.zs[i]) + i) * wob;
+      const py = cl.sy[i] + dy * e + (dx / len) * bow + Math.cos(tm * 1.3 + i * 0.7) * wob - drift * cl.zs[i] * r;
+      // depth: far away it is small and near the middle of the view, and it rushes out
+      // toward you, growing, as it settles onto the page
+      const k = 1 / (1 - cl.zs[i] * 0.62 * r);
+      const x = cx + (px - cx) * k;
+      const y = cy + (py - cy) * k;
+      if (x < -30 || x > innerWidth + 30 || y < -30 || y > innerHeight + 30) continue;
       // in flight each particle is its own size and brightness; on arrival they all match
-      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r) * r + DOT * e;
+      const s = cl.sz[i] * (0.8 + 1.1 * cl.zs[i] * r) * Math.min(k, 2.2) * r + DOT * e;
       const twinkle = 0.8 + 0.2 * Math.sin(tm * 3 + i * 1.7);
       const a = (cl.br[i] * twinkle * (1 - 0.25 * cl.zs[i] * r)) * r + 0.96 * e;
       if (a <= 0.015) continue;
