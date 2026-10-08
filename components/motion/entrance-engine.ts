@@ -1,7 +1,7 @@
 /**
  * Headings made of particles.
  *
- * Every h1/h2/h3 is drawn as a field of small white particles that sit exactly
+ * Every section heading (h1/h2, outside the footer) is drawn as a field of small white particles that sit exactly
  * where the letters of its real text are. The real text stays in the page (for
  * search engines, screen readers, copy and paste, and as the template the
  * particles are sampled from) but is not painted: what you see is the
@@ -17,7 +17,7 @@
  * under `prefers-reduced-motion`.
  */
 
-const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only";
+const SKIP_SEL = "[data-no-entrance],[aria-hidden=true],.sr-only,footer";
 const LETTER = /[\p{L}\p{N}]/u;
 const DOT = 1.4; // resting particle size for display headings, CSS px
 const DOT_SMALL = 1.05; // for card and sub-headings
@@ -159,7 +159,7 @@ function rasterise(el: HTMLElement, perPx: number, cap: number): { x: number[]; 
   for (let n = w.nextNode(); n; n = w.nextNode()) {
     const t = n as Text;
     const p = t.parentElement;
-    if (!p || p.closest("[aria-hidden=true]") || !LETTER.test(t.data)) continue;
+    if (!p || p.closest("[aria-hidden=true]") || !t.data.trim()) continue; // punctuation counts too
     const cs = getComputedStyle(p);
     size = parseFloat(cs.fontSize) || size;
     c.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
@@ -236,11 +236,18 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
   return cv;
 }
 
-/** Scroll position -> assembly progress: 0 just before the heading enters at the bottom, 1 once it has risen to ~40% of the window. */
+/**
+ * Scroll position -> assembly progress, measured on the heading's section (its
+ * module): 0 while the section's top is still a fifth of a window below the
+ * screen, 1 once the section has come 40% of the way up, i.e. when about a
+ * third to a half of the module is in view.
+ */
 function scrollProgress(el: HTMLElement) {
   const r = el.getBoundingClientRect();
-  const y = r.top + r.height / 2;
-  return clamp((innerHeight * 1.08 - y) / (innerHeight * 0.66), 0, 1);
+  const sec = el.closest("section");
+  // a heading deep inside a long section goes by its own position
+  const top = sec ? Math.max(sec.getBoundingClientRect().top, r.top - innerHeight * 0.3) : r.top - innerHeight * 0.15;
+  return clamp((innerHeight * 1.2 - top) / (innerHeight * 0.6), 0, 1);
 }
 
 function frame(now: number) {
@@ -394,7 +401,7 @@ export function startEntrance(): () => void {
   lastScrollY = scrollY;
   lastNow = 0;
 
-  document.querySelectorAll<HTMLElement>("h1,h2,h3").forEach((h) => {
+  document.querySelectorAll<HTMLElement>("h1,h2").forEach((h) => {
     if (h.closest(SKIP_SEL) || !h.getClientRects().length || !LETTER.test(h.textContent ?? "")) return;
     const el = (h.closest(".depth-title") as HTMLElement | null) ?? h;
     if (seen.has(el)) return;
@@ -407,7 +414,7 @@ export function startEntrance(): () => void {
   const t0 = performance.now();
   for (const el of mine) {
     const box = el.getBoundingClientRect();
-    const onScreen = box.top + box.height / 2 < innerHeight * 0.8;
+    const onScreen = box.top + box.height / 2 < innerHeight * 0.8 || scrollProgress(el) >= 0.999;
     const cl = mk(el, onScreen ? "time" : "scroll");
     if (onScreen) cl.start = t0 + 150 + order++ * 120; // already visible: assemble once on a clock
     // the real text stays in the page as the template, but is not painted
