@@ -237,17 +237,15 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
 }
 
 /**
- * Scroll position -> assembly progress, measured on the heading's section (its
- * module): 0 while the section's top is still a fifth of a window below the
- * screen, 1 once the section has come 40% of the way up, i.e. when about a
- * third to a half of the module is in view.
+ * Scroll position -> assembly progress, from the heading's own position: 0
+ * while it is still a fifth of a window below the screen, 1 once it has risen
+ * to just below the middle (its centre 60% down the window, 40% up from the
+ * bottom).
  */
 function scrollProgress(el: HTMLElement) {
   const r = el.getBoundingClientRect();
-  const sec = el.closest("section");
-  // a heading deep inside a long section goes by its own position
-  const top = sec ? Math.max(sec.getBoundingClientRect().top, r.top - innerHeight * 0.3) : r.top - innerHeight * 0.15;
-  return clamp((innerHeight * 1.2 - top) / (innerHeight * 0.6), 0, 1);
+  const y = r.top + r.height / 2;
+  return clamp((innerHeight * 1.2 - y) / (innerHeight * 0.6), 0, 1);
 }
 
 function frame(now: number) {
