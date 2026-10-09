@@ -3,7 +3,7 @@
  * backdrop draws whatever this is doing; nothing in it is scripted.
  *
  * - Task: tell three interleaved spiral arms apart (240 points, 3 classes).
- * - Model: a 4-10-14-14-10-3 multilayer perceptron, tanh hidden units,
+ * - Model: a 4-8-8-3 multilayer perceptron, tanh hidden units,
  *   softmax output. The four inputs are x, y, x·y and the radius.
  * - Learning: mini-batch gradient descent with backpropagation and the Adam
  *   update rule, cross-entropy loss.
@@ -14,7 +14,7 @@
  * and activations read from here are the actual numbers of that process.
  */
 
-export const NET_LAYERS = [4, 10, 14, 14, 10, 3];
+export const NET_LAYERS = [4, 8, 8, 3];
 export const INPUT_NAMES = ["x", "y", "x·y", "r"];
 export const CLASS_NAMES = ["A", "B", "C"];
 const L = NET_LAYERS.length;

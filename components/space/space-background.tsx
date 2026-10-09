@@ -9,7 +9,6 @@ import { CLASS_NAMES, INPUT_NAMES, NET_LAYERS, classColor, createTrainer } from 
  * One fixed canvas behind the app, drawn back to front:
  *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
  *    (slow scroll parallax)
- *  - three depth layers of twinkling stars
  *  - the neural field: a loose 3D mesh of neurons the page flies through as
  *    it scrolls; the faster the scroll, the brighter the mesh and the more
  *    signals race along it (and the central network computes faster)
@@ -59,7 +58,6 @@ const OPTIMISERS: [string, string][] = [
   ["AdaGrad", "130,235,170"],
 ];
 
-interface Star { x: number; y: number; z: number; s: number; ph: number; hue: number; big: boolean }
 interface Meteor { x: number; y: number; vx: number; vy: number; len: number; age: number; max: number; w: number; violet: boolean }
 /** Where a neuron sits: fractions of the viewport, a depth for parallax, a phase for its drift. */
 interface NetNode { l: number; i: number; fx: number; fy: number; z: number; ph: number }
@@ -69,20 +67,6 @@ interface NetEdge { a: number; b: number; l: number; q: number; c: number; ph: n
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-function makeStars(n: number): Star[] {
-  return Array.from({ length: n }, () => {
-    const z = Math.random();
-    return {
-      x: Math.random(),
-      y: Math.random(),
-      z: 0.15 + z * 0.85,
-      s: 0.5 + z * 1.3,
-      ph: Math.random() * Math.PI * 2,
-      hue: Math.random() < 0.18 ? 262 : Math.random() < 0.5 ? 215 : 190,
-      big: Math.random() < 0.07,
-    };
-  });
-}
 
 /** Lays the trainer's network out across the whole viewport: layers left to right, each spread top to bottom. */
 function makeNet() {
@@ -323,7 +307,7 @@ function makeField(n: number) {
     const near = nodes
       .map((b, j) => ({ j, d: j === i ? Infinity : (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + ((a.z - b.z) * 1.4) ** 2 }))
       .sort((p, q) => p.d - q.d)
-      .slice(0, 3);
+      .slice(0, 2);
     for (const { j } of near) {
       const key = Math.min(i, j) * 1000 + Math.max(i, j);
       if (seen.has(key)) continue;
@@ -357,7 +341,6 @@ export function SpaceBackground() {
     let h = 0;
     let dpr = 1;
     let small = false;
-    let stars: Star[] = [];
     const meteors: Meteor[] = [];
     const queued: number[] = []; // seconds until a queued shower meteor appears
     const net = makeNet();
@@ -420,8 +403,7 @@ export function SpaceBackground() {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      stars = makeStars(small ? 150 : 420);
-      field = makeField(small ? 44 : 110);
+      field = makeField(small ? 16 : 40);
       fx = new Float32Array(field.nodes.length);
       fy = new Float32Array(field.nodes.length);
       fz = new Float32Array(field.nodes.length);
@@ -804,40 +786,6 @@ export function SpaceBackground() {
       c.restore();
     }
 
-    function drawStars(time: number) {
-      const streak = false; // stars stay points; the scroll shows in the neural field, not as streaks
-      const dir = vel > 0 ? 1 : -1;
-      for (const s of stars) {
-        const x = s.x * w;
-        let y = (s.y * h - scrollY * s.z * 0.28) % h;
-        if (y < 0) y += h;
-        const tw = 0.55 + 0.45 * Math.sin(time * (0.8 + s.z) + s.ph);
-        const a = clamp(s.z * 0.9 * tw + 0.1);
-        const col = `hsla(${s.hue},90%,${s.big ? 88 : 80}%,`;
-        if (streak) {
-          const len = Math.min(22, Math.abs(vel) * s.z * 0.7);
-          c.strokeStyle = col + a * 0.9 + ")";
-          c.lineWidth = s.s;
-          c.beginPath();
-          c.moveTo(x, y);
-          c.lineTo(x, y + dir * len);
-          c.stroke();
-        } else if (s.big) {
-          c.fillStyle = col + a * 0.16 + ")";
-          c.beginPath();
-          c.arc(x, y, s.s * 3.2, 0, Math.PI * 2);
-          c.fill();
-          c.fillStyle = col + a + ")";
-          c.fillRect(x - s.s * 0.6, y - s.s * 0.6, s.s * 1.5, s.s * 1.5);
-          c.fillRect(x - s.s * 3, y - 0.4, s.s * 6, 0.8);
-          c.fillRect(x - 0.4, y - s.s * 3, 0.8, s.s * 6);
-        } else {
-          c.fillStyle = col + a + ")";
-          c.fillRect(x, y, s.s, s.s);
-        }
-      }
-    }
-
     function drawMeteors(dt: number) {
       for (let i = meteors.length - 1; i >= 0; i--) {
         const m = meteors[i];
@@ -1088,7 +1036,6 @@ export function SpaceBackground() {
       const off = Math.sin(scrollY * 0.0009) * 80;
       drawNebula(time, off);
       drawGalaxy(time, off);
-      drawStars(time);
       drawPlanet(off);
       drawField(time, dt, reduce);
       drawLandscape(time, dt, reduce);
