@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { FormMessage } from "@/components/ui/field";
 import { TopUpPanel } from "@/components/billing/top-up-panel";
 import { requireUser } from "@/lib/auth/session";
+import { recheckStableTopups } from "@/lib/payments/stable-topups";
+import { stableOffset } from "@/lib/payments/chain";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { topupReference } from "@/config/payments";
 import { isStripeConfigured } from "@/lib/env";
@@ -33,6 +35,8 @@ const kindLabel = { topup: "Top-up", spend: "Order payment", refund: "Refund", a
 export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requireUser("/billing");
   const sp = await searchParams;
+  // stablecoin payments still waiting: look them up on chain before showing the balance
+  await recheckStableTopups(user.id).catch(() => 0);
   const [balance, topups, txs] = await Promise.all([getCreditBalance(), listCreditTopups(), listCreditTransactions()]);
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
@@ -77,7 +81,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 className="text-[15px] font-semibold">Top up</h2>
           <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars or crypto.</p>
           <div className="mt-5">
-            <TopUpPanel stripe={isStripeConfigured()} reference={topupReference(user.id)} initialUsd={initialUsd} />
+            <TopUpPanel stripe={isStripeConfigured()} reference={topupReference(user.id)} initialUsd={initialUsd} stableOffset={stableOffset(user.id)} />
           </div>
         </Card>
       </div>

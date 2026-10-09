@@ -8,6 +8,7 @@ import { formatHKD } from "@/config/pricing";
 import { paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { formatDateTime, shortId } from "@/lib/utils";
+import { recheckStableTopups } from "@/lib/payments/stable-topups";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -36,6 +37,8 @@ async function pendingTopups(): Promise<PendingTopup[]> {
 }
 
 export default async function AdminHome() {
+  // stablecoin top-ups that have since settled on chain are credited before the lists are read
+  await recheckStableTopups().catch(() => 0);
   const [m, orders, topupRows] = await Promise.all([adminMetrics(), adminOrders(200), pendingTopups()]);
   const queue = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).reverse(); // oldest first
   // Customers waiting on us to find their Alipay / PayMe / bank payment come first.

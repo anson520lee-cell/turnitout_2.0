@@ -12,6 +12,7 @@ import { formatUSD, topUp, topUpAmountError, topUpCurrency, usdToCredits } from 
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
 import { appUrl, shortId } from "@/lib/utils";
+import { autoConfirmTopup, isAutoMethod } from "@/lib/payments/stable-topups";
 
 type Fail = { ok: false; message: string };
 
@@ -97,9 +98,11 @@ const claimInput = z.object({
 
 /**
  * PayPal / USDT / USDC / Bitcoin: the customer has paid outside the site and
- * reports the reference. Credits are added only when an admin confirms it.
+ * reports the reference. USDT (TRON) and USDC (Base) are checked on chain at
+ * once and credited if the transfer matches (lib/payments/stable-topups);
+ * everything else, and anything that doesn't match yet, waits for an admin.
  */
-export async function submitTopupClaim(usd: number, method: string, reference: string): Promise<{ ok: true } | Fail> {
+export async function submitTopupClaim(usd: number, method: string, reference: string): Promise<{ ok: true; credited?: boolean } | Fail> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Please sign in again." };
   const parsed = claimInput.safeParse({ usd: Number(usd), method, reference });
@@ -124,9 +127,26 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
       status: "pending",
       payer_reference: v.reference,
     })
-    .select("id")
+    .select("id,created_at")
     .single();
   if (error || !row) return { ok: false, message: "We couldn't record your payment details. Please try again." };
+
+  if (isAutoMethod(v.method)) {
+    const r = await autoConfirmTopup({
+      id: row.id,
+      user_id: user.id,
+      usd: v.usd,
+      amount: usdToCredits(v.usd),
+      method: v.method,
+      status: "pending",
+      payer_reference: v.reference,
+      created_at: row.created_at,
+    });
+    if (r.status === "ok") {
+      revalidatePath("/billing");
+      return { ok: true, credited: true };
+    }
+  }
 
   await audit("topup_claim_submitted", { actorId: user.id, detail: { topup: row.id, method: v.method, usd: v.usd } });
   notifyOwner("payment_submitted", {

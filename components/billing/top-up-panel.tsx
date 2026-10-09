@@ -25,7 +25,18 @@ const PRESETS = topUp.presetsUsd as readonly number[];
  * accepts any whole amount from US$5), then pay by card, PayPal or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
-export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean; reference: string; initialUsd?: number }) {
+export function TopUpPanel({
+  stripe,
+  reference,
+  initialUsd,
+  stableOffset,
+}: {
+  stripe: boolean;
+  reference: string;
+  initialUsd?: number;
+  /** Thousandths of a dollar this account adds to stablecoin payments, so they can be matched and credited automatically. */
+  stableOffset: number;
+}) {
   const router = useRouter();
   const manual = enabledManualPayments();
   const tabs: Tab[] = [...(stripe ? (["card"] as const) : []), ...manual.map((m) => m.id)];
@@ -35,6 +46,7 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  const [credited, setCredited] = useState(false);
 
   const crypto = tab !== "card" && isCryptoMethod(tab);
   const isPreset = usd !== null && PRESETS.includes(usd);
@@ -43,6 +55,9 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
   const credits = usd !== null && !problem ? usdToCredits(usd) : 0;
   const reports = Math.floor(credits / REPORT_CREDITS);
   const current = tab === "card" ? null : manual.find((m) => m.id === tab) ?? null;
+  // USDT and USDC are matched on chain by an exact amount: the dollars plus this account's thousandths
+  const stable = tab === "usdt" || tab === "usdc";
+  const exact = usd !== null ? (usd + stableOffset / 1000).toFixed(3) : "";
 
   const pickTab = (t: Tab) => {
     setTab(t);
@@ -53,6 +68,15 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
       setCustom("");
     }
   };
+
+  if (credited) {
+    return (
+      <div className="rounded-2xl border border-ok/30 bg-ok/[0.06] p-6 text-center">
+        <p className="text-[16px] font-semibold text-fg">Payment confirmed on chain</p>
+        <p className="mt-1.5 text-[13.5px] text-fg-muted">Your credits have been added. They&rsquo;re in your balance now.</p>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -182,11 +206,22 @@ export function TopUpPanel({ stripe, reference, initialUsd }: { stripe: boolean;
             <ManualMethod
               key={`${current.id}-${usd}`}
               method={current}
-              amountLabel={usd !== null && !problem ? formatUSD(usd) : "Choose an amount"}
-              amountCopy={usd !== null && !problem ? String(usd) : ""}
+              amountLabel={
+                usd !== null && !problem
+                  ? stable
+                    ? `${exact} ${current.label} (exactly)`
+                    : formatUSD(usd)
+                  : "Choose an amount"
+              }
+              amountCopy={usd !== null && !problem ? (stable ? exact : String(usd)) : ""}
               reference={reference}
               disabled={pending || Boolean(problem)}
-              submit={(m, ref) => submitTopupClaim(usd ?? 0, m, ref)}
+              submit={(m, ref) =>
+                submitTopupClaim(usd ?? 0, m, ref).then((r) => {
+                  if (r.ok && r.credited) setCredited(true);
+                  return r;
+                })
+              }
               onSubmitted={() => {
                 track("topup_claim_submitted", { method: current.id });
                 setSubmitted(true);
