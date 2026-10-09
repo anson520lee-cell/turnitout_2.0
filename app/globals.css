@@ -1511,3 +1511,10 @@ html.ent-pre :is(.depth-title, h1, h2) {
   font-size: 16px;
   line-height: 1.65;
 }
+
+/* No light follows the mouse: the cursor glow and the soft light behind the
+   content are switched off. The press ripple and the card tilt stay. */
+.light-back,
+.light-halo {
+  display: none !important;
+}
