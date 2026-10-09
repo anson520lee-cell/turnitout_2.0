@@ -274,6 +274,7 @@ function TextLines() {
     g.font = `${fs}px ui-monospace, Consolas, "Courier New", monospace`;
     g.textBaseline = "middle";
     const cw = fs * 0.62; // fixed advance so rows line up whatever the fallback font
+    const right = canvas.width - 0.22 * px; // attention bars hang off the right margin
     rows.forEach((r, i) => {
       const fr = f.rows[i];
       const x = (r.x0 + DOC_W / 2) * px;
@@ -282,12 +283,54 @@ function TextLines() {
         g.fillStyle = "rgba(154,123,255,0.14)";
         g.fillRect(x - 6, y - fs * 0.7, 24 * cw + 12, fs * 1.4);
       }
-      g.fillStyle = r.hi ? "rgba(176,152,255,0.95)" : fr.greek ? "rgba(160,175,230,0.5)" : "rgba(205,218,255,0.72)";
       const s = fr.text;
-      for (let k = 0; k < s.length; k++) if (s[k] !== " ") g.fillText(s[k], x + k * cw, y);
+      // the agent's selection
+      if (fr.sel && fr.sel[1] > fr.sel[0]) {
+        g.fillStyle = "rgba(154,123,255,0.42)";
+        g.fillRect(x + fr.sel[0] * cw - 2, y - fs * 0.62, (fr.sel[1] - fr.sel[0]) * cw + 4, fs * 1.24);
+      }
+      const base = r.hi ? "rgba(176,152,255,0.95)" : fr.greek ? "rgba(160,175,230,0.5)" : "rgba(205,218,255,0.72)";
+      for (let k = 0; k < s.length; k++) {
+        if (s[k] === " ") continue;
+        const inSel = fr.sel && k >= fr.sel[0] && k < fr.sel[1];
+        const inEdit = fr.edit && k >= fr.edit[0] && k < fr.edit[1];
+        g.fillStyle = inSel ? "rgba(235,228,255,1)" : inEdit ? "rgba(125,225,250,0.98)" : base;
+        g.fillText(s[k], x + k * cw, y);
+      }
+      // underline the agent's revision
+      if (fr.edit && fr.edit[1] > fr.edit[0]) {
+        g.fillStyle = "rgba(95,216,245,0.55)";
+        g.fillRect(x + fr.edit[0] * cw, y + fs * 0.55, (fr.edit[1] - fr.edit[0]) * cw, Math.max(1.5, fs * 0.05));
+      }
       g.fillStyle = "rgba(95,216,245,0.9)";
       const n = fr.noise;
       for (let k = 0; k < n.length; k++) if (n[k] !== " ") g.fillText(n[k], x + (s.length + k) * cw, y);
+      // the agent's caret and tag
+      if (fr.agent !== undefined) {
+        const cx = x + fr.agent * cw;
+        g.globalAlpha = Math.floor(t * 2.2) % 2 === 0 ? 1 : 0.45;
+        g.fillStyle = "rgba(190,168,255,1)";
+        g.fillRect(cx - 1.5, y - fs * 0.66, 3, fs * 1.32);
+        g.globalAlpha = 1;
+        const tf = fs * 0.58;
+        g.font = `600 ${tf}px ui-monospace, Consolas, monospace`;
+        const tw = g.measureText("AGENT").width + tf * 0.8;
+        g.fillStyle = "rgba(154,123,255,1)";
+        g.fillRect(cx - 1.5, y - fs * 0.66 - tf * 1.35, tw, tf * 1.35);
+        g.fillStyle = "#fff";
+        g.fillText("AGENT", cx - 1.5 + tf * 0.4, y - fs * 0.66 - tf * 0.66);
+        g.font = `${fs}px ui-monospace, Consolas, "Courier New", monospace`;
+      }
+      // attention weight of this row
+      const v = f.attn[i] ?? 0;
+      if (v > 0) {
+        const w = 0.34 * px * v;
+        const grad = g.createLinearGradient(right - w, 0, right, 0);
+        grad.addColorStop(0, "rgba(91,140,255,0.1)");
+        grad.addColorStop(1, `rgba(95,216,245,${(0.3 + v * 0.65).toFixed(2)})`);
+        g.fillStyle = grad;
+        g.fillRect(right - w, y - 1.5, w, 3);
+      }
     });
     tex.needsUpdate = true;
   });

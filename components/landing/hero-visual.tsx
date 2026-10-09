@@ -10,7 +10,7 @@ const HeroScene = dynamic(() => import("@/components/three/hero-scene"), {
   loading: () => null,
 });
 
-const LABELS = ["Sentence Variation", "Structure", "Lexical Pattern", "Similarity"];
+const LABELS = ["Sentence Variation", "Attention · 8 heads", "Agent · revising", "Embedding · 768-d"];
 const POS = [
   "left-[2%] top-[20%]",
   "right-[0%] top-[34%]",

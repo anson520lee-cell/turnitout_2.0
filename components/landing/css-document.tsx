@@ -9,7 +9,8 @@ import { NeuralHalo } from "@/components/ml/ml-visuals";
  *
  * Depth layers (back to front): a ring of neurons feeding inward, two ghost
  * sheets, the document (header, text read by a sliding kernel, activation
- * bars, gauge), and floating chips that sit in front of it.
+ * bars, gauge, a falling loss curve), and floating chips that sit in front of
+ * it, one of them the editing agent at work.
  */
 export function CssDocument() {
   const bars = [38, 62, 44, 78, 52, 90, 34, 66];
@@ -31,7 +32,14 @@ export function CssDocument() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#c6d3ff]/30" />
               <span className="h-1.5 w-1.5 rounded-full bg-[#c6d3ff]/20" />
               <span className="h-1.5 w-1.5 rounded-full bg-[#c6d3ff]/10" />
-              <span className="ml-2 h-[5px] w-[34%] rounded-full bg-[#c6d3ff]/35" />
+              <span className="ml-2 h-[5px] w-[22%] rounded-full bg-[#c6d3ff]/35" />
+              {/* training loss, falling */}
+              <span className="ml-2 flex items-center gap-1 font-mono text-[6px] uppercase tracking-[0.14em] text-fg-subtle">
+                loss
+                <svg viewBox="0 0 40 12" className="h-2.5 w-8 overflow-visible">
+                  <path className="loss-draw" d="M0 2 C6 3 8 6 13 6.5 S22 9 27 9.5 S36 10.4 40 10.6" fill="none" stroke="rgb(95 216 245)" strokeWidth="1.1" pathLength={1} />
+                </svg>
+              </span>
               <span className="ml-auto rounded-full border border-ok/40 bg-ok/10 px-1.5 py-px font-mono text-[8px] leading-none text-ok">
                 0%
               </span>
@@ -79,6 +87,12 @@ export function CssDocument() {
             <div className="chip-float glass-strong flex items-center gap-2 rounded-xl px-3 py-2 [animation-delay:-2.4s]">
               <span className="grid h-4 w-4 place-items-center rounded-full bg-ok/20 text-[10px] leading-none text-ok">✓</span>
               <span className="font-mono text-[10px] text-fg-muted">Similarity 0%</span>
+            </div>
+          </div>
+          <div className="absolute -left-[18%] top-[14%] [transform:translate3d(0,0,90px)]" aria-hidden>
+            <div className="chip-float glass-strong flex items-center gap-2 rounded-xl px-3 py-2 [animation-delay:-1.2s]">
+              <span className="agent-pulse h-2 w-2 rounded-full bg-violet" />
+              <span className="font-mono text-[10px] text-fg-muted">agent · revising</span>
             </div>
           </div>
           <div className="absolute -right-[10%] bottom-[8%] [transform:translate3d(0,0,60px)]" aria-hidden>

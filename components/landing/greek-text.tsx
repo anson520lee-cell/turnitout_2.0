@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import { createAnimator, CODE } from "@/lib/greek-decode";
+import { createAnimator, CODE, type FrameRow } from "@/lib/greek-decode";
 
 /** The default page: 13 rows of the code-shaped text (blank rows are paragraph gaps). */
 export const GREEK_LINES = CODE.slice(0, 13);
@@ -9,6 +9,35 @@ const DEFAULT_FLAGGED = [7, 9];
 const COLOR_TYPED = "rgb(205 218 255 / 0.72)";
 const COLOR_GREEK = "rgb(160 175 230 / 0.5)";
 const COLOR_FLAG = "rgb(176 152 255 / 0.95)";
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+/**
+ * One row as markup: the text cut at the agent's selection and revision, its
+ * caret (with a small "agent" tag) and the accent tail (the writer's cursor,
+ * or glyphs under the beam). Only Greek letters, spaces and a block cursor
+ * ever reach here, and they are escaped anyway.
+ */
+function rowHTML(r: FrameRow, tag: boolean): string {
+  const s = r.text;
+  const cuts = new Set([0, s.length]);
+  for (const g of [r.sel, r.edit]) if (g) g.forEach((x) => cuts.add(Math.min(s.length, Math.max(0, x))));
+  if (r.agent !== undefined) cuts.add(Math.min(s.length, Math.max(0, r.agent)));
+  const at = [...cuts].sort((a, b) => a - b);
+  let out = "";
+  for (let k = 0; k < at.length; k++) {
+    const x = at[k];
+    if (r.agent === x) out += `<span class="gt-agent">${tag ? '<span class="gt-agent-tag">agent</span>' : ""}</span>`;
+    const y = at[k + 1];
+    if (y === undefined || y <= x) continue;
+    const inSel = r.sel && x >= r.sel[0] && y <= r.sel[1];
+    const inEdit = r.edit && x >= r.edit[0] && y <= r.edit[1];
+    const seg = esc(s.slice(x, y));
+    out += inSel ? `<span class="gt-sel">${seg}</span>` : inEdit ? `<span class="gt-edit">${seg}</span>` : seg;
+  }
+  if (r.noise) out += `<span class="text-cyan/90">${esc(r.noise)}</span>`;
+  return out;
+}
 
 interface Props {
   /** Code-shaped lines to type (stable identity, e.g. a module constant). */
@@ -25,6 +54,10 @@ interface Props {
   beam?: boolean;
   /** Show the pipeline step in the corner: tokenize → extract features → weigh signals → estimate. */
   caption?: boolean;
+  /** Label the agent's caret. Off for very small pages. */
+  agentTag?: boolean;
+  /** Draw the attention weight of each row in the right margin. */
+  attention?: boolean;
   className?: string;
 }
 
@@ -45,6 +78,8 @@ export function GreekText({
   maxChars,
   beam = true,
   caption = false,
+  agentTag = true,
+  attention = caption,
   className,
 }: Props) {
   const rows = useMemo(() => (maxChars ? lines.map((l) => l.slice(0, maxChars)) : lines), [lines, maxChars]);
@@ -55,7 +90,8 @@ export function GreekText({
   const beamRef = useRef<HTMLDivElement>(null);
   const capRef = useRef<HTMLSpanElement>(null);
   const aRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const bRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const wRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const html = useRef<string[]>([]);
 
   useEffect(() => {
     const el = root.current;
@@ -74,19 +110,29 @@ export function GreekText({
       const f = anim.frame((now - start) / 1000);
       f.rows.forEach((r, i) => {
         const a = aRefs.current[i];
-        const b = bRefs.current[i];
         if (a) {
-          a.textContent = r.text;
+          const m = rowHTML(r, agentTag);
+          if (html.current[i] !== m) {
+            html.current[i] = m;
+            a.innerHTML = m;
+          }
           // Flagged rows take their colour from the row (it follows flagColor).
           if (!flaggedSet.has(i)) a.style.color = r.greek ? COLOR_GREEK : COLOR_TYPED;
         }
-        if (b) b.textContent = r.noise;
+        const w = wRefs.current[i];
+        if (w) {
+          const v = f.attn[i] ?? 0;
+          w.style.transform = `scaleX(${v.toFixed(2)})`;
+          w.style.opacity = (0.25 + v * 0.75).toFixed(2);
+        }
       });
       const cap = capRef.current;
       if (cap) {
         const text =
-          f.phase === "type"
-            ? `tokenize · ${Math.round(f.chars / 4)} tok`
+          f.agent && f.agent.step !== "done"
+            ? `agent · ${f.agent.step === "focus" ? "attend" : f.agent.step === "select" ? "select span" : f.agent.step === "delete" ? "delete" : "rewrite"}`
+            : f.phase === "type"
+            ? `tokenize · ${Math.round(f.chars / 4)} tok${f.edits ? ` · ${f.edits} edit${f.edits > 1 ? "s" : ""}` : ""}`
             : f.phase === "scan"
               ? f.p < 0.55
                 ? "extract features"
@@ -115,7 +161,7 @@ export function GreekText({
       cancelAnimationFrame(raf);
       io.disconnect();
     };
-  }, [anim, flaggedSet]);
+  }, [anim, flaggedSet, agentTag]);
 
   return (
     <div ref={root} className={`relative h-full ${className ?? ""}`} aria-hidden>
@@ -126,7 +172,7 @@ export function GreekText({
           ) : (
             <div
               key={i}
-              className={`font-code relative overflow-hidden whitespace-pre leading-[1.35] ${textClass}`}
+              className={`font-code relative overflow-x-clip whitespace-pre leading-[1.35] ${textClass}`}
               style={flaggedSet.has(i) ? { color: flagColor } : undefined}
             >
               {flaggedSet.has(i) && (
@@ -142,10 +188,16 @@ export function GreekText({
                 ref={(n) => void (aRefs.current[i] = n)}
                 className="relative"
                 style={flaggedSet.has(i) ? undefined : { color: COLOR_GREEK }}
-              >
-                {initial[i].text}
-              </span>
-              <span ref={(n) => void (bRefs.current[i] = n)} className="relative text-cyan/90" />
+                dangerouslySetInnerHTML={{ __html: rowHTML(initial[i], false) }}
+              />
+              {attention && (
+                // attention: how much weight the model puts on this row right now
+                <span
+                  ref={(n) => void (wRefs.current[i] = n)}
+                  className="gt-attn absolute right-0 top-1/2 h-[2px] w-[9%] origin-right -translate-y-1/2 rounded-full"
+                  style={{ transform: "scaleX(0.3)", opacity: 0.4 }}
+                />
+              )}
             </div>
           ),
         )}

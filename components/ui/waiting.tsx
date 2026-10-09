@@ -52,7 +52,7 @@ export function WaitingAnimation({
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         >
           <div className="absolute inset-3">
-            <GreekText lines={WAIT_LINES} flagged={WAIT_FLAGGED} maxChars={15} textClass="text-[6px]" />
+            <GreekText lines={WAIT_LINES} flagged={WAIT_FLAGGED} maxChars={15} textClass="text-[6px]" agentTag={false} />
           </div>
         </motion.div>
       </div>

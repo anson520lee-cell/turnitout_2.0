@@ -1404,3 +1404,82 @@ html.ent-pre :is(.depth-title, h1, h2) {
 @media (prefers-reduced-motion: reduce) {
   .es-read, .es-arc { animation: none; }
 }
+
+/* Document text (components/landing/greek-text.tsx): the editing agent's
+   caret and tag, its selection, its revision, and the attention bars. */
+.gt-agent {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  vertical-align: -0.12em;
+}
+.gt-agent::before {
+  content: "";
+  position: absolute;
+  left: -0.75px;
+  top: -0.05em;
+  bottom: -0.1em;
+  width: 1.5px;
+  border-radius: 1px;
+  background: rgb(190 168 255);
+  box-shadow: 0 0 6px rgb(154 123 255 / 0.9);
+  animation: gt-caret 0.9s steps(2, jump-none) infinite;
+}
+.gt-agent-tag {
+  position: absolute;
+  left: -1px;
+  bottom: calc(100% + 1px);
+  padding: 1px 3px;
+  border-radius: 3px 3px 3px 0;
+  background: rgb(154 123 255);
+  color: white;
+  font: 600 max(5px, 0.62em) / 1.1 var(--font-geist-mono), ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@keyframes gt-caret {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0.35; }
+}
+.gt-sel {
+  background: rgb(154 123 255 / 0.38);
+  border-radius: 2px;
+  color: rgb(235 228 255);
+}
+.gt-edit {
+  color: rgb(125 225 250);
+  text-decoration: underline;
+  text-decoration-color: rgb(95 216 245 / 0.55);
+  text-underline-offset: 2px;
+}
+.gt-attn {
+  background: linear-gradient(90deg, rgb(91 140 255 / 0.15), rgb(95 216 245 / 0.9));
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gt-agent::before { animation: none; }
+}
+
+/* CSS document extras: the loss curve draws itself again and again; the
+   agent's dot pulses while it works. */
+.loss-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: loss-draw 5s ease-out infinite;
+}
+@keyframes loss-draw {
+  0% { stroke-dashoffset: 1; opacity: 0.2; }
+  60%, 90% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.agent-pulse { animation: agent-pulse 1.6s ease-in-out infinite; }
+@keyframes agent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(154 123 255 / 0.7); }
+  50% { box-shadow: 0 0 0 4px rgb(154 123 255 / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loss-draw { animation: none; stroke-dashoffset: 0; }
+  .agent-pulse { animation: none; }
+}
