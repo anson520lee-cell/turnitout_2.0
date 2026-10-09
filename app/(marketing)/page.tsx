@@ -9,7 +9,6 @@ import { PricingCards } from "@/components/landing/pricing-cards";
 import { PrivacySection } from "@/components/landing/privacy-section";
 import { IntegritySection } from "@/components/landing/integrity-section";
 import { FaqList } from "@/components/landing/faq-list";
-import { FinalCta } from "@/components/landing/final-cta";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { faq } from "@/config/faq";
 import Link from "next/link";
@@ -71,7 +70,6 @@ export default function HomePage() {
           <FaqList items={faq.slice(0, 7)} />
         </Container>
       </section>
-      <FinalCta />
     </>
   );
 }
