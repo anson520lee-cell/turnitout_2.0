@@ -482,44 +482,10 @@ function Particles({
   );
 }
 
-/** The light itself: a soft glow riding just above the document. */
-function LightGlow() {
-  const glow = useGlowTexture();
-  const ref = useRef<THREE.Sprite>(null);
-  useFrame(() => {
-    const s = ref.current;
-    if (!s) return;
-    s.position.copy(light.uLightW.value);
-    s.position.z += 0.05;
-    (s.material as THREE.SpriteMaterial).opacity = 0.35 * light.uLightOn.value;
-  });
-  return (
-    <sprite ref={ref} scale={[0.9, 0.9, 1]}>
-      <spriteMaterial map={glow} color="#a9c1ff" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-    </sprite>
-  );
-}
-
-/**
- * Turns the document toward the cursor and projects the cursor light onto
- * its plane. `rect` is the canvas position in document coordinates.
- */
-function Rig({ rect, children }: { rect: React.RefObject<{ left: number; top: number; width: number; height: number }>; children: React.ReactNode }) {
+/** Turns the document toward the cursor. (No light is projected onto it.) */
+function Rig({ children }: { rect?: unknown; children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null);
-  const tools = useMemo(
-    () => ({
-      ray: new THREE.Raycaster(),
-      ndc: new THREE.Vector2(),
-      plane: new THREE.Plane(),
-      normal: new THREE.Vector3(),
-      origin: new THREE.Vector3(),
-      q: new THREE.Quaternion(),
-      hit: new THREE.Vector3(),
-    }),
-    [],
-  );
-  const clickSeen = useRef(-1);
-  useFrame(({ clock, camera }, dt) => {
+  useFrame(({ clock }, dt) => {
     const g = ref.current;
     if (!g) return;
     const t = clock.elapsedTime;
@@ -531,27 +497,8 @@ function Rig({ rect, children }: { rect: React.RefObject<{ left: number; top: nu
     g.position.y = Math.sin(t * 0.6) * 0.06 - pointer.cy * 0.06;
     g.updateMatrixWorld();
 
-    // Cast the light (the engine's lagging cursor) onto the document plane.
-    const r = rect.current;
-    const top = r.top - window.scrollY;
-    tools.ndc.set(((pointer.lx - r.left) / r.width) * 2 - 1, -(((pointer.ly - top) / r.height) * 2 - 1));
-    tools.ray.setFromCamera(tools.ndc, camera);
-    g.getWorldQuaternion(tools.q);
-    tools.normal.set(0, 0, 1).applyQuaternion(tools.q);
-    g.getWorldPosition(tools.origin);
-    tools.plane.setFromNormalAndCoplanarPoint(tools.normal, tools.origin);
-    const hit = tools.ray.ray.intersectPlane(tools.plane, tools.hit);
-    const on = pointer.inside && hit ? 1 : 0;
-    if (hit) light.uLightW.value.copy(hit);
-    light.uLightOn.value += (on - light.uLightOn.value) * (1 - Math.pow(0.02, dt));
-
-    if (pointer.clickAt !== clickSeen.current) {
-      clickSeen.current = pointer.clickAt;
-      if (pointer.clickAt >= 0 && hit) {
-        light.uPulseW.value.copy(hit);
-        light.uPulseT.value = t;
-      }
-    }
+    // No light follows the cursor onto the document: it stays off.
+    light.uLightOn.value = 0;
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -611,7 +558,6 @@ export default function HeroScene() {
           <TextLines />
           <ScanPlane />
         </Rig>
-        <LightGlow />
         <Particles count={70} seed={19} radius={[1.6, 3.4]} spread={0.35} z={1.9} size={2.4} depth={0.55} />
       </Canvas>
     </div>
