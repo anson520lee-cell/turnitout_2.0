@@ -83,7 +83,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "paypal",
     label: "PayPal",
     short: "Send the amount to our PayPal.me link or email.",
-    enabled: true,
+    enabled: false, // turn on once the PayPal details below are filled in
     payee: [
       { label: "PayPal name", value: "REPLACE: PayPal display name" },
       { label: "PayPal email", value: "REPLACE: PayPal email", copy: true },
@@ -129,8 +129,8 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     short: "Tether stablecoin, sent on the network shown.",
     enabled: true,
     payee: [
-      { label: "Network", value: "REPLACE: network (e.g. TRON TRC-20)" },
-      { label: "Wallet address", value: "REPLACE: USDT wallet address", copy: true },
+      { label: "Network", value: "TRON (TRC-20)" },
+      { label: "Wallet address", value: "TWHCWZUaLuPCeB2orQ9WrNgxpXGtSvkSUV", copy: true },
     ],
     qrImage: "/payments/usdt-qr.png",
     note: "Send only USDT on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
@@ -149,11 +149,11 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     short: "Circle stablecoin, sent on the network shown.",
     enabled: true,
     payee: [
-      { label: "Network", value: "REPLACE: network (e.g. Ethereum ERC-20, Base, Solana)" },
-      { label: "Wallet address", value: "REPLACE: USDC wallet address", copy: true },
+      { label: "Network", value: "Base" },
+      { label: "Wallet address", value: "0x59E20E385F86FcdD0553EB708B2992969EAEf927", copy: true },
     ],
     qrImage: "/payments/usdc-qr.png",
-    note: "Send only USDC on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
+    note: "Send only USDC on the Base network (not Ethereum, Polygon or any other). Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
     steps: [
       "Open your wallet or exchange and choose USDC on the network shown here.",
       "Send the amount shown (1 USDC is worth about US$1, so send the same number of USDC as the US$ amount).",
@@ -170,7 +170,7 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     enabled: true,
     payee: [
       { label: "Network", value: "Bitcoin (on-chain)" },
-      { label: "Wallet address", value: "REPLACE: Bitcoin wallet address", copy: true },
+      { label: "Wallet address", value: "bc1qv4znuglhq3epqs9xhr9v903n3st33k5ck4falz", copy: true },
     ],
     qrImage: "/payments/bitcoin-qr.png",
     note: "Send only Bitcoin (BTC) to this address. The BTC amount depends on today's exchange rate; send the equivalent of the US$ amount. Network fees are paid by you.",
