@@ -342,7 +342,7 @@ export function EngineCore({
         >
           <span className="engine-node-chip">
             <span className="engine-node-dot" data-tone={i % 2 ? "violet" : "cyan"} />
-            <span className="font-mono text-[10px] text-fg-subtle">0{i + 1}</span>
+            <span className="font-mono text-[11px] text-fg-subtle">0{i + 1}</span>
             <span className="hidden sm:inline">{ENGINE_SIGNALS[i]}</span>
           </span>
         </div>

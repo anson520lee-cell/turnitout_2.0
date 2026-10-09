@@ -399,6 +399,8 @@ export function startEntrance(): () => void {
 
   document.querySelectorAll<HTMLElement>("h1,h2").forEach((h) => {
     if (h.closest(SKIP_SEL) || !h.getClientRects().length || !LETTER.test(h.textContent ?? "")) return;
+    // section titles only: small headings inside cards stay plain text
+    if (parseFloat(getComputedStyle(h).fontSize) < 24) return;
     const el = (h.closest(".depth-title") as HTMLElement | null) ?? h;
     if (seen.has(el)) return;
     seen.add(el);

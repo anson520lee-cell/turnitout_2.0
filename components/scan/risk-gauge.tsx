@@ -40,7 +40,7 @@ export function RiskGauge({ level }: { level: RiskLevel }) {
         <circle cx="100" cy="100" r="6" fill="#0e1322" stroke="#e9edf7" strokeWidth="2" />
       </svg>
       <div className="-mt-3 text-center">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-fg-subtle">Preliminary risk</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Preliminary risk</p>
         <p className="mt-1 text-2xl font-semibold tracking-tight" style={{ color: current.color }}>{current.label}</p>
       </div>
     </div>

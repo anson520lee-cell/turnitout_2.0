@@ -58,7 +58,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
             {steps.map((s, i) => (
               <li key={s.n} className="relative">
                 <Reveal delay={i * 0.04}>
-                  <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[10.5px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
+                  <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[11px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
                     {s.n}
                   </span>
                   <div data-tilt="6" className="glass rounded-2xl p-5 sm:p-6">

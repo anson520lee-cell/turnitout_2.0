@@ -70,7 +70,7 @@ export function PricingCards() {
                   >
                     <k.icon className="size-5" aria-hidden />
                   </span>
-                  <p className={cn("font-mono text-[10.5px] uppercase tracking-[0.16em]", k.text)}>{k.label}</p>
+                  <p className={cn("font-mono text-[11px] uppercase tracking-[0.16em]", k.text)}>{k.label}</p>
                 </div>
                 <h3 className="mt-5 text-[18px] font-semibold tracking-tight">{s.name}</h3>
                 <p className="mt-1.5 min-h-[44px] text-[13px] leading-relaxed text-fg-muted">{s.short}</p>

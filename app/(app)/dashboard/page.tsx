@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       <Card strong className="noise mt-5 overflow-hidden p-5 sm:p-6">
         <div className="relative grid items-center gap-6 md:grid-cols-[1fr_1.15fr]">
           <div>
-            <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-accent">
+            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
               <NeuralMark /> Pattern Engine · ready
             </p>
             <h2 className="mt-2 text-[19px] font-semibold tracking-tight">Six signals in, one estimate out.</h2>

@@ -40,7 +40,7 @@ export function ReadabilityCard({ r }: { r: Readability }) {
               style={{ left: `${r.readingEase}%` }}
             />
           </div>
-          <div className="mt-1.5 flex justify-between text-[10.5px] text-fg-subtle">
+          <div className="mt-1.5 flex justify-between text-[11px] text-fg-subtle">
             <span>Dense</span>
             <span>Easy</span>
           </div>

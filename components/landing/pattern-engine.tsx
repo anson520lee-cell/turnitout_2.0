@@ -104,7 +104,7 @@ export function PatternEngine() {
                     onPointerLeave={() => (focus.current = null)}
                   >
                     <p className="flex items-baseline gap-2 text-[13.5px] font-medium text-fg">
-                      <span className="font-mono text-[10.5px] text-accent">0{i + 1}</span>
+                      <span className="font-mono text-[11px] text-accent">0{i + 1}</span>
                       {name}
                     </p>
                     <p className="mt-1 text-[12.5px] leading-snug text-fg-muted">{SIGNAL_NOTES[name]}</p>

@@ -21,7 +21,7 @@ export function OrderTimeline({ type, status }: { type: ServiceType; status: Ord
             )}
             <span
               className={cn(
-                "relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[10px]",
+                "relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px]",
                 done && "border-accent bg-accent text-white",
                 here && "border-accent bg-ink-900 text-accent shadow-[0_0_0_4px_rgb(91_140_255/0.18)]",
                 !done && !here && "border-[var(--line-strong)] bg-ink-900 text-fg-subtle",

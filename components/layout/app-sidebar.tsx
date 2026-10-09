@@ -69,7 +69,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
       <aside className="sidebar-glass sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 lg:flex">
         <div className="mb-6 px-2 pt-1">
           <Logo />
-          <p className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">
+          <p className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
             <NeuralMark className="text-accent" />
             Pattern Engine online
           </p>

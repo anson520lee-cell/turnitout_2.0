@@ -60,7 +60,7 @@ export function ReportRequest() {
               </Button>
               <p className="flex items-center gap-1.5 text-[12px] text-fg-subtle">
                 Paste, then press
-                <kbd className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10.5px] text-fg">
+                <kbd className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-fg">
                   Enter <CornerDownLeft className="size-3" />
                 </kbd>
               </p>

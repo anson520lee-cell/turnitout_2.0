@@ -49,7 +49,7 @@ function Metric({
           </span>
         </ProgressRing>
       )}
-      <p className="relative mt-3 font-mono text-[10.5px] uppercase tracking-[0.16em] text-fg-subtle">From Turnitin screening</p>
+      <p className="relative mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">From Turnitin screening</p>
     </motion.div>
   );
 }

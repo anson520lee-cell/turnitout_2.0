@@ -122,7 +122,7 @@ export function ManualMethod({
           <ol className="mt-4 space-y-2 text-[12.5px] leading-relaxed text-fg-muted">
             {method.steps.map((s, i) => (
               <li key={s} className="flex gap-2.5">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full border border-[var(--line-strong)] font-mono text-[10.5px] text-fg">{i + 1}</span>
+                <span className="grid size-5 shrink-0 place-items-center rounded-full border border-[var(--line-strong)] font-mono text-[11px] text-fg">{i + 1}</span>
                 {s}
               </li>
             ))}

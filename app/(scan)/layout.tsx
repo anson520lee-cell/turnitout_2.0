@@ -33,9 +33,10 @@ export default async function ScanLayout({ children }: { children: React.ReactNo
   return (
     <>
       <Navbar signedIn={false} />
-      <main id="main" className="relative overflow-x-clip">
+      {/* public-shell: page headers here take the marketing pages' size (see .public-shell in globals.css) */}
+      <main id="main" className="public-shell relative overflow-x-clip">
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(50%_60%_at_50%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
-        <Container className="relative pb-24 pt-28 sm:pt-32">{children}</Container>
+        <Container className="relative pb-24 pt-36 sm:pt-44">{children}</Container>
       </main>
       <Footer />
     </>

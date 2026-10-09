@@ -143,7 +143,7 @@ export function AnalysisPreview() {
             {/* where this example sits among other texts: it crosses the boundary when the example changes */}
             <div aria-hidden className="mt-5 overflow-hidden rounded-xl border border-[var(--line)] bg-ink-900/50">
               <FeatureSpace elevated={s.level === "Elevated"} className="block h-auto w-full" />
-              <p className="border-t border-[var(--line)] px-3 py-1.5 text-center font-mono text-[9.5px] uppercase tracking-[0.16em] text-fg-subtle">feature space · nearest neighbours</p>
+              <p className="border-t border-[var(--line)] px-3 py-1.5 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">feature space · nearest neighbours</p>
             </div>
             <ul className="mt-6 space-y-5">
               {Object.entries(s.bars).map(([label, v]) => (

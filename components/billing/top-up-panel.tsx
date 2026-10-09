@@ -112,7 +112,7 @@ export function TopUpPanel({
               )}
             >
               <span className="block text-[17px] font-semibold tracking-tight">{n}U</span>
-              <span className="block font-mono text-[10.5px] text-fg-subtle">{usdToCredits(n).toLocaleString("en-US")} cr</span>
+              <span className="block font-mono text-[11px] text-fg-subtle">{usdToCredits(n).toLocaleString("en-US")} cr</span>
             </button>
           );
         })}
