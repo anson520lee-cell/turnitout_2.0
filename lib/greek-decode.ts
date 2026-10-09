@@ -121,7 +121,9 @@ interface Plan {
   tEnd: number;
 }
 
-const REWRITE_CHAR = 0.055;
+/** Writing and editing run at three times the original pace (every typing delay is scaled by this). */
+const S = 1 / 3;
+const REWRITE_CHAR = 0.055 * S;
 
 export function createAnimator(lines: string[]) {
   const n = lines.length;
@@ -129,12 +131,12 @@ export function createAnimator(lines: string[]) {
   const rowStart: number[] = [];
   const rowEnd: number[] = [];
 
-  let time = 0.7;
+  let time = 0.7 * S;
   lines.forEach((line, i) => {
     rowStart.push(time);
     const e: TypeEvent[] = [];
     if (!line) {
-      time += 0.25;
+      time += 0.25 * S;
     } else {
       // about half the longer lines get a typo: a few wrong letters, a pause, backspaces
       const typoAt = line.trim().length > 8 && h(i, 3, 1) < 0.5 ? Math.floor(line.length * (0.3 + h(i, 4, 1) * 0.4)) : -1;
@@ -142,23 +144,23 @@ export function createAnimator(lines: string[]) {
       for (let j = 0; j < line.length; j++) {
         if (j === typoAt && line[j] !== " ") {
           for (let w = 1; w <= typoLen; w++) {
-            time += 0.04 + h(i, w, 21) * 0.05;
+            time += (0.04 + h(i, w, 21) * 0.05) * S;
             e.push({ t: time, k: j, w });
           }
-          time += 0.3 + h(i, 6, 1) * 0.3; // notices
+          time += (0.3 + h(i, 6, 1) * 0.3) * S; // notices
           for (let w = typoLen - 1; w >= 0; w--) {
-            time += 0.06;
+            time += 0.06 * S;
             e.push({ t: time, k: j, w });
           }
-          time += 0.12;
+          time += 0.12 * S;
         }
-        let d = 0.03 + h(i, j, 5) * 0.06;
+        let d = (0.03 + h(i, j, 5) * 0.06) * S;
         if (line[j] === " ") d *= 0.5;
-        if (h(i, j, 9) < 0.07) d += 0.35 + h(i, j, 11) * 0.35; // stops to think
+        if (h(i, j, 9) < 0.07) d += (0.35 + h(i, j, 11) * 0.35) * S; // stops to think
         time += d;
         e.push({ t: time, k: j + 1, w: 0 });
       }
-      time += 0.35 + h(i, 99, 3) * 0.35; // Enter
+      time += (0.35 + h(i, 99, 3) * 0.35) * S; // Enter
     }
     evs.push(e);
     rowEnd.push(time);
@@ -174,12 +176,12 @@ export function createAnimator(lines: string[]) {
     const avail = line.length - lead;
     const len = Math.min(avail - 1, 4 + Math.floor(h(i, 8, 8) * 5));
     const a = lead + Math.floor(h(i, 9, 9) * (avail - len));
-    const t0 = Math.max(rowEnd[Math.min(i + 2, n - 1)], agentFree) + 0.25;
-    const tSel = t0 + 0.4;
-    const tDel = tSel + 0.6;
-    const tRw = tDel + 0.25;
+    const t0 = Math.max(rowEnd[Math.min(i + 2, n - 1)], agentFree) + 0.25 * S;
+    const tSel = t0 + 0.4 * S;
+    const tDel = tSel + 0.6 * S;
+    const tRw = tDel + 0.25 * S;
     const tDone = tRw + len * REWRITE_CHAR;
-    const tEnd = tDone + 0.45;
+    const tEnd = tDone + 0.45 * S;
     plans.push({ row: i, a, b: a + len, t0, tSel, tDel, tRw, tDone, tEnd });
     agentFree = tEnd;
   }
@@ -275,7 +277,7 @@ export function createAnimator(lines: string[]) {
           if (tt < p.tEnd) agent = { row: i, step: tt < p.tSel ? "focus" : tt < p.tDel ? "select" : tt < p.tRw ? "delete" : tt < p.tDone ? "rewrite" : "done" };
           if (tt < p.tSel) return { text: base, noise: "", greek: false, agent: p.a };
           if (tt < p.tDel) {
-            const e = p.a + Math.round((p.b - p.a) * Math.min(1, (tt - p.tSel) / 0.45));
+            const e = p.a + Math.round((p.b - p.a) * Math.min(1, (tt - p.tSel) / (0.45 * S)));
             return { text: base, noise: "", greek: false, sel: [p.a, e], agent: e };
           }
           if (tt < p.tRw) return { text: base.slice(0, p.a) + base.slice(p.b), noise: "", greek: false, agent: p.a };
