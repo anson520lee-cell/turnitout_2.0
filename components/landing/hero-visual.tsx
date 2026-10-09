@@ -1,23 +1,14 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { CssDocument } from "./css-document";
+import { AgentTerminal } from "./agent-terminal";
 
 const HeroScene = dynamic(() => import("@/components/three/hero-scene"), {
   ssr: false,
   loading: () => null,
 });
-
-const LABELS = ["Sentence Variation", "Attention · 8 heads", "Agent · revising", "Embedding · 768-d"];
-// Above and below the page, in its margins, so a label never covers the text on it.
-const POS = [
-  "left-[8%] top-[3%]",
-  "right-[4%] top-[5%]",
-  "left-[3%] bottom-[3%]",
-  "right-[6%] bottom-[2%]",
-];
 
 function useCanRender3D() {
   const reduce = usePrefersReducedMotion();
@@ -46,61 +37,21 @@ function useCanRender3D() {
 
 export function HeroVisual() {
   const use3D = useCanRender3D();
-  const [active, setActive] = useState(0);
-  const reduce = usePrefersReducedMotion();
-  const root = useRef<HTMLDivElement>(null);
-
-  // Cycle the labels only where they're shown (sm and up) and while on screen.
-  useEffect(() => {
-    const el = root.current;
-    if (reduce || !el) return;
-    const wide = window.matchMedia("(min-width: 640px)");
-    let visible = false;
-    let t: ReturnType<typeof setInterval> | undefined;
-    const sync = () => {
-      clearInterval(t);
-      t = undefined;
-      if (visible && wide.matches) t = setInterval(() => setActive((a) => (a + 1) % LABELS.length), 2200);
-    };
-    const io = new IntersectionObserver(([e]) => {
-      visible = e.isIntersecting;
-      sync();
-    });
-    io.observe(el);
-    wide.addEventListener("change", sync);
-    return () => {
-      io.disconnect();
-      wide.removeEventListener("change", sync);
-      clearInterval(t);
-    };
-  }, [reduce]);
 
   return (
-    <div ref={root} className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
+    <div className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
       {/* radial lighting, and a contact shadow the document floats over */}
       <div data-depth="-2" className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(110_130_255/0.17)_22%,rgb(130_125_255/0.09)_42%,rgb(154_123_255/0.04)_62%,rgb(154_123_255/0.012)_80%,transparent)]" />
       <div data-depth="-1" className="absolute inset-[-12%] bg-grid [mask-image:radial-gradient(closest-side,black_30%,transparent)] opacity-50" />
-      <div data-depth="-3" className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]" />
-      {use3D ? <HeroScene /> : <CssDocument />}
-      {LABELS.map((l, i) => (
-        // Labels float in front of the document, so they drift further.
-        <div key={l} data-depth={i % 2 ? "3" : "2"} className={`absolute ${POS[i]} hidden sm:block`}>
-          <AnimatePresence>
-            {(reduce || i === active || i === (active + 2) % LABELS.length) && (
-              <motion.div
-                initial={{ opacity: 0, y: 6, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-                transition={{ duration: 0.6 }}
-                className="glass flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-fg-muted"
-              >
-                <span className="size-1.5 rounded-full bg-cyan shadow-[0_0_10px_#5fd8f5]" />
-                {l}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      ))}
+      {/* the document: centred on phones, on the right where the terminal sits beside it */}
+      <div className="absolute inset-0 sm:left-[46%] sm:-right-[10%]">
+        <div data-depth="-3" className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]" />
+        {use3D ? <HeroScene /> : <CssDocument wide />}
+      </div>
+      {/* the agent's console: every run read-out, live */}
+      <div data-depth="2" className="absolute left-0 top-[24%] z-10 hidden w-[60%] sm:block">
+        <AgentTerminal />
+      </div>
     </div>
   );
 }
