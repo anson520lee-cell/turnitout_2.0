@@ -3,9 +3,12 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import { ENGINE_SIGNALS } from "./engine-core";
 
 /**
- * The Pattern Engine as a live diagram, drawn plainly: one accent colour, one
- * neutral, no ornament. Decorative (aria-hidden); the signals are listed in
- * text beside it.
+ * The Pattern Engine as a live diagram: a three-dimensional network shaped
+ * like a ball, turning slowly. The six signals sit on the outer shell, three
+ * hidden layers on shells inside it, and the estimate forms at the core; the
+ * pass travels inward along the spokes. Drawn plainly: one accent colour, one
+ * neutral, hairline shells. Decorative (aria-hidden); the signals are listed
+ * in text beside it.
  *
  * It is a real, tiny network running real forward passes, drawn on a canvas:
  * a new sample arrives every one to five seconds (six random signal values;
@@ -35,7 +38,20 @@ const nextPeriod = () => {
   return p < 0.3 ? 0.8 + Math.random() * 0.5 : p < 0.8 ? 1.5 + Math.random() * 1.1 : 3 + Math.random() * 1.8;
 };
 const ARRIVE = [0.1, 0.27, 0.44, 0.61, 0.78]; // when the wavefront reaches each layer (fraction of the period)
-const CAPTIONS = ["Signals", "Hidden", "Hidden", "Hidden", "Estimate"];
+/** Shell radius per layer: inputs on the outside, the estimate at the core. */
+const RADII = [1, 0.74, 0.5, 0.27, 0];
+/** Each layer's neurons spread evenly over its shell (a Fibonacci sphere), each shell turned a little. */
+const SHELL: number[][][] = LAYERS.map((n, l) => {
+  if (n === 1) return [[0, 0, 0]];
+  const r = RADII[l];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  return Array.from({ length: n }, (_, i) => {
+    const y = 1 - ((i + 0.5) / n) * 2;
+    const rr = Math.sqrt(1 - y * y);
+    const th = i * golden + l * 1.3;
+    return [Math.cos(th) * rr * r, y * r * 0.92, Math.sin(th) * rr * r];
+  });
+});
 const SHORT = ["Variation", "Repetition", "Transitions", "Phrasing", "Lexical", "Paragraphs"];
 // A restrained palette: one accent, one neutral, three greys for text.
 const ACCENT = "91,140,255";
@@ -99,10 +115,6 @@ export function NeuralEngine({
     let s = 1; // panel size in CSS px
     let mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     let display = "ui-sans-serif, system-ui, sans-serif";
-    const ny = (l: number, i: number) => {
-      const n = LAYERS[l];
-      return n === 1 ? ((TOP + BOTTOM) / 2) * s : (TOP + ((BOTTOM - TOP) * i) / (n - 1)) * s;
-    };
 
     function resize() {
       s = Math.max(200, el.getBoundingClientRect().width);
@@ -161,101 +173,167 @@ export function NeuralEngine({
       }
       setAttention(hot);
 
-      // ── connections: smooth curves; opacity = |weight × activation of the source|.
-      // Blue carries a positive weight, grey a negative one.
+      // ── the network as a sphere: six signals on the outer shell, three hidden
+      // shells inside it, the estimate at the core. The sphere turns slowly;
+      // nearer parts are brighter and larger.
+      const cx = 0.43 * s;
+      const cy = 0.53 * s;
+      const R0 = 0.28 * s;
+      const now = performance.now() / 1000;
+      const yaw = reduce ? 0.6 : now * 0.16;
+      const pitch = -0.32 + (reduce ? 0 : Math.sin(now * 0.27) * 0.08);
+      const cyw = Math.cos(yaw);
+      const syw = Math.sin(yaw);
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+      const D = 3.4; // camera distance in shell radii
+      const project = (p: number[]) => {
+        const x1 = p[0] * cyw + p[2] * syw;
+        const z1 = -p[0] * syw + p[2] * cyw;
+        const y2 = p[1] * cp - z1 * sp;
+        const z2 = p[1] * sp + z1 * cp;
+        const sc = D / (D - z2);
+        return { x: cx + x1 * R0 * sc, y: cy - y2 * R0 * sc, z: z2, sc };
+      };
+      const P = SHELL.map((layer) => layer.map(project));
+      const depthA = (z: number) => 0.35 + 0.65 * ((z + 1) / 2); // back 0.35 … front 1
+
+      // the shell itself: silhouette, equator and two meridians, hairline
+      c.lineWidth = 1;
+      c.strokeStyle = "rgba(150,165,215,0.2)";
+      c.beginPath();
+      c.arc(cx, cy, R0 * (D / Math.sqrt(D * D - 1)), 0, Math.PI * 2);
+      c.stroke();
+      const shellRing = (f: (a: number) => number[]) => {
+        c.beginPath();
+        for (let q = 0; q <= 72; q++) {
+          const pt = project(f((q / 72) * Math.PI * 2));
+          if (q === 0) c.moveTo(pt.x, pt.y);
+          else c.lineTo(pt.x, pt.y);
+        }
+        c.stroke();
+      };
+      c.strokeStyle = "rgba(150,165,215,0.13)";
+      shellRing((a) => [Math.cos(a), 0, Math.sin(a)]);
+      shellRing((a) => [Math.cos(a), Math.sin(a), 0]);
+      shellRing((a) => [0, Math.sin(a), Math.cos(a)]);
+      for (const r of RADII.slice(1, -1)) {
+        c.strokeStyle = "rgba(150,165,215,0.08)";
+        shellRing((a) => [Math.cos(a) * r, 0, Math.sin(a) * r]);
+      }
+
+      // ── connections: straight spokes between shells; opacity follows
+      // |weight × activation| and depth. Blue carries a positive weight, grey a negative one.
       const front = (u - ARRIVE[0]) / (ARRIVE[1] - ARRIVE[0]); // in layer units
       c.lineCap = "round";
       for (let l = 0; l < OUT; l++) {
-        const x1 = X[l] * s;
-        const x2 = X[l + 1] * s;
-        const xm = (x1 + x2) / 2;
         for (let i = 0; i < LAYERS[l]; i++) {
           const a = Math.abs(act[l][i]);
-          const y1 = ny(l, i);
+          const p1 = P[l][i];
           const pinned = l === 0 && i === hot;
           for (let j = 0; j < LAYERS[l + 1]; j++) {
             const w = W[l][i][j];
             const strength = Math.abs(w) * a;
-            const al = 0.03 + strength * (pinned ? 0.7 : 0.3);
+            const p2 = P[l + 1][j];
+            const dz = depthA((p1.z + p2.z) / 2);
+            const al = (0.05 + strength * (pinned ? 0.75 : 0.42)) * dz;
             if (al < 0.045 && !pinned) continue;
             c.strokeStyle = `rgba(${pinned || w >= 0 ? ACCENT : NEUTRAL},${Math.min(0.9, al).toFixed(3)})`;
-            c.lineWidth = (pinned ? 0.8 : 0.5) + strength * 0.6;
+            c.lineWidth = ((pinned ? 0.8 : 0.45) + strength * 0.55) * (0.7 + 0.3 * dz);
             c.beginPath();
-            c.moveTo(x1, y1);
-            c.bezierCurveTo(xm, y1, xm, ny(l + 1, j), x2, ny(l + 1, j));
+            c.moveTo(p1.x, p1.y);
+            c.lineTo(p2.x, p2.y);
             c.stroke();
           }
         }
-        // the pass crossing this gap: small points riding the strongest connections
+        // the pass crossing this gap: points riding the strongest spokes inward
         if (front >= l && front <= l + 1 && !reduce) {
           const t = front - l;
-          const v = 1 - t;
           for (let i = 0; i < LAYERS[l]; i++) {
             const a = Math.abs(tgt[l][i]);
             if (a < 0.25) continue;
-            const y1 = ny(l, i);
             for (let j = 0; j < LAYERS[l + 1]; j++) {
               if (Math.abs(W[l][i][j]) * a < 0.45) continue;
-              const y2 = ny(l + 1, j);
-              const px = v * v * v * x1 + 3 * v * v * t * xm + 3 * v * t * t * xm + t * t * t * x2;
-              const py = v * v * v * y1 + 3 * v * v * t * y1 + 3 * v * t * t * y2 + t * t * t * y2;
-              c.fillStyle = "rgba(225,235,255,0.95)";
+              const q = SHELL[l][i];
+              const r = SHELL[l + 1][j];
+              const pt = project([q[0] + (r[0] - q[0]) * t, q[1] + (r[1] - q[1]) * t, q[2] + (r[2] - q[2]) * t]);
+              c.fillStyle = `rgba(225,235,255,${(0.5 + 0.45 * depthA(pt.z)).toFixed(2)})`;
               c.beginPath();
-              c.arc(px, py, 1.5 * k, 0, Math.PI * 2);
+              c.arc(pt.x, pt.y, 1.5 * k * pt.sc, 0, Math.PI * 2);
               c.fill();
             }
           }
         }
       }
 
-      // ── neurons: a disc whose size and fill follow the activation
-      for (let l = 0; l < OUT; l++) {
-        const x = X[l] * s;
-        for (let i = 0; i < LAYERS[l]; i++) {
-          const y = ny(l, i);
-          const v = act[l][i];
-          const a = Math.abs(v);
-          const r = (2.6 + 3.4 * a) * k;
-          c.fillStyle = "rgba(10,14,28,1)";
-          c.beginPath();
-          c.arc(x, y, r + 1.5 * k, 0, Math.PI * 2);
-          c.fill();
-          c.fillStyle = `rgba(${v >= 0 ? ACCENT : NEUTRAL},${(0.35 + 0.65 * a).toFixed(3)})`;
-          c.beginPath();
-          c.arc(x, y, r, 0, Math.PI * 2);
-          c.fill();
-          c.strokeStyle = "rgba(255,255,255,0.4)";
-          c.lineWidth = 1;
-          c.stroke();
-        }
+      // ── neurons, back to front: a disc whose size and fill follow the activation
+      const order: { l: number; i: number; z: number }[] = [];
+      for (let l = 0; l < OUT; l++) for (let i = 0; i < LAYERS[l]; i++) order.push({ l, i, z: P[l][i].z });
+      order.sort((a, b) => a.z - b.z);
+      for (const { l, i } of order) {
+        const p = P[l][i];
+        const v = act[l][i];
+        const a = Math.abs(v);
+        const dz = depthA(p.z);
+        const r = (2.2 + 3 * a) * k * p.sc * (l === 0 ? 1.15 : 1);
+        c.fillStyle = "rgba(10,14,28,1)";
+        c.beginPath();
+        c.arc(p.x, p.y, r + 1.4 * k, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = `rgba(${v >= 0 ? ACCENT : NEUTRAL},${((0.3 + 0.7 * a) * dz).toFixed(3)})`;
+        c.beginPath();
+        c.arc(p.x, p.y, r, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = `rgba(255,255,255,${(0.42 * dz).toFixed(2)})`;
+        c.lineWidth = 1;
+        c.stroke();
       }
 
-      // ── layer captions
-      c.textAlign = "center";
-      c.font = `${fs(10.5, 9)}px ${display}`;
-      c.fillStyle = SUBTLE;
-      for (let l = 0; l < LAYERS.length; l++) c.fillText(CAPTIONS[l], X[l] * s, s - 38 * k);
+      // ── the core: the estimate forming at the centre of the sphere
+      {
+        const p = P[OUT][0];
+        const e = clamp(shown / 100);
+        const glow = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 26 * k);
+        glow.addColorStop(0, `rgba(${ACCENT},${(0.35 + 0.35 * e).toFixed(2)})`);
+        glow.addColorStop(1, `rgba(${ACCENT},0)`);
+        c.fillStyle = glow;
+        c.beginPath();
+        c.arc(p.x, p.y, 26 * k, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = "rgba(10,14,28,1)";
+        c.beginPath();
+        c.arc(p.x, p.y, 7.5 * k, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = `rgba(${ACCENT},1)`;
+        c.beginPath();
+        c.arc(p.x, p.y, 5.5 * k, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = "rgba(255,255,255,0.6)";
+        c.lineWidth = 1;
+        c.stroke();
+      }
 
-      // ── the six signals: name, value, a level bar
-      const x0 = X[0] * s;
-      const bw = 92 * k;
+      // ── the six signals: a label beside each input node, dimmer at the back
       for (let i = 0; i < LAYERS[0]; i++) {
-        const y = ny(0, i);
-        const v = act[0][i];
+        const p = P[0][i];
         const on = i === hot;
-        c.textAlign = "right";
-        c.font = `${on ? 600 : 500} ${fs(12, 10)}px ${display}`;
-        c.fillStyle = on ? INK : MUTED;
-        c.fillText(small ? SHORT[i] : ENGINE_SIGNALS[i], x0 - 18 * k, y - 2 * k);
-        c.font = `${fs(10, 8.5)}px ${mono}`;
-        c.fillStyle = on ? `rgba(${ACCENT},1)` : SUBTLE;
-        c.fillText(v.toFixed(2), x0 - 18 * k - bw - 8 * k, y + 10.5 * k);
-        const bx = x0 - 18 * k - bw;
-        c.fillStyle = "rgba(255,255,255,0.08)";
-        c.fillRect(bx, y + 6 * k, bw, 2.5 * k);
-        c.fillStyle = on ? `rgba(${ACCENT},1)` : `rgba(${ACCENT},0.5)`;
-        c.fillRect(bx, y + 6 * k, bw * v, 2.5 * k);
+        const dz = depthA(p.z);
+        const right = p.x >= cx;
+        const lx = p.x + (right ? 10 : -10) * k;
+        c.textAlign = right ? "left" : "right";
+        c.font = `${on ? 600 : 500} ${fs(10.5, 8.5)}px ${display}`;
+        c.fillStyle = on ? INK : `rgba(154,163,184,${(0.25 + 0.7 * dz).toFixed(2)})`;
+        c.fillText(SHORT[i], lx, p.y - 1 * k);
+        c.font = `${fs(9, 7.5)}px ${mono}`;
+        c.fillStyle = on ? `rgba(${ACCENT},1)` : `rgba(118,126,156,${(0.25 + 0.7 * dz).toFixed(2)})`;
+        c.fillText(act[0][i].toFixed(2), lx, p.y + 10 * k);
       }
+
+      // ── legend under the sphere
+      c.textAlign = "center";
+      c.font = `${fs(9.5, 8)}px ${mono}`;
+      c.fillStyle = SUBTLE;
+      c.fillText("6 signals  ·  3 hidden shells  ·  1 core", cx, s - 38 * k);
 
       // ── the estimate: a ring that fills to the value. While the pass is in
       // flight the number hunts; when it arrives it settles.
