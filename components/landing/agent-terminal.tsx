@@ -24,18 +24,18 @@ function pass(n: number): Omit<Line, "id" | "t">[] {
   const total = Math.round(rnd(32, 58));
   const doc = pick(["essay.md", "lit-review.md", "lab-report.md", "draft-v3.md", "chapter-2.md"]);
   const out: Omit<Line, "id" | "t">[] = [
-    { tone: "cmd", tag: "$", body: `agent run --doc ${doc} --mode review` },
-    { tone: "ok", tag: "load", body: `${tok.toLocaleString("en-US")} tokens · ${total} sentences` },
-    { tone: "ok", tag: "embed", body: "768-d · cosine index ready" },
-    { tone: "ok", tag: "attention", body: `8 heads × 12 layers · ctx ${Math.min(4096, tok + 512)}` },
-    { tone: "ok", tag: "similarity", body: `${rnd(0, 0.4).toFixed(1)}% · 0 sources matched` },
+    { tone: "cmd", tag: "$", body: `agent review ${doc}` },
+    { tone: "ok", tag: "load", body: `${tok.toLocaleString("en-US")} tok · ${total} sent.` },
+    { tone: "ok", tag: "embed", body: "768-d · index ready" },
+    { tone: "ok", tag: "attention", body: "8 heads × 12 layers" },
+    { tone: "ok", tag: "similarity", body: `${rnd(0, 0.4).toFixed(1)}% · 0 sources` },
     { tone: "warn", tag: "flagged", body: `${spans} span${spans > 1 ? "s" : ""} · conf ${rnd(0.58, 0.83).toFixed(2)}` },
   ];
   for (let s = 1; s <= spans; s++) {
     out.push({ tone: "run", tag: "agent", body: `revising span ${s}/${spans}` });
   }
   out.push({ tone: "ok", tag: "agent", body: `${spans} edit${spans > 1 ? "s" : ""} suggested · flow ↑` });
-  out.push({ tone: "ok", tag: "estimate", body: `6 signals → 1 estimate · run #${n}` });
+  out.push({ tone: "ok", tag: "estimate", body: `6 signals → 1 · run #${n}` });
   return out;
 }
 
@@ -50,11 +50,11 @@ const MARK: Record<Tone, string> = { ok: "✓", warn: "▲", run: "↻", dim: "�
 const KEEP = 9;
 
 const FIRST: Line[] = [
-  { tone: "cmd", tag: "$", body: "agent run --doc essay.md --mode review" },
-  { tone: "ok", tag: "load", body: "1,284 tokens · 41 sentences" },
-  { tone: "ok", tag: "embed", body: "768-d · cosine index ready" },
-  { tone: "ok", tag: "attention", body: "8 heads × 12 layers · ctx 1796" },
-  { tone: "ok", tag: "similarity", body: "0.0% · 0 sources matched" },
+  { tone: "cmd", tag: "$", body: "agent review essay.md" },
+  { tone: "ok", tag: "load", body: "1,284 tok · 41 sent." },
+  { tone: "ok", tag: "embed", body: "768-d · index ready" },
+  { tone: "ok", tag: "attention", body: "8 heads × 12 layers" },
+  { tone: "ok", tag: "similarity", body: "0.0% · 0 sources" },
   { tone: "warn", tag: "flagged", body: "2 spans · conf 0.71" },
   { tone: "run", tag: "agent", body: "revising span 1/2" },
   { tone: "run", tag: "agent", body: "revising span 2/2" },
@@ -119,7 +119,7 @@ export function AgentTerminal({ className, note }: { className?: string; /** Sho
     .join(" ");
 
   return (
-    <div ref={root} aria-hidden className={cn("term glass-strong overflow-hidden rounded-xl font-mono", className)}>
+    <div ref={root} aria-hidden className={cn("term glass-strong @container overflow-hidden rounded-xl font-mono", className)}>
       {/* title bar */}
       <div className="flex items-center gap-1.5 border-b border-white/[0.06] px-3 py-2">
         <span className="size-[7px] rounded-full bg-[#ff6b6b]/70" />
@@ -133,10 +133,10 @@ export function AgentTerminal({ className, note }: { className?: string; /** Sho
       </div>
 
       {/* run log */}
-      <div className="h-[9.6rem] space-y-[3px] overflow-hidden px-3 pt-2.5 text-[9px] leading-[1.45]">
+      <div className="h-[9.2rem] space-y-[3px] overflow-hidden px-3 pt-2.5 text-[8.5px] leading-[1.45] @[400px]:h-[9.6rem] @[400px]:text-[9px]">
         {lines.map((l) => (
           <div key={l.id} className="term-line flex gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
-            <span className="hidden text-fg-subtle/60 xl:inline">{l.t}</span>
+            <span className="hidden text-fg-subtle/60 @[420px]:inline">{l.t}</span>
             {l.tone === "cmd" ? (
               <span className="text-fg">
                 <span className="text-accent">$</span> {l.body}
@@ -144,7 +144,7 @@ export function AgentTerminal({ className, note }: { className?: string; /** Sho
             ) : (
               <>
                 <span className={cn("w-3 text-center", TONE[l.tone])}>{MARK[l.tone]}</span>
-                <span className="w-[3.9rem] shrink-0 text-fg-muted">{l.tag}</span>
+                <span className="w-[3.5rem] shrink-0 text-fg-muted @[380px]:w-[3.9rem]">{l.tag}</span>
                 <span className={l.tone === "warn" ? "text-violet" : l.tone === "run" ? "text-cyan" : "text-fg/85"}>{l.body}</span>
               </>
             )}
@@ -157,8 +157,8 @@ export function AgentTerminal({ className, note }: { className?: string; /** Sho
       </div>
 
       {/* metrics */}
-      <div className="grid grid-cols-[1fr_auto] gap-3 border-t border-white/[0.06] px-3 py-2.5">
-        <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[8.5px] uppercase tracking-[0.1em]">
+      <div className="grid grid-cols-[1fr_auto] gap-2.5 border-t border-white/[0.06] px-3 py-2.5 @[400px]:gap-3">
+        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5 text-[8px] uppercase tracking-[0.08em] @[400px]:gap-x-3 @[400px]:text-[8.5px]">
           <Metric k="ppl" v={m.ppl.toFixed(1)} />
           <Metric k="burst" v={m.burst.toFixed(2)} />
           <Metric k="loss" v={`${m.loss.toFixed(3)} ↓`} tone="text-ok" />
@@ -166,7 +166,7 @@ export function AgentTerminal({ className, note }: { className?: string; /** Sho
           <Metric k="p95" v={`${m.lat} ms`} />
           <Metric k="step" v={m.step.toLocaleString("en-US")} />
         </div>
-        <div className="flex w-[5.5rem] flex-col justify-between">
+        <div className="flex w-[4.6rem] flex-col justify-between @[400px]:w-[5.5rem]">
           <div className="flex items-center justify-between text-[8px] uppercase tracking-[0.12em] text-fg-subtle">
             <span>train loss</span>
           </div>
@@ -190,7 +190,7 @@ function Metric({ k, v, tone }: { k: string; v: string; tone?: string }) {
   return (
     <div className="min-w-0">
       <div className="truncate text-fg-subtle">{k}</div>
-      <div className={cn("truncate text-[10px] normal-case tracking-normal text-fg", tone)}>{v}</div>
+      <div className={cn("whitespace-nowrap text-[9px] normal-case tracking-normal text-fg @[400px]:text-[10px]", tone)}>{v}</div>
     </div>
   );
 }

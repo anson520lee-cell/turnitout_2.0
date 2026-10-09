@@ -5,7 +5,6 @@ import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion"
 import { cn } from "@/lib/utils";
 import { GreekText } from "@/components/landing/greek-text";
 import { CODE } from "@/lib/greek-decode";
-import { NeuralHalo } from "@/components/ml/ml-visuals";
 
 const WAIT_LINES = CODE.slice(0, 10);
 const WAIT_FLAGGED = [4, 7];
@@ -42,10 +41,6 @@ export function WaitingAnimation({
     <div role="status" aria-live="polite" className={cn("flex flex-col items-center py-6 text-center", className)}>
       <div className="orbit-stage relative size-44" aria-hidden>
         <div className="absolute inset-[-30%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.35),transparent)] blur-xl motion-safe:animate-pulse" />
-        {/* a ring of neurons working around the document */}
-        <div className="absolute inset-[-14%]">
-          <NeuralHalo className="engine-spin [--spin:36s]" />
-        </div>
         <motion.div
           className="glass-strong absolute left-1/2 top-1/2 h-36 w-28 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl p-3 [transform-style:preserve-3d]"
           animate={reduce ? undefined : { rotateY: [-18, 18, -18], rotateX: [10, 4, 10] }}

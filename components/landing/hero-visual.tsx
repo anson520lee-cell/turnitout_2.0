@@ -39,19 +39,35 @@ export function HeroVisual() {
   const use3D = useCanRender3D();
 
   return (
-    <div className="relative aspect-[4/4.2] w-full max-w-[560px] select-none" aria-hidden>
-      {/* radial lighting, and a contact shadow the document floats over */}
-      <div data-depth="-2" className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(110_130_255/0.17)_22%,rgb(130_125_255/0.09)_42%,rgb(154_123_255/0.04)_62%,rgb(154_123_255/0.012)_80%,transparent)]" />
-      <div data-depth="-1" className="absolute inset-[-12%] bg-grid [mask-image:radial-gradient(closest-side,black_30%,transparent)] opacity-50" />
-      {/* the document: centred on phones, on the right where the terminal sits beside it */}
-      <div className="absolute inset-0 sm:left-[46%] sm:-right-[10%]">
-        <div data-depth="-3" className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]" />
-        {use3D ? <HeroScene /> : <CssDocument wide />}
+    <div className="w-full max-w-[560px]" aria-hidden>
+      <div className="relative aspect-[4/4.2] w-full select-none">
+        {/* radial lighting, and a contact shadow the document floats over */}
+        <div
+          data-depth="-2"
+          className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(110_130_255/0.17)_22%,rgb(130_125_255/0.09)_42%,rgb(154_123_255/0.04)_62%,rgb(154_123_255/0.012)_80%,transparent)]"
+        />
+        <div
+          data-depth="-1"
+          className="absolute inset-[-12%] bg-grid [mask-image:radial-gradient(closest-side,black_30%,transparent)] opacity-50"
+        />
+        {/* the document: centred on phones, on the right where the terminal sits beside it */}
+        <div className="absolute inset-0 sm:left-[46%] sm:-right-[10%]">
+          <div
+            data-depth="-3"
+            className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]"
+          />
+          {use3D ? <HeroScene /> : <CssDocument wide />}
+        </div>
+        {/* the agent's console: every run read-out, live */}
+        <div
+          data-depth="2"
+          className="absolute left-0 top-[24%] z-10 hidden w-[60%] sm:block"
+        >
+          <AgentTerminal />
+        </div>
       </div>
-      {/* the agent's console: every run read-out, live */}
-      <div data-depth="2" className="absolute left-0 top-[24%] z-10 hidden w-[60%] sm:block">
-        <AgentTerminal />
-      </div>
+      {/* phones: the console sits under the page instead of beside it */}
+      <AgentTerminal className="-mt-4 sm:hidden" />
     </div>
   );
 }
