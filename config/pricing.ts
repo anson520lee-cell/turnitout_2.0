@@ -68,11 +68,11 @@ export function formatCredits(cents: number): string {
 
 /**
  * Top-ups are bought in US dollars (card, PayPal) or crypto (USDT, USDC, BTC),
- * and credited at a fixed rate that keeps every service price unchanged:
- * US$1 = 7.8 credits (the HK$ peg), so a US$5 top-up is 39 credits, one
- * 35-credit report costs about US$4.49. Change the rate here and nowhere else.
+ * and credited at a fixed rate; service prices stay as they are in credits:
+ * US$1 = 8 credits (8 credits = US$1), so a US$5 top-up is 40 credits, one
+ * 35-credit report costs about US$4.38. Change the rate here and nowhere else.
  */
-export const CREDITS_PER_USD = 7.8;
+export const CREDITS_PER_USD = 8;
 export const topUpCurrency = "usd" as const;
 
 /** Whole US dollars. Presets are for every method; custom amounts only for crypto. */

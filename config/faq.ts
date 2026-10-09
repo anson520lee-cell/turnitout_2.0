@@ -35,7 +35,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: "How do credits work?",
-    a: `Everything is paid for with credits (1 credit = HK$1). Top up on the Billing & Credits page by ${payMethods}, with card payment where available. For a manual payment, the page shows the account details and a reference code for your payment note; after paying, enter your transaction number or payer name there. We confirm each payment by hand and add the credits as soon as it is confirmed. Card payments are credited automatically. Then pay for a report or refinement with one click on its order page.`,
+    a: `Everything is paid for with credits (8 credits = US$1). Top up on the Billing & Credits page by ${payMethods}, with card payment where available. For a manual payment, the page shows the account details and a reference code for your payment note; after paying, enter your transaction number or payer name there. We confirm each payment by hand and add the credits as soon as it is confirmed. Card payments are credited automatically. Then pay for a report or refinement with one click on its order page.`,
   },
   {
     q: "Are you affiliated with Turnitin?",

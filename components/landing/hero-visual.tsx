@@ -11,11 +11,12 @@ const HeroScene = dynamic(() => import("@/components/three/hero-scene"), {
 });
 
 const LABELS = ["Sentence Variation", "Attention · 8 heads", "Agent · revising", "Embedding · 768-d"];
+// Above and below the page, in its margins, so a label never covers the text on it.
 const POS = [
-  "left-[2%] top-[20%]",
-  "right-[0%] top-[34%]",
-  "left-[6%] bottom-[22%]",
-  "right-[4%] bottom-[14%]",
+  "left-[8%] top-[3%]",
+  "right-[4%] top-[5%]",
+  "left-[3%] bottom-[3%]",
+  "right-[6%] bottom-[2%]",
 ];
 
 function useCanRender3D() {
