@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { notifyCustomer } from "@/lib/notify-customer";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
           credits: top.amount,
           email: session.customer_details?.email ?? session.customer_email ?? undefined,
         });
+        notifyCustomer(top.user_id, "credits_added", { credits: top.amount, amount: formatUSD(top.usd), method: "card" });
       }
       return NextResponse.json({ received: true });
     }

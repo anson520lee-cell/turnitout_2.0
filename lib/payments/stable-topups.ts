@@ -4,6 +4,7 @@ import { manualPayments } from "@/config/payments";
 import { formatUSD } from "@/config/pricing";
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
+import { notifyCustomer } from "@/lib/notify-customer";
 import { shortId } from "@/lib/utils";
 import { expectedMicros, verifyUsdcBase, verifyUsdtTron, type ChainResult } from "./chain";
 
@@ -72,6 +73,7 @@ export async function autoConfirmTopup(top: TopupRow): Promise<ChainResult | { s
     credits: top.amount,
     email: who?.email ?? "",
   });
+  notifyCustomer(top.user_id, "credits_added", { credits: top.amount, amount: formatUSD(top.usd), method: manualPayments[method].label });
   return res;
 }
 

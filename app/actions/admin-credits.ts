@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notifyCustomer } from "@/lib/notify-customer";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -63,6 +64,7 @@ export async function confirmTopup(topupId: string): Promise<Result> {
     credits: top.amount,
     email: await emailOf(top.user_id),
   });
+  notifyCustomer(top.user_id, "credits_added", { credits: top.amount, amount: formatUSD(top.usd), method: paymentMethodLabel(top.method) });
   refresh();
   return { ok: true };
 }

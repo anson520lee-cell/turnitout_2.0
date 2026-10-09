@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notifyCustomer } from "@/lib/notify-customer";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -121,6 +122,7 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
     amount: formatHKD(order.price),
     email: await customerEmail(order.user_id),
   });
+  notifyCustomer(order.user_id, "order_paid", { order: shortId(order.id), id: order.id, service: serviceLabels[order.service_type] });
   refresh(order.id);
   return { ok: true };
 }
@@ -223,6 +225,9 @@ export async function updateOrderStatus(orderId: string, to: string): Promise<Re
       .eq("status", "pending");
   }
   await audit("status_changed", { actorId: admin.id, orderId: order.id, detail: { from: order.status, to: target } });
+  if (target === "completed") {
+    notifyCustomer(order.user_id, "order_completed", { order: shortId(order.id), id: order.id, service: serviceLabels[order.service_type] });
+  }
   refresh(order.id);
   return { ok: true };
 }
