@@ -9,9 +9,19 @@ import { startEntrance } from "./entrance-engine";
  */
 export function Entrance() {
   const pathname = usePathname();
-  useLayoutEffect(() => startEntrance(), [pathname]);
+  useLayoutEffect(() => {
+    // the signed-in app keeps its plain headings; the particle headings are for the public pages
+    if (isSignedInArea(pathname)) {
+      document.documentElement.classList.remove("ent-pre");
+      return;
+    }
+    return startEntrance();
+  }, [pathname]);
   return null;
 }
+
+const SIGNED_IN = ["/dashboard", "/billing", "/orders", "/settings", "/scan/history", "/admin"];
+const isSignedInArea = (path: string) => SIGNED_IN.some((p) => path === p || path.startsWith(p + "/"));
 
 /**
  * Runs before first paint: hides the page's headings so the entrance
