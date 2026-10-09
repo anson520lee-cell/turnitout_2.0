@@ -1,18 +1,19 @@
 "use client";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { RiskLevel } from "@/lib/scanning/types";
 import { cn } from "@/lib/utils";
 import { GreekText } from "@/components/landing/greek-text";
 import { CODE } from "@/lib/greek-decode";
-import { NeuralHalo } from "@/components/ml/ml-visuals";
+import { AgentTerminal } from "@/components/landing/agent-terminal";
 
 /**
- * The 3D paper stack on the scan page's hero card. Decorative only.
+ * The 3D paper stack on the scan page's hero card, with the agent terminal
+ * beside it (the same console as the home page). Decorative only.
  *
  * It reads the lighting variables that `InteractiveSurfaces` writes, so it
  * needs no listeners of its own:
  * - `--rx/--ry/--lift`, inherited from the tilted card, turn the stack (more
- *   than the card itself, which reads as depth) and lift the signal chips;
+ *   than the card itself, which reads as depth);
  * - `--cx/--cy` (written on this `data-cursor` root) move the specular
  *   highlight toward the cursor, and `data-depth` slides the glow with it and
  *   the cast shadow away from it.
@@ -33,20 +34,6 @@ const levelLabel: Record<RiskLevel, string> = { low: "Low", moderate: "Moderate"
 
 const ease = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
-function Chip({ z, className, children }: { z: number; className?: string; children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "absolute whitespace-nowrap rounded-full border border-[var(--line-strong)] bg-ink-800/90 px-3 py-1.5 text-[11.5px] font-medium text-fg shadow-[0_14px_30px_-12px_rgb(0_0_0/0.9),0_0_22px_-8px_rgb(91_140_255/0.6)]",
-        className,
-      )}
-      style={{ transform: `translateZ(calc(${z}px + var(--lift, 0) * 34px))`, transition: `transform 0.6s ${ease}` }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export function ScanVisual({ level, className }: { level?: RiskLevel | null; className?: string }) {
   const stack: CSSProperties = {
     transform: "rotateX(calc(12deg + var(--rx, 0deg) * 2.4)) rotateY(calc(-20deg + var(--ry, 0deg) * 2.8))",
@@ -58,20 +45,15 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
   };
 
   return (
-    <div aria-hidden data-cursor className={cn("relative mx-auto h-[250px] w-full max-w-[380px] select-none sm:h-[290px]", className)}>
+    <div aria-hidden data-cursor className={cn("relative mx-auto h-[250px] w-full max-w-[520px] select-none sm:h-[290px]", className)}>
       <div data-depth="2" className="absolute inset-[6%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.3),rgb(154_123_255/0.1)_55%,transparent)]" />
       <div data-depth="-3" className="absolute inset-x-[24%] bottom-[3%] h-9 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.75),transparent)]" />
-      {/* neurons around the page, feeding the reading inward */}
-      <div data-depth="-1" className="absolute inset-[-4%] opacity-80">
-        <NeuralHalo className="engine-spin [--spin:120s]" />
-      </div>
-
-      <div className="absolute inset-0 [perspective:900px]">
+      <div className="absolute inset-y-0 left-0 right-0 [perspective:900px] sm:left-[44%]">
         <div
           // Bobs on the compositor (CSS), not a JS animation running every frame.
           className="doc-bob absolute inset-0 [transform-style:preserve-3d]"
         >
-          <div className="absolute inset-y-[9%] inset-x-[22%] [transform-style:preserve-3d]" style={stack}>
+          <div className="absolute inset-y-[9%] inset-x-[22%] [transform-style:preserve-3d] sm:inset-x-[8%]" style={stack}>
             {/* Pages behind, offset up and right like a fanned stack. */}
             <div
               className="absolute inset-0 rounded-2xl border border-violet/25 bg-violet/[0.07]"
@@ -91,29 +73,22 @@ export function ScanVisual({ level, className }: { level?: RiskLevel | null; cla
               <div className="pointer-events-none absolute inset-0" style={specular} />
             </div>
 
-            <Chip z={64} className="-left-[30%] top-[12%]">
-              <span className="mr-1.5 inline-block size-1.5 rounded-full bg-cyan align-middle shadow-[0_0_8px_rgb(95_216_245/0.9)]" />
-              Rhythm
-            </Chip>
-            <Chip z={40} className="-right-[34%] top-[40%]">
-              <span className="mr-1.5 inline-block size-1.5 rounded-full bg-violet align-middle shadow-[0_0_8px_rgb(154_123_255/0.9)]" />
-              Phrasing
-            </Chip>
-            <Chip z={88} className="-left-[18%] bottom-[8%]">
-              {level ? (
-                <>
-                  <span className={cn("mr-1.5 inline-block size-1.5 rounded-full align-middle", levelDot[level])} />
-                  Last scan: {levelLabel[level]}
-                </>
-              ) : (
-                <>
-                  <span className="mr-1.5 inline-block size-1.5 rounded-full bg-accent align-middle shadow-[0_0_8px_rgb(91_140_255/0.9)]" />
-                  Readability
-                </>
-              )}
-            </Chip>
           </div>
         </div>
+      </div>
+
+      {/* the agent's console beside the page, as on the home page */}
+      <div data-depth="2" className="absolute left-0 top-1/2 z-10 hidden w-[66%] -translate-y-1/2 sm:block">
+        <AgentTerminal
+          note={
+            level ? (
+              <span className="inline-flex items-center gap-1 text-fg-muted">
+                <span className={cn("size-1.5 rounded-full", levelDot[level])} />
+                last scan: {levelLabel[level]}
+              </span>
+            ) : undefined
+          }
+        />
       </div>
     </div>
   );

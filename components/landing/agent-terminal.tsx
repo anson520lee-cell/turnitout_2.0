@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
@@ -99,7 +99,7 @@ function useTicker(on: boolean) {
   return { lines, m, hist };
 }
 
-export function AgentTerminal({ className }: { className?: string }) {
+export function AgentTerminal({ className, note }: { className?: string; /** Shown in the title bar, e.g. the last scan's level. */ note?: ReactNode }) {
   const reduce = usePrefersReducedMotion();
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -126,7 +126,8 @@ export function AgentTerminal({ className }: { className?: string }) {
         <span className="size-[7px] rounded-full bg-[#f5c451]/70" />
         <span className="size-[7px] rounded-full bg-ok/70" />
         <span className="ml-2 text-[9.5px] tracking-[0.08em] text-fg-subtle">agent@0% · review</span>
-        <span className="ml-auto flex items-center gap-1 text-[8.5px] uppercase tracking-[0.14em] text-ok">
+        {note && <span className="ml-auto text-[8.5px] uppercase tracking-[0.12em]">{note}</span>}
+        <span className={cn("flex items-center gap-1 text-[8.5px] uppercase tracking-[0.14em] text-ok", note ? "ml-2" : "ml-auto")}>
           <span className="term-live size-1.5 rounded-full bg-ok" /> live
         </span>
       </div>
