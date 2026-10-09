@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
 import { ReportRequest } from "@/components/orders/report-request";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,16 @@ export default function Page() {
       <AppHeader
         eyebrow={<Badge tone="info" dot>Human-processed · Turnitin screening</Badge>}
         title={serviceLabels[reportService]}
-        body="Paste your text and pay once. A reviewer runs it through Turnitin with repository storage off, then records exactly what the screening returned: the AI-writing indicator, the similarity result and the report file where available."
+        body={
+          <>
+            Paste your text and pay once. A reviewer runs it through Turnitin with repository storage off, then records exactly what the
+            screening returned: the AI-writing indicator, the similarity result and the report file where available.{" "}
+            <Link href="/sample-report" className="text-accent underline-offset-4 hover:underline">
+              See a sample report
+            </Link>
+            .
+          </>
+        }
       />
       <ReportRequest />
     </>

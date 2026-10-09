@@ -15,6 +15,8 @@ const pages: { path: string; priority: number }[] = [
   { path: "/academic-integrity", priority: 0.4 },
   { path: "/privacy", priority: 0.3 },
   { path: "/terms", priority: 0.3 },
+  { path: "/refunds", priority: 0.3 },
+  { path: "/sample-report", priority: 0.6 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
