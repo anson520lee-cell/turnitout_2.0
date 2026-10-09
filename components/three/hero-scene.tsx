@@ -253,7 +253,7 @@ function TextLines() {
     const t = clock.elapsedTime;
     if (t - last.current < 0.055) return;
     last.current = t;
-    const f = anim.frame(t);
+    const f = anim.frame(t + anim.warm); // a full page from the first frame
 
     // beam height in world units, interpolated between row positions
     if (f.beam === null) beamState.on = false;
@@ -597,7 +597,7 @@ export default function HeroScene() {
       <Canvas
         dpr={[1, 1.75]}
         frameloop={visible ? "always" : "never"}
-        camera={{ position: [0, 0, 6.2], fov: 50.2 }}
+        camera={{ position: [0, 0, 5.3], fov: 50.2 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         aria-hidden
       >

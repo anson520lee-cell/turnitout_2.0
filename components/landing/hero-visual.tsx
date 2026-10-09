@@ -39,7 +39,7 @@ export function HeroVisual() {
   const use3D = useCanRender3D();
 
   return (
-    <div className="w-full max-w-[560px]" aria-hidden>
+    <div className="w-full max-w-[560px] lg:max-w-[700px]" aria-hidden>
       <div className="relative aspect-[4/4.2] w-full select-none">
         {/* radial lighting, and a contact shadow the document floats over */}
         <div
@@ -51,7 +51,7 @@ export function HeroVisual() {
           className="absolute inset-[-12%] bg-grid [mask-image:radial-gradient(closest-side,black_30%,transparent)] opacity-50"
         />
         {/* the document: centred on phones, on the right where the terminal sits beside it */}
-        <div className="absolute inset-0 sm:left-[46%] sm:-right-[10%]">
+        <div className="absolute inset-0 sm:left-[24%] sm:-right-[6%]">
           <div
             data-depth="-3"
             className="absolute inset-x-[22%] bottom-[6%] h-10 rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.8),transparent)]"
@@ -61,7 +61,7 @@ export function HeroVisual() {
         {/* the agent's console: every run read-out, live */}
         <div
           data-depth="2"
-          className="absolute left-0 top-[24%] z-10 hidden w-[60%] sm:block"
+          className="absolute -left-[2%] bottom-[10%] z-10 hidden w-[44%] sm:block"
         >
           <AgentTerminal />
         </div>

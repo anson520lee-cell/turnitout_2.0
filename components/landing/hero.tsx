@@ -104,7 +104,7 @@ export function Hero() {
             </p>
           </Reveal>
         </div>
-        <Reveal aboveFold delay={0.2} className="flex justify-center lg:justify-end">
+        <Reveal aboveFold delay={0.2} className="flex justify-center lg:-mr-6 lg:justify-end xl:-mr-12 2xl:-mr-28">
           <HeroVisual />
         </Reveal>
       </Container>

@@ -101,7 +101,8 @@ export function GreekText({
     let raf = 0;
     let visible = true;
     let last = 0;
-    const start = performance.now();
+    // begin with a full page already written, the writer carrying on at the bottom
+    const start = performance.now() - anim.warm * 1000;
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);

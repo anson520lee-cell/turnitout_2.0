@@ -242,6 +242,11 @@ export function createAnimator(lines: string[], visible = lines.length) {
   return {
     n: V,
     cycle,
+    /** Seconds into the stream at which the page is first full: start here so a fresh page load already shows a whole page being written. */
+    warm: (() => {
+      const L = Math.max(0, V - 1);
+      return Math.floor(L / n) * cycle + rowEnd[L % n] + 0.05;
+    })(),
     /** a finished, fully Greek page, for the server render and reduced motion */
     staticRows(): FrameRow[] {
       return Array.from({ length: V }, (_, k) => {
