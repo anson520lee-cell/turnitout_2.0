@@ -76,7 +76,7 @@ export function GreekText({
   flagColor = COLOR_FLAG,
   textClass = "text-[9px]",
   maxChars,
-  beam = true,
+  beam = false,
   caption = false,
   agentTag = true,
   attention = caption,
@@ -132,7 +132,11 @@ export function GreekText({
           f.agent && f.agent.step !== "done"
             ? `agent · ${f.agent.step === "focus" ? "attend" : f.agent.step === "select" ? "select span" : f.agent.step === "delete" ? "delete" : "rewrite"}`
             : f.phase === "type"
-            ? `tokenize · ${Math.round(f.chars / 4)} tok${f.edits ? ` · ${f.edits} edit${f.edits > 1 ? "s" : ""}` : ""}`
+            ? Math.floor((now - start) / 2200) % 3 === 0
+              ? `tokenize · ${Math.round(f.chars / 4)} tok${f.edits ? ` · ${f.edits} edit${f.edits > 1 ? "s" : ""}` : ""}`
+              : Math.floor((now - start) / 2200) % 3 === 1
+                ? "extract features"
+                : "weigh signals"
             : f.phase === "scan"
               ? f.p < 0.55
                 ? "extract features"

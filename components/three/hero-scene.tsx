@@ -221,10 +221,7 @@ function TextLines() {
     return out;
   }, []);
 
-  const anim = useMemo(() => {
-    const lines = CODE.filter(Boolean);
-    return createAnimator(rows.map((_, i) => lines[i % lines.length]));
-  }, [rows]);
+  const anim = useMemo(() => createAnimator(CODE.filter(Boolean), rows.length), [rows]);
 
   const { canvas, tex } = useMemo(() => {
     const c = document.createElement("canvas");

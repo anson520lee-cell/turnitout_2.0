@@ -2,19 +2,12 @@
  * The document's text animation, shared by the CSS document and the WebGL
  * hero document. It is a pure function of time, so there is no state to keep.
  *
- * One loop:
- *   1. WRITE - Greek letters, laid out like Python code, are typed one by one with human
- *              rhythm (uneven pace, hesitations, a pause at each line end)
- *              and a blinking cursor. Now and then the writer mistypes a few
- *              letters, stops, backspaces them and carries on.
- *      AGENT - a couple of rows behind the writer, an editing agent goes
- *              back over finished lines: it selects a span, deletes it and
- *              types a revision, which stays marked. Writer and agent work at
- *              the same time.
- *   2. SCAN  - a beam sweeps down the page; every glyph it crosses flickers
- *              and is re-rolled into a different Greek letter.
- *   3. HOLD  - the page stays Greek for a while, then clears and starts again
- *              with freshly generated Greek.
+ * It never stops: a writer types Greek letters, laid out like Python code,
+ * with human rhythm (uneven pace, hesitations, a mistyped run now and then
+ * that is backspaced). When the page is full it scrolls up a line at a time
+ * and the writer carries on, forever. An editing agent works a couple of rows
+ * behind the writer: it selects a span, deletes it and types a revision,
+ * which stays marked as the line scrolls away. There is no scan beam.
  *
  * Alongside the text it reports an attention weight per row (which rows the
  * model is "looking at": the line being written and the line being revised
@@ -125,13 +118,24 @@ interface Plan {
 const S = 1 / 3;
 const REWRITE_CHAR = 0.055 * S;
 
-export function createAnimator(lines: string[]) {
+/**
+ * An endless stream. The writer keeps coding: when the page is full the text
+ * scrolls up a line at a time and the next line is typed at the bottom,
+ * forever (the source lines repeat, in fresh Greek each time round). The
+ * editing agent keeps revising lines a couple of rows behind the writer, and
+ * what it has changed stays marked as the lines scroll up.
+ *
+ * `lines` is the source, `visible` how many rows the page shows (default: as
+ * many as there are lines).
+ */
+export function createAnimator(lines: string[], visible = lines.length) {
   const n = lines.length;
+  const V = visible;
   const evs: TypeEvent[][] = [];
   const rowStart: number[] = [];
   const rowEnd: number[] = [];
 
-  let time = 0.7 * S;
+  let time = 0.2 * S;
   lines.forEach((line, i) => {
     rowStart.push(time);
     const e: TypeEvent[] = [];
@@ -165,13 +169,14 @@ export function createAnimator(lines: string[]) {
     evs.push(e);
     rowEnd.push(time);
   });
+  const writeEnd = time;
 
-  // The agent: a few finished lines, revised one after another, two rows behind the writer.
+  // The agent revises a few lines of each pass, two rows behind the writer.
   const plans: Plan[] = [];
   let agentFree = 0;
-  for (let i = 0; i < n && plans.length < 3; i++) {
+  for (let i = 0; i < n; i++) {
     const line = lines[i];
-    if (!line || line.trim().length < 10 || h(i, 7, 7) > 0.42) continue;
+    if (!line || line.trim().length < 10 || h(i, 7, 7) > 0.5) continue;
     const lead = line.length - line.trimStart().length;
     const avail = line.length - lead;
     const len = Math.min(avail - 1, 4 + Math.floor(h(i, 8, 8) * 5));
@@ -186,133 +191,112 @@ export function createAnimator(lines: string[]) {
     agentFree = tEnd;
   }
   const planOf = new Map(plans.map((p) => [p.row, p]));
-
-  const typeEnd = Math.max(time, agentFree) + 0.2;
-  const scanStart = typeEnd + 0.9;
-  const scanEnd = scanStart + 3.8;
-  const holdEnd = scanEnd + 4.5;
-  const cycle = holdEnd + 0.8;
+  const cycle = Math.max(writeEnd, agentFree) + 0.1; // one pass through the source
+  const totalChars = lines.reduce((acc, l) => acc + l.length, 0);
 
   /** The line as it stands once the agent has revised it (same length, new glyphs in the span). */
-  const revised = (i: number, epoch: number, greekEpoch: number) => {
-    const base = toGreek(lines[i], i, greekEpoch);
+  const revised = (i: number, c: number) => {
+    const base = toGreek(lines[i], i, c * 2);
     const p = planOf.get(i);
     if (!p) return base;
     let span = "";
-    for (let j = p.a; j < p.b; j++) span += lines[i][j] === " " ? " " : glyph(i + 60, j, epoch);
+    for (let j = p.a; j < p.b; j++) span += lines[i][j] === " " ? " " : glyph(i + 60, j, c);
     return base.slice(0, p.a) + span + base.slice(p.b);
   };
 
   const attention = (t: number, focus: number[]): number[] => {
     const tick = Math.floor(t * 2.5);
-    const w = lines.map((l, i) => (l ? 0.12 + 0.45 * h(i, tick, 31) : 0));
+    const w = Array.from({ length: V }, (_, k) => 0.12 + 0.45 * h(k, tick, 31));
     focus.forEach((r, k) => {
-      if (r >= 0 && r < n) {
+      if (r >= 0 && r < V) {
         w[r] = Math.max(w[r], k === 0 ? 1 : 0.85);
         if (r > 0) w[r - 1] = Math.max(w[r - 1], 0.5);
-        if (r < n - 1) w[r + 1] = Math.max(w[r + 1], 0.4);
+        if (r < V - 1) w[r + 1] = Math.max(w[r + 1], 0.4);
       }
     });
     const m = Math.max(...w, 0.001);
     return w.map((x) => x / m);
   };
 
+  /** A line that has been written, with the agent's work on it at time `tl` (seconds into its pass). */
+  const settled = (i: number, c: number, tl: number): { row: FrameRow; step: AgentStep | null } => {
+    const p = planOf.get(i);
+    const base = toGreek(lines[i], i, c * 2);
+    if (!p || tl < p.t0) return { row: { text: base, noise: "", greek: false }, step: null };
+    const done = revised(i, c);
+    const span = done.slice(p.a, p.b);
+    const step: AgentStep | null = tl >= p.tEnd ? null : tl < p.tSel ? "focus" : tl < p.tDel ? "select" : tl < p.tRw ? "delete" : tl < p.tDone ? "rewrite" : "done";
+    if (tl < p.tSel) return { row: { text: base, noise: "", greek: false, agent: p.a }, step };
+    if (tl < p.tDel) {
+      const e = p.a + Math.round((p.b - p.a) * Math.min(1, (tl - p.tSel) / (0.45 * S)));
+      return { row: { text: base, noise: "", greek: false, sel: [p.a, e], agent: e }, step };
+    }
+    if (tl < p.tRw) return { row: { text: base.slice(0, p.a) + base.slice(p.b), noise: "", greek: false, agent: p.a }, step };
+    if (tl < p.tDone) {
+      const m = Math.min(p.b - p.a, Math.floor((tl - p.tRw) / REWRITE_CHAR));
+      return { row: { text: base.slice(0, p.a) + span.slice(0, m) + base.slice(p.b), noise: "", greek: false, edit: [p.a, p.a + m], agent: p.a + m }, step };
+    }
+    return { row: { text: done, noise: "", greek: false, edit: [p.a, p.b], agent: tl < p.tEnd ? p.b : undefined }, step };
+  };
+
   return {
-    n,
+    n: V,
     cycle,
     /** a finished, fully Greek page, for the server render and reduced motion */
     staticRows(): FrameRow[] {
-      return lines.map((l, i) => {
+      return Array.from({ length: V }, (_, k) => {
+        const i = k % n;
         const p = planOf.get(i);
-        return { text: revised(i, 0, 0), noise: "", greek: true, edit: p ? [p.a, p.b] : undefined };
+        return { text: revised(i, 0), noise: "", greek: true, edit: p ? [p.a, p.b] : undefined };
       });
     },
     frame(t: number): Frame {
-      const epoch = Math.floor(t / cycle);
-      const tt = t - epoch * cycle;
-      const fr = Math.floor(t * 18);
-      const ge = epoch * 2;
+      const c = Math.floor(t / cycle);
+      const tt = t - c * cycle;
+      // the line being written
+      let active = lines.findIndex((_, i) => tt < rowEnd[i]);
+      if (active < 0) active = n - 1;
+      const La = c * n + active; // global index of the writer's line
 
-      if (tt >= holdEnd) {
-        return {
-          rows: lines.map(() => ({ text: "", noise: "", greek: false })),
-          beam: null,
-          phase: "clear",
-          p: 0,
-          chars: 0,
-          agent: null,
-          edits: 0,
-          attn: lines.map(() => 0),
-        };
-      }
-
-      const edits = plans.filter((p) => tt >= p.tDone).length;
-
-      if (tt < typeEnd) {
-        let active = lines.findIndex((_, i) => tt < rowEnd[i]);
-        if (active < 0) active = n; // the writer is done; the agent may still be working
-        let agent: Frame["agent"] = null;
-
-        const rows = lines.map((line, i): FrameRow => {
-          if (i > active || tt < rowStart[i]) return { text: "", noise: "", greek: false };
-          const base = toGreek(line, i, ge);
-          if (i === active) {
-            // the writer's line: typed so far, plus any mistyped letters
-            let ev: TypeEvent = { t: 0, k: 0, w: 0 };
-            for (const e of evs[i]) {
-              if (e.t > tt) break;
-              ev = e;
-            }
-            let wrong = "";
-            for (let w = 0; w < ev.w; w++) wrong += glyph(i + 40, ev.k + w, epoch + 3);
-            const lastT = ev.t || rowStart[i];
-            const solid = tt - lastT < 0.5; // cursor stays lit while typing
-            const on = solid || Math.floor(tt * 2.2) % 2 === 0;
-            return { text: base.slice(0, ev.k) + wrong, noise: line && on ? "▌" : "", greek: false };
-          }
-          const p = planOf.get(i);
-          if (!p || tt < p.t0) return { text: base, noise: "", greek: false };
-          const done = revised(i, epoch, ge);
-          const span = done.slice(p.a, p.b);
-          if (tt < p.tEnd) agent = { row: i, step: tt < p.tSel ? "focus" : tt < p.tDel ? "select" : tt < p.tRw ? "delete" : tt < p.tDone ? "rewrite" : "done" };
-          if (tt < p.tSel) return { text: base, noise: "", greek: false, agent: p.a };
-          if (tt < p.tDel) {
-            const e = p.a + Math.round((p.b - p.a) * Math.min(1, (tt - p.tSel) / (0.45 * S)));
-            return { text: base, noise: "", greek: false, sel: [p.a, e], agent: e };
-          }
-          if (tt < p.tRw) return { text: base.slice(0, p.a) + base.slice(p.b), noise: "", greek: false, agent: p.a };
-          if (tt < p.tDone) {
-            const m = Math.min(p.b - p.a, Math.floor((tt - p.tRw) / REWRITE_CHAR));
-            return { text: base.slice(0, p.a) + span.slice(0, m) + base.slice(p.b), noise: "", greek: false, edit: [p.a, p.a + m], agent: p.a + m };
-          }
-          return { text: done, noise: "", greek: false, edit: [p.a, p.b], agent: tt < p.tEnd ? p.b : undefined };
-        });
-        let chars = 0;
-        for (const r of rows) chars += r.text.length;
-        const ag = agent as Frame["agent"];
-        return { rows, beam: null, phase: "type", p: tt / typeEnd, chars, agent: ag, edits, attn: attention(t, [ag ? ag.row : -1, active]) };
-      }
-
-      const scanning = tt >= scanStart && tt < scanEnd;
-      const p = Math.min(1, Math.max(0, (tt - scanStart) / (scanEnd - scanStart)));
-      const pos = tt < scanStart ? -10 : tt >= scanEnd ? n + 10 : p * (n + 1);
-
-      const rows = lines.map((line, i): FrameRow => {
-        const pl = planOf.get(i);
-        const edit: [number, number] | undefined = pl ? [pl.a, pl.b] : undefined;
-        const d = pos - (i + 0.5);
-        if (d < -0.8) return { text: revised(i, epoch, ge), noise: "", greek: false, edit };
-        if (d <= 0.8) {
-          let s = "";
-          for (let j = 0; j < line.length; j++) s += line[j] === " " ? " " : glyph(i + 5, j, fr);
-          return { text: "", noise: s, greek: true };
+      let agent: Frame["agent"] = null;
+      let agentSlot = -1;
+      const rows: FrameRow[] = [];
+      let chars = c * totalChars;
+      for (let k = 0; k < V; k++) {
+        const L = La - (V - 1) + k; // global line shown in this slot
+        if (L < 0) {
+          rows.push({ text: "", noise: "", greek: false });
+          continue;
         }
-        return { text: revised(i, epoch + 1000, ge + 1), noise: "", greek: true, edit };
-      });
-      const total = lines.reduce((a, l) => a + l.length, 0);
-      const attn = attention(t, [scanning ? Math.min(n - 1, Math.max(0, Math.floor(pos - 0.5))) : -1]);
-      if (tt < scanEnd) return { rows, beam: scanning ? pos : null, phase: "scan", p, chars: total, agent: null, edits, attn };
-      return { rows, beam: null, phase: "hold", p: (tt - scanEnd) / (holdEnd - scanEnd), chars: total, agent: null, edits, attn };
+        const cc = Math.floor(L / n);
+        const i = L - cc * n;
+        const tl = t - cc * cycle; // time within that line's own pass
+        if (L === La) {
+          let ev: TypeEvent = { t: 0, k: 0, w: 0 };
+          for (const e of evs[i]) {
+            if (e.t > tl) break;
+            ev = e;
+          }
+          const base = toGreek(lines[i], i, cc * 2);
+          let wrong = "";
+          for (let w = 0; w < ev.w; w++) wrong += glyph(i + 40, ev.k + w, cc + 3);
+          const lastT = ev.t || rowStart[i];
+          const solid = tl - lastT < 0.5; // cursor stays lit while typing
+          const on = solid || Math.floor(tl * 2.2) % 2 === 0;
+          rows.push({ text: base.slice(0, ev.k) + wrong, noise: lines[i] && on ? "▌" : "", greek: false });
+          chars += ev.k;
+        } else {
+          const st = settled(i, cc, tl);
+          rows.push(st.row);
+          if (st.step && st.step !== "done") {
+            agent = { row: k, step: st.step };
+            agentSlot = k;
+          }
+        }
+      }
+      for (let i = 0; i < active; i++) chars += lines[i].length;
+      const edits = c * plans.length + plans.filter((p) => tt >= p.tDone).length;
+      return { rows, beam: null, phase: "type", p: tt / cycle, chars, agent, edits, attn: attention(t, [agentSlot, V - 1]) };
     },
   };
 }
