@@ -27,6 +27,7 @@ const cols = [
     links: [
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
+      { href: "/refunds", label: "Refunds" },
       { href: "/academic-integrity", label: "Academic integrity" },
     ],
   },

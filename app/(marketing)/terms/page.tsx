@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
@@ -31,7 +32,7 @@ export default function TermsPage() {
         <h2>5. Writing Refinement</h2>
         <p>Writing Refinement improves clarity, flow and phrasing while preserving meaning, factual claims and citations. We will not invent sources or citations. We may decline requests that appear intended to disguise authorship.</p>
         <h2>6. Payment and refunds</h2>
-        <p>Prices are shown in Hong Kong dollars before checkout. If we cannot complete a paid order, we will refund it. A new screening after revision is a new order.</p>
+        <p>Services are paid for with credits bought in US dollars; the price of every service is shown before you pay. If we cannot complete a paid order, its credits are returned. A new screening after revision is a new order. Full details, including crypto and PayPal payments, are in the <Link href="/refunds">refund policy</Link>.</p>
         <h2>7. Acceptable use</h2>
         <p>Do not use the service to misrepresent authorship, to submit others&rsquo; work without permission, or to attempt to access other users&rsquo; data.</p>
         <h2>8. Contact</h2>

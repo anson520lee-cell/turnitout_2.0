@@ -1,8 +1,9 @@
 /**
- * Privacy-safe analytics hook. Events carry ids and enums only; never
- * document text, file names or titles. Wire `send` to a provider (e.g.
- * Plausible, PostHog with autocapture off) when one is chosen.
+ * Privacy-safe analytics hook, sent to Vercel Web Analytics (no cookies).
+ * Events carry ids and enums only; never document text, file names or titles.
  */
+import { track as send } from "@vercel/analytics";
+
 export type AnalyticsEvent =
   | "signup_completed"
   | "login_completed"
@@ -31,5 +32,9 @@ export function track(event: AnalyticsEvent, props: Props = {}): void {
   if (process.env.NODE_ENV !== "production") {
     console.debug("[analytics]", event, props);
   }
-  // send(event, props)  <- plug provider here
+  try {
+    send(event, props);
+  } catch {
+    // analytics must never break the page
+  }
 }

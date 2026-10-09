@@ -5,6 +5,7 @@ import { InteractiveSurfaces } from "@/components/motion/interactive-surfaces";
 import { Entrance, ENTRANCE_PRE_SCRIPT } from "@/components/motion/entrance";
 import { SpaceBackground } from "@/components/space/space-background";
 import { brand } from "@/config/app";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -47,6 +48,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <MotionProvider>{children}</MotionProvider>
         <InteractiveSurfaces />
         <Entrance />
+        {/* page views and the funnel events from lib/analytics; no cookies, no document text */}
+        <Analytics />
       </body>
     </html>
   );
