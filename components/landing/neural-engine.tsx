@@ -6,7 +6,9 @@ import { ENGINE_SIGNALS } from "./engine-core";
  * The Pattern Engine as a live diagram: a three-dimensional network shaped
  * like a ball, turning slowly. The six signals sit on the outer shell, three
  * hidden layers on shells inside it, and the estimate forms at the core; the
- * pass travels inward along the spokes. Drawn plainly: one accent colour, one
+ * pass travels inward along the spokes, neurons flash as it reaches them, a
+ * ring spreads from the core when the estimate lands, and a constant stream of
+ * small sparks keeps running inward between the shells. Drawn plainly: one accent colour, one
  * neutral, hairline shells. Decorative (aria-hidden); the signals are listed
  * in text beside it.
  *
@@ -27,7 +29,7 @@ import { ENGINE_SIGNALS } from "./engine-core";
  * illustrates how signals are weighed, it is not a reading of any text.
  */
 
-const LAYERS = [ENGINE_SIGNALS.length, 10, 10, 6, 1];
+const LAYERS = [ENGINE_SIGNALS.length, 18, 22, 12, 1];
 const OUT = LAYERS.length - 1;
 const X = [0.37, 0.49, 0.61, 0.73, 0.872]; // layer x, fraction of the panel
 const TOP = 0.235;
@@ -35,7 +37,7 @@ const BOTTOM = 0.82;
 /** Seconds a sample takes. Uneven on purpose: quick ones, ordinary ones, and now and then a slow one. */
 const nextPeriod = () => {
   const p = Math.random();
-  return p < 0.3 ? 0.8 + Math.random() * 0.5 : p < 0.8 ? 1.5 + Math.random() * 1.1 : 3 + Math.random() * 1.8;
+  return p < 0.35 ? 0.45 + Math.random() * 0.25 : p < 0.85 ? 0.75 + Math.random() * 0.45 : 1.4 + Math.random() * 0.6;
 };
 const ARRIVE = [0.1, 0.27, 0.44, 0.61, 0.78]; // when the wavefront reaches each layer (fraction of the period)
 /** Shell radius per layer: inputs on the outside, the estimate at the core. */
@@ -96,6 +98,12 @@ export function NeuralEngine({
     const history: number[] = [];
     let sample = 4096 + Math.floor(Math.random() * 900);
     let shown = 0; // the number on the dial
+    /** Signals in flight between shells, independent of the sampled pass: spark from a neuron, run along one spoke inward. */
+    const sparks: { l: number; i: number; j: number; t0: number; dur: number }[] = [];
+    let sparkClock = 0;
+    /** Rings that spread from the core each time an estimate lands. */
+    const waves: number[] = [];
+    let landedSeen = false;
 
     function forward() {
       for (let i = 0; i < LAYERS[0]; i++) tgt[0][i] = Math.random();
@@ -180,7 +188,7 @@ export function NeuralEngine({
       const cy = 0.53 * s;
       const R0 = 0.28 * s;
       const now = performance.now() / 1000;
-      const yaw = reduce ? 0.6 : now * 0.16;
+      const yaw = reduce ? 0.6 : now * 0.22;
       const pitch = -0.32 + (reduce ? 0 : Math.sin(now * 0.27) * 0.08);
       const cyw = Math.cos(yaw);
       const syw = Math.sin(yaw);
@@ -266,6 +274,53 @@ export function NeuralEngine({
         }
       }
 
+      // ── the signal stream: many small sparks always running inward along the
+      // spokes, faster than the pass itself, each with a short tail.
+      if (!reduce) {
+        // spawn ~90 a second, weighted toward strong connections
+        const dtS = sparkClock ? Math.min(0.05, now - sparkClock) : 0;
+        sparkClock = now;
+        let want = dtS * 90;
+        while (want > 0) {
+          if (Math.random() < want) {
+            const l = Math.floor(Math.random() * OUT);
+            const i = Math.floor(Math.random() * LAYERS[l]);
+            const j = Math.floor(Math.random() * LAYERS[l + 1]);
+            if (Math.abs(W[l][i][j]) * (0.4 + Math.abs(act[l][i])) > 0.35) sparks.push({ l, i, j, t0: now, dur: 0.18 + Math.random() * 0.22 });
+          }
+          want -= 1;
+        }
+        for (let q = sparks.length - 1; q >= 0; q--) {
+          const sp = sparks[q];
+          const f = (now - sp.t0) / sp.dur;
+          if (f >= 1) {
+            sparks.splice(q, 1);
+            continue;
+          }
+          const A = SHELL[sp.l][sp.i];
+          const B = SHELL[sp.l + 1][sp.j];
+          const head = project([A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f]);
+          const ft = Math.max(0, f - 0.22);
+          const tail = project([A[0] + (B[0] - A[0]) * ft, A[1] + (B[1] - A[1]) * ft, A[2] + (B[2] - A[2]) * ft]);
+          const dz = depthA(head.z);
+          const pos = W[sp.l][sp.i][sp.j] >= 0;
+          const g = c.createLinearGradient(tail.x, tail.y, head.x, head.y);
+          g.addColorStop(0, `rgba(${pos ? "120,170,255" : "170,180,205"},0)`);
+          g.addColorStop(1, `rgba(${pos ? "190,215,255" : "200,205,220"},${(0.85 * dz).toFixed(2)})`);
+          c.strokeStyle = g;
+          c.lineWidth = 1.4 * k * head.sc;
+          c.beginPath();
+          c.moveTo(tail.x, tail.y);
+          c.lineTo(head.x, head.y);
+          c.stroke();
+          c.fillStyle = `rgba(235,242,255,${(0.9 * dz).toFixed(2)})`;
+          c.beginPath();
+          c.arc(head.x, head.y, 1.3 * k * head.sc, 0, Math.PI * 2);
+          c.fill();
+        }
+        if (sparks.length > 400) sparks.splice(0, sparks.length - 400);
+      }
+
       // ── neurons, back to front: a disc whose size and fill follow the activation
       const order: { l: number; i: number; z: number }[] = [];
       for (let l = 0; l < OUT; l++) for (let i = 0; i < LAYERS[l]; i++) order.push({ l, i, z: P[l][i].z });
@@ -275,7 +330,18 @@ export function NeuralEngine({
         const v = act[l][i];
         const a = Math.abs(v);
         const dz = depthA(p.z);
-        const r = (2.2 + 3 * a) * k * p.sc * (l === 0 ? 1.15 : 1);
+        const r = (2 + 2.6 * a) * k * p.sc * (l === 0 ? 1.15 : 1);
+        // a brief flash as the pass reaches this shell
+        const hit = reduce ? 0 : Math.max(0, 1 - Math.abs(u - ARRIVE[l]) / 0.07);
+        if (hit > 0) {
+          const fl = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 4);
+          fl.addColorStop(0, `rgba(${ACCENT},${(0.55 * hit * dz).toFixed(2)})`);
+          fl.addColorStop(1, `rgba(${ACCENT},0)`);
+          c.fillStyle = fl;
+          c.beginPath();
+          c.arc(p.x, p.y, r * 4, 0, Math.PI * 2);
+          c.fill();
+        }
         c.fillStyle = "rgba(10,14,28,1)";
         c.beginPath();
         c.arc(p.x, p.y, r + 1.4 * k, 0, Math.PI * 2);
@@ -293,6 +359,21 @@ export function NeuralEngine({
       {
         const p = P[OUT][0];
         const e = clamp(shown / 100);
+        const landedNow = u >= ARRIVE[OUT];
+        if (landedNow && !landedSeen && !reduce) waves.push(now);
+        landedSeen = landedNow;
+        for (let q = waves.length - 1; q >= 0; q--) {
+          const f = (now - waves[q]) / 0.9;
+          if (f >= 1) {
+            waves.splice(q, 1);
+            continue;
+          }
+          c.strokeStyle = `rgba(${ACCENT},${(0.5 * (1 - f)).toFixed(2)})`;
+          c.lineWidth = 1.2;
+          c.beginPath();
+          c.arc(p.x, p.y, (8 + f * R0 * 0.55) * 1, 0, Math.PI * 2);
+          c.stroke();
+        }
         const glow = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 26 * k);
         glow.addColorStop(0, `rgba(${ACCENT},${(0.35 + 0.35 * e).toFixed(2)})`);
         glow.addColorStop(1, `rgba(${ACCENT},0)`);
