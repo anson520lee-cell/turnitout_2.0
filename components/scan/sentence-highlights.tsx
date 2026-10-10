@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import type { SentenceSignal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
+import { HudCorners, HudLabel } from "@/components/ui/hud";
 import { cn } from "@/lib/utils";
 
 const mark = {
@@ -36,6 +37,8 @@ export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] 
 
   return (
     <Card className="p-5 sm:p-6">
+      <HudCorners />
+      <HudLabel className="mb-2">Sentence scan</HudLabel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold">Sentence highlights</h2>

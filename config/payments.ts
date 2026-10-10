@@ -82,14 +82,13 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
   paypal: {
     id: "paypal",
     label: "PayPal",
-    short: "Scan the PayPal QR code or open the link.",
-    enabled: true,
-    payee: [{ label: "PayPal link", value: "https://www.paypal.com/qrcodes/p2pqrc/JLNQMU6LEVUCU", copy: true }],
-    link: "https://www.paypal.com/qrcodes/p2pqrc/JLNQMU6LEVUCU",
+    short: "Scan the QR code in the PayPal app and send the amount.",
+    enabled: true, // hand-confirmed: the customer scans, pays, then enters the transaction ID
+    payee: [{ label: "PayPal name", value: "LY L" }],
     qrImage: "/payments/paypal-qr.png",
-    note: "Send the exact amount in US dollars (USD).",
+    note: "Send the exact USD amount shown here.",
     steps: [
-      "Scan the QR code in the PayPal app, or open the PayPal link shown here.",
+      "Open the PayPal app and scan the QR code.",
       "Send the exact amount in US dollars (USD).",
       "Put the reference code in the payment note.",
       "Come back here and enter your PayPal transaction ID.",
@@ -123,10 +122,10 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "usdt",
     label: "USDT",
     short: "Tether stablecoin, sent on the network shown.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
-      { label: "Network", value: "TRON (TRC-20)" },
-      { label: "Wallet address", value: "TWHCWZUaLuPCeB2orQ9WrNgxpXGtSvkSUV", copy: true },
+      { label: "Network", value: "REPLACE: network (e.g. TRON TRC-20)" },
+      { label: "Wallet address", value: "REPLACE: USDT wallet address", copy: true },
     ],
     qrImage: "/payments/usdt-qr.png",
     note: "Send only USDT on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
@@ -143,13 +142,13 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "usdc",
     label: "USDC",
     short: "Circle stablecoin, sent on the network shown.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
-      { label: "Network", value: "Base" },
-      { label: "Wallet address", value: "0x59E20E385F86FcdD0553EB708B2992969EAEf927", copy: true },
+      { label: "Network", value: "REPLACE: network (e.g. Ethereum ERC-20, Base, Solana)" },
+      { label: "Wallet address", value: "REPLACE: USDC wallet address", copy: true },
     ],
     qrImage: "/payments/usdc-qr.png",
-    note: "Send only USDC on the Base network (not Ethereum, Polygon or any other). Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
+    note: "Send only USDC on the network shown. Coins sent on a different network are lost and cannot be recovered. Network fees are paid by you.",
     steps: [
       "Open your wallet or exchange and choose USDC on the network shown here.",
       "Send the amount shown (1 USDC is worth about US$1, so send the same number of USDC as the US$ amount).",
@@ -163,10 +162,10 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
     id: "bitcoin",
     label: "Bitcoin",
     short: "Send BTC on the Bitcoin network.",
-    enabled: true,
+    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
     payee: [
       { label: "Network", value: "Bitcoin (on-chain)" },
-      { label: "Wallet address", value: "bc1qv4znuglhq3epqs9xhr9v903n3st33k5ck4falz", copy: true },
+      { label: "Wallet address", value: "REPLACE: Bitcoin wallet address", copy: true },
     ],
     qrImage: "/payments/bitcoin-qr.png",
     note: "Send only Bitcoin (BTC) to this address. The BTC amount depends on today's exchange rate; send the equivalent of the US$ amount. Network fees are paid by you.",

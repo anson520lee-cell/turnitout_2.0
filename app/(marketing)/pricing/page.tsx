@@ -6,19 +6,17 @@ import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeScan } from "@/config/app";
 import { formatCredits, refinementPrice, refinementPricing, screeningPrices } from "@/config/pricing";
-import { enabledManualPayments } from "@/config/payments";
 import { refinementMinimumLabel, refinementRateLabel, reportService, wordRangeLabel } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `Free writing scans, ${formatCredits(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Prices are in credits (8 credits = US$1).`,
+  description: `Free writing scans, ${formatCredits(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Prices are in credits (1 credit = HK$1).`,
   alternates: { canonical: "/pricing" },
 };
 
 const examples = [1800, 3000, 4250, 12000].map((chars) => ({ chars, price: refinementPrice(chars) }));
 
 export default function PricingPage() {
-  const methods = enabledManualPayments().map((m) => m.label);
   return (
     <>
       <PageHeader
@@ -55,7 +53,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              8 credits = US$1. Top up on the Billing & Credits page by {methods.join(", ")}; card payment is offered where available. We confirm manual payments by hand, then the credits are yours to spend on any report or refinement.
+              1 credit = HK$1. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC) or PayPal. Crypto credits are added automatically once the payment is confirmed; PayPal top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
             </p>
           </div>
         </div>

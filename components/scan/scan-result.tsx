@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { ChevronDown, Info, ArrowRight, Download } from "lucide-react";
 import type { AnalysisResult, RiskLevel, Signal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
+import { HudCorners, HudLabel, SegmentBar, Tile } from "@/components/ui/hud";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { RiskGauge } from "./risk-gauge";
@@ -37,16 +37,14 @@ function SignalRow({ s, i }: { s: Signal; i: number }) {
             <span className="text-[14px] font-medium">{s.label}</span>
             {s.level ? <Badge tone={levelTone[s.level]}>{levelLabel[s.level]}</Badge> : <Badge>Not measured</Badge>}
           </div>
-          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-            <motion.div
-              className={cn(
-                "h-full rounded-full",
-                s.level === "elevated" ? "bg-gradient-to-r from-violet to-risk" : s.level === "moderate" ? "bg-gradient-to-r from-accent to-warn" : "bg-gradient-to-r from-cyan to-ok",
-              )}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.max(3, s.score ?? 0)}%` }}
-              transition={{ duration: 1.1, delay: 0.15 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+          <div className="mt-3 flex items-center gap-3">
+            <SegmentBar
+              className="flex-1"
+              value={s.score ?? 0}
+              tone={s.level === "elevated" ? "risk" : s.level === "moderate" ? "warn" : "ok"}
+              delay={150 + i * 70}
             />
+            <span className="w-8 text-right font-mono text-[12px] tabular-nums text-fg-muted">{s.score === null ? "–" : Math.round(s.score)}</span>
           </div>
           <p className="mt-2 text-[12.5px] text-fg-subtle">{s.measurement}</p>
         </div>
@@ -94,6 +92,8 @@ export function ScanResult({
 
       <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
         <Card strong tilt={5} className="flex flex-col items-center justify-center p-6">
+          <HudCorners />
+          <HudLabel className="mb-3 self-start">Risk dial</HudLabel>
           <RiskGauge level={result.overallRisk} />
           <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
             {[
@@ -101,14 +101,16 @@ export function ScanResult({
               ["Sentences", result.metadata.sentences],
               ["Paragraphs", result.metadata.paragraphs],
             ].map(([k, v]) => (
-              <div key={k} className="rounded-xl border border-[var(--line)] bg-ink-900/50 py-2.5">
-                <p className="text-[15px] font-semibold">{v}</p>
-                <p className="text-[11px] text-fg-subtle">{k}</p>
-              </div>
+              <Tile key={k} className="py-2.5">
+                <p className="tile-num text-[18px] font-semibold">{v}</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-subtle">{k}</p>
+              </Tile>
             ))}
           </div>
         </Card>
         <Card tilt={5} className="p-5">
+          <HudCorners />
+          <HudLabel className="mb-1">Signal map · 6 axes</HudLabel>
           <SignalRadar signals={result.signals} />
         </Card>
       </div>
@@ -120,7 +122,9 @@ export function ScanResult({
       {result.sentences && result.sentences.length > 0 && <SentenceHighlights sentences={result.sentences} />}
 
       <Card className="px-5 sm:px-6">
-        <h2 className="pt-5 text-[15px] font-semibold">Writing signals</h2>
+        <HudCorners />
+        <HudLabel className="pt-5">Signal readout</HudLabel>
+        <h2 className="mt-1 text-[15px] font-semibold">Writing signals</h2>
         <ul>{result.signals.map((s, i) => <SignalRow key={s.id} s={s} i={i} />)}</ul>
       </Card>
 

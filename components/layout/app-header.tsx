@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
+import { HudLabel } from "@/components/ui/hud";
 
 export function AppHeader({ title, body, actions, eyebrow }: { title: ReactNode; body?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   return (
     <div className="mb-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          {eyebrow && <div className="mb-2">{eyebrow}</div>}
+          <div className="mb-2">{eyebrow ?? <HudLabel>Workspace · live</HudLabel>}</div>
           <h1 className="app-h1 text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
           {body && <p className="app-lead mt-1.5 max-w-2xl text-[14px] text-fg-muted">{body}</p>}
         </div>
