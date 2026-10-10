@@ -1,6 +1,6 @@
-import { NextResponse, after, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekRun, redeemFeedbackTicket } from "@/lib/deepseek";
+import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekStream, redeemFeedbackTicket } from "@/lib/deepseek";
 import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
@@ -30,22 +30,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Written reports are paused for today. The rest of your scan is complete.", reason: "daily_limit" }, { status: 503, headers: noStore });
   }
   const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
-  try {
-    const result = await deepseekRun({
-      // The owner's prompt (editable on /admin/prompt), plus one fixed rule they can't remove.
-      system: `${prompt}\n\n${DRAFT_GUARD}`,
-      user: `<draft>\n${text.data}\n</draft>`,
-      // Room for reasoning plus the full report.
-      maxTokens: 12_000,
-      model: setting.model,
-      effort: setting.effort,
-    });
-    after(() => logModelCall("scan_report", { ok: true, result }));
-    return NextResponse.json({ feedback: result.text.slice(0, 16_000) }, { headers: noStore });
-  } catch (e) {
-    if (e instanceof DeepSeekRunError) after(() => logModelCall("scan_report", { ok: false, error: e }));
-    const message = e instanceof DeepSeekError ? e.message : "Feedback isn't available right now.";
-    const reason = e instanceof DeepSeekError ? e.reason : "unknown";
-    return NextResponse.json({ error: message, reason }, { status: 502, headers: noStore });
-  }
+  const input = {
+    // The owner's prompt (editable on /admin/prompt), plus one fixed rule they can't remove.
+    system: [prompt, DRAFT_GUARD].join("\n\n"),
+    user: ["<draft>", text.data, "</draft>"].join("\n"),
+    // Room for reasoning plus the full report.
+    maxTokens: 12_000,
+    model: setting.model,
+    effort: setting.effort,
+  };
+
+  // The report is sent as it is written: one JSON object per line.
+  //   {"t":"d","v":"…"}            a piece of the report text
+  //   {"t":"done"}                 finished
+  //   {"t":"err","reason":"…"}     failed (generic reason code only)
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: Record<string, unknown>) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      try {
+        for await (const event of deepseekStream(input)) {
+          if (event.type === "delta") send({ t: "d", v: event.text });
+          else {
+            await logModelCall("scan_report", { ok: true, result: event.result });
+            send({ t: "done" });
+          }
+        }
+      } catch (e) {
+        if (e instanceof DeepSeekRunError) await logModelCall("scan_report", { ok: false, error: e });
+        send({ t: "err", reason: e instanceof DeepSeekError ? e.reason : "unknown" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" },
+  });
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { MessageSquareText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,44 +7,121 @@ import { track } from "@/lib/analytics";
 import { overallRisk, parseReport } from "@/lib/report-format";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 
-type State = { status: "waiting" } | { status: "done"; feedback: string } | { status: "unavailable"; reason?: string };
+type State =
+  | { status: "waiting" }
+  | { status: "streaming"; text: string }
+  | { status: "done"; feedback: string }
+  | { status: "unavailable"; reason?: string };
 
-// Feedback is requested once per scan. Kept here so a remount (React dev mode
-// runs effects twice) neither asks twice nor loses it.
-const requests = new Map<string, Promise<State>>();
+interface Store {
+  state: State;
+  started: boolean;
+  subscribers: Set<() => void>;
+}
 
-function useFeedback(ticket: string, text: string): State {
-  const [state, setState] = useState<State>({ status: "waiting" });
+// One request per scan. Kept here so a remount (React dev mode runs effects
+// twice) neither asks twice nor loses what has already arrived.
+const stores = new Map<string, Store>();
 
-  useEffect(() => {
-    let stopped = false;
-    let request = requests.get(ticket);
-    if (!request) {
-      request = fetch("/api/scan-feedback", {
+/**
+ * Asks for the report and reads it as it is written: the server sends one JSON
+ * object per line ({"t":"d","v":"text"}, then {"t":"done"} or {"t":"err"}).
+ */
+function getStore(ticket: string): Store {
+  let store = stores.get(ticket);
+  if (!store) {
+    store = { state: { status: "waiting" }, started: false, subscribers: new Set() };
+    stores.set(ticket, store);
+    // Only the latest few scans are kept in memory.
+    if (stores.size > 10) stores.delete(stores.keys().next().value as string);
+  }
+  return store;
+}
+
+function startRequest(store: Store, ticket: string, text: string) {
+  if (store.started) return;
+  store.started = true;
+  const set = (next: State) => {
+    store.state = next;
+    store.subscribers.forEach((fn) => fn());
+  };
+
+  (async () => {
+    let report = "";
+    const finish = (reason: string) => {
+      // Something was written before the problem: show it rather than nothing.
+      if (report.trim()) set({ status: "done", feedback: report });
+      else set({ status: "unavailable", reason });
+    };
+    try {
+      const res = await fetch("/api/scan-feedback", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ticket, text }),
         cache: "no-store",
-      })
-        .then(async (res): Promise<State> => {
-          const data = (await res.json().catch(() => null)) as { feedback?: string; reason?: string } | null;
-          if (res.ok && data?.feedback) return { status: "done", feedback: data.feedback };
-          return { status: "unavailable", reason: data?.reason ?? `http_${res.status}` };
-        })
-        .catch((): State => ({ status: "unavailable" }));
-      requests.set(ticket, request);
+      });
+      if (!res.ok || !res.body) {
+        const data = (await res.json().catch(() => null)) as { reason?: string } | null;
+        return set({ status: "unavailable", reason: data?.reason ?? `http_${res.status}` });
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let ended = false;
+      while (!ended) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line) continue;
+          let msg: { t?: string; v?: string; reason?: string };
+          try {
+            msg = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (msg.t === "d" && msg.v) {
+            report += msg.v;
+            set({ status: "streaming", text: report });
+          } else if (msg.t === "done") {
+            ended = true;
+            set({ status: "done", feedback: report });
+            track("scan_feedback_shown");
+          } else if (msg.t === "err") {
+            ended = true;
+            finish(msg.reason ?? "error");
+          }
+        }
+      }
+      if (!ended) finish("closed");
+    } catch {
+      finish("network");
     }
-    request.then((next) => {
-      if (stopped) return;
-      setState(next);
-      if (next.status === "done") track("scan_feedback_shown");
-    });
-    return () => {
-      stopped = true;
-    };
-  }, [ticket, text]);
+  })();
+}
 
-  return state;
+const WAITING: State = { status: "waiting" };
+
+function useFeedback(ticket: string, text: string): State {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const store = getStore(ticket);
+      store.subscribers.add(onChange);
+      startRequest(store, ticket, text);
+      return () => {
+        store.subscribers.delete(onChange);
+      };
+    },
+    [ticket, text],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => getStore(ticket).state,
+    () => WAITING,
+  );
 }
 
 /**
@@ -65,7 +142,9 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
   }
 
   const done = state.status === "done";
-  const blocks = done ? parseReport(state.feedback) : [];
+  // While the report is still being written, show only the lines that are complete.
+  const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
+  const blocks = parseReport(shown);
   const overall = overallRisk(blocks);
   const verdict = overall ? riskStyle[overall] : null;
   return (
@@ -84,8 +163,20 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
         </div>
       </div>
 
-      {done ? (
-        <ReportView blocks={blocks} />
+      {blocks.length > 0 ? (
+        <>
+          <ReportView blocks={blocks} />
+          {!done && (
+            <p className="relative mt-3 flex items-center gap-2 text-[12.5px] text-fg-subtle">
+              Still writing
+              <span aria-hidden className="inline-flex gap-1">
+                {[0, 160, 320].map((d) => (
+                  <span key={d} className="waiting-dot size-1 rounded-full bg-violet" style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </span>
+            </p>
+          )}
+        </>
       ) : (
         <div className="relative mt-4">
           <p className="flex items-center gap-2 text-[13px] text-fg-muted">

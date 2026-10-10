@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { sseEvents } from "@/lib/sse";
 
 /**
  * DeepSeek, called from the server only. DEEPSEEK_API_KEY never reaches the
@@ -35,12 +36,12 @@ export function deepseekModel(): string {
 
 type ChatBody = Record<string, unknown>;
 
-async function post(body: ChatBody): Promise<Response> {
+async function post(body: ChatBody, timeoutMs = TIMEOUT_MS): Promise<Response> {
   return fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}` },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: "no-store",
   });
 }
@@ -156,6 +157,85 @@ export async function deepseekRun(opts: {
     if (e instanceof DeepSeekError) throw fail(e);
     const name = e instanceof Error ? e.name : "error";
     console.error("deepseek request threw", { name, model });
+    throw fail(new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network"));
+  }
+  throw fail(new DeepSeekError());
+}
+
+export type StreamEvent = { type: "delta"; text: string } | { type: "done"; result: ChatResult };
+
+/** Total time the streaming call may take, so two attempts still fit in the route's 120 s limit. */
+const STREAM_BUDGET_MS = 110_000;
+
+/**
+ * Like deepseekRun, but yields the answer's text as it is written, then a
+ * final "done" event with model, effort, usage and time. Reasoning text is
+ * never yielded. If the first attempt returns no answer text, one retry
+ * without thinking. Throws DeepSeekRunError; once some text has been yielded
+ * a failure can't be retried, so it throws instead.
+ */
+export async function* deepseekStream(opts: {
+  system: string;
+  user: string;
+  maxTokens: number;
+  model?: string;
+  effort?: ReasoningEffort;
+}): AsyncGenerator<StreamEvent> {
+  const model = opts.model?.trim() || deepseekModel();
+  const effort = opts.effort ?? defaultEffort();
+  const usage: ChatUsage = { promptTokens: 0, completionTokens: 0, reasoningTokens: 0, cacheHitTokens: 0 };
+  const started = Date.now();
+  const fail = (e: DeepSeekError) => new DeepSeekRunError(e, usage, model, Date.now() - started);
+  if (!deepseekEnabled()) throw fail(new DeepSeekError());
+
+  const base: ChatBody = {
+    model,
+    messages: [
+      { role: "system", content: opts.system },
+      { role: "user", content: opts.user },
+    ],
+    max_tokens: opts.maxTokens,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  const attempts: { body: ChatBody; effort: ReasoningEffort }[] = [
+    ...(effort === "off" ? [] : [{ body: { ...base, thinking: { type: "enabled" }, reasoning_effort: effort }, effort }]),
+    { body: { ...base, thinking: { type: "disabled" } }, effort: "off" as const },
+  ];
+  let yielded = false;
+  try {
+    for (const [i, attempt] of attempts.entries()) {
+      const last = i === attempts.length - 1;
+      const left = Math.max(10_000, STREAM_BUDGET_MS - (Date.now() - started));
+      const res = await post(attempt.body, left);
+      if (res.status === 400 && !last) continue;
+      if (!res.ok || !res.body) {
+        const err = (await res.json().catch(() => null)) as { error?: { type?: string; code?: string } } | null;
+        console.error("deepseek stream failed", { status: res.status, model, type: err?.error?.type, code: err?.error?.code });
+        throw new DeepSeekError(undefined, `http_${res.status}`);
+      }
+      let text = "";
+      for await (const event of sseEvents(res.body)) {
+        const e = event as { choices?: { delta?: { content?: string | null } }[]; usage?: ApiUsage };
+        if (e.usage) addUsage(usage, e.usage);
+        const piece = e.choices?.[0]?.delta?.content;
+        if (piece) {
+          text += piece;
+          yielded = true;
+          yield { type: "delta", text: piece };
+        }
+      }
+      if (!text.trim()) {
+        if (!last) continue;
+        throw new DeepSeekError("The writing model returned nothing.", "empty");
+      }
+      yield { type: "done", result: { text: text.trim(), model, effort: attempt.effort, usage, ms: Date.now() - started } };
+      return;
+    }
+  } catch (e) {
+    if (e instanceof DeepSeekError) throw fail(e);
+    const name = e instanceof Error ? e.name : "error";
+    console.error("deepseek stream threw", { name, model, yielded });
     throw fail(new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network"));
   }
   throw fail(new DeepSeekError());
