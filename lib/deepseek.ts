@@ -58,10 +58,12 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
     stream: false,
   };
   const effort = process.env.DEEPSEEK_REASONING_EFFORT?.trim() || DEFAULT_EFFORT;
-  // Low reasoning first; if the API doesn't take that option, fall back to no thinking at all.
+  // Reviews and edits need no long reasoning, and thinking can eat the whole token budget (empty reply, and
+  // two slow calls would outlast the route's time limit). So: no thinking first; low-effort thinking only
+  // if the API rejects that option or returns nothing.
   const attempts: ChatBody[] = [
-    { ...base, thinking: { type: "enabled" }, reasoning_effort: effort },
     { ...base, thinking: { type: "disabled" } },
+    { ...base, thinking: { type: "enabled" }, reasoning_effort: effort },
   ];
   try {
     for (const [i, body] of attempts.entries()) {
@@ -75,7 +77,11 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
       }
       const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
       const text = data.choices?.[0]?.message?.content?.trim();
-      if (!text) throw new DeepSeekError("The writing model returned nothing.", "empty");
+      if (!text) {
+        // Empty reply: retry once with low-effort thinking.
+        if (i < attempts.length - 1) continue;
+        throw new DeepSeekError("The writing model returned nothing.", "empty");
+      }
       return text;
     }
   } catch (e) {
