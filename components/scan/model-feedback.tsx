@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { track } from "@/lib/analytics";
 import { overallRisk, parseReport } from "@/lib/report-format";
-import { ReportView } from "./report-view";
+import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 
 type State = { status: "waiting" } | { status: "done"; feedback: string } | { status: "unavailable"; reason?: string };
 
@@ -67,7 +67,7 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
   const done = state.status === "done";
   const blocks = done ? parseReport(state.feedback) : [];
   const overall = overallRisk(blocks);
-  const verdict = overall ? { high: { tone: "danger", label: "High" }, medium: { tone: "warn", label: "Medium" }, low: { tone: "success", label: "Low" }, uncertain: { tone: "neutral", label: "Uncertain" } }[overall] as { tone: "danger" | "warn" | "success" | "neutral"; label: string } : null;
+  const verdict = overall ? riskStyle[overall] : null;
   return (
     <Card className="relative overflow-hidden p-5 sm:p-6" aria-live="polite" aria-busy={!done}>
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-violet/15 blur-3xl" />
@@ -79,8 +79,8 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
           Self-check report
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {verdict && <Badge tone={verdict.tone}>Review: {verdict.label} risk</Badge>}
-          <Badge tone="progress">Written by our language model</Badge>
+          {verdict && <Badge tone={verdict.tone} className={riskPrintClass[verdict.tone]}>Review: {verdict.label} risk</Badge>}
+          <Badge tone="progress" className="print:border-[#4b3a9a] print:bg-transparent print:text-[#4b3a9a]">Written by our language model</Badge>
         </div>
       </div>
 
