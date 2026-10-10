@@ -25,7 +25,7 @@ export default function PricingPage() {
         body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day. A Turnitin AI & similarity report is ${formatCredits(screeningPrices[reportService])} flat. Writing refinement is priced by length.`}
       />
       <Container>
-        <PricingCards />
+        <PricingCards headingAs="h2" />
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-5 md:grid-cols-3">
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">

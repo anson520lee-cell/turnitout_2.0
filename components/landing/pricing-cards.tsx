@@ -30,7 +30,7 @@ function RunningEdge() {
   );
 }
 
-export function PricingCards() {
+export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" | "h3" } = {}) {
   return (
     <>
       <Stagger className="mx-auto grid max-w-6xl items-stretch gap-5 md:grid-cols-3">
@@ -72,7 +72,7 @@ export function PricingCards() {
                   </span>
                   <p className={cn("font-mono text-[11px] uppercase tracking-[0.16em]", k.text)}>{k.label}</p>
                 </div>
-                <h3 className="mt-5 text-[18px] font-semibold tracking-tight">{s.name}</h3>
+                <Heading className="mt-5 text-[18px] font-semibold tracking-tight">{s.name}</Heading>
                 <p className="mt-1.5 min-h-[44px] text-[13px] leading-relaxed text-fg-muted">{s.short}</p>
                 <div data-pop className="mt-5">
                   <p className={cn("text-[34px] font-semibold leading-none tracking-tight", s.highlight && "text-gradient")}>{s.priceLabel}</p>

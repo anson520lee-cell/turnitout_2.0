@@ -76,7 +76,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
         </div>
         {list}
       </aside>
-      <div className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
+      <header className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
           className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5"
@@ -86,7 +86,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
         >
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
-      </div>
+      </header>
       {open && (
         <div className="fixed inset-x-0 top-14 bottom-0 z-40 flex flex-col bg-ink-950/95 p-4 backdrop-blur-xl lg:hidden">{list}</div>
       )}
