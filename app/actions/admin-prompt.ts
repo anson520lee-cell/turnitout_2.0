@@ -104,7 +104,7 @@ const testInput = z.object({
 });
 
 export type PromptTestResult =
-  | { ok: true; report: string; model: string; effort: string; seconds: number; tokens: number }
+  | { ok: true; report: string; model: string; effort: string; seconds: number; tokens: number; truncated: boolean }
   | { ok: false; message: string };
 
 /**
@@ -122,7 +122,7 @@ export async function testReportPrompt(input: unknown): Promise<PromptTestResult
     const result = await deepseekRun({
       system: `${parsed.data.prompt}\n\n${DRAFT_GUARD}`,
       user: `<draft>\n${parsed.data.text}\n</draft>`,
-      maxTokens: 12_000,
+      maxTokens: 24_000,
       model: setting.model,
       effort: parsed.data.effort ?? setting.effort,
     });
@@ -134,6 +134,7 @@ export async function testReportPrompt(input: unknown): Promise<PromptTestResult
       effort: result.effort,
       seconds: Math.round(result.ms / 100) / 10,
       tokens: result.usage.promptTokens + result.usage.completionTokens,
+      truncated: result.truncated,
     };
   } catch (e) {
     if (e instanceof DeepSeekRunError) await logModelCall("prompt_test", { ok: false, error: e });

@@ -68,6 +68,8 @@ export interface ChatResult {
   effort: ReasoningEffort;
   /** Summed over every attempt made (a fallback costs tokens too). */
   usage: ChatUsage;
+  /** The model hit the output limit before it finished: the text ends mid-way. */
+  truncated: boolean;
   ms: number;
 }
 
@@ -143,15 +145,14 @@ export async function deepseekRun(opts: {
         console.error("deepseek request failed", { status: res.status, model, type: err?.error?.type, code: err?.error?.code });
         throw new DeepSeekError(undefined, `http_${res.status}`);
       }
-      const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[]; usage?: ApiUsage };
+      const data = (await res.json()) as { choices?: { message?: { content?: string | null }; finish_reason?: string | null }[]; usage?: ApiUsage };
       addUsage(usage, data.usage);
       const text = data.choices?.[0]?.message?.content?.trim();
-      if (!text) {
-        // Empty reply (reasoning used the budget): retry once without thinking.
-        if (!last) continue;
-        throw new DeepSeekError("The writing model returned nothing.", "empty");
-      }
-      return { text, model, effort: attempt.effort, usage, ms: Date.now() - started };
+      const cut = data.choices?.[0]?.finish_reason === "length";
+      // Empty reply, or cut off mid-way (reasoning used up the budget): retry once without thinking.
+      if ((!text || cut) && !last) continue;
+      if (!text) throw new DeepSeekError("The writing model returned nothing.", "empty");
+      return { text, model, effort: attempt.effort, usage, truncated: cut, ms: Date.now() - started };
     }
   } catch (e) {
     if (e instanceof DeepSeekError) throw fail(e);
@@ -215,9 +216,11 @@ export async function* deepseekStream(opts: {
         throw new DeepSeekError(undefined, `http_${res.status}`);
       }
       let text = "";
+      let cut = false;
       for await (const event of sseEvents(res.body)) {
-        const e = event as { choices?: { delta?: { content?: string | null } }[]; usage?: ApiUsage };
+        const e = event as { choices?: { delta?: { content?: string | null }; finish_reason?: string | null }[]; usage?: ApiUsage };
         if (e.usage) addUsage(usage, e.usage);
+        if (e.choices?.[0]?.finish_reason === "length") cut = true;
         const piece = e.choices?.[0]?.delta?.content;
         if (piece) {
           text += piece;
@@ -229,7 +232,7 @@ export async function* deepseekStream(opts: {
         if (!last) continue;
         throw new DeepSeekError("The writing model returned nothing.", "empty");
       }
-      yield { type: "done", result: { text: text.trim(), model, effort: attempt.effort, usage, ms: Date.now() - started } };
+      yield { type: "done", result: { text: text.trim(), model, effort: attempt.effort, usage, truncated: cut, ms: Date.now() - started } };
       return;
     }
   } catch (e) {

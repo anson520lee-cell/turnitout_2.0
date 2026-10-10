@@ -151,6 +151,7 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
               <Badge tone="progress">{test.model}</Badge>
               <Badge>reasoning {test.effort}</Badge>
               <span>{test.seconds}s · {test.tokens.toLocaleString("en-HK")} tokens</span>
+              {test.truncated && <Badge tone="warn">Report cut short</Badge>}
             </div>
             <ReportView blocks={parseReport(test.report)} />
           </div>

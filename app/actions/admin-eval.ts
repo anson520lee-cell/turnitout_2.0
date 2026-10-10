@@ -84,12 +84,12 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
     const result = await deepseekRun({
       system: [prompt, DRAFT_GUARD].join("\n\n"),
       user: ["<draft>", row.body, "</draft>"].join("\n"),
-      maxTokens: 12_000,
+      maxTokens: 24_000,
       model: model.model,
       effort: parsed.data.effort ?? model.effort,
     });
     await logModelCall("eval", { ok: true, result });
-    const metrics = scoreReport(result.text, row.sentences);
+    const metrics = { ...scoreReport(result.text, row.sentences), truncated: result.truncated };
     const tokens = result.usage.promptTokens + result.usage.completionTokens;
     const label = promptSetting.custom ? "your saved prompt" : "built-in prompt";
     const { data: saved, error } = await db

@@ -60,6 +60,8 @@ export interface Metrics {
   paragraphAccuracyStrict: number | null;
   paragraphAccuracyLoose: number | null;
   overall: Risk | null;
+  /** The model ran out of output budget and the report ends mid-way, so the scores are unreliable. */
+  truncated?: boolean;
 }
 
 const key = (p: number, s: number) => `${p}:${s}`;

@@ -35,7 +35,7 @@ export async function logModelCall(
 ): Promise<void> {
   if (!isSupabaseConfigured) return;
   const row = outcome.ok
-    ? { model: outcome.result.model, effort: outcome.result.effort, ok: true, reason: null, usage: outcome.result.usage, ms: outcome.result.ms }
+    ? { model: outcome.result.model, effort: outcome.result.effort, ok: true, reason: outcome.result.truncated ? "length" : null, usage: outcome.result.usage, ms: outcome.result.ms }
     : { model: outcome.error.model, effort: "n/a", ok: false, reason: outcome.error.reason, usage: outcome.error.usage, ms: outcome.error.ms };
   try {
     await createAdminClient().from("model_usage").insert({
@@ -139,7 +139,7 @@ export async function usageSummary(days = 14): Promise<UsageSummary> {
       t.msSum += r.ms;
     }
     byDay.set(dayKey(r.created_at), d);
-    if (!r.ok && r.reason) reasons.set(r.reason, (reasons.get(r.reason) ?? 0) + 1);
+    if (r.reason) reasons.set(r.reason, (reasons.get(r.reason) ?? 0) + 1);
     if (r.ok) efforts.set(r.effort, (efforts.get(r.effort) ?? 0) + 1);
   }
   const finish = ({ msSum, ...t }: Omit<UsageDay, "day"> & { msSum: number }) => ({ ...t, avgMs: t.calls ? Math.round(msSum / t.calls) : 0 });

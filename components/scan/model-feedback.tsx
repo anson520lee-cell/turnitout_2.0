@@ -14,7 +14,7 @@ import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 type State =
   | { status: "waiting" }
   | { status: "streaming"; text: string }
-  | { status: "done"; feedback: string }
+  | { status: "done"; feedback: string; cut?: boolean }
   | { status: "unavailable"; reason?: string };
 
 interface Store {
@@ -81,7 +81,7 @@ function startRequest(store: Store, ticket: string, text: string, previousText?:
           const line = buffer.slice(0, nl).trim();
           buffer = buffer.slice(nl + 1);
           if (!line) continue;
-          let msg: { t?: string; v?: string; reason?: string };
+          let msg: { t?: string; v?: string; reason?: string; cut?: boolean };
           try {
             msg = JSON.parse(line);
           } catch {
@@ -92,7 +92,7 @@ function startRequest(store: Store, ticket: string, text: string, previousText?:
             set({ status: "streaming", text: report });
           } else if (msg.t === "done") {
             ended = true;
-            set({ status: "done", feedback: report });
+            set({ status: "done", feedback: report, cut: msg.cut === true });
             track("scan_feedback_shown");
           } else if (msg.t === "err") {
             ended = true;
@@ -183,6 +183,11 @@ export function ModelFeedback({
       {blocks.length > 0 ? (
         <>
           <ReportView blocks={blocks} />
+          {state.status === "done" && state.cut && (
+            <p className="relative mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] px-3.5 py-2.5 text-[12.5px] text-[#f7d9a0]">
+              This report was cut short because it ran long. Scan again to get the full review.
+            </p>
+          )}
           {!done && (
             <p className="relative mt-3 flex items-center gap-2 text-[12.5px] text-fg-subtle">
               Still writing

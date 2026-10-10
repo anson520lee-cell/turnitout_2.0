@@ -169,6 +169,11 @@ function CaseCard({ c }: { c: EvalCaseView }) {
             <Badge>{latest.promptLabel}</Badge>
             <span>{formatDateTime(latest.createdAt)} · {Math.round(latest.ms / 100) / 10}s · {latest.tokens.toLocaleString("en-HK")} tokens</span>
           </div>
+          {latest.metrics.truncated && (
+            <div className="mt-3">
+              <FormMessage tone="info">This run ran out of output budget and the report ends mid-way, so these scores are unreliable. Run it again.</FormMessage>
+            </div>
+          )}
           <RunDetail m={latest.metrics} />
         </div>
       ) : (

@@ -41,15 +41,15 @@ export async function POST(request: NextRequest) {
     // The owner's prompt (editable on /admin/prompt), plus fixed rules they can't remove.
     system: [prompt, ...(recheck ? [SCAN_RECHECK_ADDENDUM] : []), DRAFT_GUARD].join("\n\n"),
     user: recheck ? recheck.message : ["<draft>", text.data, "</draft>"].join("\n"),
-    // Room for reasoning plus the full report.
-    maxTokens: 12_000,
+    // Room for reasoning plus the full report (reasoning counts against this).
+    maxTokens: 24_000,
     model: setting.model,
     effort: setting.effort,
   };
 
   // The report is sent as it is written: one JSON object per line.
   //   {"t":"d","v":"…"}            a piece of the report text
-  //   {"t":"done"}                 finished
+  //   {"t":"done","cut":false}     finished ("cut": it hit the output limit and ends mid-way)
   //   {"t":"err","reason":"…"}     failed (generic reason code only)
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           if (event.type === "delta") send({ t: "d", v: event.text });
           else {
             await logModelCall(recheck ? "scan_recheck" : "scan_report", { ok: true, result: event.result });
-            send({ t: "done" });
+            send({ t: "done", cut: event.result.truncated });
           }
         }
       } catch (e) {
