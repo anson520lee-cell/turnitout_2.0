@@ -16,8 +16,8 @@ const requests = new Map<string, Promise<State>>();
 function toPoints(text: string): string[] {
   const lines = text.replace(/\*\*/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const marker = /^(?:[-*•]|\d+[.)])\s+/;
-  // A. … E. and the closing 總結： open a point too, and keep their label.
-  const heading = /^(?:[A-E][.)]\s*|總結[：:])/;
+  // A. … E. and the closing "Summary:" open a point too, and keep their label.
+  const heading = /^(?:[A-E][.)]\s*|Summary:)/;
   if (!lines.some((l) => marker.test(l) || heading.test(l))) return lines;
   const points: string[] = [];
   for (const line of lines) {
