@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       // Room for low-effort reasoning plus the full report.
       maxTokens: 12_000,
     });
-    return NextResponse.json({ feedback: feedback.slice(0, 8000) }, { headers: noStore });
+    return NextResponse.json({ feedback: feedback.slice(0, 16_000) }, { headers: noStore });
   } catch (e) {
     const message = e instanceof DeepSeekError ? e.message : "Feedback isn't available right now.";
     const reason = e instanceof DeepSeekError ? e.reason : "unknown";

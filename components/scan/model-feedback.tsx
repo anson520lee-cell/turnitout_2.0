@@ -130,7 +130,7 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
       )}
 
       <p className="relative mt-4 border-t border-[var(--line)] pt-3 text-[12px] leading-relaxed text-fg-subtle">
-        Points where the writing reads as generic or formulaic. The report doesn&rsquo;t decide whether text is AI-written,
+        Places in your own writing that could be misread as AI-written, based on patterns from real Turnitin results. It doesn&rsquo;t decide who wrote the text,
         isn&rsquo;t a Turnitin result, and doesn&rsquo;t rewrite anything for you. It isn&rsquo;t saved.
       </p>
     </Card>
