@@ -6,7 +6,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { formatCredits, screeningPrices } from "@/config/pricing";
 import { reportService } from "@/config/services";
 
-const methods = "crypto (USDT, USDC or BTC)";
+const methods = "crypto (USDT, USDC or BTC) or PayPal";
 
 export const steps = [
   { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },

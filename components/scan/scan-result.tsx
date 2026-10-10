@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { ChevronDown, Info, ArrowRight, Download } from "lucide-react";
 import type { AnalysisResult, RiskLevel, Signal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";

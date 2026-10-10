@@ -53,7 +53,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              1 credit = HK$1. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC). Credits are added automatically once the payment is confirmed, then they are yours to spend on any report or refinement.
+              1 credit = HK$1. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC) or PayPal. Crypto credits are added automatically once the payment is confirmed; PayPal top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
             </p>
           </div>
         </div>
