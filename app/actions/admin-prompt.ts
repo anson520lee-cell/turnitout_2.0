@@ -97,6 +97,8 @@ export async function resetModelChoice(): Promise<Result> {
 }
 
 const testInput = z.object({
+  /** Try a different reasoning level than the saved one; omitted = the saved setting. */
+  effort: z.enum(REASONING_EFFORTS).optional(),
   prompt: promptInput,
   text: z.string().trim().min(50, "Paste at least a few sentences to test with.").max(6000, "Test text is limited to 6,000 characters."),
 });
@@ -122,7 +124,7 @@ export async function testReportPrompt(input: unknown): Promise<PromptTestResult
       user: `<draft>\n${parsed.data.text}\n</draft>`,
       maxTokens: 12_000,
       model: setting.model,
-      effort: setting.effort,
+      effort: parsed.data.effort ?? setting.effort,
     });
     await logModelCall("prompt_test", { ok: true, result });
     return {

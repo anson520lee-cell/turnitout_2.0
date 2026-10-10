@@ -30,6 +30,7 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
   const [pending, start] = useTransition();
   const [sample, setSample] = useState(SAMPLE);
   const [test, setTest] = useState<PromptTestResult | null>(null);
+  const [testEffort, setTestEffort] = useState<"saved" | "off" | "low" | "high" | "max">("saved");
   const [testing, startTest] = useTransition();
   const changed = text.trim() !== initial.trim();
 
@@ -113,19 +114,35 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
         />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <span className="font-mono text-[12px] text-fg-subtle">{sample.trim().length.toLocaleString("en-HK")} / 6,000 characters</span>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={testing}
-            onClick={() =>
-              startTest(async () => {
-                setTest(null);
-                setTest(await testReportPrompt({ prompt: text, text: sample }));
-              })
-            }
-          >
-            {testing ? "Running… (up to a minute)" : "Run test"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-[12.5px] text-fg-muted">
+              Reasoning
+              <select
+                value={testEffort}
+                onChange={(e) => setTestEffort(e.target.value as typeof testEffort)}
+                className="h-9 rounded-lg border border-[var(--line)] bg-ink-900/70 px-2 text-[13px] text-fg"
+              >
+                <option value="saved">as saved above</option>
+                <option value="off">off</option>
+                <option value="low">low</option>
+                <option value="high">high</option>
+                <option value="max">max</option>
+              </select>
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={testing}
+              onClick={() =>
+                startTest(async () => {
+                  setTest(null);
+                  setTest(await testReportPrompt({ prompt: text, text: sample, ...(testEffort === "saved" ? {} : { effort: testEffort }) }));
+                })
+              }
+            >
+              {testing ? "Running… (up to a minute)" : "Run test"}
+            </Button>
+          </div>
         </div>
         {test && !test.ok && <div className="mt-3"><FormMessage>{test.message}</FormMessage></div>}
         {test?.ok && (
