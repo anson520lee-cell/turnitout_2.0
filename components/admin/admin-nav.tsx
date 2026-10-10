@@ -10,6 +10,7 @@ const tabs = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/prompt", label: "AI prompt" },
+  { href: "/admin/eval", label: "Accuracy" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

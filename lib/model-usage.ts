@@ -9,7 +9,7 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
  * best-effort: a logging problem never affects the user's request.
  */
 
-export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft";
+export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval";
 
 /**
  * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
