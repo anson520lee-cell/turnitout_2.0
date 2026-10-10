@@ -1618,7 +1618,8 @@ html.ent-pre :is(.depth-title, h1, h2) {
   opacity: 0.7;
   transition: opacity 0.3s ease;
 }
-.app-main :is(.glass, .glass-strong):hover::after { opacity: 1; }
+/* Not on .noise panels: their ::after is the grain overlay, and at full opacity it washed the panel out to white. */
+.app-main :is(.glass, .glass-strong):not(.noise):hover::after { opacity: 1; }
 
 /* list rows: a lit edge slides in on hover */
 .app-main li > a { position: relative; transition: background 0.25s ease, padding-left 0.25s ease; }
