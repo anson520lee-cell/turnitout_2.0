@@ -40,14 +40,16 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
   const text = parsed.data;
 
   const user = await getSessionUser();
+  // Admin accounts (the owner's) scan without a daily limit: nothing is counted or refunded for them.
+  const unlimited = user?.profile.role === "admin";
 
   let remaining: number | null;
   // Signed-in scans also use up this address's guest allowance, so logging
   // out does not hand out a fresh set of free scans. Never blocks a signed-in user.
   let countedOnAddress = false;
   try {
-    remaining = user ? await incrementScanUsage() : await consumeGuestScan();
-    if (user && remaining !== null) {
+    remaining = unlimited ? freeScan.dailyLimit : user ? await incrementScanUsage() : await consumeGuestScan();
+    if (user && !unlimited && remaining !== null) {
       try {
         countedOnAddress = (await consumeGuestScan()) !== null;
       } catch {
@@ -91,8 +93,10 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
     }
   } catch {
     try {
-      await (user ? refundScanUsage(user.id) : refundGuestScan());
-      if (user && countedOnAddress) await refundGuestScan();
+      if (!unlimited) {
+        await (user ? refundScanUsage(user.id) : refundGuestScan());
+        if (user && countedOnAddress) await refundGuestScan();
+      }
     } catch {
       // The analysis error is what the user needs to see; a lost refund costs one scan at most.
     }

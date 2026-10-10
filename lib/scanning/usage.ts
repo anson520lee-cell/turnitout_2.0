@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionUser } from "@/lib/auth/session";
 import { freeScan } from "@/config/app";
 
 /**
@@ -9,6 +10,8 @@ import { freeScan } from "@/config/app";
  * requests cannot exceed it.
  */
 export async function getRemainingScans(): Promise<number> {
+  // Admin accounts (the owner's) have no daily limit; show a full allowance (see runScan).
+  if ((await getSessionUser())?.profile.role === "admin") return freeScan.dailyLimit;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("remaining_scans");
   if (error) throw new Error("Could not read scan usage");
