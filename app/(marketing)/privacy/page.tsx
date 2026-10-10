@@ -26,7 +26,7 @@ export default function PrivacyPage() {
             <li><strong>Writing feedback on free scans:</strong> the text you scan is also sent to an outside AI provider (DeepSeek) so it can write you feedback. We don&rsquo;t store the text or the feedback, and neither is saved to your scan history.</li>
           )}
           <li><strong>Orders:</strong> the document or text you submit, its title, any notes, the service chosen, and the result we deliver.</li>
-          <li><strong>Payments:</strong> you top up credits with crypto (USDT, USDC or BTC) through NOWPayments, and spend credits on orders. We keep your credit balance and transaction history, and for each crypto payment the coin, network, amount, deposit address, transaction status and the payment ID, so we can match your payment. We never ask for or store your wallet keys or seed phrase.</li>
+          <li><strong>Payments:</strong> you top up credits with crypto (USDT, USDC or BTC) through NOWPayments, or by PayPal, and spend credits on orders. We keep your credit balance and transaction history, and for each crypto payment the coin, network, amount, deposit address, transaction status and the payment ID, so we can match your payment. For a PayPal top-up we keep the PayPal transaction ID you give us so staff can confirm it by hand. We never ask for or store your wallet keys or seed phrase.</li>
           <li><strong>Free scans without an account:</strong> to enforce the daily limit we keep a salted one-way hash of your IP address (never the address itself) and a count for the day. Old counts are deleted automatically. Results of scans made without an account are not saved.</li>
         </ul>
         <h2>How documents are handled</h2>

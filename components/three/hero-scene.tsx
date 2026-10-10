@@ -91,6 +91,7 @@ const sheetFrag = /* glsl */ `
   }
 `;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const lineFrag = /* glsl */ `
   uniform vec3 uColor;
   uniform float uOpacity;
@@ -252,6 +253,7 @@ function TextLines() {
   );
 
   const last = useRef(-1);
+  // eslint-disable-next-line react-hooks/immutability
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (t - last.current < 0.055) return;
@@ -289,6 +291,7 @@ function TextLines() {
       const n = fr.noise;
       for (let k = 0; k < n.length; k++) if (n[k] !== " ") g.fillText(n[k], x + (s.length + k) * cw, y);
     });
+    // eslint-disable-next-line react-hooks/immutability
     tex.needsUpdate = true;
   });
 

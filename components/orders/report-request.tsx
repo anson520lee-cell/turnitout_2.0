@@ -18,7 +18,7 @@ const price = formatCredits(screeningPrices[reportService]);
 
 const STEPS = [
   { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${wordRangeLabel}, press Enter.` },
-  { icon: ShieldCheck, t: "Pay", d: "Pay with credits, topped up with crypto (USDT, USDC or BTC)." },
+  { icon: ShieldCheck, t: "Pay", d: "Pay with credits, topped up with crypto (USDT, USDC or BTC) or PayPal." },
   { icon: FileCheck2, t: "Get your report here", d: "The result appears on your order page as soon as it is released." },
 ];
 

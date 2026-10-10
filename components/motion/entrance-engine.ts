@@ -17,7 +17,6 @@ const LETTER = /[\p{L}\p{N}]/u;
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-const ease = (u: number) => 1 - Math.pow(1 - u, 3);
 const smooth = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
