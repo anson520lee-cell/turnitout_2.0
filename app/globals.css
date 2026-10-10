@@ -559,6 +559,11 @@ html[data-interactive] :is(.glass, .glass-strong)[data-tilt]:not([aria-hidden="t
   animation-play-state: running;
 }
 
+/* Surfaces that should not light up under the cursor (the paste dialog: with
+   the cursor in the middle of its text box, the glow covered the whole panel
+   and washed it out to white). Beats the engine's inline --lit. */
+.no-cursor-light { --lit: 0 !important; }
+
 /* Paste dialog text box: the same rim of light buttons and tilted cards get
    on hover/press, triggered by focus instead so the "chat box" feels alive
    while typing. Reuses --rim/rim-spin registered above. */

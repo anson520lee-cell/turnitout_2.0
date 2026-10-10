@@ -11,9 +11,9 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  */
 
 const BASE_URL = process.env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com";
-const DEFAULT_MODEL = "deepseek-flash";
+const DEFAULT_MODEL = "deepseek-flash"; // DeepSeek-V4.1-Flash
 const DEFAULT_EFFORT = "low";
-const TIMEOUT_MS = 90_000;
+const TIMEOUT_MS = 55_000; // two attempts must fit in the scan-feedback route's 120 s limit
 
 export class DeepSeekError extends Error {
   /** Short machine-readable cause (e.g. "http_402", "timeout", "empty"); safe to show: no text, no key. */
@@ -58,12 +58,11 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
     stream: false,
   };
   const effort = process.env.DEEPSEEK_REASONING_EFFORT?.trim() || DEFAULT_EFFORT;
-  // Reviews and edits need no long reasoning, and thinking can eat the whole token budget (empty reply, and
-  // two slow calls would outlast the route's time limit). So: no thinking first; low-effort thinking only
-  // if the API rejects that option or returns nothing.
+  // Low-effort thinking first (DEEPSEEK_REASONING_EFFORT, default "low"). If the API rejects that option
+  // or the reasoning leaves no answer, retry once with thinking off.
   const attempts: ChatBody[] = [
-    { ...base, thinking: { type: "disabled" } },
     { ...base, thinking: { type: "enabled" }, reasoning_effort: effort },
+    { ...base, thinking: { type: "disabled" } },
   ];
   try {
     for (const [i, body] of attempts.entries()) {
@@ -78,7 +77,7 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
       const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
       const text = data.choices?.[0]?.message?.content?.trim();
       if (!text) {
-        // Empty reply: retry once with low-effort thinking.
+        // Empty reply (reasoning used the budget): retry once without thinking.
         if (i < attempts.length - 1) continue;
         throw new DeepSeekError("The writing model returned nothing.", "empty");
       }
