@@ -3,7 +3,9 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { after } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { deepseekChat, deepseekEnabled, deepseekModel } from "@/lib/deepseek";
+import { DeepSeekRunError, deepseekEnabled, deepseekModel, deepseekRun } from "@/lib/deepseek";
+import { logModelCall } from "@/lib/model-usage";
+import { getModelSetting } from "@/lib/site-settings";
 import { localModel } from "@/config/app";
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
@@ -169,8 +171,17 @@ async function writeDraftWithDeepseek(jobId: string, orderId: string): Promise<v
     const chunks = chunkText(order.source_text);
     const out: string[] = [];
     // Sections are written one after another to keep within the provider's rate limits and keep order.
+    // The model and reasoning chosen on /admin/prompt apply to drafts too.
+    const setting = await getModelSetting();
     for (const chunk of chunks) {
-      out.push(await deepseekChat({ system, user: `<text>\n${chunk}\n</text>`, maxTokens: 8000 }));
+      try {
+        const result = await deepseekRun({ system, user: `<text>\n${chunk}\n</text>`, maxTokens: 8000, model: setting.model, effort: setting.effort });
+        await logModelCall("refinement_draft", { ok: true, result });
+        out.push(result.text);
+      } catch (e) {
+        if (e instanceof DeepSeekRunError) await logModelCall("refinement_draft", { ok: false, error: e });
+        throw e;
+      }
     }
     const output = out.join("\n\n").trim();
     if (!output || output.length > localModel.maxDraftChars) return await fail("The model returned nothing usable.");
