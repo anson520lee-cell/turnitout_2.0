@@ -55,6 +55,30 @@ export async function logModelCall(
   }
 }
 
+/** Reports a day may generate before the site pauses them (a cost brake). Set DAILY_REPORT_LIMIT in Vercel to change it; 0 turns the brake off. */
+export function dailyReportLimit(): number {
+  const n = Number(process.env.DAILY_REPORT_LIMIT);
+  return Number.isFinite(n) && n >= 0 && process.env.DAILY_REPORT_LIMIT?.trim() ? Math.floor(n) : 600;
+}
+
+/** True when today's (Hong Kong day) report count has reached the limit. Never blocks on a logging problem. */
+export async function reportLimitReached(): Promise<boolean> {
+  const limit = dailyReportLimit();
+  if (limit === 0 || !isSupabaseConfigured) return false;
+  try {
+    const hkNow = new Date(Date.now() + 8 * 3_600_000);
+    const startUtc = new Date(Date.UTC(hkNow.getUTCFullYear(), hkNow.getUTCMonth(), hkNow.getUTCDate()) - 8 * 3_600_000);
+    const { count } = await createAdminClient()
+      .from("model_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("purpose", "scan_report")
+      .gte("created_at", startUtc.toISOString());
+    return (count ?? 0) >= limit;
+  } catch {
+    return false;
+  }
+}
+
 export interface UsageDay {
   day: string;
   calls: number;

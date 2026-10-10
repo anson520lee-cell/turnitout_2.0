@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PromptEditor } from "@/components/admin/prompt-editor";
 import { ModelPicker } from "@/components/admin/model-picker";
 import { MODEL_CHOICES, getModelSetting, getScanReportSetting, listPromptVersions } from "@/lib/site-settings";
-import { usageSummary } from "@/lib/model-usage";
+import { dailyReportLimit, usageSummary } from "@/lib/model-usage";
 import { formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin · AI prompt" };
@@ -64,7 +64,10 @@ export default async function AdminPrompt() {
         <Card className="p-5">
           <h2 className="text-[14px] font-semibold">Usage, last 14 days</h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            Every report and test run. Token counts only, never the text. Cost is an estimate at DeepSeek&rsquo;s peak-hour prices, so the real bill is the same or lower.
+            Every report and test run. Token counts only, never the text. Cost is an estimate at DeepSeek&rsquo;s peak-hour prices, so the real bill is the same or lower.{" "}
+            {dailyReportLimit() === 0
+              ? "No daily limit on reports."
+              : `Cost brake: reports pause for the rest of the day after ${dailyReportLimit()} (set DAILY_REPORT_LIMIT in Vercel to change; 0 turns it off).`}
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-4">
             {[

@@ -1,7 +1,7 @@
 import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekRun, redeemFeedbackTicket } from "@/lib/deepseek";
-import { logModelCall } from "@/lib/model-usage";
+import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { scanInput } from "@/lib/validation/schemas";
@@ -25,6 +25,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.success || !text?.success) return NextResponse.json({ error: "Bad request." }, { status: 400, headers: noStore });
   if (!redeemFeedbackTicket(parsed.data.ticket, text.data)) {
     return NextResponse.json({ error: "This feedback request has expired." }, { status: 403, headers: noStore });
+  }
+  if (await reportLimitReached()) {
+    return NextResponse.json({ error: "Written reports are paused for today. The rest of your scan is complete.", reason: "daily_limit" }, { status: 503, headers: noStore });
   }
   const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
   try {
