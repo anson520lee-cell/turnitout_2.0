@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { track } from "@/lib/analytics";
 
-type State = { status: "waiting" } | { status: "done"; feedback: string } | { status: "unavailable" };
+type State = { status: "waiting" } | { status: "done"; feedback: string } | { status: "unavailable"; reason?: string };
 
 // Feedback is requested once per scan. Kept here so a remount (React dev mode
 // runs effects twice) neither asks twice nor loses it.
@@ -42,8 +42,9 @@ function useFeedback(ticket: string, text: string): State {
         cache: "no-store",
       })
         .then(async (res): Promise<State> => {
-          const data = res.ok ? ((await res.json()) as { feedback?: string }) : null;
-          return data?.feedback ? { status: "done", feedback: data.feedback } : { status: "unavailable" };
+          const data = (await res.json().catch(() => null)) as { feedback?: string; reason?: string } | null;
+          if (res.ok && data?.feedback) return { status: "done", feedback: data.feedback };
+          return { status: "unavailable", reason: data?.reason ?? `http_${res.status}` };
         })
         .catch((): State => ({ status: "unavailable" }));
       requests.set(ticket, request);
@@ -73,6 +74,7 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
       <p className="flex items-center gap-2 px-1 text-[12.5px] text-fg-subtle print:hidden">
         <MessageSquareText className="size-3.5 shrink-0" aria-hidden />
         Written feedback wasn&rsquo;t ready this time. The rest of your report is complete.
+        {state.reason ? <span className="font-mono text-[11px] opacity-70"> ({state.reason})</span> : null}
       </p>
     );
   }

@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ feedback: feedback.slice(0, 8000) }, { headers: noStore });
   } catch (e) {
     const message = e instanceof DeepSeekError ? e.message : "Feedback isn't available right now.";
-    return NextResponse.json({ error: message }, { status: 502, headers: noStore });
+    const reason = e instanceof DeepSeekError ? e.reason : "unknown";
+    return NextResponse.json({ error: message, reason }, { status: 502, headers: noStore });
   }
 }

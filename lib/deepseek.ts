@@ -16,9 +16,12 @@ const DEFAULT_EFFORT = "low";
 const TIMEOUT_MS = 90_000;
 
 export class DeepSeekError extends Error {
-  constructor(message = "The writing model is unavailable right now.") {
+  /** Short machine-readable cause (e.g. "http_402", "timeout", "empty"); safe to show: no text, no key. */
+  readonly reason: string;
+  constructor(message = "The writing model is unavailable right now.", reason = "unavailable") {
     super(message);
     this.name = "DeepSeekError";
+    this.reason = reason;
   }
 }
 
@@ -68,16 +71,18 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
         // Status and error code only (never the text or the key), so a wrong model id shows up in the host's logs.
         const err = (await res.json().catch(() => null)) as { error?: { type?: string; code?: string } } | null;
         console.error("deepseek request failed", { status: res.status, model: deepseekModel(), type: err?.error?.type, code: err?.error?.code });
-        throw new DeepSeekError();
+        throw new DeepSeekError(undefined, `http_${res.status}`);
       }
       const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
       const text = data.choices?.[0]?.message?.content?.trim();
-      if (!text) throw new DeepSeekError("The writing model returned nothing.");
+      if (!text) throw new DeepSeekError("The writing model returned nothing.", "empty");
       return text;
     }
   } catch (e) {
     if (e instanceof DeepSeekError) throw e;
-    throw new DeepSeekError();
+    const name = e instanceof Error ? e.name : "error";
+    console.error("deepseek request threw", { name, model: deepseekModel() });
+    throw new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network");
   }
   throw new DeepSeekError();
 }
