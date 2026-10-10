@@ -21,6 +21,62 @@ export interface EvalCaseView {
 
 const pct = (n: number | null) => (n === null ? "–" : `${Math.round(n * 100)}%`);
 
+const mean = (xs: (number | null)[]): number | null => {
+  const v = xs.filter((x): x is number => x !== null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+};
+
+interface Group {
+  label: string;
+  runs: EvalRunSummary[];
+}
+
+/** Complete runs grouped by model, reasoning and prompt, so the same settings can be averaged. */
+function groupRuns(runs: EvalRunSummary[]): Group[] {
+  const groups = new Map<string, EvalRunSummary[]>();
+  for (const r of runs) {
+    if (r.metrics.truncated) continue;
+    const label = `${r.model} · reasoning ${r.effort} · ${r.promptLabel}`;
+    groups.set(label, [...(groups.get(label) ?? []), r]);
+  }
+  return [...groups.entries()].map(([label, rs]) => ({ label, runs: rs }));
+}
+
+function Averages({ runs }: { runs: EvalRunSummary[] }) {
+  const groups = groupRuns(runs);
+  if (groups.length === 0) return null;
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <p className="mb-1 text-[12.5px] font-medium text-fg">Average by setting</p>
+      <table className="w-full min-w-[620px] text-left text-[12.5px] tabular-nums">
+        <thead className="text-fg-subtle">
+          <tr className="border-b border-[var(--line)]">
+            <th className="py-2 pr-3 font-medium">Setting</th>
+            <th className="py-2 pr-3 font-medium">Runs</th>
+            <th className="py-2 pr-3 font-medium">High: precision / recall</th>
+            <th className="py-2 pr-3 font-medium">High+Med: precision / recall</th>
+            <th className="py-2 pr-3 font-medium">Paragraphs right (High)</th>
+            <th className="py-2 font-medium">Avg time</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--line)] text-fg-muted">
+          {groups.map((g) => (
+            <tr key={g.label}>
+              <td className="py-2 pr-3 text-fg">{g.label}</td>
+              <td className="py-2 pr-3">{g.runs.length}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.high.precision)))} / {pct(mean(g.runs.map((r) => r.metrics.high.recall)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.highMedium.precision)))} / {pct(mean(g.runs.map((r) => r.metrics.highMedium.recall)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.paragraphAccuracyStrict)))}</td>
+              <td className="py-2">{Math.round(mean(g.runs.map((r) => r.ms / 1000)) ?? 0)}s</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-1 text-[12px] text-fg-subtle">The model answers a little differently each time, so compare averages over several runs, not one.</p>
+    </div>
+  );
+}
+
 function ConfusionRow({ label, c }: { label: string; c: Confusion }) {
   return (
     <tr>
@@ -94,6 +150,7 @@ function CaseCard({ c }: { c: EvalCaseView }) {
   const [effort, setEffort] = useState<"saved" | "off" | "low" | "high" | "max">("saved");
   const [message, setMessage] = useState<string | null>(null);
   const [latest, setLatest] = useState<EvalRunSummary | null>(c.runs[0] ?? null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [deleting, startDelete] = useTransition();
 
@@ -122,23 +179,33 @@ function CaseCard({ c }: { c: EvalCaseView }) {
               <option value="max">max</option>
             </select>
           </label>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                setMessage(null);
-                const res = await runEvalCase({ caseId: c.id, ...(effort === "saved" ? {} : { effort }) });
-                if (!res.ok) return setMessage(res.message);
-                setLatest(res.run);
-                router.refresh();
-              })
-            }
-          >
-            <FlaskConical className="size-3.5" /> {pending ? "Running… (up to 2 min)" : "Run on this case"}
-          </Button>
+          {[1, 3].map((times) => (
+            <Button
+              key={times}
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  setMessage(null);
+                  for (let i = 1; i <= times; i++) {
+                    setProgress(times > 1 ? `Run ${i} of ${times}…` : "Running…");
+                    const res = await runEvalCase({ caseId: c.id, ...(effort === "saved" ? {} : { effort }) });
+                    if (!res.ok) {
+                      setMessage(res.message);
+                      break;
+                    }
+                    setLatest(res.run);
+                  }
+                  setProgress(null);
+                  router.refresh();
+                })
+              }
+            >
+              <FlaskConical className="size-3.5" /> {pending && progress ? progress : times === 1 ? "Run on this case" : "Run 3 times"}
+            </Button>
+          ))}
           <Button
             type="button"
             size="sm"
@@ -179,6 +246,8 @@ function CaseCard({ c }: { c: EvalCaseView }) {
       ) : (
         <p className="mt-4 text-[12.5px] text-fg-subtle">Not run yet.</p>
       )}
+
+      <Averages runs={c.runs} />
 
       {c.runs.length > 1 && (
         <details className="mt-4">
