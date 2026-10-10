@@ -10,7 +10,10 @@ import { PrivacySection } from "@/components/landing/privacy-section";
 import { IntegritySection } from "@/components/landing/integrity-section";
 import { FaqList } from "@/components/landing/faq-list";
 import { Container, SectionHeading } from "@/components/ui/section";
+import { JsonLd } from "@/components/seo/json-ld";
 import { faq } from "@/config/faq";
+import { brand } from "@/config/app";
+import { appUrl } from "@/lib/utils";
 import Link from "next/link";
 
 /**
@@ -34,6 +37,15 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@graph": [
+            { "@type": "Organization", "@id": `${appUrl()}/#org`, name: brand.name, url: appUrl(), description: brand.description },
+            { "@type": "WebSite", "@id": `${appUrl()}/#site`, name: brand.name, url: appUrl(), description: brand.tagline, publisher: { "@id": `${appUrl()}/#org` } },
+          ],
+        }}
+      />
       <Hero />
       <HowItWorks />
       <DashboardPreview />
