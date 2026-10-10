@@ -38,7 +38,7 @@ function getStore(ticket: string): Store {
   return store;
 }
 
-function startRequest(store: Store, ticket: string, text: string) {
+function startRequest(store: Store, ticket: string, text: string, previousText?: string) {
   if (store.started) return;
   store.started = true;
   const set = (next: State) => {
@@ -57,7 +57,7 @@ function startRequest(store: Store, ticket: string, text: string) {
       const res = await fetch("/api/scan-feedback", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ticket, text }),
+        body: JSON.stringify({ ticket, text, ...(previousText ? { previous: previousText } : {}) }),
         cache: "no-store",
       });
       if (!res.ok || !res.body) {
@@ -105,17 +105,17 @@ function startRequest(store: Store, ticket: string, text: string) {
 
 const WAITING: State = { status: "waiting" };
 
-function useFeedback(ticket: string, text: string): State {
+function useFeedback(ticket: string, text: string, previousText?: string): State {
   const subscribe = useCallback(
     (onChange: () => void) => {
       const store = getStore(ticket);
       store.subscribers.add(onChange);
-      startRequest(store, ticket, text);
+      startRequest(store, ticket, text, previousText);
       return () => {
         store.subscribers.delete(onChange);
       };
     },
-    [ticket, text],
+    [ticket, text, previousText],
   );
   return useSyncExternalStore(
     subscribe,
@@ -128,8 +128,8 @@ function useFeedback(ticket: string, text: string): State {
  * Written feedback from DeepSeek, under a free scan. Appears only when
  * feedback is switched on; the rest of the report never waits on it.
  */
-export function ModelFeedback({ ticket, text }: { ticket: string; text: string }) {
-  const state = useFeedback(ticket, text);
+export function ModelFeedback({ ticket, text, previousText }: { ticket: string; text: string; previousText?: string }) {
+  const state = useFeedback(ticket, text, previousText);
 
   if (state.status === "unavailable") {
     return (
@@ -155,7 +155,7 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
           <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-violet/15 text-[#c7b8ff]">
             <MessageSquareText className="size-3.5" />
           </span>
-          Self-check report
+          {previousText ? "Re-check" : "Self-check report"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {verdict && <Badge tone={verdict.tone} className={riskPrintClass[verdict.tone]}>Review: {verdict.label} risk</Badge>}

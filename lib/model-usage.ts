@@ -9,7 +9,7 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
  * best-effort: a logging problem never affects the user's request.
  */
 
-export type UsagePurpose = "scan_report" | "prompt_test" | "refinement_draft";
+export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft";
 
 /**
  * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
@@ -71,7 +71,7 @@ export async function reportLimitReached(): Promise<boolean> {
     const { count } = await createAdminClient()
       .from("model_usage")
       .select("id", { count: "exact", head: true })
-      .eq("purpose", "scan_report")
+      .in("purpose", ["scan_report", "scan_recheck"])
       .gte("created_at", startUtc.toISOString());
     return (count ?? 0) >= limit;
   } catch {

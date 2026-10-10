@@ -9,6 +9,7 @@ export type AnalyticsEvent =
   | "login_completed"
   | "scan_dialog_opened"
   | "scan_started"
+  | "recheck_started"
   | "scan_completed"
   | "scan_limit_reached"
   | "scan_report_downloaded"

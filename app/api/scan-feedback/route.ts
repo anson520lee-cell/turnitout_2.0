@@ -3,7 +3,8 @@ import { z } from "zod";
 import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekStream, redeemFeedbackTicket } from "@/lib/deepseek";
 import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
-import { DRAFT_GUARD } from "@/lib/local-model/prompts";
+import { DRAFT_GUARD, SCAN_RECHECK_ADDENDUM } from "@/lib/local-model/prompts";
+import { recheckInput } from "@/lib/recheck";
 import { scanInput } from "@/lib/validation/schemas";
 
 /**
@@ -15,7 +16,7 @@ import { scanInput } from "@/lib/validation/schemas";
 
 export const maxDuration = 120;
 
-const body = z.object({ text: z.string().max(20_000), ticket: z.string().max(200) });
+const body = z.object({ text: z.string().max(20_000), ticket: z.string().max(200), previous: z.string().max(20_000).optional() });
 const noStore = { "cache-control": "no-store" };
 
 export async function POST(request: NextRequest) {
@@ -30,10 +31,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Written reports are paused for today. The rest of your scan is complete.", reason: "daily_limit" }, { status: 503, headers: noStore });
   }
   const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
+  // A re-check: the student revised an earlier draft. Only the changed sentences are reviewed.
+  const previous = parsed.data.previous?.trim();
+  const recheck = previous ? recheckInput(previous, text.data) : null;
+  if (recheck && recheck.changed.length === 0) {
+    return NextResponse.json({ error: "Nothing changed since the last draft.", reason: "unchanged" }, { status: 400, headers: noStore });
+  }
   const input = {
-    // The owner's prompt (editable on /admin/prompt), plus one fixed rule they can't remove.
-    system: [prompt, DRAFT_GUARD].join("\n\n"),
-    user: ["<draft>", text.data, "</draft>"].join("\n"),
+    // The owner's prompt (editable on /admin/prompt), plus fixed rules they can't remove.
+    system: [prompt, ...(recheck ? [SCAN_RECHECK_ADDENDUM] : []), DRAFT_GUARD].join("\n\n"),
+    user: recheck ? recheck.message : ["<draft>", text.data, "</draft>"].join("\n"),
     // Room for reasoning plus the full report.
     maxTokens: 12_000,
     model: setting.model,
@@ -52,12 +59,12 @@ export async function POST(request: NextRequest) {
         for await (const event of deepseekStream(input)) {
           if (event.type === "delta") send({ t: "d", v: event.text });
           else {
-            await logModelCall("scan_report", { ok: true, result: event.result });
+            await logModelCall(recheck ? "scan_recheck" : "scan_report", { ok: true, result: event.result });
             send({ t: "done" });
           }
         }
       } catch (e) {
-        if (e instanceof DeepSeekRunError) await logModelCall("scan_report", { ok: false, error: e });
+        if (e instanceof DeepSeekRunError) await logModelCall(recheck ? "scan_recheck" : "scan_report", { ok: false, error: e });
         send({ t: "err", reason: e instanceof DeepSeekError ? e.reason : "unknown" });
       } finally {
         controller.close();

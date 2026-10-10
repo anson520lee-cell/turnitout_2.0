@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, ClipboardPaste, CornerDownLeft, FileUp, History, LogIn, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowRight, ClipboardPaste, CornerDownLeft, FileUp, History, LogIn, PencilLine, RotateCcw, Sparkles } from "lucide-react";
 import { runScan } from "@/app/actions/scan";
 import type { AnalysisResult } from "@/lib/scanning/types";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -64,7 +64,10 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const [dropError, setDropError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [feedback, setFeedback] = useState<{ ticket: string; text: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ ticket: string; text: string; previousText?: string } | null>(null);
+  // The last scanned text, so the student can edit it and re-check; recheck is on while that dialog is open.
+  const [lastText, setLastText] = useState<string | null>(null);
+  const [recheck, setRecheck] = useState(false);
   const [run, setRun] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -75,8 +78,9 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     ? `You've used today's ${freeScan.dailyLimit} free scans. Sign in or come back tomorrow (it resets at midnight Hong Kong time).`
     : "You've used today's free scans. Your allowance resets at midnight Hong Kong time.";
 
-  const openDialog = (from: "button" | "drop" | "again", file: { name: string; text: string } | null = null) => {
+  const openDialog = (from: "button" | "drop" | "again" | "recheck", file: { name: string; text: string } | null = null) => {
     if (limitReached) return;
+    setRecheck(from === "recheck");
     setDropped(file);
     setDropError(null);
     setOpen(true);
@@ -86,6 +90,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const closeDialog = () => {
     setOpen(false);
     setDropped(null);
+    setRecheck(false);
     if (!revealPending.current) return;
     revealPending.current = false;
     // After the dialog has closed (and handed focus back), bring the report into view.
@@ -98,6 +103,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
 
   const validate = (text: string): string | null => {
     if (remaining <= 0) return limitMessage;
+    if (recheck && lastText !== null && text.trim() === lastText.trim()) return "You haven’t changed anything yet. Edit the text, then press Enter.";
     return freeScanCharError(countChars(text));
   };
 
@@ -114,7 +120,8 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   };
 
   const onSubmit = async (text: string): Promise<PasteResult> => {
-    track("scan_started", { chars: countChars(text), guest });
+    const previousText = recheck && lastText ? lastText : undefined;
+    track(previousText ? "recheck_started" : "scan_started", { chars: countChars(text), guest });
     const res = await runScan(text);
     if (!res.ok) {
       if (res.code === "limit") {
@@ -127,7 +134,8 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setGuest(res.guest);
     setRemaining(res.remaining);
     setResult(res.result);
-    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text } : null);
+    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text, previousText } : null);
+    setLastText(text);
     setRun((n) => n + 1);
     revealPending.current = true;
     track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
@@ -298,6 +306,11 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
                     <History className="size-4" /> History
                   </Link>
                 )}
+                {feedback && lastText && (
+                  <Button variant="secondary" onClick={() => openDialog("recheck")} disabled={limitReached}>
+                    <PencilLine className="size-4" /> Edit &amp; re-check
+                  </Button>
+                )}
                 <Button variant="secondary" onClick={() => openDialog("again")} disabled={limitReached}>
                   <RotateCcw className="size-4" /> Scan another text
                 </Button>
@@ -316,10 +329,18 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
       <PasteDialog
         open={open}
         onClose={closeDialog}
-        title="Paste your paragraph(s)"
-        description={description}
+        title={recheck ? "Edit and re-check" : "Paste your paragraph(s)"}
+        description={
+          recheck ? (
+            <>
+              Change the sentences the report flagged, in your own words, then press Enter. The re-check only looks at what you changed. It uses one of today&rsquo;s scans ({remaining} left).
+            </>
+          ) : (
+            description
+          )
+        }
         placeholder="Paste your writing here. Separate paragraphs with a blank line for paragraph-level signals."
-        submitLabel="Scan my writing"
+        submitLabel={recheck ? "Re-check my edits" : "Scan my writing"}
         validate={validate}
         meta={meta}
         footnote={
@@ -331,7 +352,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
           </>
         }
         onSubmit={onSubmit}
-        initialText={dropped?.text}
+        initialText={recheck ? (lastText ?? undefined) : dropped?.text}
         waitingTitle="Scanning your writing…"
         waitingSteps={WAITING_STEPS}
         waitingNote="This usually takes a few seconds. Please keep this window open."
