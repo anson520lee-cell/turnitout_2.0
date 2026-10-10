@@ -82,18 +82,13 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
   paypal: {
     id: "paypal",
     label: "PayPal",
-    short: "Send the amount to our PayPal.me link or email.",
-    enabled: false, // crypto only: payment is by NOWPayments (see lib/payments/nowpayments)
-    payee: [
-      { label: "PayPal name", value: "REPLACE: PayPal display name" },
-      { label: "PayPal email", value: "REPLACE: PayPal email", copy: true },
-      { label: "PayPal.me link", value: "REPLACE: PayPal.me link", copy: true },
-    ],
-    link: "REPLACE: PayPal.me link",
-    qrImage: null,
-    note: "Choose \"Friends & Family\" or \"Goods & Services\" as shown in the steps, and send the exact USD amount.",
+    short: "Scan the QR code in the PayPal app and send the amount.",
+    enabled: true, // hand-confirmed: the customer scans, pays, then enters the transaction ID
+    payee: [{ label: "PayPal name", value: "LY L" }],
+    qrImage: "/payments/paypal-qr.png",
+    note: "Send the exact USD amount shown here.",
     steps: [
-      "Open PayPal and send money to the email or PayPal.me link shown here.",
+      "Open the PayPal app and scan the QR code.",
       "Send the exact amount in US dollars (USD).",
       "Put the reference code in the payment note.",
       "Come back here and enter your PayPal transaction ID.",
