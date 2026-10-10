@@ -89,3 +89,11 @@ export function parseReport(raw: string): ReportBlock[] {
   flush();
   return blocks;
 }
+
+/** The reviewer's overall verdict ("Overall risk: High, because …"), if the report has one. */
+export function overallRisk(blocks: ReportBlock[]): Risk | undefined {
+  for (const b of blocks) {
+    if (b.kind === "item" && b.risk && /^overall risk/i.test(b.text)) return b.risk;
+  }
+  return undefined;
+}

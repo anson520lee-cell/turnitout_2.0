@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseReport, parseRisk } from "../lib/report-format";
+import { overallRisk, parseReport, parseRisk } from "../lib/report-format";
 
 const sample = `A. Sentence flags
 - P1 S1 "Urban streets deserve greater attention..." | Risk: High | Signals 1, 4: stock collocation | Ask: Who is this really about?
@@ -70,4 +70,9 @@ test("parseRisk reads English and Chinese", () => {
   assert.equal(parseRisk("Low"), "low");
   assert.equal(parseRisk("不確定"), "uncertain");
   assert.equal(parseRisk("n/a"), undefined);
+});
+
+test("overallRisk finds the verdict, or nothing", () => {
+  assert.equal(overallRisk(parseReport(sample)), "high");
+  assert.equal(overallRisk(parseReport("- P1 S1 | Risk: Low")), undefined);
 });
