@@ -11,6 +11,7 @@ const tabs = [
   { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/prompt", label: "AI prompt" },
   { href: "/admin/eval", label: "Accuracy" },
+  { href: "/admin/crypto", label: "Crypto" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

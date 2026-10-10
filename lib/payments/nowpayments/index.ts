@@ -180,5 +180,75 @@ export async function processPaymentUpdate(payload: PaymentPayload, source: "web
   return res;
 }
 
+/* ---------- account check (admin page) ---------- */
+
+export interface CoinCheck {
+  id: string;
+  asset: string;
+  network: string;
+  /** In the account's list of enabled coins; null when that list couldn't be read. */
+  enabled: boolean | null;
+  /** Result of asking NOWPayments for a real deposit address (only when the owner pressed the test button). */
+  test?: { ok: boolean; message: string };
+}
+
+export interface CryptoCheck {
+  keysSet: { apiKey: boolean; ipnSecret: boolean };
+  api: { ok: boolean; message: string };
+  /** Coin ids the account has enabled, or null if it couldn't be read. */
+  enabledIds: string[] | null;
+  enabledError?: string;
+  coins: CoinCheck[];
+}
+
+const describe = (e: unknown) => (e instanceof NowPaymentsError ? `${e.message} (HTTP ${e.status})` : "Couldn't reach NOWPayments.");
+
+/**
+ * What NOWPayments says about the account: is the key accepted, which coins are
+ * enabled, and (with `test`) whether it will really hand out a deposit address
+ * for each coin we offer. A test asks for a US$10 payment per coin that nobody
+ * pays; NOWPayments lets it expire. Never returns the key or a full address.
+ */
+export async function checkCrypto(opts: { test: boolean; callbackUrl: string }): Promise<CryptoCheck> {
+  const keysSet = { apiKey: Boolean(process.env.NOWPAYMENTS_API_KEY), ipnSecret: Boolean(process.env.NOWPAYMENTS_IPN_SECRET) };
+  if (!keysSet.apiKey) {
+    return {
+      keysSet,
+      api: { ok: false, message: "NOWPAYMENTS_API_KEY isn't set in Vercel." },
+      enabledIds: null,
+      coins: COINS.map((c) => ({ id: c.id, asset: c.asset, network: c.network, enabled: null })),
+    };
+  }
+  let api = { ok: false, message: "" };
+  try {
+    const r = await call<{ message?: string }>("/status");
+    api = { ok: r?.message === "OK", message: r?.message ?? "No answer" };
+  } catch (e) {
+    api = { ok: false, message: describe(e) };
+  }
+  let enabledIds: string[] | null = null;
+  let enabledError: string | undefined;
+  try {
+    const r = await call<{ selectedCurrencies?: string[] }>("/merchant/coins");
+    enabledIds = (r.selectedCurrencies ?? []).map((c) => c.toLowerCase());
+  } catch (e) {
+    enabledError = describe(e);
+  }
+  const coins: CoinCheck[] = [];
+  for (const c of COINS) {
+    const row: CoinCheck = { id: c.id, asset: c.asset, network: c.network, enabled: enabledIds ? enabledIds.includes(c.id) : null };
+    if (opts.test && api.ok) {
+      try {
+        const p = await createPayment({ orderId: `check-${Date.now()}-${c.id}`, usd: 10, coin: c, callbackUrl: opts.callbackUrl });
+        row.test = { ok: Boolean(p.pay_address), message: p.pay_address ? `Got a deposit address (${String(p.pay_address).slice(0, 6)}…)` : "No address returned" };
+      } catch (e) {
+        row.test = { ok: false, message: describe(e) };
+      }
+    }
+    coins.push(row);
+  }
+  return { keysSet, api, enabledIds, enabledError, coins };
+}
+
 export type { NpStatus };
 export { findCoin };
