@@ -86,6 +86,7 @@ RATING EACH PARAGRAPH (the most important step, because the detector judges stre
 - High: three or more high/medium sentences in a row with no natural-mode sentence between them.
 - Medium: two high/medium sentences in a row, or high-risk sentences separated by only one natural sentence.
 - Low: high-risk sentences are scattered, with clearly natural sentences around them.
+Count only High and Medium sentences when rating a paragraph. "Uncertain" sentences do not count toward the rating and do not join a run. "In a row" means the sentences sit next to each other. A paragraph made up mostly of Uncertain sentences (for example definitions that follow a source) is rated Low, with a note that it is uncertain.
 These thresholds are inferred from a small number of essays, not published by Turnitin. Treat paragraph ratings as guidance, not a verdict. What the data does support: one sentence that is clearly the student's own can break up a flagged stretch.
 
 WHOLE TEXT
