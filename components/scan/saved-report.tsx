@@ -16,11 +16,13 @@ import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 export function SavedReport({ scanId, report, savedAt }: { scanId: string; report: string; savedAt: string | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [gone, setGone] = useState(false);
   const [pending, start] = useTransition();
   const blocks = parseReport(report);
   const overall = overallRisk(blocks);
   const verdict = overall ? riskStyle[overall] : null;
 
+  if (gone) return null;
   return (
     <Card className="relative overflow-hidden p-5 sm:p-6">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-violet/15 blur-3xl" />
@@ -51,7 +53,10 @@ export function SavedReport({ scanId, report, savedAt }: { scanId: string; repor
             start(async () => {
               const res = await deleteScanReport(scanId);
               if (!res.ok) setError(res.message);
-              else router.refresh();
+              else {
+                setGone(true);
+                router.refresh();
+              }
             });
           }}
         >
