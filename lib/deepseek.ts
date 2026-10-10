@@ -6,13 +6,13 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * browser, and neither the text sent nor the provider's raw errors are logged
  * or shown to users: callers get a short generic message.
  *
- * DEEPSEEK_MODEL and DEEPSEEK_REASONING_EFFORT override the defaults below
- * without a code change (set them in Vercel).
+ * Model and reasoning effort: the owner's choice on /admin/prompt wins, then
+ * DEEPSEEK_MODEL / DEEPSEEK_REASONING_EFFORT in Vercel, then the defaults below.
  */
 
 const BASE_URL = process.env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com";
 const DEFAULT_MODEL = "deepseek-flash"; // DeepSeek-V4.1-Flash
-const DEFAULT_EFFORT = "low";
+const DEFAULT_EFFORT = "low" as const;
 const TIMEOUT_MS = 55_000; // two attempts must fit in the scan-feedback route's 120 s limit
 
 export class DeepSeekError extends Error {
@@ -45,11 +45,81 @@ async function post(body: ChatBody): Promise<Response> {
   });
 }
 
-/** One chat completion → the reply text. Throws DeepSeekError (generic message) on any failure. */
-export async function deepseekChat(opts: { system: string; user: string; maxTokens: number }): Promise<string> {
-  if (!deepseekEnabled()) throw new DeepSeekError();
+export const REASONING_EFFORTS = ["off", "low", "high", "max"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
+export function defaultEffort(): ReasoningEffort {
+  const env = process.env.DEEPSEEK_REASONING_EFFORT?.trim().toLowerCase();
+  return (REASONING_EFFORTS as readonly string[]).includes(env ?? "") ? (env as ReasoningEffort) : DEFAULT_EFFORT;
+}
+
+export interface ChatUsage {
+  promptTokens: number;
+  completionTokens: number;
+  reasoningTokens: number;
+  cacheHitTokens: number;
+}
+
+export interface ChatResult {
+  text: string;
+  model: string;
+  /** The effort actually used: "off" when the thinking attempt fell back. */
+  effort: ReasoningEffort;
+  /** Summed over every attempt made (a fallback costs tokens too). */
+  usage: ChatUsage;
+  ms: number;
+}
+
+/** Failure details for the usage log: the reason plus whatever the attempts cost. */
+export class DeepSeekRunError extends DeepSeekError {
+  readonly usage: ChatUsage;
+  readonly model: string;
+  readonly ms: number;
+  constructor(cause: DeepSeekError, usage: ChatUsage, model: string, ms: number) {
+    super(cause.message, cause.reason);
+    this.usage = usage;
+    this.model = model;
+    this.ms = ms;
+  }
+}
+
+type ApiUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  prompt_cache_hit_tokens?: number;
+  completion_tokens_details?: { reasoning_tokens?: number };
+};
+
+function addUsage(total: ChatUsage, u: ApiUsage | undefined) {
+  if (!u) return;
+  total.promptTokens += u.prompt_tokens ?? 0;
+  total.completionTokens += u.completion_tokens ?? 0;
+  total.reasoningTokens += u.completion_tokens_details?.reasoning_tokens ?? 0;
+  total.cacheHitTokens += u.prompt_cache_hit_tokens ?? 0;
+}
+
+/**
+ * One chat completion with details (model, effort used, token usage, time).
+ * Thinking at `effort` first; if the API rejects that option or the reasoning
+ * leaves no answer, one retry with thinking off. effort "off" skips straight
+ * to that. Throws DeepSeekRunError (generic message + reason) on failure.
+ */
+export async function deepseekRun(opts: {
+  system: string;
+  user: string;
+  maxTokens: number;
+  model?: string;
+  effort?: ReasoningEffort;
+}): Promise<ChatResult> {
+  const model = opts.model?.trim() || deepseekModel();
+  const effort = opts.effort ?? defaultEffort();
+  const usage: ChatUsage = { promptTokens: 0, completionTokens: 0, reasoningTokens: 0, cacheHitTokens: 0 };
+  const started = Date.now();
+  const fail = (e: DeepSeekError) => new DeepSeekRunError(e, usage, model, Date.now() - started);
+  if (!deepseekEnabled()) throw fail(new DeepSeekError());
+
   const base: ChatBody = {
-    model: deepseekModel(),
+    model,
     messages: [
       { role: "system", content: opts.system },
       { role: "user", content: opts.user },
@@ -57,39 +127,43 @@ export async function deepseekChat(opts: { system: string; user: string; maxToke
     max_tokens: opts.maxTokens,
     stream: false,
   };
-  const effort = process.env.DEEPSEEK_REASONING_EFFORT?.trim() || DEFAULT_EFFORT;
-  // Low-effort thinking first (DEEPSEEK_REASONING_EFFORT, default "low"). If the API rejects that option
-  // or the reasoning leaves no answer, retry once with thinking off.
-  const attempts: ChatBody[] = [
-    { ...base, thinking: { type: "enabled" }, reasoning_effort: effort },
-    { ...base, thinking: { type: "disabled" } },
+  const attempts: { body: ChatBody; effort: ReasoningEffort }[] = [
+    ...(effort === "off" ? [] : [{ body: { ...base, thinking: { type: "enabled" }, reasoning_effort: effort }, effort }]),
+    { body: { ...base, thinking: { type: "disabled" } }, effort: "off" as const },
   ];
   try {
-    for (const [i, body] of attempts.entries()) {
-      const res = await post(body);
-      if (res.status === 400 && i < attempts.length - 1) continue;
+    for (const [i, attempt] of attempts.entries()) {
+      const last = i === attempts.length - 1;
+      const res = await post(attempt.body);
+      if (res.status === 400 && !last) continue;
       if (!res.ok) {
         // Status and error code only (never the text or the key), so a wrong model id shows up in the host's logs.
         const err = (await res.json().catch(() => null)) as { error?: { type?: string; code?: string } } | null;
-        console.error("deepseek request failed", { status: res.status, model: deepseekModel(), type: err?.error?.type, code: err?.error?.code });
+        console.error("deepseek request failed", { status: res.status, model, type: err?.error?.type, code: err?.error?.code });
         throw new DeepSeekError(undefined, `http_${res.status}`);
       }
-      const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
+      const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[]; usage?: ApiUsage };
+      addUsage(usage, data.usage);
       const text = data.choices?.[0]?.message?.content?.trim();
       if (!text) {
         // Empty reply (reasoning used the budget): retry once without thinking.
-        if (i < attempts.length - 1) continue;
+        if (!last) continue;
         throw new DeepSeekError("The writing model returned nothing.", "empty");
       }
-      return text;
+      return { text, model, effort: attempt.effort, usage, ms: Date.now() - started };
     }
   } catch (e) {
-    if (e instanceof DeepSeekError) throw e;
+    if (e instanceof DeepSeekError) throw fail(e);
     const name = e instanceof Error ? e.name : "error";
-    console.error("deepseek request threw", { name, model: deepseekModel() });
-    throw new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network");
+    console.error("deepseek request threw", { name, model });
+    throw fail(new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network"));
   }
-  throw new DeepSeekError();
+  throw fail(new DeepSeekError());
+}
+
+/** One chat completion → the reply text. Throws DeepSeekError (generic message) on any failure. */
+export async function deepseekChat(opts: { system: string; user: string; maxTokens: number }): Promise<string> {
+  return (await deepseekRun(opts)).text;
 }
 
 /* ---------- scan-feedback tickets ----------
