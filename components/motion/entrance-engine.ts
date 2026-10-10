@@ -24,10 +24,6 @@ const DOT_SMALL = 1.05; // for card and sub-headings
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
-const smooth = (a: number, b: number, v: number) => {
-  const t = clamp((v - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-};
 
 /* ------------------------------------------------------------------ particles */
 

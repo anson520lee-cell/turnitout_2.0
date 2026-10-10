@@ -1,0 +1,26 @@
+name: CI
+
+# Type check, lint and run the tests on every push to main and on pull requests.
+# A push to main deploys to production, so this is the early warning if it's broken.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit -p .
+      - name: Lint
+        run: npx eslint
+      - name: Tests
+        run: npm test
