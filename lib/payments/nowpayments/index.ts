@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { audit } from "@/lib/audit";
+import { topUp } from "@/config/pricing";
 import { COINS, findCoin, num, type Coin, type NpStatus, type PaymentPayload } from "./core";
 import { applyPaymentUpdate, type ApplyResult, type Store, type StoredPayment } from "./apply";
 
@@ -103,7 +104,7 @@ export async function createPayment(args: {
       valid_until: new Date(Date.now() + 20 * 60_000).toISOString(),
     } as CreatedPayment;
   }
-  return call<CreatedPayment>("/payment", {
+  return callPaced<CreatedPayment>("/payment", {
     method: "POST",
     body: {
       price_amount: args.usd,
@@ -188,6 +189,8 @@ export interface CoinCheck {
   network: string;
   /** In the account's list of enabled coins; null when that list couldn't be read. */
   enabled: boolean | null;
+  /** The smallest payment NOWPayments takes in this coin, in US dollars; null when it couldn't be read. */
+  minUsd: number | null;
   /** Result of asking NOWPayments for a real deposit address (only when the owner pressed the test button). */
   test?: { ok: boolean; message: string };
 }
@@ -198,7 +201,24 @@ export interface CryptoCheck {
   /** Coin ids the account has enabled, or null if it couldn't be read. */
   enabledIds: string[] | null;
   enabledError?: string;
+  /** The site's own minimum top-up, in US dollars. */
+  siteMinUsd: number;
   coins: CoinCheck[];
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** NOWPayments answers 429 when asked too fast: wait and try once more. */
+async function callPaced<T>(path: string, init?: { method?: "GET" | "POST"; body?: unknown }): Promise<T> {
+  try {
+    return await call<T>(path, init);
+  } catch (e) {
+    if (e instanceof NowPaymentsError && e.status === 429) {
+      await sleep(2500);
+      return call<T>(path, init);
+    }
+    throw e;
+  }
 }
 
 const describe = (e: unknown) => (e instanceof NowPaymentsError ? `${e.message} (HTTP ${e.status})` : "Couldn't reach NOWPayments.");
@@ -216,7 +236,8 @@ export async function checkCrypto(opts: { test: boolean; callbackUrl: string }):
       keysSet,
       api: { ok: false, message: "NOWPAYMENTS_API_KEY isn't set in Vercel." },
       enabledIds: null,
-      coins: COINS.map((c) => ({ id: c.id, asset: c.asset, network: c.network, enabled: null })),
+      siteMinUsd: topUp.minUsd,
+      coins: COINS.map((c) => ({ id: c.id, asset: c.asset, network: c.network, enabled: null, minUsd: null })),
     };
   }
   let api = { ok: false, message: "" };
@@ -236,9 +257,20 @@ export async function checkCrypto(opts: { test: boolean; callbackUrl: string }):
   }
   const coins: CoinCheck[] = [];
   for (const c of COINS) {
-    const row: CoinCheck = { id: c.id, asset: c.asset, network: c.network, enabled: enabledIds ? enabledIds.includes(c.id) : null };
-    if (opts.test && api.ok) {
+    const row: CoinCheck = { id: c.id, asset: c.asset, network: c.network, enabled: enabledIds ? enabledIds.includes(c.id) : null, minUsd: null };
+    if (api.ok && row.enabled !== false) {
       try {
+        await sleep(600);
+        const m = await callPaced<{ fiat_equivalent?: number | string | null }>(`/min-amount?currency_from=${encodeURIComponent(c.id)}&fiat_equivalent=usd&is_fixed_rate=true`);
+        const v = Number(m?.fiat_equivalent);
+        row.minUsd = Number.isFinite(v) && v > 0 ? Math.ceil(v * 100) / 100 : null;
+      } catch {
+        row.minUsd = null;
+      }
+    }
+    if (opts.test && api.ok && row.enabled !== false) {
+      try {
+        await sleep(900);
         const p = await createPayment({ orderId: `check-${Date.now()}-${c.id}`, usd: 10, coin: c, callbackUrl: opts.callbackUrl });
         row.test = { ok: Boolean(p.pay_address), message: p.pay_address ? `Got a deposit address (${String(p.pay_address).slice(0, 6)}…)` : "No address returned" };
       } catch (e) {
@@ -247,7 +279,7 @@ export async function checkCrypto(opts: { test: boolean; callbackUrl: string }):
     }
     coins.push(row);
   }
-  return { keysSet, api, enabledIds, enabledError, coins };
+  return { keysSet, api, enabledIds, enabledError, siteMinUsd: topUp.minUsd, coins };
 }
 
 export type { NpStatus };

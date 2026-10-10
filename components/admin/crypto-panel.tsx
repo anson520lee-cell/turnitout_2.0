@@ -67,7 +67,13 @@ export function CryptoPanel() {
               <dt className="text-fg-subtle">Coins switched on in the account</dt>
               <dd className="min-w-0">
                 {check.enabledIds ? (
-                  check.enabledIds.length ? <span className="break-words font-mono text-[12px]">{check.enabledIds.join(", ")}</span> : <Badge tone="warn">None</Badge>
+                  check.enabledIds.length ? (
+                    <span>
+                      {check.enabledIds.length} coins ({check.coins.filter((c) => c.enabled).length} of the {check.coins.length} the site offers)
+                    </span>
+                  ) : (
+                    <Badge tone="warn">None</Badge>
+                  )
                 ) : (
                   <span className="text-warn">{check.enabledError ?? "Couldn't read the list"}</span>
                 )}
@@ -76,12 +82,13 @@ export function CryptoPanel() {
           </dl>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-[12.5px]">
+            <table className="w-full min-w-[680px] text-left text-[12.5px]">
               <thead className="text-fg-subtle">
                 <tr className="border-b border-[var(--line)]">
                   <th className="py-2 pr-3 font-medium">Coin the site offers</th>
                   <th className="py-2 pr-3 font-medium">Network</th>
                   <th className="py-2 pr-3 font-medium">Switched on</th>
+                  <th className="py-2 pr-3 font-medium">Smallest payment</th>
                   <th className="py-2 font-medium">Deposit address test</th>
                 </tr>
               </thead>
@@ -93,6 +100,15 @@ export function CryptoPanel() {
                     </td>
                     <td className="py-2 pr-3">{c.network}</td>
                     <td className="py-2 pr-3">{c.enabled === null ? "–" : c.enabled ? yes(`e${c.id}`) : <Badge tone="warn">No</Badge>}</td>
+                    <td className="py-2 pr-3">
+                      {c.minUsd === null ? (
+                        "–"
+                      ) : c.minUsd > check.siteMinUsd ? (
+                        <span className="text-warn">US${c.minUsd} (above the site&rsquo;s US${check.siteMinUsd} minimum)</span>
+                      ) : (
+                        <span>US${c.minUsd}</span>
+                      )}
+                    </td>
                     <td className="py-2">
                       {c.test ? (
                         <span className={c.test.ok ? "text-ok" : "text-risk"}>{c.test.message}</span>
