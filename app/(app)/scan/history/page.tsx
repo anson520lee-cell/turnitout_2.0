@@ -27,7 +27,7 @@ export default async function ScanHistoryPage() {
     <>
       <AppHeader
         title="Scan history"
-        body="Your preliminary scans, newest first. Only the scores are kept; the text you scanned isn't stored."
+        body="Your preliminary scans, newest first. Only the scores are kept; the text you scanned isn't stored. A written report is kept only if you choose to save it."
         actions={<Link href="/scan" className={buttonClasses("primary", "md")}>New scan <ArrowRight className="size-4" /></Link>}
       />
 
@@ -91,7 +91,10 @@ export default async function ScanHistoryPage() {
                       {s.result_json.readability?.gradeLevel?.toFixed(1) ?? "—"}
                     </td>
                     <td className="px-5 py-3.5">
-                      <Badge tone={riskTone[s.overall_risk]} dot>{riskLabel[s.overall_risk]}</Badge>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone={riskTone[s.overall_risk]} dot>{riskLabel[s.overall_risk]}</Badge>
+                        {s.report_saved_at && <Badge tone="progress">Report saved</Badge>}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <Link href={`/scan?id=${s.id}`} className="text-[13px] text-accent hover:underline">

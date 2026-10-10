@@ -1,8 +1,12 @@
 "use client";
-import { useCallback, useSyncExternalStore } from "react";
-import { MessageSquareText } from "lucide-react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
+import { Check, MessageSquareText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { saveScanReport } from "@/app/actions/scan-report";
+import { retention } from "@/config/app";
 import { track } from "@/lib/analytics";
 import { overallRisk, parseReport } from "@/lib/report-format";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
@@ -128,8 +132,20 @@ function useFeedback(ticket: string, text: string, previousText?: string): State
  * Written feedback from DeepSeek, under a free scan. Appears only when
  * feedback is switched on; the rest of the report never waits on it.
  */
-export function ModelFeedback({ ticket, text, previousText }: { ticket: string; text: string; previousText?: string }) {
+export function ModelFeedback({
+  ticket,
+  text,
+  previousText,
+  scanId,
+}: {
+  ticket: string;
+  text: string;
+  previousText?: string;
+  /** Set for signed-in scans: lets the student keep the report in their history. */
+  scanId?: string | null;
+}) {
   const state = useFeedback(ticket, text, previousText);
+  const [save, setSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message?: string }>({ status: "idle" });
 
   if (state.status === "unavailable") {
     return (
@@ -145,6 +161,7 @@ export function ModelFeedback({ ticket, text, previousText }: { ticket: string; 
   // While the report is still being written, show only the lines that are complete.
   const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
   const blocks = parseReport(shown);
+  const report = state.status === "done" ? state.feedback : null;
   const overall = overallRisk(blocks);
   const verdict = overall ? riskStyle[overall] : null;
   return (
@@ -195,9 +212,41 @@ export function ModelFeedback({ ticket, text, previousText }: { ticket: string; 
         </div>
       )}
 
+      {done && scanId && report && (
+        <div className="relative mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 print:hidden">
+          {save.status === "saved" ? (
+            <p className="flex items-center gap-2 text-[13px] text-ok">
+              <Check className="size-4" aria-hidden /> Saved to your{" "}
+              <Link href="/scan/history" className="underline">scan history</Link>
+            </p>
+          ) : (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={save.status === "saving"}
+                onClick={async () => {
+                  setSave({ status: "saving" });
+                  const res = await saveScanReport(scanId, report);
+                  setSave(res.ok ? { status: "saved" } : { status: "error", message: res.message });
+                }}
+              >
+                {save.status === "saving" ? "Saving…" : "Save this report to my history"}
+              </Button>
+              <span className="text-[12px] text-fg-subtle">
+                Only you can see it. Deleted {retention.savedReportDays} days after saving, or sooner if you delete it.
+              </span>
+              {save.status === "error" && <span className="text-[12px] text-risk">{save.message}</span>}
+            </>
+          )}
+        </div>
+      )}
+
       <p className="relative mt-4 border-t border-[var(--line)] pt-3 text-[12px] leading-relaxed text-fg-subtle">
         Places in your own writing that could be misread as AI-written, based on patterns from real Turnitin results. It doesn&rsquo;t decide who wrote the text,
-        isn&rsquo;t a Turnitin result, and doesn&rsquo;t rewrite anything for you. The risk dial above is a quick statistical estimate; this review looks at sentence patterns in more detail, so the two can differ. It isn&rsquo;t saved.
+        isn&rsquo;t a Turnitin result, and doesn&rsquo;t rewrite anything for you. The risk dial above is a quick statistical estimate; this review looks at sentence patterns in more detail, so the two can differ.{" "}
+        {scanId ? "It isn’t saved unless you choose to save it." : "It isn’t saved."}
       </p>
     </Card>
   );

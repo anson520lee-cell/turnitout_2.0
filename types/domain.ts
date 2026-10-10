@@ -81,6 +81,9 @@ export interface ScanResultRow {
   result_json: AnalysisResult;
   analyzer: string;
   created_at: string;
+  /** A written report the user chose to keep (opt-in); null otherwise. */
+  report_text?: string | null;
+  report_saved_at?: string | null;
 }
 
 export interface PaymentRow {

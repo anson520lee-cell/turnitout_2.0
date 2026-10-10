@@ -26,7 +26,7 @@ export async function listScans(limit = 5): Promise<ScanResultRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("scan_results")
-    .select("id,user_id,word_count,overall_risk,result_json,analyzer,created_at")
+    .select("id,user_id,word_count,overall_risk,result_json,analyzer,created_at,report_saved_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as ScanResultRow[];

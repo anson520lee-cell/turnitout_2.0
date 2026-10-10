@@ -64,7 +64,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const [dropError, setDropError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [feedback, setFeedback] = useState<{ ticket: string; text: string; previousText?: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ ticket: string; text: string; previousText?: string; scanId?: string | null } | null>(null);
   // The last scanned text, so the student can edit it and re-check; recheck is on while that dialog is open.
   const [lastText, setLastText] = useState<string | null>(null);
   const [recheck, setRecheck] = useState(false);
@@ -134,7 +134,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setGuest(res.guest);
     setRemaining(res.remaining);
     setResult(res.result);
-    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text, previousText } : null);
+    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text, previousText, scanId: res.scanId } : null);
     setLastText(text);
     setRun((n) => n + 1);
     revealPending.current = true;

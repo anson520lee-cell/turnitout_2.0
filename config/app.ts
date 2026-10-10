@@ -55,6 +55,8 @@ export const retention = {
   unpaidOrderDays: 7,
   /** Reports are kept this long so the user can re-download them. */
   reportDays: 90,
+  /** A written scan report the user chose to save is deleted this many days after saving. */
+  savedReportDays: 90,
 } as const;
 
 export const refinement = {

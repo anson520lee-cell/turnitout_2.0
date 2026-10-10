@@ -87,6 +87,13 @@ export async function GET(request: NextRequest) {
     reports++;
   }
 
+  // Written scan reports the user chose to save are removed after retention.savedReportDays (the scores stay).
+  const { count: savedReports } = await db
+    .from("scan_results")
+    .update({ report_text: null, report_saved_at: null }, { count: "exact" })
+    .not("report_text", "is", null)
+    .lt("report_saved_at", new Date(Date.now() - retention.savedReportDays * day).toISOString());
+
   // Guest scan counters only matter for the current Hong Kong day. Before
   // deleting yesterday's, email the owner one summary of the day's free scans
   // (per-scan messages go to Telegram only; see lib/notify.ts).
@@ -117,7 +124,7 @@ export async function GET(request: NextRequest) {
   // this catches any left while the worker was off).
   await db.rpc("purge_model_jobs");
 
-  const summary = { unpaid, sources, reports, guestRows: guestRows ?? 0 };
-  if (unpaid || sources || reports || guestRows) await audit("retention_run", { detail: summary });
+  const summary = { unpaid, sources, reports, savedReports: savedReports ?? 0, guestRows: guestRows ?? 0 };
+  if (unpaid || sources || reports || savedReports || guestRows) await audit("retention_run", { detail: summary });
   return NextResponse.json(summary);
 }

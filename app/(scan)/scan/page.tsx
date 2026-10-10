@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { ScanWorkspace, type ScanAccess } from "@/components/scan/scan-workspace";
 import { ScanResult } from "@/components/scan/scan-result";
+import { SavedReport } from "@/components/scan/saved-report";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
@@ -47,7 +48,10 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
               body="A saved preliminary scan. The original text isn't stored."
               actions={<Link href="/scan" className={buttonClasses("primary", "md")}>New scan</Link>}
             />
-            <ScanResult result={data.result_json} createdAt={formatDateTime(data.created_at)} />
+            <div className="space-y-6">
+              {data.report_text && <SavedReport scanId={data.id} report={data.report_text} savedAt={data.report_saved_at ?? null} />}
+              <ScanResult result={data.result_json} createdAt={formatDateTime(data.created_at)} />
+            </div>
           </>
         );
       }
