@@ -12,14 +12,17 @@ type State = { status: "waiting" } | { status: "done"; feedback: string } | { st
 // runs effects twice) neither asks twice nor loses it.
 const requests = new Map<string, Promise<State>>();
 
-/** Model output → points: "- ", "* ", "• " or "1." starts a point; other lines continue it. */
+/** Model output → points: "- ", "* ", "• ", "1." or "A." starts a point; other lines continue it. */
 function toPoints(text: string): string[] {
   const lines = text.replace(/\*\*/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const marker = /^(?:[-*•]|\d+[.)])\s+/;
-  if (!lines.some((l) => marker.test(l))) return lines;
+  // A. … E. and the closing 總結： open a point too, and keep their label.
+  const heading = /^(?:[A-E][.)]\s*|總結[：:])/;
+  if (!lines.some((l) => marker.test(l) || heading.test(l))) return lines;
   const points: string[] = [];
   for (const line of lines) {
-    if (marker.test(line) || points.length === 0) points.push(line.replace(marker, ""));
+    if (heading.test(line)) points.push(line);
+    else if (marker.test(line) || points.length === 0) points.push(line.replace(marker, ""));
     else points[points.length - 1] += ` ${line}`;
   }
   return points;
@@ -83,7 +86,7 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
           <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-violet/15 text-[#c7b8ff]">
             <MessageSquareText className="size-3.5" />
           </span>
-          Writing feedback
+          Self-check report
         </h2>
         <Badge tone="progress">Written by our language model</Badge>
       </div>
@@ -125,8 +128,8 @@ export function ModelFeedback({ ticket, text }: { ticket: string; text: string }
       )}
 
       <p className="relative mt-4 border-t border-[var(--line)] pt-3 text-[12px] leading-relaxed text-fg-subtle">
-        Suggestions on clarity and structure. They don&rsquo;t judge whether text is AI-written and aren&rsquo;t a Turnitin
-        result. The feedback isn&rsquo;t saved.
+        Points where the writing reads as generic or formulaic. The report doesn&rsquo;t decide whether text is AI-written,
+        isn&rsquo;t a Turnitin result, and doesn&rsquo;t rewrite anything for you. It isn&rsquo;t saved.
       </p>
     </Card>
   );

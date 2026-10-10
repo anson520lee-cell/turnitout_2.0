@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { DeepSeekError, deepseekChat, deepseekEnabled, redeemFeedbackTicket } from "@/lib/deepseek";
-import { SCAN_FEEDBACK_PROMPT } from "@/lib/local-model/prompts";
+import { SCAN_REPORT_PROMPT } from "@/lib/local-model/prompts";
 import { scanInput } from "@/lib/validation/schemas";
 
 /**
@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
   }
   try {
     const feedback = await deepseekChat({
-      system: SCAN_FEEDBACK_PROMPT,
+      system: SCAN_REPORT_PROMPT,
       user: `<draft>\n${text.data}\n</draft>`,
       maxTokens: 4000,
     });
-    return NextResponse.json({ feedback: feedback.slice(0, 6000) }, { headers: noStore });
+    return NextResponse.json({ feedback: feedback.slice(0, 8000) }, { headers: noStore });
   } catch (e) {
     const message = e instanceof DeepSeekError ? e.message : "Feedback isn't available right now.";
     return NextResponse.json({ error: message }, { status: 502, headers: noStore });
