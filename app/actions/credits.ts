@@ -19,7 +19,7 @@ type Fail = { ok: false; message: string };
 
 const MAX_OPEN_TOPUPS = 5;
 
-/** Whole-dollar amount rules: presets for every method, any amount (min US$5) for crypto. */
+/** Whole-dollar amount rules: presets for every method, any amount (min US$15) for crypto. */
 function amountProblem(usd: number, custom: boolean): string | null {
   const base = topUpAmountError(usd);
   if (base) return base;

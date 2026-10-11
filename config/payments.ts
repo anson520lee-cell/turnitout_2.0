@@ -209,7 +209,7 @@ export function acceptsClaims(m: ManualPaymentConfig): boolean {
   return m.enabled && (payeeReady(m) || process.env.NODE_ENV !== "production");
 }
 
-/** Methods where the customer may pick any amount (min US$5): the crypto ones. */
+/** Methods where the customer may pick any amount (min US$15): the crypto ones. */
 export const CRYPTO_METHODS = ["usdt", "usdc", "bitcoin"] as const;
 
 export function isCryptoMethod(v: string): boolean {

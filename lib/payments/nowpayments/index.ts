@@ -205,6 +205,12 @@ export async function coinMinUsd(coinId: string): Promise<number | null> {
   return usd;
 }
 
+/** The smallest payment for each coin, asked together (cached, so only the first page view waits). */
+export async function coinMinimums(coins: Coin[]): Promise<Record<string, number | null>> {
+  const entries = await Promise.all(coins.map(async (c) => [c.id, await coinMinUsd(c.id)] as const));
+  return Object.fromEntries(entries);
+}
+
 /* ---------- account check (admin page) ---------- */
 
 export interface CoinCheck {

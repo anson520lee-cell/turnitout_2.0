@@ -21,6 +21,8 @@ export interface CryptoCoin {
   asset: string;
   network: string;
   hint?: string;
+  /** The smallest payment NOWPayments takes in this coin, in US dollars (null when unknown). */
+  minUsd?: number | null;
 }
 
 const DEFAULT_USD = 20;
@@ -28,8 +30,8 @@ const REPORT_CREDITS = toCredits(screeningPrices.combined_screening);
 const PRESETS = topUp.presetsUsd as readonly number[];
 
 /**
- * Buy credits: pick an amount in US dollars (5, 20, 100, 200, 500; crypto
- * accepts any whole amount from US$5), then pay by card, PayPal or crypto.
+ * Buy credits: pick an amount in US dollars (15, 20, 100, 200, 500; crypto
+ * accepts any whole amount from US$15), then pay by card, PayPal or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
 export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {
@@ -50,6 +52,9 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   const isPreset = usd !== null && PRESETS.includes(usd);
   const problem =
     usd === null ? "Enter a whole number of US dollars." : topUpAmountError(usd) ?? (!crypto && !isPreset ? "Choose one of the amounts above." : null);
+  // Each coin has its own floor at NOWPayments; a smaller amount would only fail on the next screen.
+  const coinMin = tab === "crypto" ? cryptoCoins.find((c) => c.id === coin)?.minUsd ?? null : null;
+  const belowCoinMin = coinMin !== null && usd !== null && usd < Math.ceil(coinMin);
   const credits = usd !== null && !problem ? usdToCredits(usd) : 0;
   const reports = Math.floor(credits / REPORT_CREDITS);
   const current = tab === "card" || tab === "crypto" ? null : manual.find((m) => m.id === tab) ?? null;
@@ -250,14 +255,20 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
                   >
                     <span className="block text-[14px] font-semibold">{c.asset}</span>
                     <span className="block text-[12px] text-fg-subtle">{c.network}{c.hint ? ` · ${c.hint}` : ""}</span>
+                    {c.minUsd ? <span className="mt-0.5 block font-mono text-[10.5px] text-fg-subtle">from {formatUSD(Math.ceil(c.minUsd))}</span> : null}
                   </button>
                 ))}
               </div>
+              {belowCoinMin && coinMin !== null && (
+                <p className="mt-4 text-[12.5px] text-warn">
+                  The smallest payment in this coin is about {formatUSD(Math.ceil(coinMin))}. Choose {formatUSD(Math.ceil(coinMin))} or more, or pick a coin with a lower minimum.
+                </p>
+              )}
               <Button
                 size="lg"
                 className="mt-5 w-full"
                 loading={pending}
-                disabled={pending || Boolean(problem) || usd === null || !coin}
+                disabled={pending || Boolean(problem) || usd === null || !coin || belowCoinMin}
                 onClick={() => {
                   setError(null);
                   track("crypto_payment_started", { coin });
