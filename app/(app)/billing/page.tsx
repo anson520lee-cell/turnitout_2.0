@@ -40,7 +40,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const cryptoByTopup = new Map((cryptoRows ?? []).map((r) => [r.topup_id as string, r.id as string]));
   const coinList = isNowPaymentsConfigured() ? await availableCoins() : [];
   const mins = await coinMinimums(coinList);
-  const cryptoCoins = coinList.map((c) => ({ ...c, minUsd: mins[c.id] ?? null }));
+  // Cheapest coin first, so the pre-selected one accepts the smallest top-up.
+  const cryptoCoins = coinList
+    .map((c) => ({ ...c, minUsd: mins[c.id] ?? null }))
+    .sort((a, b) => (a.minUsd ?? Infinity) - (b.minUsd ?? Infinity));
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
   const reportCredits = toCredits(screeningPrices.combined_screening);

@@ -30,8 +30,8 @@ const REPORT_CREDITS = toCredits(screeningPrices.combined_screening);
 const PRESETS = topUp.presetsUsd as readonly number[];
 
 /**
- * Buy credits: pick an amount in US dollars (15, 20, 100, 200, 500; crypto
- * accepts any whole amount from US$15), then pay by card, PayPal or crypto.
+ * Buy credits: pick an amount in US dollars (10, 20, 100, 200, 500; crypto
+ * accepts any whole amount from US$10), then pay by card, PayPal or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
 export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {

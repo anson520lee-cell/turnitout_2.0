@@ -69,7 +69,7 @@ export function formatCredits(cents: number): string {
 /**
  * Top-ups are bought in US dollars (card, PayPal) or crypto (USDT, USDC, BTC),
  * and credited at a fixed rate; service prices stay as they are in credits:
- * US$1 = 8 credits (8 credits = US$1), so a US$15 top-up is 120 credits, one
+ * US$1 = 8 credits (8 credits = US$1), so a US$10 top-up is 80 credits, one
  * 35-credit report costs about US$4.38. Change the rate here and nowhere else.
  */
 export const CREDITS_PER_USD = 8;
@@ -77,9 +77,10 @@ export const topUpCurrency = "usd" as const;
 
 /** Whole US dollars. Presets are for every method; custom amounts only for crypto. */
 export const topUp = {
-  // NOWPayments won't take less than about US$9 to 15 depending on the coin (USDT on TRON is the highest), so nothing below US$15 is offered.
-  presetsUsd: [15, 20, 100, 200, 500],
-  minUsd: 15,
+  // NOWPayments won't take less than about US$9 to 15 depending on the coin (USDT on TRON is the highest, about US$14.4), so nothing below US$10 is offered.
+  // The top-up screen also checks each coin's own minimum and says so before the customer pays.
+  presetsUsd: [10, 20, 100, 200, 500],
+  minUsd: 10,
   maxUsd: 10000,
 } as const;
 
