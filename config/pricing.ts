@@ -75,12 +75,17 @@ export function formatCredits(cents: number): string {
 export const CREDITS_PER_USD = 8;
 export const topUpCurrency = "usd" as const;
 
-/** Whole US dollars. Presets are for every method; custom amounts only for crypto. */
+/**
+ * Whole US dollars. Crypto: any amount from US$10 (NOWPayments won't take less than about US$9 to 15
+ * depending on the coin; USDT on TRON is the highest, about US$14.4, and the top-up screen checks each
+ * coin's own minimum before the customer pays). PayPal (confirmed by hand) and card have no such floor,
+ * so they offer a US$5 first step; they take preset amounts only.
+ */
 export const topUp = {
-  // NOWPayments won't take less than about US$9 to 15 depending on the coin (USDT on TRON is the highest, about US$14.4), so nothing below US$10 is offered.
-  // The top-up screen also checks each coin's own minimum and says so before the customer pays.
   presetsUsd: [10, 20, 100, 200, 500],
   minUsd: 10,
+  presetsOtherUsd: [5, 10, 20, 100, 200, 500],
+  minOtherUsd: 5,
   maxUsd: 10000,
 } as const;
 
@@ -92,10 +97,11 @@ export function formatUSD(usd: number): string {
   return `US$${usd.toLocaleString("en-US")}`;
 }
 
-/** Null when `usd` is an allowed whole-dollar top-up amount. */
-export function topUpAmountError(usd: number): string | null {
+/** Null when `usd` is an allowed whole-dollar top-up amount. `crypto` picks the crypto floor (default) or the lower one for PayPal and card. */
+export function topUpAmountError(usd: number, crypto = true): string | null {
+  const min = crypto ? topUp.minUsd : topUp.minOtherUsd;
   if (!Number.isInteger(usd)) return "Enter a whole number of US dollars.";
-  if (usd < topUp.minUsd) return `The minimum top-up is ${formatUSD(topUp.minUsd)}.`;
+  if (usd < min) return `The minimum top-up is ${formatUSD(min)}.`;
   if (usd > topUp.maxUsd) return `The maximum top-up is ${formatUSD(topUp.maxUsd)}.`;
   return null;
 }

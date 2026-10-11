@@ -19,12 +19,12 @@ type Fail = { ok: false; message: string };
 
 const MAX_OPEN_TOPUPS = 5;
 
-/** Whole-dollar amount rules: presets for every method, any amount (min US$10) for crypto. */
-function amountProblem(usd: number, custom: boolean): string | null {
-  const base = topUpAmountError(usd);
+/** Whole-dollar amount rules: crypto takes any amount from US$10; PayPal and card take the presets (from US$5). */
+function amountProblem(usd: number, crypto: boolean): string | null {
+  const base = topUpAmountError(usd, crypto);
   if (base) return base;
-  if (!custom && !(topUp.presetsUsd as readonly number[]).includes(usd)) {
-    return `Choose one of ${topUp.presetsUsd.map(formatUSD).join(", ")}, or pay with crypto to enter your own amount.`;
+  if (!crypto && !(topUp.presetsOtherUsd as readonly number[]).includes(usd)) {
+    return `Choose one of ${topUp.presetsOtherUsd.map(formatUSD).join(", ")}, or pay with crypto to enter your own amount.`;
   }
   return null;
 }

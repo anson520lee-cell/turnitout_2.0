@@ -27,11 +27,12 @@ export interface CryptoCoin {
 
 const DEFAULT_USD = 20;
 const REPORT_CREDITS = toCredits(screeningPrices.combined_screening);
-const PRESETS = topUp.presetsUsd as readonly number[];
+const CRYPTO_PRESETS = topUp.presetsUsd as readonly number[];
+const OTHER_PRESETS = topUp.presetsOtherUsd as readonly number[];
 
 /**
- * Buy credits: pick an amount in US dollars (10, 20, 100, 200, 500; crypto
- * accepts any whole amount from US$10), then pay by card, PayPal or crypto.
+ * Buy credits: pick an amount in US dollars (crypto: 10, 20, 100, 200, 500, or any whole
+ * amount from US$10; PayPal and card: the same plus a US$5 first step), then pay by card, PayPal or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
 export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {
@@ -43,15 +44,16 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   const [coin, setCoin] = useState<string>(cryptoCoins[0]?.id ?? "");
   const [tab, setTab] = useState<Tab>(tabs[0] ?? "card");
   const [usd, setUsd] = useState<number | null>(initialUsd && !topUpAmountError(initialUsd) ? initialUsd : DEFAULT_USD);
-  const [custom, setCustom] = useState(initialUsd && !PRESETS.includes(initialUsd) && !topUpAmountError(initialUsd) ? String(initialUsd) : "");
+  const [custom, setCustom] = useState(initialUsd && !CRYPTO_PRESETS.includes(initialUsd) && !topUpAmountError(initialUsd) ? String(initialUsd) : "");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [submitted, setSubmitted] = useState(false);
 
   const crypto = tab === "crypto" || (tab !== "card" && isCryptoMethod(tab));
-  const isPreset = usd !== null && PRESETS.includes(usd);
+  const presets = crypto ? CRYPTO_PRESETS : OTHER_PRESETS;
+  const isPreset = usd !== null && presets.includes(usd);
   const problem =
-    usd === null ? "Enter a whole number of US dollars." : topUpAmountError(usd) ?? (!crypto && !isPreset ? "Choose one of the amounts above." : null);
+    usd === null ? "Enter a whole number of US dollars." : topUpAmountError(usd, crypto) ?? (!crypto && !isPreset ? "Choose one of the amounts above." : null);
   // Each coin has its own floor at NOWPayments; a smaller amount would only fail on the next screen.
   const coinMin = tab === "crypto" ? cryptoCoins.find((c) => c.id === coin)?.minUsd ?? null : null;
   const belowCoinMin = coinMin !== null && usd !== null && usd < Math.ceil(coinMin);
@@ -62,8 +64,9 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   const pickTab = (t: Tab) => {
     setTab(t);
     setError(null);
-    // Custom amounts are for crypto only; other methods fall back to a preset.
-    if (!(t === "crypto" || (t !== "card" && isCryptoMethod(t))) && usd !== null && !PRESETS.includes(usd)) {
+    // Custom amounts are for crypto only, and each kind of method has its own smallest amount: fall back to a preset.
+    const toCrypto = t === "crypto" || (t !== "card" && isCryptoMethod(t));
+    if (usd !== null && (topUpAmountError(usd, toCrypto) || (!toCrypto && !OTHER_PRESETS.includes(usd)))) {
       setUsd(DEFAULT_USD);
       setCustom("");
     }
@@ -82,8 +85,8 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   return (
     <div>
       <p className="text-[12px] font-medium uppercase tracking-wide text-fg-subtle">Amount</p>
-      <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
-        {topUp.presetsUsd.map((n) => {
+      <div className={cn("mt-2 grid grid-cols-3 gap-2", presets.length > 5 ? "sm:grid-cols-6" : "sm:grid-cols-5")}>
+        {presets.map((n) => {
           const active = usd === n && custom === "";
           return (
             <button
