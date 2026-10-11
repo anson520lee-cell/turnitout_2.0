@@ -181,6 +181,30 @@ export async function processPaymentUpdate(payload: PaymentPayload, source: "web
   return res;
 }
 
+/* ---------- smallest payment per coin ---------- */
+
+const minCache = new Map<string, { at: number; usd: number | null }>();
+
+/**
+ * The smallest payment NOWPayments accepts in this coin, in US dollars (cached
+ * ten minutes). null when it can't be read: callers then simply try the payment.
+ */
+export async function coinMinUsd(coinId: string): Promise<number | null> {
+  if (isMockMode() || !process.env.NOWPAYMENTS_API_KEY) return null;
+  const hit = minCache.get(coinId);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.usd;
+  let usd: number | null = null;
+  try {
+    const m = await callPaced<{ fiat_equivalent?: number | string | null }>(`/min-amount?currency_from=${encodeURIComponent(coinId)}&fiat_equivalent=usd&is_fixed_rate=true`);
+    const v = Number(m?.fiat_equivalent);
+    usd = Number.isFinite(v) && v > 0 ? Math.ceil(v * 100) / 100 : null;
+  } catch {
+    usd = null;
+  }
+  minCache.set(coinId, { at: Date.now(), usd });
+  return usd;
+}
+
 /* ---------- account check (admin page) ---------- */
 
 export interface CoinCheck {

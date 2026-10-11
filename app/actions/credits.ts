@@ -7,7 +7,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/payments/stripe";
 import { isStripeConfigured } from "@/lib/env";
-import { availableCoins, createPayment, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
+import { availableCoins, coinMinUsd, createPayment, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
 import { acceptsClaims, claimReference, isCryptoMethod, MANUAL_PAYMENT_METHODS, manualPayments } from "@/config/payments";
 import { formatUSD, topUp, topUpAmountError, topUpCurrency, usdToCredits } from "@/config/pricing";
 import { audit } from "@/lib/audit";
@@ -179,6 +179,13 @@ export async function startCryptoPayment(usd: number, coinId: string): Promise<{
   if (problem) return { ok: false, message: problem };
   const coin = (await availableCoins()).find((c) => c.id === coinId);
   if (!coin) return { ok: false, message: "Choose one of the listed coins and networks." };
+
+  // NOWPayments won't take a payment below its own per-coin minimum (about US$9 to 15): say so with the number.
+  const minUsd = await coinMinUsd(coin.id);
+  if (minUsd !== null && usd < minUsd) {
+    const needed = Math.ceil(minUsd);
+    return { ok: false, message: `The smallest ${coin.asset} (${coin.network}) payment is about US$${needed}. Choose US$${needed} or more, or pick a coin with a lower minimum.` };
+  }
 
   const db = createAdminClient();
   const since = new Date(Date.now() - 3600_000).toISOString();
