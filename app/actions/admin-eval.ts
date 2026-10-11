@@ -87,6 +87,8 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
       maxTokens: 24_000,
       model: model.model,
       effort: parsed.data.effort ?? model.effort,
+      // A test may take longer than a visitor would wait: the deeper reasoning levels are slow.
+      timeoutMs: 110_000,
     });
     await logModelCall("eval", { ok: true, result });
     const metrics = { ...scoreReport(result.text, row.sentences), truncated: result.truncated };
