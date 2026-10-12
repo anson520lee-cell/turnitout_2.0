@@ -7,7 +7,7 @@ export const brand = {
   tagline: "Know before you submit.",
   description:
     "Preliminary writing scans, AI and similarity reports from a Turnitin screening run by our team, and writing refinement of your own work.",
-  supportEmail: "support@zeropercent.example",
+  supportEmail: "support@getzeropercent.com",
   // Legal operator name shown in terms/privacy. Replace before launch.
   operator: "0% (operator name TBC)",
   jurisdiction: "Hong Kong SAR",
