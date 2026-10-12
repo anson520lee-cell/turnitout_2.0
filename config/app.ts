@@ -8,8 +8,8 @@ export const brand = {
   description:
     "Preliminary writing scans, AI and similarity reports from a Turnitin screening run by our team, and writing refinement of your own work.",
   supportEmail: "support@getzeropercent.com",
-  // Legal operator name shown in terms/privacy. Replace before launch.
-  operator: "0% (operator name TBC)",
+  // Operator name shown in the footer, terms and privacy.
+  operator: "Zero Percent Labs",
   jurisdiction: "Hong Kong SAR",
 } as const;
 

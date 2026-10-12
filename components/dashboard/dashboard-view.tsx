@@ -7,7 +7,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { OrderRow } from "@/components/orders/order-row";
 import { HudCorners, HudLabel, SegmentBar } from "@/components/ui/hud";
 import { NeuralMark } from "@/components/ui/neural-mark";
-import { NeuralStrip } from "@/components/space/neural-strip";
+import { DashboardEngine } from "./dashboard-engine";
 import type { Order, ScanResultRow } from "@/types/domain";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
 import { freeScan } from "@/config/app";
@@ -77,7 +77,7 @@ export function DashboardView({
       <Card strong className="noise mt-5 overflow-hidden p-5 sm:p-6">
         <HudCorners />
         <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-violet/20 blur-3xl" />
-        <div className="relative grid items-center gap-6 md:grid-cols-[1fr_1.15fr]">
+        <div className="relative grid items-center gap-6 md:grid-cols-[1fr_minmax(0,360px)]">
           <div>
             <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-accent">
               <NeuralMark /> Pattern Engine · ready
@@ -90,7 +90,7 @@ export function DashboardView({
               Run a scan <ArrowRight className="size-4" />
             </Link>
           </div>
-          <NeuralStrip className="max-w-[460px] justify-self-end" />
+          <DashboardEngine className="mx-auto max-w-[360px] md:justify-self-end" />
         </div>
       </Card>
 
