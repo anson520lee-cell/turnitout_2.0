@@ -1,6 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
-import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
+import type { CSSProperties } from "react";
 import type { RiskLevel } from "@/lib/scanning/types";
 
 const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
@@ -22,7 +21,6 @@ const arc = (from: number, to: number, r = R) => {
 
 /** Three-band gauge. Shows a level, deliberately not a percentage. */
 export function RiskGauge({ level }: { level: RiskLevel }) {
-  const reduce = usePrefersReducedMotion();
   const idx = LEVELS.findIndex((l) => l.id === level);
   const angle = -60 + idx * 60; // centre of each band
   const current = LEVELS[idx];
@@ -68,15 +66,11 @@ export function RiskGauge({ level }: { level: RiskLevel }) {
         })}
         {/* inner halo ring */}
         <path d={arc(0, 180, 60)} fill="none" stroke="rgb(148 163 255 / 0.18)" strokeWidth="0.7" />
-        <motion.g
-          initial={{ rotate: reduce ? angle : -90 }}
-          animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 12, delay: 0.2 }}
-          style={{ originX: "100px", originY: "100px" }}
-        >
+        {/* Swings around the hub (100,100 in the SVG's own units); see .gauge-needle in globals.css. */}
+        <g className="gauge-needle" style={{ "--needle-to": `${angle}deg` } as CSSProperties}>
           <polygon points="100,28 103.2,100 96.8,100" fill="#eaf0ff" className="gauge-needle-glow" />
           <line x1="100" y1="100" x2="100" y2="28" stroke="#fff" strokeOpacity="0.7" strokeWidth="0.6" />
-        </motion.g>
+        </g>
         <circle cx="100" cy="100" r="11" fill="#0a0f1e" stroke={current.color} strokeOpacity="0.55" strokeWidth="1" />
         <circle cx="100" cy="100" r="6.5" fill="#0e1322" stroke="#e9edf7" strokeWidth="1.6" />
         <circle cx="100" cy="100" r="2" fill={current.color} style={{ filter: `drop-shadow(0 0 4px ${current.color})` }} />

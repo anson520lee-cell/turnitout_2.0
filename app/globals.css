@@ -1594,8 +1594,20 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .radar-vertex { transform-box: fill-box; transform-origin: center; animation: neuron-fire 2.8s ease-in-out infinite; }
 .gauge-ticks { animation: engine-spin 60s linear infinite; transform-origin: 100px 100px; }
 .gauge-needle-glow { filter: drop-shadow(0 0 5px rgb(180 215 255 / 0.9)); }
+/* Risk gauge needle: rotates around the hub in the SVG's own coordinates (view-box), from the left edge to its band.
+   (A pixel origin set on an SVG group is measured from the group's own box, which put the pivot far outside the dial.) */
+.gauge-needle {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: rotate(var(--needle-to, 0deg));
+  animation: needle-sweep 1.5s cubic-bezier(0.2, 0.9, 0.3, 1.15) 0.2s both;
+}
+@keyframes needle-sweep {
+  from { transform: rotate(-90deg); }
+  to { transform: rotate(var(--needle-to, 0deg)); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .radar-sweep, .radar-vertex, .gauge-ticks, .hud-dot, .segbar > i[data-on] { animation: none; }
+  .radar-sweep, .radar-vertex, .gauge-ticks, .gauge-needle, .hud-dot, .segbar > i[data-on] { animation: none; }
 }
 
 /* Every signed-in panel gets the instrument-panel corner brackets, unless it
