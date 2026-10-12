@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Check, MessageSquareText } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { saveScanReport } from "@/app/actions/scan-report";
 import { retention } from "@/config/app";
 import { track } from "@/lib/analytics";
-import { overallRisk, parseReport } from "@/lib/report-format";
+import { overallRisk, parseReport, type Risk } from "@/lib/report-format";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 
 type State =
@@ -137,15 +137,26 @@ export function ModelFeedback({
   text,
   previousText,
   scanId,
+  onVerdict,
 }: {
   ticket: string;
   text: string;
   previousText?: string;
   /** Set for signed-in scans: lets the student keep the report in their history. */
   scanId?: string | null;
+  /** Told the reviewer's overall risk once the report has one, so the dial above can show it too. */
+  onVerdict?: (risk: Risk | null) => void;
 }) {
   const state = useFeedback(ticket, text, previousText);
   const [save, setSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message?: string }>({ status: "idle" });
+
+  // While the report is still being written, show only the lines that are complete.
+  const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
+  const blocks = parseReport(shown);
+  const overall = overallRisk(blocks);
+  useEffect(() => {
+    onVerdict?.(overall ?? null);
+  }, [overall, onVerdict]);
 
   if (state.status === "unavailable") {
     return (
@@ -158,11 +169,7 @@ export function ModelFeedback({
   }
 
   const done = state.status === "done";
-  // While the report is still being written, show only the lines that are complete.
-  const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
-  const blocks = parseReport(shown);
   const report = state.status === "done" ? state.feedback : null;
-  const overall = overallRisk(blocks);
   const verdict = overall ? riskStyle[overall] : null;
   return (
     <Card className="relative overflow-hidden p-5 sm:p-6" aria-live="polite" aria-busy={!done}>

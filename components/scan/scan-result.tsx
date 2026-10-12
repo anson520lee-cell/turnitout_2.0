@@ -12,6 +12,8 @@ import { SignalRadar } from "./signal-radar";
 import { SentenceHighlights } from "./sentence-highlights";
 import { ReadabilityCard } from "./readability-card";
 import { ModelFeedback } from "./model-feedback";
+import { riskStyle } from "./report-view";
+import type { Risk } from "@/lib/report-format";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 import { formatCredits, screeningPrices } from "@/config/pricing";
@@ -65,6 +67,8 @@ export function ScanResult({
   /** Live scans only: the local model's written feedback, fetched as it arrives. */
   feedback?: { ticket: string; text: string; previousText?: string; scanId?: string | null } | null;
 }) {
+  // The reviewer's overall verdict, shown next to the dial because the two can disagree.
+  const [verdict, setVerdict] = useState<Risk | null>(null);
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
@@ -95,6 +99,13 @@ export function ScanResult({
           <HudCorners />
           <HudLabel className="mb-3 self-start">Risk dial</HudLabel>
           <RiskGauge level={result.overallRisk} />
+          {verdict && (
+            <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-center text-[12.5px] text-fg-muted">
+              Detailed review:
+              <Badge tone={riskStyle[verdict].tone}>{riskStyle[verdict].label} risk</Badge>
+              <span className="w-full text-[11.5px] text-fg-subtle">The dial is a quick statistical estimate; the review looks at each sentence.</span>
+            </p>
+          )}
           <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
             {[
               ["Words", result.metadata.words],
@@ -115,7 +126,7 @@ export function ScanResult({
         </Card>
       </div>
 
-      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} previousText={feedback.previousText} scanId={feedback.scanId} />}
+      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} previousText={feedback.previousText} scanId={feedback.scanId} onVerdict={setVerdict} />}
 
       {result.readability && <ReadabilityCard r={result.readability} />}
 
