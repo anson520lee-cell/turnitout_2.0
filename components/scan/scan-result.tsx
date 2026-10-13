@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Info, ArrowRight, Download } from "lucide-react";
 import type { AnalysisResult, RiskLevel, Signal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,8 @@ import { SentenceHighlights } from "./sentence-highlights";
 import { ReadabilityCard } from "./readability-card";
 import { ModelFeedback } from "./model-feedback";
 import { riskStyle } from "./report-view";
-import type { Risk } from "@/lib/report-format";
+import { higherLevel, verdictLevel, type Risk } from "@/lib/report-format";
+import { raiseScanLevel } from "@/app/actions/scan-report";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 import { formatCredits, screeningPrices } from "@/config/pricing";
@@ -23,8 +24,6 @@ import { track } from "@/lib/analytics";
 const levelTone: Record<RiskLevel, Tone> = { low: "success", moderate: "warn", elevated: "danger" };
 const levelLabel: Record<RiskLevel, string> = { low: "Low", moderate: "Moderate", elevated: "Elevated" };
 const levelRank: Record<RiskLevel, number> = { low: 0, moderate: 1, elevated: 2 };
-/** The detailed review's word for each dial level; "uncertain" says nothing either way. */
-const verdictLevel: Partial<Record<Risk, RiskLevel>> = { high: "elevated", medium: "moderate", low: "low" };
 
 function SignalRow({ s, i }: { s: Signal; i: number }) {
   const [open, setOpen] = useState(false);
@@ -64,20 +63,32 @@ export function ScanResult({
   result,
   createdAt,
   feedback,
+  storedLevel,
 }: {
   result: AnalysisResult;
   createdAt?: string;
+  /** Saved scans: the level kept in the history, which may already include the review's reading. */
+  storedLevel?: RiskLevel;
   /** Live scans only: the local model's written feedback, fetched as it arrives. */
   feedback?: { ticket: string; text: string; previousText?: string; scanId?: string | null } | null;
 }) {
   // The reviewer's overall verdict, shown next to the dial because the two can disagree.
   const [verdict, setVerdict] = useState<Risk | null>(null);
+  const reviewLevel = verdict ? verdictLevel[verdict] : undefined;
+  // The dial shows the highest reading: statistics, the review, and what the history already holds.
+  const dialLevel: RiskLevel = higherLevel(higherLevel(result.overallRisk, reviewLevel), storedLevel);
+  // Keep the history in step with the dial (once per scan, only when the review raised it).
+  const scanId = feedback?.scanId ?? null;
+  const synced = useRef<string | null>(null);
+  useEffect(() => {
+    if (!scanId || !reviewLevel || synced.current === `${scanId}:${dialLevel}`) return;
+    if (levelRank[dialLevel] <= levelRank[result.overallRisk]) return;
+    synced.current = `${scanId}:${dialLevel}`;
+    void raiseScanLevel(scanId, dialLevel);
+  }, [scanId, reviewLevel, dialLevel, result.overallRisk]);
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
-  // The dial shows the higher of the two readings, so it never says Low while the review says High.
-  const reviewLevel = verdict ? verdictLevel[verdict] : undefined;
-  const dialLevel: RiskLevel = reviewLevel && levelRank[reviewLevel] > levelRank[result.overallRisk] ? reviewLevel : result.overallRisk;
   return (
     <div className="space-y-5">
       <div className="hidden print:block">

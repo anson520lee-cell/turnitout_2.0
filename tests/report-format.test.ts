@@ -76,3 +76,12 @@ test("overallRisk finds the verdict, or nothing", () => {
   assert.equal(overallRisk(parseReport(sample)), "high");
   assert.equal(overallRisk(parseReport("- P1 S1 | Risk: Low")), undefined);
 });
+
+test("history and dial agree: the higher of the statistics and the review wins", async () => {
+  const { higherLevel, verdictLevel, overallRisk, parseReport } = await import("../lib/report-format");
+  assert.equal(higherLevel("low", verdictLevel.high), "elevated");
+  assert.equal(higherLevel("elevated", verdictLevel.low), "elevated");
+  assert.equal(higherLevel("low", verdictLevel.uncertain), "low");
+  const report = "Overall risk: High, because the rhythm is uniform.";
+  assert.equal(higherLevel("low", verdictLevel[overallRisk(parseReport(report)) ?? "uncertain"]), "elevated");
+});
