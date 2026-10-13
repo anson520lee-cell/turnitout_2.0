@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type PointerEvent } from "react";
 import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
@@ -19,6 +19,15 @@ const nav = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+// Feeds the pointer position (relative to the element) to the CSS glass
+// highlights as --mx/--my, so the light follows the cursor over the pane.
+function trackLight(e: PointerEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--my", `${e.clientY - r.top}px`);
+}
+
 export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin: boolean; credits: number }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -26,7 +35,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
 
   const list = (
     <nav aria-label="App" className="flex flex-1 flex-col">
-      <ul className="space-y-0.5">
+      <ul className="space-y-1">
         {items.map(({ href, label, icon: Icon }) => {
           // The longest matching item wins, so /scan/history doesn't also light up /scan.
           const matches = (h: string) => path === h || (h !== "/dashboard" && path.startsWith(`${h}/`));
@@ -38,12 +47,10 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
                 data-press
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition",
-                  active ? "nav-3d -translate-y-px bg-gradient-to-b from-white/[0.11] to-white/[0.04] text-fg" : "text-fg-muted hover:bg-white/[0.04] hover:text-fg",
-                )}
+                onPointerMove={trackLight}
+                className={cn("glass-item group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px]", active ? "glass-item-active text-fg" : "text-fg-muted hover:text-fg")}
               >
-                <Icon className={cn("size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} aria-hidden />
+                <Icon className={cn("glass-item-icon size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-accent")} aria-hidden />
                 {label}
                 {href === "/billing" && (
                   <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[11px] text-accent">{credits.toLocaleString("en-US")}</span>
@@ -53,11 +60,11 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
           );
         })}
       </ul>
-      <div className="mt-auto border-t border-[var(--line)] pt-4">
+      <div className="mt-auto border-t border-white/10 pt-4">
         <p className="truncate px-3 text-[12px] text-fg-subtle" title={email}>{email}</p>
         <form action={signOut}>
-          <button className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] text-fg-muted hover:bg-white/[0.04] hover:text-fg">
-            <LogOut className="size-4" aria-hidden /> Log out
+          <button onPointerMove={trackLight} className="glass-item group mt-2 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] text-fg-muted hover:text-fg">
+            <LogOut className="glass-item-icon size-4" aria-hidden /> Log out
           </button>
         </form>
       </div>
@@ -66,7 +73,8 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
 
   return (
     <>
-      <aside className="sidebar-glass sticky top-0 hidden h-dvh w-64 shrink-0 flex-col p-4 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-[17.5rem] shrink-0 p-3 lg:block">
+        <div className="sidebar-glass relative flex h-full flex-col rounded-[28px] p-4" onPointerMove={trackLight}>
         <div className="mb-6 px-2 pt-1">
           <Logo />
           <p className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
@@ -75,11 +83,12 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
           </p>
         </div>
         {list}
+        </div>
       </aside>
       <header className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
-          className="grid size-9 place-items-center rounded-lg text-fg-muted hover:bg-white/5"
+          className="glass-item grid size-9 place-items-center rounded-xl text-fg-muted hover:text-fg"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
@@ -88,7 +97,9 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
         </button>
       </header>
       {open && (
-        <div className="fixed inset-x-0 top-14 bottom-0 z-40 flex flex-col bg-ink-950/95 p-4 backdrop-blur-xl lg:hidden">{list}</div>
+        <div className="fixed inset-x-0 top-14 bottom-0 z-40 p-3 lg:hidden">
+          <div className="sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4" onPointerMove={trackLight}>{list}</div>
+        </div>
       )}
     </>
   );
