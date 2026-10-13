@@ -27,3 +27,8 @@ test("a plain academic abstract with a few even sentences is not flagged", async
   const r = await new HeuristicWritingAnalyzer().analyze(text);
   assert.equal(r.overallRisk, "low");
 });
+
+test("a long essay with unusually even vocabulary is not rated low", async () => {
+  const r = await new HeuristicWritingAnalyzer().analyze(samples.gemini_like_metrics_essay.text);
+  assert.notEqual(r.overallRisk, "low");
+});

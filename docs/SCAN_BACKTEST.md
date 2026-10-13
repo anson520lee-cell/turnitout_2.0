@@ -14,3 +14,17 @@ What the data showed
 - A few sentences give a noisy spread, so short texts now count for less; "However," twice is normal academic writing, so connectors need three hits.
 - Modern AI text with natural sentence variety and no stock phrases is not separable by these statistics (0 of 10 caught).
 - Not tested: real human student essays, Chinese text, edited or paraphrased AI text.
+
+## Update v1.4 (same day): a Gemini essay slipped through
+A 4,600-character Gemini essay ("The Tyranny of Metrics") rated Moderate under v1.3 (even paragraphs only; its sentences vary normally).
+What set it apart: its vocabulary is unusually evenly varied (0.89 distinct words per 100; human abstracts median 0.81, 99th percentile 0.90; 2,587 Brown-corpus chunks from six genres almost never exceed 0.86) and its words are long.
+The old "lexical diversity" signal assumed the opposite (repeating = AI), so it is now reversed and counts toward the level (v1.4).
+
+| v1.4 | Result |
+|---|---|
+| 3,000 human paper abstracts | 10% moderate or higher, 1.9% elevated (unchanged) |
+| 2,587 human chunks, Brown corpus, six genres (1961, second baseline) | 0.4–5% moderate or higher, at most 1% elevated |
+| 47 AI samples | about 72% moderate or higher (v1.3: about 21%) |
+| The Gemini essay | Elevated |
+
+Caveat: the AI samples were written by one model family, so the vocabulary signal is validated mainly on that style; paraphrased or heavily edited AI text is untested.
