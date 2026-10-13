@@ -21,3 +21,9 @@ test("three paragraphs are too few for the paragraph signal", async () => {
   const r = await analyzer.analyze(samples.human_blog.text);
   assert.equal(r.signals.find((s) => s.id === "paragraph_consistency")?.score, null);
 });
+
+test("a plain academic abstract with a few even sentences is not flagged", async () => {
+  const text = `We study the effect of word order on neural machine translation. Our model uses a small recurrent encoder and a standard attention decoder. We train it on three language pairs from the WMT shared task. The results show a gain of two BLEU points on average. We also find that the gain is larger for languages with free word order. An error analysis suggests that most remaining mistakes involve rare words.`;
+  const r = await new HeuristicWritingAnalyzer().analyze(text);
+  assert.equal(r.overallRisk, "low");
+});
