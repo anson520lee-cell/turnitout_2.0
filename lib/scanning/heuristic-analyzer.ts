@@ -267,7 +267,8 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     // 6. Paragraph consistency: very even paragraph lengths.
     const paraLens = paragraphs.map((p) => words(p).length);
     const pcv = paraLens.length >= 3 ? std(paraLens) / mean(paraLens) : null;
-    const pc = pcv === null ? null : scale(pcv, 0.45, 0.12);
+    // Three paragraphs are too few for a spread to mean anything, so it needs four.
+    const pc = pcv === null || paraLens.length < 4 ? null : scale(pcv, 0.45, 0.12);
 
     const signals: Signal[] = [
       signal(
@@ -314,7 +315,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
         "paragraph_consistency",
         pc,
         pc === null
-          ? "Needs at least three paragraphs"
+          ? "Needs at least four paragraphs"
           : `Paragraphs average ${mean(paraLens).toFixed(0)} words, varying by about ±${std(paraLens).toFixed(0)}`,
         "Paragraphs of near-identical length and shape can read as templated.",
       ),
@@ -330,12 +331,20 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     };
     let wsum = 0;
     let total = 0;
+    const measured: number[] = [];
     for (const s of signals) {
       if (s.score === null) continue;
       wsum += weights[s.id];
       total += s.score * weights[s.id];
+      measured.push(s.score);
     }
-    const overallScore = wsum ? total / wsum : 0;
+    const average = wsum ? total / wsum : 0;
+    // Newer writing tools rarely use stock connectors or phrases, so those axes sit
+    // at 0 and a plain weighted average hides a very even rhythm. Half the score
+    // therefore comes from the two strongest signals, so one clear pattern still counts.
+    const topTwo = [...measured].sort((a, b) => b - a).slice(0, 2);
+    const strongest = topTwo.length ? mean(topTwo) : 0;
+    const overallScore = 0.5 * average + 0.5 * strongest;
 
     const paragraphSignals: ParagraphSignal[] = paragraphs.map((p, index) => {
       const ss = paraSentences[index];
@@ -379,7 +388,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       recommendations,
       metadata: {
         analyzer: this.id,
-        version: "1.1.0",
+        version: "1.2.0",
         words: allWords.length,
         sentences: sentences.length,
         paragraphs: paragraphs.length,

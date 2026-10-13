@@ -1,0 +1,23 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { HeuristicWritingAnalyzer } from "../lib/scanning/heuristic-analyzer";
+import { samples } from "../tools/calib/samples";
+
+const analyzer = new HeuristicWritingAnalyzer();
+
+test("a very even rhythm is not diluted by connector-free wording", async () => {
+  const r = await analyzer.analyze(samples.gemini_like_urban.text);
+  assert.equal(r.overallRisk, "elevated");
+});
+
+test("varied human samples stay low", async () => {
+  for (const k of ["human_blog", "human_academic", "human_short_essay"]) {
+    const r = await analyzer.analyze(samples[k].text);
+    assert.equal(r.overallRisk, "low", k);
+  }
+});
+
+test("three paragraphs are too few for the paragraph signal", async () => {
+  const r = await analyzer.analyze(samples.human_blog.text);
+  assert.equal(r.signals.find((s) => s.id === "paragraph_consistency")?.score, null);
+});
