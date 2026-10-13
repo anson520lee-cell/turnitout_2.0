@@ -268,7 +268,10 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
 
     // 5. Lexical diversity.
     const m = mattr(allWords);
-    const ld = allWords.length >= 60 ? scale(m, 0.78, 0.62) : null;
+    // Back-tests showed the reverse of the old assumption: AI-written text keeps a very
+    // evenly varied vocabulary (about 0.89 distinct per 100 words), while people repeat
+    // their own words more (median 0.81, rarely above 0.86), so high diversity is the signal.
+    const ld = allWords.length >= 60 ? scale(m, 0.85, 0.92) : null;
 
     // 6. Paragraph consistency: very even paragraph lengths.
     const paraLens = paragraphs.map((p) => words(p).length);
@@ -315,7 +318,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
         ld === null
           ? "Text too short to measure"
           : `${Math.round(m * 100)} distinct words per 100, on average`,
-        "A narrow, repeated vocabulary is one of the predictability signals detectors use. Technical terms naturally repeat, so read this alongside your subject.",
+        "Writers tend to reuse their favourite words and technical terms. An unusually even, rarely repeating vocabulary is more typical of generated text.",
       ),
       signal(
         "paragraph_consistency",
@@ -328,16 +331,15 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     ];
 
     const weights: Record<SignalId, number> = {
-      sentence_variation: 0.35,
+      sentence_variation: 0.3,
       structural_repetition: 0.05,
-      transition_patterns: 0.25,
-      phrase_uniformity: 0.2,
-      lexical_diversity: 0.05,
+      transition_patterns: 0.2,
+      phrase_uniformity: 0.15,
+      lexical_diversity: 0.2,
       paragraph_consistency: 0.1,
     };
-    // Back-tests on published papers showed that opening repetition and vocabulary
-    // spread are as common in human writing, so they are shown but never drive the level.
-    const drivers: SignalId[] = ["sentence_variation", "transition_patterns", "phrase_uniformity", "paragraph_consistency"];
+    // Back-tests on published papers showed that opening repetition is as common in human writing, so it is shown but never drives the level.
+    const drivers: SignalId[] = ["sentence_variation", "transition_patterns", "phrase_uniformity", "lexical_diversity", "paragraph_consistency"];
     let wsum = 0;
     let total = 0;
     const measured: number[] = [];
@@ -397,7 +399,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       recommendations,
       metadata: {
         analyzer: this.id,
-        version: "1.3.0",
+        version: "1.4.0",
         words: allWords.length,
         sentences: sentences.length,
         paragraphs: paragraphs.length,
