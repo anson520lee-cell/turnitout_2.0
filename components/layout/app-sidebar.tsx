@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type PointerEvent } from "react";
+import { useState } from "react";
 import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
@@ -18,15 +18,6 @@ const nav = [
   { href: "/billing", label: "Billing & Credits", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
-
-// Feeds the pointer position (relative to the element) to the CSS glass
-// highlights as --mx/--my, so the light follows the cursor over the pane.
-function trackLight(e: PointerEvent<HTMLElement>) {
-  const el = e.currentTarget;
-  const r = el.getBoundingClientRect();
-  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-  el.style.setProperty("--my", `${e.clientY - r.top}px`);
-}
 
 export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin: boolean; credits: number }) {
   const path = usePathname();
@@ -47,7 +38,6 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
                 onClick={() => setOpen(false)}
                 aria-current={active ? "page" : undefined}
                 data-press
-                onPointerMove={trackLight}
                 className={cn("glass-item group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px]", active ? "glass-item-active text-fg" : "text-fg-muted hover:text-fg")}
               >
                 <Icon className={cn("glass-item-icon size-4", active ? "text-accent" : "text-fg-subtle group-hover:text-accent")} aria-hidden />
@@ -63,7 +53,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
       <div className="mt-auto border-t border-white/10 pt-4">
         <p className="truncate px-3 text-[12px] text-fg-subtle" title={email}>{email}</p>
         <form action={signOut}>
-          <button onPointerMove={trackLight} className="glass-item group mt-2 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] text-fg-muted hover:text-fg">
+          <button className="glass-item group mt-2 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] text-fg-muted hover:text-fg">
             <LogOut className="glass-item-icon size-4" aria-hidden /> Log out
           </button>
         </form>
@@ -74,7 +64,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-[17.5rem] shrink-0 p-3 lg:block">
-        <div className="sidebar-glass relative flex h-full flex-col rounded-[28px] p-4" onPointerMove={trackLight}>
+        <div className="sidebar-glass relative flex h-full flex-col rounded-[28px] p-4">
         <div className="mb-6 px-2 pt-1">
           <Logo />
           <p className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
@@ -98,7 +88,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
       </header>
       {open && (
         <div className="fixed inset-x-0 top-14 bottom-0 z-40 p-3 lg:hidden">
-          <div className="sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4" onPointerMove={trackLight}>{list}</div>
+          <div className="sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4">{list}</div>
         </div>
       )}
     </>
