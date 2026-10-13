@@ -32,3 +32,8 @@ test("a long essay with unusually even vocabulary is not rated low", async () =>
   const r = await new HeuristicWritingAnalyzer().analyze(samples.gemini_like_metrics_essay.text);
   assert.notEqual(r.overallRisk, "low");
 });
+
+test("a Hong Kong student's own essay with grammar slips stays low", async () => {
+  const r = await new HeuristicWritingAnalyzer().analyze(samples.human_hk_student_mobility.text);
+  assert.equal(r.overallRisk, "low");
+});
