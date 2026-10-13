@@ -49,6 +49,30 @@ async function tooManyUnpaid(userId: string): Promise<boolean> {
 
 const TOO_MANY_UNPAID = `You have ${MAX_UNPAID_ORDERS} unpaid orders. Pay for or cancel some of them before creating another.`;
 
+/**
+ * Owner test orders. An admin account (decided on the server from the
+ * database role) places orders for free: the order is marked paid at once
+ * with the "admin_free" provider, no credits are spent, and the title is
+ * tagged so it is never mistaken for a real sale. Revenue totals skip
+ * "admin_free" payments (lib/data/admin.ts).
+ */
+const ADMIN_TEST_PREFIX = "[管理員測試] ";
+
+function isAdminUser(user: { profile: { role: string } }): boolean {
+  return user.profile.role === "admin";
+}
+
+async function freeAdminPay(order: { id: string; price: number; currency: string }): Promise<void> {
+  const res = await markOrderPaid({
+    orderId: order.id,
+    provider: "admin_free",
+    providerPaymentId: `admin_free_${order.id}`,
+    amount: order.price,
+    currency: order.currency,
+  });
+  if (!res.ok) await audit("admin_free_order_failed", { orderId: order.id, detail: { reason: res.reason } });
+}
+
 async function ownOrder(orderId: string, userId: string): Promise<Order | null> {
   if (!uuid.safeParse(orderId).success) return null;
   const db = createAdminClient();
@@ -83,7 +107,7 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     .insert({
       user_id: user.id,
       service_type: reportService,
-      title: autoTitle("Report", words, "words"),
+      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Report", words, "words"),
       price,
       currency,
       word_count: words,
@@ -95,6 +119,11 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
   if (error || !order) return { ok: false, message: "We couldn't create your report request. Please try again." };
 
   await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: reportService, words, source: "paste" } });
+  if (isAdminUser(user)) {
+    await freeAdminPay({ id: order.id, price, currency });
+    revalidatePath("/orders");
+    return { ok: true, orderId: order.id };
+  }
   notifyOwner("order_created", {
     order: shortId(order.id),
     service: serviceLabels[reportService],
@@ -225,7 +254,7 @@ export async function createRefinementOrder(input: unknown): Promise<{ ok: true;
     .insert({
       user_id: user.id,
       service_type: "refinement",
-      title: autoTitle("Refinement", chars, "characters"),
+      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Refinement", chars, "characters"),
       price,
       currency,
       word_count: words,
@@ -237,6 +266,11 @@ export async function createRefinementOrder(input: unknown): Promise<{ ok: true;
     .single();
   if (error || !order) return { ok: false, message: "We couldn't create the order. Please try again." };
   await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: "refinement", words, chars } });
+  if (isAdminUser(user)) {
+    await freeAdminPay({ id: order.id, price, currency });
+    revalidatePath("/orders");
+    return { ok: true, orderId: order.id };
+  }
   notifyOwner("order_created", {
     order: shortId(order.id),
     service: serviceLabels.refinement,

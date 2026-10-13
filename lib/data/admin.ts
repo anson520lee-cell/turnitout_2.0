@@ -42,7 +42,7 @@ export async function adminMetrics() {
     db.from("guest_scan_usage").select("scan_count").eq("usage_date", hkDate),
     count(db.from("payment_claims").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
-  const revenue = (payments.data ?? []).filter((p) => p.provider !== "dev").reduce((s, p) => s + p.amount, 0);
+  const revenue = (payments.data ?? []).filter((p) => p.provider !== "dev" && p.provider !== "admin_free").reduce((s, p) => s + p.amount, 0);
   const sum = (rows: { scan_count: number }[] | null) => (rows ?? []).reduce((s, r) => s + r.scan_count, 0);
   const scans = sum(scansToday.data);
   const guestScans = sum(guestScansToday.data);
