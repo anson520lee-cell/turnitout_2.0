@@ -50,7 +50,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
             />
             <div className="space-y-6">
               {data.report_text && <SavedReport scanId={data.id} report={data.report_text} savedAt={data.report_saved_at ?? null} />}
-              <ScanResult result={data.result_json} createdAt={formatDateTime(data.created_at)} />
+              <ScanResult result={data.result_json} createdAt={formatDateTime(data.created_at)} storedLevel={data.overall_risk} />
             </div>
           </>
         );

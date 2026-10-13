@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { higherLevel, type DialLevel } from "@/lib/report-format";
 import { uuid } from "@/lib/validation/schemas";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -48,5 +50,40 @@ export async function deleteScanReport(scanId: unknown): Promise<Result> {
   if (error) return { ok: false, message: "Couldn't delete the report. Please try again." };
   revalidatePath("/scan/history");
   revalidatePath("/scan");
+  return { ok: true };
+}
+
+/**
+ * The detailed review can read higher than the statistics, and the result page shows the
+ * higher one. This stores that same level so the history agrees with what was on screen.
+ * It only ever raises the level, only on the signed-in user's own scan, and the table's
+ * column permissions only allow report edits, so the server's own client does the write.
+ */
+export async function raiseScanLevel(scanId: unknown, level: unknown): Promise<Result> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Please sign in again." };
+  if (!uuid.safeParse(scanId).success) return { ok: false, message: "This scan can't be found." };
+  if (level !== "moderate" && level !== "elevated") return { ok: false, message: "Nothing to update." };
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("scan_results")
+      .select("overall_risk")
+      .eq("id", scanId as string)
+      .eq("user_id", user.id)
+      .maybeSingle<{ overall_risk: DialLevel }>();
+    if (!data) return { ok: false, message: "This scan can't be found." };
+    if (higherLevel(data.overall_risk, level as DialLevel) === data.overall_risk) return { ok: true };
+    const { error } = await admin
+      .from("scan_results")
+      .update({ overall_risk: level })
+      .eq("id", scanId as string)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, message: "Couldn't update the history." };
+  } catch {
+    return { ok: false, message: "Couldn't update the history." };
+  }
+  revalidatePath("/scan/history");
+  revalidatePath("/dashboard");
   return { ok: true };
 }

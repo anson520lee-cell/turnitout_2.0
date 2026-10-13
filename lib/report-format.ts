@@ -97,3 +97,12 @@ export function overallRisk(blocks: ReportBlock[]): Risk | undefined {
   }
   return undefined;
 }
+
+export type DialLevel = "low" | "moderate" | "elevated";
+const DIAL_RANK: Record<DialLevel, number> = { low: 0, moderate: 1, elevated: 2 };
+/** The detailed review's word for each dial level; "uncertain" says nothing either way. */
+export const verdictLevel: Partial<Record<Risk, DialLevel>> = { high: "elevated", medium: "moderate", low: "low" };
+/** The higher of two readings, so a scan never shows Low in one place and High in another. */
+export function higherLevel(a: DialLevel, b: DialLevel | undefined): DialLevel {
+  return b && DIAL_RANK[b] > DIAL_RANK[a] ? b : a;
+}

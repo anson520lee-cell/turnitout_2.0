@@ -31,3 +31,7 @@ Caveat: the AI samples were written by one model family, so the vocabulary signa
 
 ## Real student essay check (2026-10-13)
 A Hong Kong student's own essay (mobility vs accessibility, with citations and ordinary grammar slips, 678 words) rates Low under v1.4: sentence variation 0, vocabulary variety 6 (85 distinct words per 100, normal for people). Only connectors scored (53). Added to the human samples as a regression test.
+
+## v1.4.1: history now agrees with the dial; a third Gemini essay
+Bug: the result page's dial shows the higher of the statistics and the detailed review (DeepSeek, which arrives after the scan), but the history stored only the statistics level, so a scan could read High on screen and Low in history. The page now saves the dial's level to the history when the review raises it, the saved-scan page uses the stored level, and older scans that kept a report take their level from the report's own "Overall risk" line. Older scans without a saved report can't be recovered (the review text was never stored).
+Scan side: "The Commodification of Solitude" (4,806 characters) rates Elevated whole; 2,000-character cuts rate Low to Moderate (paragraph 3 alone: Elevated). A vocabulary-variety score of 80 or more (0.7% of 3,000 human abstracts, 0% of 2,587 Brown chunks, 20-50% of the AI samples) now forces at least Moderate.

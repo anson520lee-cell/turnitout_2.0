@@ -355,7 +355,10 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     // therefore comes from the two strongest signals, so one clear pattern still counts.
     const topTwo = [...measured].sort((a, b) => b - a).slice(0, 2);
     const strongest = topTwo.length ? mean(topTwo) : 0;
-    const overallScore = 0.4 * average + 0.6 * strongest;
+    // A very evenly varied vocabulary is rare in people (under 1% of 3,000 paper abstracts, none in
+    // 2,587 chunks of mixed published prose), so on its own it is enough for at least Moderate.
+    const varietyFloor = (ld ?? 0) >= 80 ? 36 : 0;
+    const overallScore = Math.max(0.4 * average + 0.6 * strongest, varietyFloor);
 
     const paragraphSignals: ParagraphSignal[] = paragraphs.map((p, index) => {
       const ss = paraSentences[index];
@@ -399,7 +402,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       recommendations,
       metadata: {
         analyzer: this.id,
-        version: "1.4.0",
+        version: "1.4.1",
         words: allWords.length,
         sentences: sentences.length,
         paragraphs: paragraphs.length,
