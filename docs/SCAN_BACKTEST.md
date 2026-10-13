@@ -28,3 +28,6 @@ The old "lexical diversity" signal assumed the opposite (repeating = AI), so it 
 | The Gemini essay | Elevated |
 
 Caveat: the AI samples were written by one model family, so the vocabulary signal is validated mainly on that style; paraphrased or heavily edited AI text is untested.
+
+## Real student essay check (2026-10-13)
+A Hong Kong student's own essay (mobility vs accessibility, with citations and ordinary grammar slips, 678 words) rates Low under v1.4: sentence variation 0, vocabulary variety 6 (85 distinct words per 100, normal for people). Only connectors scored (53). Added to the human samples as a regression test.
