@@ -234,6 +234,7 @@ export function paymentMethodLabel(provider: string): string {
   if (provider === "stripe") return "Card / Google Pay (Stripe)";
   if (provider === "credits") return "Credits";
   if (provider === "dev") return "Simulated (dev)";
+  if (provider === "admin_free") return "Admin test (free, not revenue)";
   return provider;
 }
 
