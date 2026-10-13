@@ -22,6 +22,9 @@ import { track } from "@/lib/analytics";
 
 const levelTone: Record<RiskLevel, Tone> = { low: "success", moderate: "warn", elevated: "danger" };
 const levelLabel: Record<RiskLevel, string> = { low: "Low", moderate: "Moderate", elevated: "Elevated" };
+const levelRank: Record<RiskLevel, number> = { low: 0, moderate: 1, elevated: 2 };
+/** The detailed review's word for each dial level; "uncertain" says nothing either way. */
+const verdictLevel: Partial<Record<Risk, RiskLevel>> = { high: "elevated", medium: "moderate", low: "low" };
 
 function SignalRow({ s, i }: { s: Signal; i: number }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +75,9 @@ export function ScanResult({
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
+  // The dial shows the higher of the two readings, so it never says Low while the review says High.
+  const reviewLevel = verdict ? verdictLevel[verdict] : undefined;
+  const dialLevel: RiskLevel = reviewLevel && levelRank[reviewLevel] > levelRank[result.overallRisk] ? reviewLevel : result.overallRisk;
   return (
     <div className="space-y-5">
       <div className="hidden print:block">
@@ -98,12 +104,14 @@ export function ScanResult({
         <Card strong tilt={5} className="flex flex-col items-center justify-center p-6">
           <HudCorners />
           <HudLabel className="mb-3 self-start">Risk dial</HudLabel>
-          <RiskGauge level={result.overallRisk} />
+          <RiskGauge level={dialLevel} />
           {verdict && (
             <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-center text-[12.5px] text-fg-muted">
               Detailed review:
               <Badge tone={riskStyle[verdict].tone}>{riskStyle[verdict].label} risk</Badge>
-              <span className="w-full text-[11.5px] text-fg-subtle">The dial is a quick statistical estimate; the review looks at each sentence.</span>
+              <span className="w-full text-[11.5px] text-fg-subtle">{dialLevel !== result.overallRisk
+                ? "The statistics alone read lower, so the dial follows the sentence-by-sentence review."
+                : "The dial is a quick statistical estimate; the review looks at each sentence."}</span>
             </p>
           )}
           <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
