@@ -75,7 +75,7 @@ function scale(value: number, lo: number, hi: number): number {
 }
 
 function levelOf(score: number): RiskLevel {
-  if (score >= 60) return "elevated";
+  if (score >= 50) return "elevated";
   if (score >= 35) return "moderate";
   return "low";
 }
@@ -226,7 +226,9 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
 
     // 1. Sentence variation (coefficient of variation of sentence length).
     const cv = sentLens.length > 3 ? std(sentLens) / mean(sentLens) : null;
-    const sv = cv === null ? null : scale(cv, 0.6, 0.25);
+    // The spread of a handful of sentences is noisy, so short texts count for less.
+    const svTrust = 0.6 + 0.4 * clamp01((sentLens.length - 4) / 6);
+    const sv = cv === null ? null : Math.round(scale(cv, 0.42, 0.16) * svTrust);
 
     // 2. Structural repetition: how concentrated sentence openings are.
     const openers = sentences.map((s) => words(s).slice(0, 2).join(" "));
@@ -241,15 +243,19 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     const sr =
       sentences.length > 4
         ? Math.round(
-            scale(topOpenerShare, 0.15, 0.4) * 0.6 +
-              scale(repeatedOpeners / sentences.length, 0.05, 0.3) * 0.4,
+            scale(topOpenerShare, 0.25, 0.5) * 0.6 +
+              scale(repeatedOpeners / sentences.length, 0.1, 0.35) * 0.4,
           )
         : null;
 
     // 3. Transition patterns: share of sentences opening with a stock connector.
     const transitionHits = sentences.map(startsWithTransition).filter(Boolean) as string[];
     const transitionRate = sentences.length ? transitionHits.length / sentences.length : 0;
-    const tp = sentences.length > 3 ? scale(transitionRate, 0.08, 0.35) : null;
+    // One or two "However," openers are ordinary in academic prose; a pattern needs three.
+    const tp =
+      sentences.length > 3
+        ? Math.round(scale(transitionRate, 0.08, 0.35) * Math.min(1, transitionHits.length / 3))
+        : null;
     const distinctTransitions = [...new Set(transitionHits)];
 
     // 4. Phrase uniformity: stock phrasing + repeated three-word sequences.
@@ -322,13 +328,16 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     ];
 
     const weights: Record<SignalId, number> = {
-      sentence_variation: 0.25,
-      structural_repetition: 0.15,
-      transition_patterns: 0.2,
+      sentence_variation: 0.35,
+      structural_repetition: 0.05,
+      transition_patterns: 0.25,
       phrase_uniformity: 0.2,
-      lexical_diversity: 0.1,
+      lexical_diversity: 0.05,
       paragraph_consistency: 0.1,
     };
+    // Back-tests on published papers showed that opening repetition and vocabulary
+    // spread are as common in human writing, so they are shown but never drive the level.
+    const drivers: SignalId[] = ["sentence_variation", "transition_patterns", "phrase_uniformity", "paragraph_consistency"];
     let wsum = 0;
     let total = 0;
     const measured: number[] = [];
@@ -336,7 +345,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       if (s.score === null) continue;
       wsum += weights[s.id];
       total += s.score * weights[s.id];
-      measured.push(s.score);
+      if (drivers.includes(s.id)) measured.push(s.score);
     }
     const average = wsum ? total / wsum : 0;
     // Newer writing tools rarely use stock connectors or phrases, so those axes sit
@@ -344,7 +353,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
     // therefore comes from the two strongest signals, so one clear pattern still counts.
     const topTwo = [...measured].sort((a, b) => b - a).slice(0, 2);
     const strongest = topTwo.length ? mean(topTwo) : 0;
-    const overallScore = 0.5 * average + 0.5 * strongest;
+    const overallScore = 0.4 * average + 0.6 * strongest;
 
     const paragraphSignals: ParagraphSignal[] = paragraphs.map((p, index) => {
       const ss = paraSentences[index];
@@ -388,7 +397,7 @@ export class HeuristicWritingAnalyzer implements WritingAnalyzer {
       recommendations,
       metadata: {
         analyzer: this.id,
-        version: "1.2.0",
+        version: "1.3.0",
         words: allWords.length,
         sentences: sentences.length,
         paragraphs: paragraphs.length,
