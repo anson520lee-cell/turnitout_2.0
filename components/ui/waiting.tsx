@@ -33,7 +33,7 @@ export function WaitingAnimation({
 
   return (
     <div role="status" aria-live="polite" className={cn("flex flex-col items-center py-6 text-center", className)}>
-      <NeuralWaitVisual className="h-44 w-full max-w-[22rem]" />
+      <NeuralWaitVisual className="h-48 w-full max-w-[24rem]" />
       <p className="mt-7 text-[17px] font-semibold tracking-tight">{title}</p>
       <div className="mt-1.5 flex h-5 items-center gap-2 text-[13.5px] text-fg-muted">
         <AnimatePresence mode="wait">

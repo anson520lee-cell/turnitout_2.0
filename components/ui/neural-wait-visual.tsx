@@ -4,31 +4,41 @@ import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion"
 import { cn } from "@/lib/utils";
 
 /**
- * The waiting visual: a small network turning in 3D, with signals running
- * forward layer by layer (a forward pass), a training-loss curve settling
- * on the left and the output layer's softmax bars on the right.
+ * The waiting visual: a small network turning slowly in 3D. Each layer is a
+ * ring of neurons joined to the next by curved weights. Training steps run
+ * as waves: a forward pass (cyan) flows from input to output, then the
+ * gradient (violet) flows back. A loss curve settles on the left and the
+ * output layer's softmax sits on the right.
  * Illustrative only; it doesn't show anything about the user's text.
  */
 
-const LAYERS = [7, 10, 12, 10, 4];
-const RADII = [0.42, 0.6, 0.68, 0.6, 0.34];
+const LAYERS = [6, 9, 12, 9, 4];
+const RADII = [0.4, 0.58, 0.66, 0.58, 0.32];
 const FAN = 3;
+const CYCLE = 3.2; // seconds per training step (forward + backward)
+const WHITE = [233, 237, 247];
 const ACCENT = [91, 140, 255];
 const CYAN = [95, 216, 245];
 const VIOLET = [154, 123, 255];
+const MUTED = [138, 146, 174];
 
-interface Node { l: number; x: number; y: number; z: number; glow: number; out: number[] }
-interface Pulse { a: number; b: number; t: number; v: number; hops: number }
+type RGB = number[];
+interface Node { l: number; x: number; y: number; z: number; act: number; grad: number; out: number[]; inn: number[] }
+interface Pulse { a: number; b: number; t: number; v: number; back: boolean }
+interface P2 { x: number; y: number; d: number; z: number }
+
+const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`;
+const ease = (t: number) => t * t * (3 - 2 * t);
 
 function build() {
   const nodes: Node[] = [];
   const starts: number[] = [];
   LAYERS.forEach((n, l) => {
     starts.push(nodes.length);
-    const x = -1.4 + (2.8 * l) / (LAYERS.length - 1);
+    const x = -1.45 + (2.9 * l) / (LAYERS.length - 1);
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + l * 0.4;
-      nodes.push({ l, x, y: Math.cos(a) * RADII[l], z: Math.sin(a) * RADII[l], glow: 0, out: [] });
+      const a = (i / n) * Math.PI * 2 + l * 0.35;
+      nodes.push({ l, x, y: Math.cos(a) * RADII[l], z: Math.sin(a) * RADII[l], act: 0, grad: 0, out: [], inn: [] });
     }
   });
   nodes.forEach((nd, idx) => {
@@ -36,12 +46,28 @@ function build() {
     const next = LAYERS[nd.l + 1];
     const i = idx - starts[nd.l];
     const base = Math.round((i / LAYERS[nd.l]) * next);
-    for (let k = 0; k < FAN; k++) nd.out.push(starts[nd.l + 1] + ((base + k * Math.ceil(next / FAN) + next) % next));
+    for (let k = -1; k < FAN - 1; k++) {
+      const j = starts[nd.l + 1] + ((base + k + next) % next);
+      if (!nd.out.includes(j)) { nd.out.push(j); nodes[j].inn.push(idx); }
+    }
   });
   return { nodes, starts };
 }
 
-const mix = (c: number[], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+/** A soft round glow, drawn once and stamped with drawImage. */
+function sprite(c: RGB) {
+  const s = document.createElement("canvas");
+  s.width = s.height = 64;
+  const g = s.getContext("2d")!;
+  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, rgba(c, 0.9));
+  r.addColorStop(0.18, rgba(c, 0.45));
+  r.addColorStop(0.5, rgba(c, 0.1));
+  r.addColorStop(1, rgba(c, 0));
+  g.fillStyle = r;
+  g.fillRect(0, 0, 64, 64);
+  return s;
+}
 
 export function NeuralWaitVisual({ className }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -49,15 +75,22 @@ export function NeuralWaitVisual({ className }: { className?: string }) {
 
   useEffect(() => {
     const cv = ref.current;
-    if (!cv) return;
-    const ctx = cv.getContext("2d");
-    if (!ctx) return;
+    const ctx = cv?.getContext("2d");
+    if (!cv || !ctx) return;
     const { nodes, starts } = build();
     const outStart = starts[starts.length - 1];
+    const nOut = LAYERS[LAYERS.length - 1];
+    const glowCyan = sprite(CYAN);
+    const glowViolet = sprite(VIOLET);
+    const glowWhite = sprite(WHITE);
     const pulses: Pulse[] = [];
-    const bars = new Array(LAYERS[LAYERS.length - 1]).fill(0.25);
-    let w = 0, h = 0, raf = 0, last = performance.now(), spawn = 0, visible = true;
+    const bars = new Array(nOut).fill(1 / nOut);
+    let target = 0;
+    let w = 0, h = 0, raf = 0, visible = true;
+    let last = performance.now();
     const t0 = last;
+    let step = -1;
+    let backSent = false;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -71,136 +104,197 @@ export function NeuralWaitVisual({ className }: { className?: string }) {
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
     io.observe(cv);
 
-    const project = (n: Node, rx: number, ry: number) => {
-      // spin the tube around its axis, then tilt it towards the viewer
-      const y1 = n.y * Math.cos(rx) - n.z * Math.sin(rx);
-      const z1 = n.y * Math.sin(rx) + n.z * Math.cos(rx);
-      const x2 = n.x * Math.cos(ry) + z1 * Math.sin(ry);
-      const z2 = -n.x * Math.sin(ry) + z1 * Math.cos(ry);
-      const d = 3.4 / (3.4 + z2);
-      const s = Math.min(w * 0.3, h * 0.6);
-      return { x: w / 2 + x2 * s * d, y: h * 0.44 + y1 * s * d, d, z: z2 };
+    let rx = 0, ry = 0;
+    const project = (x: number, y: number, z: number): P2 => {
+      const y1 = y * Math.cos(rx) - z * Math.sin(rx);
+      const z1 = y * Math.sin(rx) + z * Math.cos(rx);
+      const x2 = x * Math.cos(ry) + z1 * Math.sin(ry);
+      const z2 = -x * Math.sin(ry) + z1 * Math.cos(ry);
+      const d = 3.6 / (3.6 + z2);
+      const s = Math.min(w * 0.29, h * 0.58);
+      return { x: w / 2 + x2 * s * d, y: h * 0.42 + y1 * s * d, d, z: z2 };
+    };
+    // A weight is an S-curve: it leaves a neuron along the layer axis and
+    // bends into the next one, like the links in a Sankey diagram.
+    const curve = (a: Node, b: Node) => {
+      const mx = (a.x + b.x) / 2;
+      return [project(a.x, a.y, a.z), project(mx, a.y, a.z), project(mx, b.y, b.z), project(b.x, b.y, b.z)];
+    };
+    const at = (c: P2[], t: number) => {
+      const u = 1 - t;
+      const k0 = u * u * u, k1 = 3 * u * u * t, k2 = 3 * u * t * t, k3 = t * t * t;
+      return { x: c[0].x * k0 + c[1].x * k1 + c[2].x * k2 + c[3].x * k3, y: c[0].y * k0 + c[1].y * k1 + c[2].y * k2 + c[3].y * k3 };
+    };
+
+    const send = (a: number, back: boolean, delay: number) => {
+      const list = back ? nodes[a].inn : nodes[a].out;
+      if (!list.length) return;
+      const b = list[Math.floor(Math.random() * list.length)];
+      pulses.push({ a, b, t: -delay, v: back ? 1.5 : 1.25, back });
     };
 
     const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      if (!visible) { last = now; return; }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const time = (now - t0) / 1000;
-      if (!visible && !reduce) { raf = requestAnimationFrame(frame); return; }
+      const time = reduce ? 4 : (now - t0) / 1000;
 
-      // forward pass: new signals enter at the input layer
-      spawn -= dt;
-      if (!reduce && spawn <= 0 && pulses.length < 70) {
-        spawn = 0.07;
-        const a = Math.floor(Math.random() * LAYERS[0]);
-        const b = nodes[a].out[Math.floor(Math.random() * FAN)];
-        pulses.push({ a, b, t: 0, v: 1.6 + Math.random() * 0.8, hops: 0 });
-        nodes[a].glow = 1;
+      // one training step: forward wave, then the gradient flows back
+      const s = Math.floor(time / CYCLE);
+      const phase = (time % CYCLE) / CYCLE;
+      if (!reduce && s !== step) {
+        step = s;
+        backSent = false;
+        target = Math.floor(Math.random() * nOut);
+        for (let i = 0; i < LAYERS[0]; i++) { send(i, false, Math.random() * 0.15); if (Math.random() < 0.5) send(i, false, 0.1 + Math.random() * 0.2); }
+      }
+      if (!reduce && !backSent && phase > 0.6) {
+        backSent = true;
+        for (let k = 0; k < nOut; k++) { send(outStart + k, true, Math.random() * 0.1); send(outStart + k, true, 0.08 + Math.random() * 0.12); }
       }
       for (let i = pulses.length - 1; i >= 0; i--) {
         const p = pulses[i];
         p.t += p.v * dt;
         if (p.t < 1) continue;
         const nd = nodes[p.b];
-        nd.glow = 1;
-        if (nd.out.length && Math.random() < 0.8) {
-          pulses[i] = { a: p.b, b: nd.out[Math.floor(Math.random() * FAN)], t: 0, v: p.v, hops: p.hops + 1 };
-        } else {
-          pulses.splice(i, 1);
+        if (p.back) nd.grad = 1; else nd.act = 1;
+        pulses.splice(i, 1);
+        const more = p.back ? nd.inn.length : nd.out.length;
+        if (more && pulses.length < 90) {
+          send(p.b, p.back, 0);
+          if (Math.random() < 0.35) send(p.b, p.back, 0.06);
         }
       }
-      for (const n of nodes) n.glow = Math.max(0, n.glow - dt * 1.8);
+      for (const n of nodes) { n.act = Math.max(0, n.act - dt * 1.3); n.grad = Math.max(0, n.grad - dt * 1.6); }
+      if (reduce) for (const n of nodes) n.act = n.l % 2 ? 0.35 : 0.15;
 
-      const rx = reduce ? 0.6 : time * 0.35;
-      const ry = reduce ? -0.32 : -0.32 + Math.sin(time * 0.25) * 0.1;
-      const P = nodes.map((n) => project(n, rx, ry));
+      rx = reduce ? 0.55 : time * 0.16;
+      ry = -0.3 + (reduce ? 0 : Math.sin(time * 0.18) * 0.08);
+      const P = nodes.map((n) => project(n.x, n.y, n.z));
 
       ctx.clearRect(0, 0, w, h);
-      // each layer as a faint ring, so the depth reads
-      ctx.lineWidth = 0.8;
+      ctx.lineCap = "round";
+
+      // layer rings
       starts.forEach((st, l) => {
-        ctx.strokeStyle = mix(l % 2 ? VIOLET : CYAN, 0.16);
         ctx.beginPath();
-        for (let k = 0; k <= 32; k++) {
-          const a = (k / 32) * Math.PI * 2;
-          const q = project({ l, x: nodes[st].x, y: Math.cos(a) * RADII[l], z: Math.sin(a) * RADII[l], glow: 0, out: [] }, rx, ry);
+        for (let k = 0; k <= 48; k++) {
+          const a = (k / 48) * Math.PI * 2;
+          const q = project(nodes[st].x, Math.cos(a) * RADII[l], Math.sin(a) * RADII[l]);
           if (k) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
         }
+        ctx.strokeStyle = rgba(l === 0 || l === LAYERS.length - 1 ? CYAN : ACCENT, 0.13);
+        ctx.lineWidth = 0.7;
         ctx.stroke();
       });
-      // weights
-      ctx.lineWidth = 0.6;
+
+      // weights: curves, fading with depth, brighter while a neuron is active
       nodes.forEach((n, i) => {
         for (const j of n.out) {
-          const a = P[i], b = P[j];
-          ctx.strokeStyle = mix(ACCENT, 0.05 + 0.1 * Math.min(a.d, b.d) ** 3);
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          const c = curve(n, nodes[j]);
+          const depth = Math.min(P[i].d, P[j].d);
+          const live = Math.max(n.act, nodes[j].act) * 0.25 + Math.max(n.grad, nodes[j].grad) * 0.18;
+          ctx.strokeStyle = rgba(ACCENT, 0.035 + 0.11 * depth ** 4 + live);
+          ctx.lineWidth = 0.5 + 0.4 * depth;
+          ctx.beginPath();
+          ctx.moveTo(c[0].x, c[0].y);
+          ctx.bezierCurveTo(c[1].x, c[1].y, c[2].x, c[2].y, c[3].x, c[3].y);
+          ctx.stroke();
         }
       });
+
       ctx.globalCompositeOperation = "lighter";
-      // signals with short trails
+      // signals travel along the curves with a tapered comet tail
       for (const p of pulses) {
-        const a = P[p.a], b = P[p.b];
-        const c = p.hops % 2 ? VIOLET : CYAN;
-        const t2 = Math.max(0, p.t - 0.25);
-        const g = ctx.createLinearGradient(a.x + (b.x - a.x) * t2, a.y + (b.y - a.y) * t2, a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t);
-        g.addColorStop(0, mix(c, 0)); g.addColorStop(1, mix(c, 0.9));
-        ctx.strokeStyle = g; ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(a.x + (b.x - a.x) * t2, a.y + (b.y - a.y) * t2);
-        ctx.lineTo(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t);
-        ctx.stroke();
+        if (p.t <= 0) continue;
+        const A = nodes[p.back ? p.b : p.a], B = nodes[p.back ? p.a : p.b];
+        const c = curve(A, B);
+        const head = p.back ? 1 - ease(p.t) : ease(p.t);
+        const col = p.back ? VIOLET : CYAN;
+        const tail = 9;
+        for (let k = 0; k < tail; k++) {
+          const tt = Math.min(1, Math.max(0, head + (p.back ? 1 : -1) * k * 0.028));
+          const q = at(c, tt);
+          ctx.fillStyle = rgba(col, 0.75 * (1 - k / tail) ** 1.6);
+          ctx.beginPath(); ctx.arc(q.x, q.y, 1.5 * (1 - k / tail) + 0.3, 0, Math.PI * 2); ctx.fill();
+        }
+        const q = at(c, head);
+        ctx.drawImage(p.back ? glowViolet : glowCyan, q.x - 7, q.y - 7, 14, 14);
       }
-      // neurons, far ones first
-      const order = P.map((p, i) => i).sort((i, j) => P[j].z - P[i].z);
+
+      // neurons, far ones first, with depth fog
+      const order = P.map((_, i) => i).sort((i, j) => P[j].z - P[i].z);
       for (const i of order) {
         const p = P[i], n = nodes[i];
-        const r = (1.4 + n.glow * 1.6) * p.d * (n.l === LAYERS.length - 1 ? 1.5 : 1);
-        if (n.glow > 0.05) {
-          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 6);
-          g.addColorStop(0, mix(n.l % 2 ? VIOLET : CYAN, 0.45 * n.glow));
-          g.addColorStop(1, mix(ACCENT, 0));
-          ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(p.x, p.y, r * 6, 0, Math.PI * 2); ctx.fill();
+        const fog = Math.min(1, Math.max(0.25, (p.d - 0.72) * 2.4));
+        const out = n.l === LAYERS.length - 1;
+        const glow = Math.max(n.act, n.grad);
+        if (glow > 0.03) {
+          const R = (10 + 14 * glow) * p.d * (out ? 1.3 : 1);
+          ctx.globalAlpha = glow * fog;
+          ctx.drawImage(n.grad > n.act ? glowViolet : glowCyan, p.x - R, p.y - R, R * 2, R * 2);
+          ctx.globalAlpha = 1;
         }
-        ctx.fillStyle = mix([233, 237, 247], 0.35 + 0.55 * Math.max(n.glow, (p.d - 0.75) * 1.5));
+        const r = (out ? 2.1 : 1.5) * p.d + glow * 0.9;
+        ctx.globalAlpha = 0.25 * fog;
+        ctx.drawImage(glowWhite, p.x - r * 3, p.y - r * 3, r * 6, r * 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = rgba(WHITE, (0.4 + 0.6 * glow) * fog);
         ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalCompositeOperation = "source-over";
 
-      // training loss, settling and restarting every 10 s
-      const lx = 10, ly = h - 34, lw = Math.min(96, w * 0.28), lh = 24;
-      const cyc = reduce ? 1 : 0.15 + 0.85 * ((time % 10) / 10);
-      ctx.strokeStyle = mix([138, 146, 174], 0.25); ctx.lineWidth = 0.6;
-      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + lh); ctx.lineTo(lx + lw, ly + lh); ctx.stroke();
-      ctx.strokeStyle = mix(CYAN, 0.85); ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      const steps = Math.max(2, Math.floor(cyc * 60));
-      for (let k = 0; k <= steps; k++) {
-        const u = k / 60;
-        const v = 0.9 * Math.exp(-u * 4) + 0.08 + 0.05 * Math.sin(k * 2.7) * Math.exp(-u * 2);
-        const X = lx + u * lw, Y = ly + lh - Math.min(1, v) * lh;
-        if (k) ctx.lineTo(X, Y); else ctx.moveTo(X, Y);
+      // training loss: a smooth curve with a soft fill, settling over 12 steps
+      const lx = 12, lh = 22, ly = h - 16 - lh, lw = Math.min(92, w * 0.27);
+      const span = 12;
+      const prog = reduce ? 1 : ((time / CYCLE) % span) / span;
+      const loss = (u: number) => 0.86 * Math.exp(-u * 3.6) + 0.1 + 0.035 * Math.sin(u * 37) * Math.exp(-u * 2.2);
+      const pts: { x: number; y: number }[] = [];
+      for (let k = 0; k <= 48 * prog; k++) { const u = k / 48; pts.push({ x: lx + u * lw, y: ly + lh - loss(u) * lh }); }
+      if (pts.length > 1) {
+        const fill = ctx.createLinearGradient(0, ly, 0, ly + lh);
+        fill.addColorStop(0, rgba(CYAN, 0.22)); fill.addColorStop(1, rgba(CYAN, 0));
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, ly + lh);
+        pts.forEach((q) => ctx.lineTo(q.x, q.y));
+        ctx.lineTo(pts[pts.length - 1].x, ly + lh);
+        ctx.fillStyle = fill; ctx.fill();
+        ctx.beginPath();
+        pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+        ctx.strokeStyle = rgba(CYAN, 0.9); ctx.lineWidth = 1.2; ctx.stroke();
+        const hd = pts[pts.length - 1];
+        ctx.globalCompositeOperation = "lighter";
+        ctx.drawImage(glowCyan, hd.x - 6, hd.y - 6, 12, 12);
+        ctx.globalCompositeOperation = "source-over";
       }
-      ctx.stroke();
+      ctx.strokeStyle = rgba(MUTED, 0.22); ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.moveTo(lx, ly + lh + 0.5); ctx.lineTo(lx + lw, ly + lh + 0.5); ctx.stroke();
       ctx.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace";
-      ctx.fillStyle = mix([138, 146, 174], 0.9);
-      ctx.fillText("loss ↓", lx, h - 4);
+      ctx.fillStyle = rgba(MUTED, 0.85);
+      ctx.fillText(`loss · step ${reduce ? 12 : Math.floor((time / CYCLE) % span) + 1}`, lx, h - 4);
 
-      // softmax over the output layer, following which outputs fire
-      const raw = bars.map((_, k) => Math.exp(2.5 * nodes[outStart + k].glow));
+      // softmax: the output layer leans towards this step's target class
+      const sharp = 1.2 + 3.8 * ease(Math.min(1, prog * 1.2));
+      const raw = bars.map((_, k) => Math.exp((k === target ? sharp : 0) + nodes[outStart + k].act));
       const sum = raw.reduce((a, b) => a + b, 0);
-      const bw = 7, gap = 4, bx = w - 10 - LAYERS[LAYERS.length - 1] * (bw + gap), bh = 24;
+      const bw = 8, gap = 5, bx = w - 12 - nOut * (bw + gap) + gap;
       bars.forEach((v, k) => {
-        bars[k] = v + (raw[k] / sum - v) * Math.min(1, dt * 4);
-        const H = Math.max(2, bars[k] * bh * 1.6);
-        ctx.fillStyle = mix(k % 2 ? VIOLET : ACCENT, 0.8);
-        ctx.fillRect(bx + k * (bw + gap), ly + lh - H, bw, H);
+        bars[k] = v + (raw[k] / sum - v) * Math.min(1, dt * 3);
+        const H = Math.max(2, bars[k] * lh);
+        const g = ctx.createLinearGradient(0, ly + lh - H, 0, ly + lh);
+        g.addColorStop(0, rgba(k === target ? CYAN : ACCENT, 0.95)); g.addColorStop(1, rgba(VIOLET, 0.35));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.roundRect(bx + k * (bw + gap), ly + lh - H, bw, H, [2, 2, 0, 0]);
+        ctx.fill();
       });
-      ctx.fillStyle = mix([138, 146, 174], 0.9);
-      ctx.fillText("softmax", bx, h - 4);
+      ctx.strokeStyle = rgba(MUTED, 0.22);
+      ctx.beginPath(); ctx.moveTo(bx - 2, ly + lh + 0.5); ctx.lineTo(w - 12, ly + lh + 0.5); ctx.stroke();
+      ctx.fillStyle = rgba(MUTED, 0.85);
+      ctx.fillText("softmax", bx - 2, h - 4);
 
-      if (!reduce) raf = requestAnimationFrame(frame);
+      if (reduce) cancelAnimationFrame(raf);
     };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); };
