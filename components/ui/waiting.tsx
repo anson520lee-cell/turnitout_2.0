@@ -1,17 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, } from "framer-motion";
-import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
-import { GreekText } from "@/components/landing/greek-text";
-import { CODE } from "@/lib/greek-decode";
-
-const WAIT_LINES = CODE.slice(0, 10);
-const WAIT_FLAGGED = [4, 7];
+import { NeuralWaitVisual } from "@/components/ui/neural-wait-visual";
 
 /**
- * The "please wait" state: a 3D document read by a sliding kernel inside a
- * ring of firing neurons, a progress shimmer and step text that cycles. Used by the paste dialog while a
+ * The "please wait" state: a small network running a forward pass in 3D
+ * (NeuralWaitVisual), a progress shimmer and step text that cycles. Used by the paste dialog while a
  * request runs and by the order page while a report is being prepared.
  */
 export function WaitingAnimation({
@@ -27,7 +22,6 @@ export function WaitingAnimation({
   className?: string;
   stepMs?: number;
 }) {
-  const reduce = usePrefersReducedMotion();
   const [i, setI] = useState(0);
   useEffect(() => {
     if (steps.length < 2) return;
@@ -39,18 +33,7 @@ export function WaitingAnimation({
 
   return (
     <div role="status" aria-live="polite" className={cn("flex flex-col items-center py-6 text-center", className)}>
-      <div className="orbit-stage relative size-44" aria-hidden>
-        <div className="absolute inset-[-30%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.35),transparent)] blur-xl motion-safe:animate-pulse" />
-        <motion.div
-          className="glass-strong absolute left-1/2 top-1/2 h-36 w-28 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl p-3 [transform-style:preserve-3d]"
-          animate={reduce ? undefined : { rotateY: [-18, 18, -18], rotateX: [10, 4, 10] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <div className="absolute inset-3">
-            <GreekText lines={WAIT_LINES} flagged={WAIT_FLAGGED} maxChars={15} textClass="text-[6px]" agentTag={false} />
-          </div>
-        </motion.div>
-      </div>
+      <NeuralWaitVisual className="h-44 w-full max-w-[22rem]" />
       <p className="mt-7 text-[17px] font-semibold tracking-tight">{title}</p>
       <div className="mt-1.5 flex h-5 items-center gap-2 text-[13.5px] text-fg-muted">
         <AnimatePresence mode="wait">
