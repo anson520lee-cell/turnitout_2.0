@@ -32,3 +32,6 @@ Items accepted from the improvement list: 1, 2, 3, 5, 6, 7, 8, 15, 16, 17.
 
 ## Order of work (Claude, now)
 1. Analytics (17) → 2. Policies draft (3) → 3. Crypto auto-confirm (5) → 4. Customer emails (6) → 5. Sample report (7) → 6. Readability + style pass (15/16) → 7. Promo/referral (8, after you choose amounts).
+
+## Later (agreed 2026-10-16, not started)
+- Make the AI & Similarity Report fully automatic (today a person runs Turnitin and enters the result by hand; orders wait in "Queued" until then). Needs a decision on which automatic checking service to use and its cost/licensing before any code.
