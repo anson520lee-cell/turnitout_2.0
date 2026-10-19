@@ -73,12 +73,14 @@ export interface PieceAnswer {
 export const PIECE_SIZE = 3500;
 
 /**
- * Overall bands from the share of High + Medium sentences. Chosen from the
- * piece-size test (pieces of 3,000 to 4,000 characters): at 50% about 88% of AI
- * pieces and about 40% of human pieces reached it, at 70% about 70% and 20%.
- * Guidance only; the report never shows this as a percentage chance.
+ * Overall bands from the share of High + Medium sentences. Re-checked on 41
+ * samples (pieces of 3,000 to 4,000 characters) with the essays Jordan added:
+ * at half of the sentences flagged about 89% of AI pieces and about 36% of human
+ * pieces reached it; at 65% fewer of both did, and AI was missed more often than
+ * human text was spared. Guidance only; the report never shows this as a
+ * percentage chance.
  */
-export const OVERALL_BANDS = { moderate: 0.35, elevated: 0.65 } as const;
+export const OVERALL_BANDS = { moderate: 0.35, elevated: 0.5 } as const;
 
 export function overallFor(flaggedShare: number): Overall {
   if (flaggedShare >= OVERALL_BANDS.elevated) return "elevated";

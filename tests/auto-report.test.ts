@@ -41,6 +41,8 @@ test("a paragraph is never rated safer than its sentences", () => {
 test("overall bands", () => {
   assert.equal(overallFor(0.1), "low");
   assert.equal(overallFor(0.4), "moderate");
+  assert.equal(overallFor(0.49), "moderate");
+  assert.equal(overallFor(0.5), "elevated");
   assert.equal(overallFor(0.8), "elevated");
 });
 
