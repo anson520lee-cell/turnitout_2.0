@@ -32,7 +32,7 @@ export const statusMeta: Record<
   paid: {
     label: "Paid",
     tone: "info",
-    customerHint: "Payment confirmed. Your order is entering the queue.",
+    customerHint: "Payment confirmed. Your order is starting.",
   },
   queued: {
     label: "Queued",
@@ -52,7 +52,7 @@ export const statusMeta: Record<
   screening: {
     label: "Screening",
     tone: "progress",
-    customerHint: "Your document is being screened.",
+    customerHint: "Your report is being made.",
   },
   report_ready: {
     label: "Report ready",
@@ -71,14 +71,8 @@ export const statusMeta: Record<
   },
 };
 
-const screeningFlow: OrderStatus[] = [
-  "awaiting_payment",
-  "paid",
-  "queued",
-  "screening",
-  "report_ready",
-  "completed",
-];
+// Reports are made automatically: no queue and no review before release.
+const screeningFlow: OrderStatus[] = ["awaiting_payment", "paid", "screening", "completed"];
 
 const refinementFlow: OrderStatus[] = [
   "awaiting_payment",

@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
-import { formatCredits, screeningPrices } from "@/config/pricing";
-import { reportService } from "@/config/services";
+import { reportMinimumLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC) or PayPal";
 
@@ -14,14 +13,14 @@ export const steps = [
   {
     n: "03",
     title: "Get a report if you need one",
-    body: "Press Get report, paste your text into the dialog and press Enter. Only you and the person processing it can see it.",
+    body: "Press Get report, paste your text into the dialog and press Enter. Only you can see your text and your report.",
   },
   {
     n: "04",
     title: "Pay with credits",
-    body: `${formatCredits(screeningPrices[reportService])} per AI & similarity report. Top up credits by ${methods}.`,
+    body: `${reportRateLabel}. ${reportMinimumLabel}. Top up credits by ${methods}.`,
   },
-  { n: "05", title: "Receive your result", body: "Our team runs a Turnitin screening, records exactly what it returned, and sends you the report." },
+  { n: "05", title: "Read your report", body: "It is made in about a minute: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
 
 export function HowItWorks({ heading = true }: { heading?: boolean }) {

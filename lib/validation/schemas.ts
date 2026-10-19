@@ -2,8 +2,7 @@ import { z } from "zod";
 import { freeScan, refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { freeScanCharError, refinementCharError, screeningWordError } from "@/lib/orders/limits";
-import { countWords } from "@/lib/utils";
+import { freeScanCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
 
 export const scanInput = z
   .string()
@@ -37,7 +36,7 @@ export const screeningTextOrderInput = z.object({
     .max(MAX_PASTE_CHARS, "That text is too long for one report.")
     .transform((s) => s.trim())
     .superRefine((s, ctx) => {
-      const problem = s ? screeningWordError(countWords(s)) : "Paste the text you want a report for.";
+      const problem = s ? reportCharError(billableChars(s)) : "Paste the text you want a report for.";
       if (problem) ctx.addIssue({ code: "custom", message: problem });
     }),
 });

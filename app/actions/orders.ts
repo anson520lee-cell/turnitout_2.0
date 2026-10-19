@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { billableChars, currency, formatHKD, formatCredits, refinementPrice, screeningPrice, toCredits } from "@/config/pricing";
+import { billableChars, currency, formatHKD, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
 import { acceptsClaims, manualPayments } from "@/config/payments";
 import { uploads } from "@/config/app";
@@ -100,14 +100,15 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
 
   const text = parsed.data.text;
   const words = countWords(text);
-  const price = screeningPrice(reportService);
+  const chars = billableChars(text);
+  const price = reportPrice(chars);
   const db = createAdminClient();
   const { data: order, error } = await db
     .from("orders")
     .insert({
       user_id: user.id,
       service_type: reportService,
-      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Report", words, "words"),
+      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Report", chars, "characters"),
       price,
       currency,
       word_count: words,
@@ -118,7 +119,7 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     .single();
   if (error || !order) return { ok: false, message: "We couldn't create your report request. Please try again." };
 
-  await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: reportService, words, source: "paste" } });
+  await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: reportService, words, chars, source: "paste" } });
   if (isAdminUser(user)) {
     await freeAdminPay({ id: order.id, price, currency });
     revalidatePath("/orders");
@@ -128,6 +129,7 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     order: shortId(order.id),
     service: serviceLabels[reportService],
     words,
+    characters: chars,
     amount: formatCredits(price),
     email: user.email,
   });

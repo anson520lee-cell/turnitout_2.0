@@ -26,13 +26,13 @@ export default function RefundsPage() {
         <h2>2. If we can&rsquo;t deliver</h2>
         <p>
           If we cannot complete a paid report or Writing Refinement order (for example, the document can&rsquo;t be processed),
-          the credits for that order go back to your balance in full. You can also ask for them as a refund of the top-up (see 4).
+          the credits for that order go back to your balance in full. For reports this happens automatically. You can also ask for them as a refund of the top-up (see 4).
         </p>
 
         <h2>3. Orders that were delivered</h2>
         <p>
-          A delivered report reflects the result returned at the time of screening and is not refunded because a later result,
-          or another institution&rsquo;s result, is different. A new screening after you revise your text is a new order. If a
+          A delivered report is not refunded because another tool, or another run of the same text, rates it differently. A
+          new report after you revise your text is a new order. If a
           delivered order is clearly wrong because of our mistake (wrong document, missing pages), tell us and we will redo it or
           return the credits.
         </p>

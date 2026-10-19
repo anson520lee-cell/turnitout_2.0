@@ -7,7 +7,7 @@ import { disclaimers } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Services",
-  description: "Three services: a free preliminary writing scan, AI and similarity reports run by our team, and human-reviewed writing refinement.",
+  description: "Three services: a free preliminary writing scan, automatic AI-writing risk reports, and writing refinement.",
   alternates: { canonical: "/services" },
 };
 
@@ -16,8 +16,8 @@ export default function ServicesPage() {
     <>
       <PageHeader
         eyebrow="Services"
-        title="Preliminary scan, Turnitin report, and writing refinement."
-        body="Three separate services. The scan is our own estimate; the report is the actual result of a human-processed Turnitin screening; refinement is human editing of your own writing for clarity, flow and style."
+        title="Preliminary scan, AI-writing risk report, and writing refinement."
+        body="Three separate services. The scan is a quick estimate; the report reads your whole text and maps where it could be misread as AI-written; refinement is editing of your own writing for clarity, flow and style."
       />
       <CoreServices />
       <Comparison />

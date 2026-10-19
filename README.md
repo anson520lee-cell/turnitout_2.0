@@ -5,10 +5,10 @@ A pre-submission service for students checking their own academic writing. It of
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **AI & Similarity Report** (Turnitin screening run by staff, HK$35, 450–29,000 words) | Human-processed screening of pasted text | A person runs the text through Turnitin outside this app and records exactly what it returned |
-| **Writing Refinement** (HK$1 per 100 characters, min HK$30) | Human clarity/flow/style refinement of the author's own text | A reviewer |
+| **AI-Writing Risk Report** (automatic, 1 credit per 200 characters, minimum 10 credits, 500–20,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
+| **Writing Refinement** (1 credit per 200 characters, minimum 15 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
-The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; screening results are labelled as the observed result of that screening run. Missing values are shown as "Not returned", never estimated.
+The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; the paid report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
 
 > Turnitin is a third-party service. This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin. The app contains no Turnitin branding, UI, credentials, scraping or automation.
 
@@ -18,7 +18,7 @@ The brand name is "0%". Rename it in `config/app.ts` (`brand`); nothing else har
 
 ## Before launch: two things to confirm
 
-1. **Licence.** Turnitin educator/institutional licences usually limit use to the licensee's own courses and students. Screening documents for paying outside customers through that account may breach the licence and the institution's agreement, regardless of disclaimers on this site. Get written permission from Turnitin or the institution first. The provider sits behind the `ScreeningProvider` interface, so a properly licensed source can be swapped in without touching the frontend.
+1. **Licence (only for the older hand-made reports; the automatic report does not use Turnitin).** Turnitin educator/institutional licences usually limit use to the licensee's own courses and students. Screening documents for paying outside customers through that account may breach the licence and the institution's agreement, regardless of disclaimers on this site. Get written permission from Turnitin or the institution first. The provider sits behind the `ScreeningProvider` interface, so a properly licensed source can be swapped in without touching the frontend.
 2. **Repository storage.** If a paper is submitted to an assignment that stores papers in the standard repository, the customer's real submission later matches itself at close to 100%. The admin workflow blocks moving an order to **Screening** until the "no repository" checkbox is confirmed, and the FAQ explains this to customers.
 
 ---
@@ -59,7 +59,7 @@ Supabase: Auth · Postgres (RLS) · private Storage
 
 ### Order statuses
 
-Screening: `awaiting_payment → paid → queued → screening → report_ready → completed` (or `cancelled`)
+Report (automatic): `awaiting_payment → paid → screening → completed` (or `cancelled` with credits returned if it fails). The order page calls `/api/reports/[id]/advance` while open; `lib/auto-report/` cuts, reviews and stitches. Older hand-made reports used `queued → screening → report_ready → completed`.
 Refinement: `awaiting_payment → paid → queued → under_review → processing → completed` (or `cancelled`)
 
 `paid` is set only by the verified Stripe webhook or by an admin confirming a manual payment claim. Customers see results only when an order is `completed` (enforced by RLS, not just the UI).
@@ -122,8 +122,8 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 
 | Product | Price | Limits |
 | --- | --- | --- |
-| AI & Similarity Report (`combined_screening`) | HK$35 per report (`screeningPrices`) | 450–29,000 words (`screeningWordRange`), checked in the browser and again in `screeningTextOrderInput` |
-| Writing Refinement (`refinement`) | HK$1 per 100 characters, rounded up, minimum HK$30 = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
+| AI-Writing Risk Report (`combined_screening`) | 1 credit per 200 characters, minimum 10 credits (`reportPricing`) | 500–20,000 characters, checked in the browser and again in `screeningTextOrderInput` |
+| Writing Refinement (`refinement`) | 1 credit per 200 characters, rounded up, minimum 15 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
 | Preliminary scan | Free, 3 a day | — |
 
 Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening` and `similarity_screening` remain in the enum so older orders still display, but they are no longer offered.

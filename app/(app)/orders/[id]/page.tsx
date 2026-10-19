@@ -57,7 +57,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <ArrowLeft className="size-3.5" /> Orders
       </Link>
       <AppHeader
-        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
+        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto || (screeningOrder && order.source_text) ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
         title={order.title}
         body={`${serviceLabels[order.service_type]} · Order #${shortId(order.id)} · ${formatDateTime(order.created_at)}`}
         actions={pendingClaim ? <Badge tone="warn" dot>Confirming payment</Badge> : <StatusBadge status={order.status} />}
@@ -67,7 +67,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <div className="mb-5"><FormMessage tone="info">Checkout was cancelled. You haven&rsquo;t been charged. You can pay whenever you&rsquo;re ready.</FormMessage></div>
       )}
       {sp.created === "1" && unpaid && !pendingClaim && (
-        <div className="mb-5"><FormMessage tone="success">Order created. Choose how to pay below; your order joins the queue as soon as payment is confirmed.</FormMessage></div>
+        <div className="mb-5"><FormMessage tone="success">Order created. Choose how to pay below; {screeningOrder ? "your report starts as soon as payment is confirmed." : "your order joins the queue as soon as payment is confirmed."}</FormMessage></div>
       )}
 
       <Card className="mb-5 p-5 sm:p-6">
@@ -104,7 +104,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
             <Card strong className="noise overflow-hidden p-5 sm:p-7">
               <WaitingAnimation
                 title="Card payment received — confirming it"
-                steps={["Waiting for Stripe's confirmation", "Adding your order to the queue"]}
+                steps={["Waiting for Stripe's confirmation", screeningOrder ? "Starting your report" : "Adding your order to the queue"]}
                 stepMs={2200}
                 note="This usually takes a few seconds. The page updates by itself."
               />
@@ -125,7 +125,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                 steps={[
                   `Checking our ${manualPayments[pendingClaim.method].label} account`,
                   `Matching reference ${reference}`,
-                  "Your order joins the queue once it's confirmed",
+                  screeningOrder ? "Your report starts once it's confirmed" : "Your order joins the queue once it's confirmed",
                 ]}
                 stepMs={2200}
                 note="We check each payment by hand. You can leave this page open or come back later; it updates by itself."
@@ -143,7 +143,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h2 className="text-[15px] font-semibold">Payment</h2>
-                  <p className="mt-1 text-[13px] text-fg-muted">Your order joins the queue as soon as you pay.</p>
+                  <p className="mt-1 text-[13px] text-fg-muted">{screeningOrder ? "Your report starts as soon as you pay." : "Your order joins the queue as soon as you pay."}</p>
                 </div>
                 <p className="text-right">
                   <span className="text-gradient text-3xl font-semibold tracking-tight">{formatCredits(order.price)}</span>

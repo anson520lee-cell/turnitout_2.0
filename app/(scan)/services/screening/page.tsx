@@ -3,12 +3,11 @@ import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
 import { ReportRequest } from "@/components/orders/report-request";
 import { Badge } from "@/components/ui/badge";
-import { reportService, serviceLabels } from "@/config/services";
-import { formatCredits, screeningPrices } from "@/config/pricing";
+import { reportFromLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Get a report",
-  description: `Order an AI and similarity report: paste your text and our team runs the screening and sends you the result. ${formatCredits(screeningPrices[reportService])} per report.`,
+  description: `An AI-writing risk report on your own text: paste it and get an overall level, a map of every paragraph and the sentences to look at again, with a PDF. ${reportFromLabel}, ${reportRateLabel}.`,
   alternates: { canonical: "/services/screening" },
 };
 
@@ -17,12 +16,12 @@ export default function Page() {
   return (
     <>
       <AppHeader
-        eyebrow={<Badge tone="info" dot>Human-processed · Turnitin screening</Badge>}
+        eyebrow={<Badge tone="info" dot>Automatic · ready in about a minute</Badge>}
         title={serviceLabels[reportService]}
         body={
           <>
-            Paste your text and pay once. A reviewer runs it through Turnitin with repository storage off, then records exactly what the
-            screening returned: the AI-writing indicator, the similarity result and the report file where available.{" "}
+            Paste your text and pay by length. The report reads every sentence and every paragraph, and shows where your writing could be
+            misread as AI-written: an overall level, a map of your text, the sentences to look at again and grammar spots, with a PDF to download.{" "}
             <Link href="/sample-report" className="text-accent underline-offset-4 hover:underline">
               See a sample report
             </Link>

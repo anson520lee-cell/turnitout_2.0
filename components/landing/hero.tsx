@@ -84,8 +84,8 @@ export function Hero() {
           </Reveal>
           <Reveal aboveFold delay={0.16}>
             <p className="mt-6 max-w-lg text-pretty text-[16.5px] leading-relaxed text-fg-muted">
-              Run a preliminary writing scan instantly. When you need the real result, our team runs
-              your text through Turnitin and sends you the AI and similarity report.
+              Run a preliminary writing scan instantly. When you want the full picture, get a report that
+              reads every sentence and shows where your writing could be misread as AI-written.
             </p>
           </Reveal>
           <Reveal aboveFold delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">

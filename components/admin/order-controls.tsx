@@ -40,9 +40,10 @@ function useAction() {
   return { msg, pending, run };
 }
 
-export function StatusControls({ orderId, type, status }: { orderId: string; type: ServiceType; status: OrderStatus }) {
+export function StatusControls({ orderId, type, status, cancelOnly = false }: { orderId: string; type: ServiceType; status: OrderStatus; cancelOnly?: boolean }) {
   const { msg, pending, run } = useAction();
-  const options = nextStatuses(type, status);
+  // An automatic report moves on by itself; the owner can only stop it.
+  const options = nextStatuses(type, status).filter((s) => !cancelOnly || s === "cancelled");
   return (
     <Card className="p-5">
       <h2 className="text-[14px] font-semibold">Status</h2>

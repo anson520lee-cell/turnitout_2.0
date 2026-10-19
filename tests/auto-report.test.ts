@@ -43,3 +43,28 @@ test("overall bands", () => {
   assert.equal(overallFor(0.4), "moderate");
   assert.equal(overallFor(0.8), "elevated");
 });
+
+import { refinementPrice, reportPrice, reportPricing } from "../config/pricing";
+import { reportCharError } from "../lib/orders/limits";
+
+test("report price: 1 credit per 200 characters, rounded up, minimum 10 credits", () => {
+  assert.equal(reportPrice(500), 1000);
+  assert.equal(reportPrice(2000), 1000);
+  assert.equal(reportPrice(2001), 1100);
+  assert.equal(reportPrice(12345), 6200);
+  assert.equal(reportPrice(20000), 10000);
+});
+
+test("refinement price: 1 credit per 200 characters, rounded up, minimum 15 credits", () => {
+  assert.equal(refinementPrice(500), 1500);
+  assert.equal(refinementPrice(3000), 1500);
+  assert.equal(refinementPrice(3001), 1600);
+  assert.equal(refinementPrice(4250), 2200);
+});
+
+test("report length limits are in characters", () => {
+  assert.equal(reportCharError(reportPricing.minChars), null);
+  assert.equal(reportCharError(reportPricing.maxChars), null);
+  assert.ok(reportCharError(reportPricing.minChars - 1));
+  assert.ok(reportCharError(reportPricing.maxChars + 1));
+});

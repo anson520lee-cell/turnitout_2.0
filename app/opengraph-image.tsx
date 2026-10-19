@@ -46,7 +46,7 @@ export default function OpengraphImage() {
         <div style={{ display: "flex", gap: 18, fontSize: 28, color: "#9aa3bf" }}>
           <span>Free writing scan</span>
           <span style={{ color: "#5b8cff" }}>·</span>
-          <span>AI &amp; similarity reports</span>
+          <span>AI-writing risk reports</span>
           <span style={{ color: "#5b8cff" }}>·</span>
           <span>Writing refinement</span>
         </div>

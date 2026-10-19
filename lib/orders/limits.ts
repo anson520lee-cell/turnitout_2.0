@@ -1,5 +1,5 @@
 import { freeScan, refinement } from "@/config/app";
-import { screeningWordRange } from "@/config/pricing";
+import { reportPricing } from "@/config/pricing";
 
 /**
  * Length rules for report and refinement requests, as plain functions so the
@@ -9,13 +9,13 @@ import { screeningWordRange } from "@/config/pricing";
 
 const n = (v: number) => v.toLocaleString("en-HK");
 
-/** Null when `words` is inside the report range. */
-export function screeningWordError(words: number): string | null {
-  if (words < screeningWordRange.min) {
-    return `A report needs at least ${n(screeningWordRange.min)} words. This text has ${n(words)}.`;
+/** Null when `chars` (billable characters) is inside the report range. */
+export function reportCharError(chars: number): string | null {
+  if (chars < reportPricing.minChars) {
+    return `A report needs at least ${n(reportPricing.minChars)} characters. This text has ${n(chars)}.`;
   }
-  if (words > screeningWordRange.max) {
-    return `A report covers up to ${n(screeningWordRange.max)} words. This text has ${n(words)}; split it into separate reports.`;
+  if (chars > reportPricing.maxChars) {
+    return `A report covers up to ${n(reportPricing.maxChars)} characters. This text has ${n(chars)}; split it into separate reports.`;
   }
   return null;
 }
@@ -43,7 +43,7 @@ export function refinementCharError(chars: number): string | null {
 }
 
 /**
- * "Report · 1,240 words" for order lists. Built from counts only, never the
+ * "Report · 6,240 characters" for order lists. Built from counts only, never the
  * document's words, so no text survives in `title` after retention deletes
  * `source_text`.
  */

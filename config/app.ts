@@ -6,7 +6,7 @@ export const brand = {
   name: "0%",
   tagline: "Know before you submit.",
   description:
-    "Preliminary writing scans, AI and similarity reports from a Turnitin screening run by our team, and writing refinement of your own work.",
+    "Free writing scans, automatic AI-writing risk reports on your own text, and writing refinement of your own work.",
   supportEmail: "support@getzeropercent.com",
   // Operator name shown in the footer, terms and privacy.
   operator: "Zero Percent Labs",

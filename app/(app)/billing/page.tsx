@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { topupReference } from "@/config/payments";
 import { availableCoins, coinMinimums, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
-import { CREDITS_PER_USD, formatUSD, screeningPrices, refinementPricing, toCredits, topUp } from "@/config/pricing";
+import { CREDITS_PER_USD, formatUSD, reportPrice, refinementPricing, toCredits, topUp } from "@/config/pricing";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -46,7 +46,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     .sort((a, b) => (a.minUsd ?? Infinity) - (b.minUsd ?? Infinity));
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
-  const reportCredits = toCredits(screeningPrices.combined_screening);
+  const reportCredits = toCredits(reportPrice(3000));
   const n = (v: number) => v.toLocaleString("en-US");
 
   return (
@@ -76,8 +76,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <Card className="p-5 sm:p-6">
             <h2 className="text-[15px] font-semibold">What credits buy</h2>
             <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-fg-muted">
-              <li>One Turnitin report: {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
-              <li>Writing Refinement: {refinementPricing.perBlock / 100} credit per {refinementPricing.blockChars} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
+              <li>AI-writing risk report: 1 credit per 200 characters, minimum 10 credits. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
+              <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
               <li>Rate: {formatUSD(1)} = {CREDITS_PER_USD} credits. Credits don&rsquo;t expire.</li>
             </ul>
           </Card>
