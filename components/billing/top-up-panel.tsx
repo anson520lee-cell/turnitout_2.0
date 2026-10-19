@@ -10,7 +10,7 @@ import { WaitingAnimation } from "@/components/ui/waiting";
 import { ManualMethod } from "@/components/orders/payment-panel";
 import { methodIcons } from "@/components/orders/payment-methods";
 import { enabledManualPayments, isCryptoMethod, type ManualPaymentMethod } from "@/config/payments";
-import { formatUSD, reportPrice, topUp, topUpAmountError, usdToCredits, toCredits } from "@/config/pricing";
+import { CREDITS_PER_USD, formatUSD, reportPrice, topUp, topUpAmountError, topUpBonusPercent, usdToCredits, toCredits } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -108,6 +108,7 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
             >
               <span className="block text-[17px] font-semibold tracking-tight">{n}U</span>
               <span className="block font-mono text-[10.5px] text-fg-subtle">{usdToCredits(n).toLocaleString("en-US")} cr</span>
+              {topUpBonusPercent(n) > 0 && <span className="mt-0.5 block text-[10.5px] font-medium text-ok">+{topUpBonusPercent(n)}% bonus</span>}
             </button>
           );
         })}
@@ -141,6 +142,7 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
         ) : credits > 0 ? (
           <>
             {formatUSD(usd!)} adds <span className="font-semibold text-fg">{credits.toLocaleString("en-US")} credits</span>
+            {topUpBonusPercent(usd!) > 0 && <> (includes {(credits - usd! * CREDITS_PER_USD).toLocaleString("en-US")} bonus credits)</>}
             {reports > 0 && <> · about {reports} {reports === 1 ? "report" : "reports"} of 3,000 characters</>}
           </>
         ) : (

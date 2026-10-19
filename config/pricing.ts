@@ -111,8 +111,25 @@ export const topUp = {
   maxUsd: 10000,
 } as const;
 
+/**
+ * Bonus credits on larger top-ups, as a percent of the base credits. The highest
+ * tier at or below the amount applies. Every top-up method uses the same rule.
+ */
+export const topUpBonusTiers = [
+  { minUsd: 500, percent: 30 },
+  { minUsd: 200, percent: 25 },
+  { minUsd: 100, percent: 15 },
+  { minUsd: 20, percent: 5 },
+] as const;
+
+export function topUpBonusPercent(usd: number): number {
+  return topUpBonusTiers.find((t) => usd >= t.minUsd)?.percent ?? 0;
+}
+
+/** Credits added by a top-up: US$ x CREDITS_PER_USD, plus the bonus for larger amounts. */
 export function usdToCredits(usd: number): number {
-  return Math.floor(usd * CREDITS_PER_USD + 1e-9);
+  const base = Math.floor(usd * CREDITS_PER_USD + 1e-9);
+  return Math.floor((base * (100 + topUpBonusPercent(usd))) / 100);
 }
 
 export function formatUSD(usd: number): string {

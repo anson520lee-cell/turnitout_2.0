@@ -45,6 +45,7 @@ export default function RefundsPage() {
             Crypto refunds are sent in the same coin to an address you give us, on the same network, less the network fee. The
             amount is the US dollar value you paid, not the coin&rsquo;s later price.
           </li>
+          <li>Bonus credits added to larger top-ups (for example +5% on US$20 or more) are not refundable as money. A refund is for the US dollars you paid, so when a top-up with a bonus is partly unspent, we first use up the bonus credits.</li>
           <li>Credits added by a promotion or referral are not refundable as money.</li>
         </ul>
 

@@ -70,3 +70,17 @@ test("report length limits are in characters", () => {
   assert.ok(reportCharError(reportPricing.minChars - 1));
   assert.ok(reportCharError(reportPricing.maxChars + 1));
 });
+
+import { topUpBonusPercent, usdToCredits } from "../config/pricing";
+
+test("top-up bonus: larger top-ups add bonus credits", () => {
+  assert.equal(usdToCredits(5), 40);
+  assert.equal(usdToCredits(10), 80);
+  assert.equal(usdToCredits(20), 168);
+  assert.equal(usdToCredits(100), 920);
+  assert.equal(usdToCredits(150), 1380);
+  assert.equal(usdToCredits(200), 2000);
+  assert.equal(usdToCredits(500), 5200);
+  assert.equal(topUpBonusPercent(19), 0);
+  assert.equal(topUpBonusPercent(20), 5);
+});
