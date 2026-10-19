@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeScan } from "@/config/app";
-import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing } from "@/config/pricing";
+import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing, topUpBonusTiers } from "@/config/pricing";
 import { refinementMinimumLabel, refinementRateLabel, reportMaximumLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
 export const metadata: Metadata = {
@@ -62,7 +62,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              1 credit = HK$1. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC) or PayPal. Crypto credits are added automatically once the payment is confirmed; PayPal top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
+              1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC) or PayPal. Crypto credits are added automatically once the payment is confirmed; PayPal top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
             </p>
           </div>
         </div>

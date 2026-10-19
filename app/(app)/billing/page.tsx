@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { topupReference } from "@/config/payments";
 import { availableCoins, coinMinimums, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
-import { CREDITS_PER_USD, formatUSD, reportPrice, refinementPricing, toCredits, topUp } from "@/config/pricing";
+import { CREDITS_PER_USD, formatUSD, reportPrice, refinementPricing, toCredits, topUp, topUpBonusTiers } from "@/config/pricing";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -79,6 +79,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               <li>AI-writing risk report: 1 credit per 200 characters, minimum 10 and never more than 40 credits. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
               <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
               <li>Rate: {formatUSD(1)} = {CREDITS_PER_USD} credits. Credits don&rsquo;t expire.</li>
+              <li>Bonus credits on larger top-ups: {topUpBonusTiers.slice().reverse().map((t) => `${formatUSD(t.minUsd)}+ → +${t.percent}%`).join(", ")}. Bonus credits are not refundable as money.</li>
             </ul>
           </Card>
         </div>
