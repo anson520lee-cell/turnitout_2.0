@@ -43,7 +43,7 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
   if (!uuid.safeParse(id).success) notFound();
   const b = await adminOrderBundle(id);
   if (!b) notFound();
-  const { order, file, screening, refinement, payments, notes, events, claims } = b;
+  const { order, file, screening, refinement, payments, notes, events, claims, auto } = b;
   const screeningOrder = isScreening(order.service_type);
   const closed = order.status === "completed" || order.status === "cancelled";
   const succeeded = payments.filter((p) => p.status === "succeeded");
@@ -122,8 +122,8 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
             <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} />
           )}
 
-          <StatusControls orderId={order.id} type={order.service_type} status={order.status} />
-          {screeningOrder && !closed && <ChecklistControls orderId={order.id} checklist={order.admin_checklist ?? {}} />}
+          <StatusControls orderId={order.id} type={order.service_type} status={order.status} cancelOnly={Boolean(auto)} />
+          {screeningOrder && !auto && !closed && <ChecklistControls orderId={order.id} checklist={order.admin_checklist ?? {}} />}
 
           <Card className="p-5">
             <h2 className="text-[14px] font-semibold">Internal notes</h2>
@@ -144,7 +144,7 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
             <Card className="p-5">
               <h2 className="text-[14px] font-semibold">Submitted text</h2>
               <p className="mt-1 text-[12.5px] text-fg-muted">
-                Pasted by the customer{order.word_count ? ` · ${order.word_count.toLocaleString("en-HK")} words` : ""}. Screen it with repository storage off.
+                Pasted by the customer{order.word_count ? ` · ${order.word_count.toLocaleString("en-HK")} words` : ""}.{auto ? "" : " Screen it with repository storage off."}
               </p>
               <div className="mt-3">
                 {order.source_text ? (
@@ -157,8 +157,25 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
               </div>
             </Card>
           )}
+          {auto && (
+            <Card className="p-5">
+              <h2 className="text-[14px] font-semibold">Automatic report</h2>
+              <p className="mt-1 text-[12.5px] text-fg-muted">
+                Made by our own reviewer, piece by piece, with no manual step. Nothing to enter or release here.
+              </p>
+              <dl className="mt-2 divide-y divide-[var(--line)]">
+                <Row k="State" v={auto.status === "done" ? "Done" : auto.status === "failed" ? `Failed${auto.error ? ` · ${auto.error}` : ""} (credits paid are refunded)` : "Running"} />
+                <Row k="Pieces" v={auto.totalPieces} />
+                {auto.summary && <Row k="Overall" v={`${auto.summary.overall} · ${auto.summary.high} high, ${auto.summary.medium} medium of ${auto.summary.sentences} sentences`} />}
+                <Row k="Updated" v={formatDateTime(auto.updatedAt)} />
+              </dl>
+              <div className="mt-3">
+                <Link href={`/orders/${order.id}`} className={buttonClasses("secondary", "sm")}><ExternalLink className="size-3.5" /> Open the report as the customer sees it</Link>
+              </div>
+            </Card>
+          )}
           {screeningOrder ? (
-            <ScreeningResultForm orderId={order.id} type={order.service_type} existing={screening} closed={closed} />
+            !auto && <ScreeningResultForm orderId={order.id} type={order.service_type} existing={screening} closed={closed} />
           ) : (
             <>
               <Card className="p-5">

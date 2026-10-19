@@ -28,7 +28,7 @@ function pass(n: number): Omit<Line, "id" | "t">[] {
     { tone: "ok", tag: "load", body: `${tok.toLocaleString("en-US")} tok · ${total} sent.` },
     { tone: "ok", tag: "embed", body: "768-d · index ready" },
     { tone: "ok", tag: "attention", body: "8 heads × 12 layers" },
-    { tone: "ok", tag: "similarity", body: `${rnd(0, 0.4).toFixed(1)}% · 0 sources` },
+    { tone: "ok", tag: "rhythm", body: `${total} sentences · lengths mapped` },
     { tone: "warn", tag: "flagged", body: `${spans} span${spans > 1 ? "s" : ""} · conf ${rnd(0.58, 0.83).toFixed(2)}` },
   ];
   for (let s = 1; s <= spans; s++) {
@@ -54,7 +54,7 @@ const FIRST: Line[] = [
   { tone: "ok", tag: "load", body: "1,284 tok · 41 sent." },
   { tone: "ok", tag: "embed", body: "768-d · index ready" },
   { tone: "ok", tag: "attention", body: "8 heads × 12 layers" },
-  { tone: "ok", tag: "similarity", body: "0.0% · 0 sources" },
+  { tone: "ok", tag: "rhythm", body: "41 sentences · lengths mapped" },
   { tone: "warn", tag: "flagged", body: "2 spans · conf 0.71" },
   { tone: "run", tag: "agent", body: "revising span 1/2" },
   { tone: "run", tag: "agent", body: "revising span 2/2" },

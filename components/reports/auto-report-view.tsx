@@ -100,10 +100,10 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok">
+            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok print:text-[#0d7a5a]">
               <ShieldCheck className="size-4" /> Report complete
             </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{title}</h2>
+            <p className="mt-3 text-2xl font-semibold tracking-tight print:text-[#10131c]">{title}</p>
             <p className="mt-1 text-[13px] text-fg-muted">AI-writing risk, sentence by sentence · {finishedAt}</p>
           </div>
           <button

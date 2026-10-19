@@ -13,9 +13,9 @@ export type ScreeningServiceType =
 export type ServiceType = ScreeningServiceType | "refinement";
 
 /**
- * One Turnitin report (AI indicator and similarity, from one run) is a flat
- * price for any document inside `screeningWordRange`. The three service types
- * are kept for older orders; new orders are always `combined_screening`.
+ * Flat prices of the old hand-made reports. Kept only so older orders still
+ * render; new reports are priced by length (`reportPricing`). The three service
+ * types are kept for older orders; new orders are always `combined_screening`.
  */
 export const screeningPrices: Record<ScreeningServiceType, number> = {
   ai_screening: 3500,
@@ -26,15 +26,35 @@ export const screeningPrices: Record<ScreeningServiceType, number> = {
 export const screeningWordRange = { min: 450, max: 29000 } as const;
 
 /**
- * Writing refinement is priced per 100 characters (spaces included) with a
- * minimum charge: HK$1 per 100 characters, minimum HK$30 (3,000 characters).
+ * Writing refinement is priced per 200 characters (spaces included) with a
+ * minimum charge: 1 credit (HK$1) per 200 characters, minimum 15 credits
+ * (3,000 characters).
  * price = max(minimum, ceil(chars / blockChars) * perBlock)
  */
 export const refinementPricing = {
-  minimum: 3000,
-  blockChars: 100,
+  minimum: 1500,
+  blockChars: 200,
   perBlock: 100,
 } as const;
+
+/**
+ * The automatic AI-writing risk report is priced per 200 characters (spaces
+ * included): 1 credit per 200 characters, minimum 10 credits (2,000
+ * characters), for texts of 500 to 20,000 characters.
+ * price = max(minimum, ceil(chars / blockChars) * perBlock)
+ */
+export const reportPricing = {
+  minimum: 1000,
+  blockChars: 200,
+  perBlock: 100,
+  minChars: 500,
+  maxChars: 20_000,
+} as const;
+
+export function reportPrice(chars: number): number {
+  const blocks = Math.max(1, Math.ceil(chars / reportPricing.blockChars));
+  return Math.max(reportPricing.minimum, blocks * reportPricing.perBlock);
+}
 
 export function screeningPrice(type: ScreeningServiceType): number {
   return screeningPrices[type];
@@ -52,7 +72,7 @@ export function refinementPrice(chars: number): number {
 
 /**
  * Service prices are shown as credits. They stay stored in HKD cents (so existing
- * orders are unchanged): 100 cents = 1 credit, i.e. a report is 35 credits.
+ * orders are unchanged): 100 cents = 1 credit, i.e. a 3,000-character report is 15 credits.
  */
 export const CENTS_PER_CREDIT = 100;
 
@@ -60,7 +80,7 @@ export function toCredits(cents: number): number {
   return Math.round(cents / CENTS_PER_CREDIT);
 }
 
-/** "35 credits" / "1 credit". */
+/** "15 credits" / "1 credit". */
 export function formatCredits(cents: number): string {
   const c = toCredits(cents);
   return `${c.toLocaleString("en-HK")} ${c === 1 ? "credit" : "credits"}`;
@@ -70,7 +90,7 @@ export function formatCredits(cents: number): string {
  * Top-ups are bought in US dollars (card, PayPal) or crypto (USDT, USDC, BTC),
  * and credited at a fixed rate; service prices stay as they are in credits:
  * US$1 = 8 credits (8 credits = US$1), so a US$10 top-up is 80 credits, one
- * 35-credit report costs about US$4.38. Change the rate here and nowhere else.
+ * 15-credit report (3,000 characters) costs about US$1.88. Change the rate here and nowhere else.
  */
 export const CREDITS_PER_USD = 8;
 export const topUpCurrency = "usd" as const;

@@ -5,16 +5,17 @@ import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeScan } from "@/config/app";
-import { formatCredits, refinementPrice, refinementPricing, screeningPrices } from "@/config/pricing";
-import { refinementMinimumLabel, refinementRateLabel, reportService, wordRangeLabel } from "@/config/services";
+import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing } from "@/config/pricing";
+import { refinementMinimumLabel, refinementRateLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `Free writing scans, ${formatCredits(screeningPrices[reportService])} AI and similarity reports, and writing refinement at ${refinementRateLabel}. Prices are in credits (1 credit = HK$1).`,
+  description: `Free writing scans, AI-writing risk reports (${reportRateLabel}), and writing refinement at ${refinementRateLabel}. Prices are in credits (1 credit = HK$1).`,
   alternates: { canonical: "/pricing" },
 };
 
 const examples = [1800, 3000, 4250, 12000].map((chars) => ({ chars, price: refinementPrice(chars) }));
+const reportExamples = [1500, 3000, 6000, 20000].map((chars) => ({ chars, price: reportPrice(chars) }));
 
 export default function PricingPage() {
   return (
@@ -22,7 +23,7 @@ export default function PricingPage() {
       <PageHeader
         eyebrow="Pricing"
         title="Start free. Pay with credits."
-        body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day. A Turnitin AI & similarity report is ${formatCredits(screeningPrices[reportService])} flat. Writing refinement is priced by length.`}
+        body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day. The AI-writing risk report and writing refinement are both priced by length.`}
       />
       <Container>
         <PricingCards headingAs="h2" />
@@ -31,9 +32,17 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
-              {formatCredits(screeningPrices[reportService])} per report for any document of {wordRangeLabel}. One report covers both the
-              AI-writing indicator and the similarity result from one screening run. A new screening after you revise is a new report.
+              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
+              spaces and line breaks count once. You see the exact price before you pay. A new report after you revise is a new order.
             </p>
+            <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
+              {reportExamples.map((e) => (
+                <li key={e.chars} className="flex justify-between">
+                  <span>{e.chars.toLocaleString("en-HK")} chars</span>
+                  <span className="text-fg">{formatCredits(e.price)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How refinement is priced</h2>

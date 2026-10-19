@@ -56,7 +56,7 @@ export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" |
                     data-pop
                     className="absolute -top-3 left-6 rounded-full bg-gradient-to-b from-[#6c97ff] to-accent-strong px-3 py-1 text-[11px] font-medium text-white shadow-[0_8px_24px_-8px_rgb(91_140_255/0.8)]"
                   >
-                    AI + similarity
+                    AI-writing risk
                   </span>
                 )}
                 <div className="flex items-center justify-between">

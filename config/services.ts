@@ -1,8 +1,7 @@
 import {
   formatCredits,
   refinementPricing,
-  screeningPrices,
-  screeningWordRange,
+  reportPricing,
   type ServiceType,
 } from "./pricing";
 import { freeScan } from "./app";
@@ -31,15 +30,27 @@ export const reportService = "combined_screening" as const;
 export const serviceLabels: Record<ServiceType, string> = {
   ai_screening: "AI-Writing Screening",
   similarity_screening: "Similarity Screening",
-  combined_screening: "AI & Similarity Report",
+  combined_screening: "AI-Writing Risk Report",
   refinement: "Writing Refinement",
 };
 
-export const wordRangeLabel = `${screeningWordRange.min.toLocaleString("en-HK")}–${screeningWordRange.max.toLocaleString("en-HK")} words`;
+export const reportRangeLabel = `${reportPricing.minChars.toLocaleString("en-HK")}–${reportPricing.maxChars.toLocaleString("en-HK")} characters`;
+
+/** "1 credit per 200 characters". */
+export const reportRateLabel = `${formatCredits(reportPricing.perBlock)} per ${reportPricing.blockChars} characters`;
+
+/** "Minimum 10 credits (2,000 characters)". */
+export const reportMinimumLabel = `Minimum ${formatCredits(reportPricing.minimum)} (${(
+  (reportPricing.minimum / reportPricing.perBlock) *
+  reportPricing.blockChars
+).toLocaleString("en-HK")} characters)`;
+
+/** "From 10 credits". */
+export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
 
 export const refinementRateLabel = `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`;
 
-/** "Minimum HK$30 (3,000 characters)". */
+/** "Minimum 15 credits (3,000 characters)". */
 export const refinementMinimumLabel = `Minimum ${formatCredits(refinementPricing.minimum)} (${(
   (refinementPricing.minimum / refinementPricing.perBlock) *
   refinementPricing.blockChars
@@ -66,15 +77,16 @@ export const services: ServiceDefinition[] = [
     id: reportService,
     kind: "screening",
     name: serviceLabels[reportService],
-    short: "The AI-writing indicator and similarity result a Turnitin screening returns, from one run.",
-    priceLabel: formatCredits(screeningPrices[reportService]),
-    cadence: `per report · ${wordRangeLabel}`,
+    short: "A full AI-writing risk report on your own text, made by this website in about a minute.",
+    priceLabel: reportFromLabel,
+    cadence: reportRateLabel,
     features: [
-      "AI-writing indicator",
-      "Similarity percentage",
-      "Report file where available",
-      "Run with repository storage off",
-      "Just paste your text",
+      "Overall risk level",
+      "A map of every paragraph",
+      "Marked sentences, with a question to ask yourself",
+      "Grammar spots, location only",
+      "PDF download",
+      reportMinimumLabel,
     ],
     href: "/services/screening",
     cta: "Get report",
@@ -100,13 +112,13 @@ export const services: ServiceDefinition[] = [
 
 export const disclaimers = {
   turnitin:
-    "Turnitin is a third-party service. This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin.",
+    "This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin or any AI-detection provider. Nothing here is a Turnitin result.",
   freeScan:
     "This preliminary assessment identifies writing patterns that may contribute to automated detector risk. It does not determine authorship and is not a Turnitin result.",
   screeningResult:
-    "This report reflects the result returned during the screening performed for this submission. Automated indicators should be interpreted carefully and are not, on their own, proof of authorship.",
+    "This report is written by an automated reviewer from the text you submitted. Its ratings are guidance, can be wrong in both directions, and are not, on their own, proof of authorship.",
   noGuarantee:
-    "We do not guarantee any particular AI-writing or similarity outcome.",
+    "We do not guarantee any particular AI-writing result or outcome.",
   refinement:
     "Writing Refinement improves the clarity, flow and style of your own writing. It is not a service for disguising AI-generated or third-party work.",
 } as const;

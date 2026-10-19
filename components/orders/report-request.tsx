@@ -8,18 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
-import { formatCredits, screeningPrices, screeningWordRange } from "@/config/pricing";
-import { disclaimers, reportService, wordRangeLabel } from "@/config/services";
-import { screeningWordError } from "@/lib/orders/limits";
-import { cn, countWords } from "@/lib/utils";
+import { billableChars, formatCredits, reportPrice, reportPricing } from "@/config/pricing";
+import { disclaimers, reportFromLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
+import { reportCharError } from "@/lib/orders/limits";
+import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
-const price = formatCredits(screeningPrices[reportService]);
-
 const STEPS = [
-  { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${wordRangeLabel}, press Enter.` },
+  { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${reportRangeLabel}, press Enter.` },
   { icon: ShieldCheck, t: "Pay", d: "Pay with credits, topped up with crypto (USDT, USDC or BTC) or PayPal." },
-  { icon: FileCheck2, t: "Get your report here", d: "The result appears on your order page as soon as it is released." },
+  { icon: FileCheck2, t: "Get your report here", d: "It is made in about a minute and appears on your order page, with a PDF download." },
 ];
 
 /**
@@ -40,12 +38,12 @@ export function ReportRequest() {
           <ReportVisual className="relative min-h-[300px] flex-1 sm:min-h-[340px]" />
           <div className="relative mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · one run</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
               <p className="mt-2 text-4xl font-semibold tracking-tight">
-                {price}
-                <span className="ml-2 text-[14px] font-normal text-fg-subtle">per report</span>
+                {reportFromLabel}
+                <span className="ml-2 text-[14px] font-normal text-fg-subtle">{reportRateLabel}</span>
               </p>
-              <p className="mt-1 text-[13px] text-fg-muted">For documents of {wordRangeLabel}.</p>
+              <p className="mt-1 text-[13px] text-fg-muted">{reportMinimumLabel}. For texts of {reportRangeLabel}.</p>
             </div>
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <Button
@@ -73,11 +71,12 @@ export function ReportRequest() {
             <h2 className="text-[15px] font-semibold">What you receive</h2>
             <ul className="mt-4 space-y-3 text-[13.5px] text-fg-muted">
               {[
-                "The AI-writing indicator the Turnitin screening returned",
-                "The similarity percentage it returned",
-                "The report file, where the screening provides one",
-                "Run by a person with repository storage off, so your paper isn't stored",
-                "Values shown only if the screening returned them. Nothing is estimated",
+                "An overall AI-writing risk level for your whole text",
+                "A map of every paragraph, from low to high risk",
+                "The sentences that read most like AI writing, with a question to ask yourself about each",
+                "Grammar spots: where and what kind, never a rewrite",
+                "A PDF you can download",
+                "Made by this website's own reviewer: not a Turnitin result, and not a promise of any detector's score",
               ].map((t) => (
                 <li key={t} className="flex gap-2.5">
                   <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_rgb(91_140_255/0.6)]" />
@@ -112,35 +111,35 @@ export function ReportRequest() {
       </div>
 
       <p className="mt-6 px-1 text-[11.5px] leading-relaxed text-fg-subtle">
-        {disclaimers.turnitin} {disclaimers.noGuarantee}
+        {disclaimers.freeScan} {disclaimers.noGuarantee}
       </p>
 
       <PasteDialog
         open={open}
         onClose={() => setOpen(false)}
         title="Paste your text for the report"
-        description={`${price} per report · ${wordRangeLabel}. You'll choose how to pay on the next page.`}
-        placeholder="Paste the full text you want screened. Press Enter when you're done."
+        description={`${reportRateLabel} · ${reportMinimumLabel.toLowerCase()} · ${reportRangeLabel}. You'll choose how to pay on the next page.`}
+        placeholder="Paste the full text you want a report on. Press Enter when you're done."
         submitLabel="Create report request"
-        validate={(text) => screeningWordError(countWords(text))}
+        validate={(text) => reportCharError(billableChars(text))}
         meta={(text) => {
-          const words = countWords(text);
-          const inRange = words >= screeningWordRange.min && words <= screeningWordRange.max;
+          const chars = billableChars(text);
+          const inRange = chars >= reportPricing.minChars && chars <= reportPricing.maxChars;
           return (
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className={cn(words > 0 && !inRange ? "text-warn" : words > 0 ? "text-ok" : undefined)}>
-                {words.toLocaleString("en-HK")} words
+              <span className={cn(chars > 0 && !inRange ? "text-warn" : chars > 0 ? "text-ok" : undefined)}>
+                {chars.toLocaleString("en-HK")} characters
               </span>
               <span>·</span>
-              <span className="text-fg">{price}</span>
+              <span className="text-fg">{chars > 0 ? formatCredits(reportPrice(chars)) : reportFromLabel}</span>
               <span>·</span>
-              <span>{wordRangeLabel}</span>
+              <span>{reportRangeLabel}</span>
             </span>
           );
         }}
         footnote={
           <>
-            By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. {disclaimers.turnitin}
+            By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. {disclaimers.freeScan}
           </>
         }
         onSubmit={async (text) => {
@@ -151,7 +150,7 @@ export function ReportRequest() {
           return { ok: true };
         }}
         waitingTitle="Creating your report request…"
-        waitingSteps={["Counting words", "Checking the length", "Creating your order", "Preparing payment options"]}
+        waitingSteps={["Counting characters", "Checking the length", "Creating your order", "Preparing payment options"]}
         waitingNote="Please wait and keep this window open. You'll be taken to payment in a moment."
       />
     </>

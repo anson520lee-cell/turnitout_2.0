@@ -5,8 +5,8 @@ import { SpotlightCard } from "@/components/motion/spotlight-card";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
 import { freeScan } from "@/config/app";
-import { formatCredits, refinementPricing, screeningPrices } from "@/config/pricing";
-import { refinementRateLabel, reportService, serviceLabels, wordRangeLabel } from "@/config/services";
+import { formatCredits, refinementPricing } from "@/config/pricing";
+import { refinementRateLabel, reportFromLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 
 const cards = [
   {
@@ -19,10 +19,10 @@ const cards = [
   },
   {
     icon: FileCheck2,
-    tag: <Badge tone="info">Human-processed</Badge>,
+    tag: <Badge tone="info">Automatic · about a minute</Badge>,
     title: serviceLabels[reportService],
-    body: "Paste your text and press Enter. A reviewer runs a Turnitin screening with repository storage off and delivers the AI-writing indicator and similarity result it returned, plus the report file where available.",
-    meta: `${formatCredits(screeningPrices[reportService])} per report · ${wordRangeLabel}`,
+    body: "Paste your text and press Enter. Every sentence and paragraph is read, and you get an overall level, a map of your text, the sentences to look at again and grammar spots, with a PDF to download.",
+    meta: `${reportFromLabel} · ${reportRateLabel} · ${reportRangeLabel}`,
     href: "/services/screening",
   },
   {

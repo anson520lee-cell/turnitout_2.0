@@ -33,7 +33,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Files are stored in private storage. There are no public links to them.</li>
           <li>Access is limited to you and authorised staff, enforced by database access rules, and opened through signed links that expire after {uploads.signedUrlTtl} seconds.</li>
-          <li>For screening, a staff member downloads your document and runs the screening on an external service (Turnitin). Screenings are configured not to store your paper in any repository.</li>
+          <li>For a paid report, your text is cut into sections and each section is sent to an outside AI provider (DeepSeek), which writes the review. Your text is not sent to Turnitin or added to any paper repository. The sections&rsquo; answers are kept only until the report is finished.</li>
           {model && localModel.refinementDrafts && (
             <li>For writing refinement, an AI model (DeepSeek, an outside provider) may prepare a first draft from your text, so the text is sent to that provider. A staff member reviews and edits every draft, and nothing the model writes reaches you without that review. Drafts are deleted together with your text.</li>
           )}
@@ -44,15 +44,14 @@ export default function PrivacyPage() {
         <ul>
           <li>Source documents and refinement text are deleted {retention.sourceDocumentDays} days after the order is completed or cancelled, by a scheduled deletion job.</li>
           <li>Orders left unpaid for {retention.unpaidOrderDays} days, with no payment reported, are cancelled and their text and files deleted straight away. Cancelling an unpaid order yourself deletes them at once.</li>
-          <li>Screening reports are deleted {retention.reportDays} days after completion. Result values (for example, a similarity percentage) remain in your order history until you ask us to delete them.</li>
+          <li>Reports (including paid AI-writing risk reports, which quote the sentences they mark) are deleted {retention.reportDays} days after completion. The order itself, with its date and price, remains in your history until you ask us to delete it.</li>
           <li>You can delete your scan history from Settings, or ask us to delete your account and all associated data at any time.</li>
         </ul>
         <h2>Third parties</h2>
         <ul>
           <li><strong>Supabase:</strong> authentication, database and file storage.</li>
           <li><strong>NOWPayments:</strong> crypto payment processing (USDT, USDC, BTC).</li>
-          <li><strong>Turnitin:</strong> used by our staff to perform screening you order. Turnitin is a third-party service and is not affiliated with us.</li>
-          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for free-scan feedback and refinement drafts. It is not used for screening orders.</li>}
+          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for free-scan feedback, paid reports and refinement drafts.</li>}
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>
         <h2>Your rights</h2>

@@ -11,8 +11,8 @@ import { DashboardEngine } from "./dashboard-engine";
 import type { Order, ScanResultRow } from "@/types/domain";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
 import { freeScan } from "@/config/app";
-import { formatCredits, refinementPricing, screeningPrices } from "@/config/pricing";
-import { reportService } from "@/config/services";
+import { formatCredits, refinementPricing } from "@/config/pricing";
+import { reportFromLabel } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 
 const riskTone = { low: "success", moderate: "warn", elevated: "danger" } as const;
@@ -97,7 +97,7 @@ export function DashboardView({
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         {[
           { href: "/scan", icon: ScanText, t: "Run free scan", d: "Preliminary estimate", tag: "Free" },
-          { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "Turnitin AI & similarity", tag: formatCredits(screeningPrices[reportService]) },
+          { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "AI-writing risk, sentence by sentence", tag: reportFromLabel },
           { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`, tag: `From ${formatCredits(refinementPricing.minimum)}` },
         ].map((q) => (
           <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">

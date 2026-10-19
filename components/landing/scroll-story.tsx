@@ -16,9 +16,9 @@ import { TokenSpectrum } from "@/components/ml/token-spectrum";
 const stages = [
   { label: "Preliminary scan", body: "Your text enters our analysis layer. Instant and free." },
   { label: "Writing signals", body: "Sentence rhythm, transitions, phrasing and structure are measured and explained." },
-  { label: "Get report", body: "If you need an actual result, press Get report, paste your text and press Enter." },
-  { label: "Verification", body: "A reviewer runs a Turnitin screening with repository storage off." },
-  { label: "Screening complete", body: "The returned result and report arrive in your dashboard." },
+  { label: "Get report", body: "For the full picture, press Get report, paste your text and press Enter." },
+  { label: "Reading", body: "Your text is cut into sections and every sentence and paragraph is read." },
+  { label: "Report ready", body: "An overall level, a map of your text and the sentences to look at again, in about a minute." },
 ];
 
 const SIGNALS = [

@@ -16,8 +16,7 @@ import { riskStyle } from "./report-view";
 import { higherLevel, verdictLevel, type Risk } from "@/lib/report-format";
 import { raiseScanLevel } from "@/app/actions/scan-report";
 import { brand } from "@/config/app";
-import { disclaimers } from "@/config/services";
-import { formatCredits, screeningPrices } from "@/config/pricing";
+import { disclaimers, reportFromLabel } from "@/config/services";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -219,9 +218,9 @@ function NextStep() {
     <div className="glass-strong relative overflow-hidden rounded-2xl p-6 sm:p-8">
       <div aria-hidden className="absolute -right-16 -top-16 size-56 rounded-full bg-accent/20 blur-3xl" />
       <p className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Optional next step</p>
-      <h2 className="relative mt-2 text-xl font-semibold tracking-tight">Need the actual screening result?</h2>
+      <h2 className="relative mt-2 text-xl font-semibold tracking-tight">Want the full picture?</h2>
       <p className="relative mt-1.5 max-w-xl text-[13.5px] text-fg-muted">
-        This scan is our estimate. A report runs your text through Turnitin, processed by a person, and delivers the result it returned.
+        This scan is a quick estimate. The report reads your whole text sentence by sentence and shows, paragraph by paragraph, where it could be misread as AI-written, with a PDF to download.
       </p>
       <div className="relative mt-5 flex flex-wrap gap-2">
         <Link
@@ -229,7 +228,7 @@ function NextStep() {
           onClick={() => track("screening_service_clicked", { from: "scan_result" })}
           className={buttonClasses("primary", "md")}
         >
-          Get AI &amp; similarity report · {formatCredits(screeningPrices.combined_screening)}
+          Get AI-writing risk report · {reportFromLabel}
           <ArrowRight className="size-4" />
         </Link>
         <Link href="/services/refinement" onClick={() => track("refinement_service_clicked", { from: "scan_result" })} className={buttonClasses("ghost", "md")}>

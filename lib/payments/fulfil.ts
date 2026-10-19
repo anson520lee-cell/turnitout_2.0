@@ -87,14 +87,13 @@ export async function markOrderPaid(args: {
   if (!moved?.length) return { ok: true, newlyPaid: false, duplicate, order };
   await audit("order_paid", { orderId: order.id, detail: { provider: args.provider } });
 
-  if (isScreening(order.service_type) && args.provider === "admin_free" && order.source_text) {
-    // Owner test orders get the automatic report: the order page makes it piece by piece (lib/auto-report/run.ts).
+  if (isScreening(order.service_type) && order.source_text) {
+    // Pasted-text reports are made automatically: the order page makes them piece by piece (lib/auto-report/run.ts).
     const total = chunkText(order.source_text, PIECE_SIZE).length;
     await db.from("auto_reports").upsert({ order_id: order.id, piece_size: PIECE_SIZE, total_pieces: total }, { onConflict: "order_id", ignoreDuplicates: true });
     await db.from("orders").update({ status: "screening", updated_at: now }).eq("id", order.id).eq("status", "paid");
   } else if (isScreening(order.service_type)) {
-    // Report requests are pasted text (orders.source_text) and have no file;
-    // the manual provider only queues the order, so an empty path is fine.
+    // Older file-upload report orders were made by hand; the manual provider only queues them.
     const file = await db
       .from("order_files")
       .select("storage_path,file_name")

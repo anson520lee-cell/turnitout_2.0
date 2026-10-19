@@ -10,7 +10,7 @@ import { WaitingAnimation } from "@/components/ui/waiting";
 import { ManualMethod } from "@/components/orders/payment-panel";
 import { methodIcons } from "@/components/orders/payment-methods";
 import { enabledManualPayments, isCryptoMethod, type ManualPaymentMethod } from "@/config/payments";
-import { formatUSD, screeningPrices, topUp, topUpAmountError, usdToCredits, toCredits } from "@/config/pricing";
+import { formatUSD, reportPrice, topUp, topUpAmountError, usdToCredits, toCredits } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -26,7 +26,8 @@ export interface CryptoCoin {
 }
 
 const DEFAULT_USD = 20;
-const REPORT_CREDITS = toCredits(screeningPrices.combined_screening);
+/** A typical report: 3,000 characters. */
+const REPORT_CREDITS = toCredits(reportPrice(3000));
 const CRYPTO_PRESETS = topUp.presetsUsd as readonly number[];
 const OTHER_PRESETS = topUp.presetsOtherUsd as readonly number[];
 
@@ -140,7 +141,7 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
         ) : credits > 0 ? (
           <>
             {formatUSD(usd!)} adds <span className="font-semibold text-fg">{credits.toLocaleString("en-US")} credits</span>
-            {reports > 0 && <> · about {reports} {reports === 1 ? "report" : "reports"}</>}
+            {reports > 0 && <> · about {reports} {reports === 1 ? "report" : "reports"} of 3,000 characters</>}
           </>
         ) : (
           "Choose an amount."

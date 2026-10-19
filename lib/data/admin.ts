@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/auth/session";
+import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import type {
   AdminNote,
   Order,
@@ -72,7 +73,7 @@ export async function adminOrderBundle(id: string) {
   const db = createAdminClient();
   const { data: order } = await db.from("orders").select("*, profiles(email,display_name)").eq("id", id).maybeSingle<AdminOrder>();
   if (!order) return null;
-  const [files, screening, refinement, payments, notes, events, claims] = await Promise.all([
+  const [files, screening, refinement, payments, notes, events, claims, auto] = await Promise.all([
     db.from("order_files").select("*").eq("order_id", id),
     db.from("screening_results").select("*").eq("order_id", id).maybeSingle<ScreeningResultRow>(),
     db.from("refinement_results").select("*").eq("order_id", id).maybeSingle<RefinementResultRow>(),
@@ -80,9 +81,13 @@ export async function adminOrderBundle(id: string) {
     db.from("admin_notes").select("*").eq("order_id", id).order("created_at"),
     db.from("audit_events").select("id,event,detail,created_at,actor_id").eq("order_id", id).order("created_at", { ascending: false }).limit(30),
     db.from("payment_claims").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+    db.from("auto_reports").select("status,total_pieces,error,updated_at,result").eq("order_id", id).maybeSingle(),
   ]);
+  const autoRow = auto.data as { status: "running" | "done" | "failed"; total_pieces: number; error: string | null; updated_at: string; result: AutoReportResult | null } | null;
   return {
     order,
+    /** The automatic report of this order; null for older hand-made reports and other services. */
+    auto: autoRow ? { status: autoRow.status, totalPieces: autoRow.total_pieces, error: autoRow.error, updatedAt: autoRow.updated_at, summary: autoRow.result?.summary ?? null } : null,
     file: ((files.data ?? []) as OrderFile[])[0] ?? null,
     screening: screening.data,
     refinement: refinement.data,

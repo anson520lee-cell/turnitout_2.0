@@ -10,7 +10,7 @@ export function OrderTimeline({ type, status }: { type: ServiceType; status: Ord
     return <p className="text-[13px] text-risk">This order was cancelled.</p>;
   }
   return (
-    <ol className="relative grid gap-0 sm:grid-cols-6" aria-label="Order progress">
+    <ol className={cn("relative grid gap-0", flow.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-6")} aria-label="Order progress">
       {flow.map((s, i) => {
         const done = i < current || status === "completed";
         const here = i === current && status !== "completed";
