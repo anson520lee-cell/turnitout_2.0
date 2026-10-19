@@ -8,6 +8,7 @@ import { truthFor } from "@/lib/chunk-samples";
 import type { TruthSentence } from "@/lib/eval";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { runChunkPiece } from "@/lib/chunk-run";
+import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts";
 
 /**
  * Runs the piece-size experiment without a signed-in browser: the owner (or
@@ -34,7 +35,7 @@ const body = z.object({
   minChars: z.number().int().min(0).max(30_000).default(3000),
   level: z.enum(["high", "highMedium"]).default("highMedium"),
   /** Candidate reviewer prompt to try instead of the saved one (the saved prompt is never changed). */
-  prompt: z.string().min(200).max(30_000).optional(),
+  promptName: z.enum(Object.keys(CANDIDATE_PROMPTS) as [CandidatePromptName, ...CandidatePromptName[]]).optional(),
 });
 
 const same = (a: string, b: string) => {
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
   if (!same(request.headers.get("x-run-token") ?? "", token)) return new NextResponse("Unauthorized", { status: 401 });
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, message: "Bad request." }, { status: 400, headers: noStore });
-  const { action, batch, effort, minChars, level, prompt } = parsed.data;
+  const { action, batch, effort, minChars, level } = parsed.data;
+  const prompt = parsed.data.promptName ? CANDIDATE_PROMPTS[parsed.data.promptName] : undefined;
   const sizes = parsed.data.sizes ?? SIZES;
   const db = createAdminClient();
 
