@@ -51,6 +51,9 @@ export const reportMaximumLabel = `Never more than ${formatCredits(reportPricing
   reportPricing.blockChars
 ).toLocaleString("en-HK")} characters)`;
 
+/** "Minimum 10 credits (2,000 characters); never more than 40 credits (from 8,000 characters)". */
+export const reportLimitsLabel = `${reportMinimumLabel}; ${reportMaximumLabel.charAt(0).toLowerCase()}${reportMaximumLabel.slice(1)}`;
+
 /** "From 10 credits". */
 export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
 
@@ -92,7 +95,7 @@ export const services: ServiceDefinition[] = [
       "Marked sentences, with a question to ask yourself",
       "Grammar spots, location only",
       "PDF download",
-      reportMinimumLabel,
+      reportLimitsLabel,
     ],
     href: "/services/screening",
     cta: "Get report",

@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
 import { billableChars, formatCredits, reportPrice, reportPricing } from "@/config/pricing";
-import { disclaimers, reportFromLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
+import { disclaimers, reportFromLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
 import { reportCharError } from "@/lib/orders/limits";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -43,7 +43,7 @@ export function ReportRequest() {
                 {reportFromLabel}
                 <span className="ml-2 text-[14px] font-normal text-fg-subtle">{reportRateLabel}</span>
               </p>
-              <p className="mt-1 text-[13px] text-fg-muted">{reportMinimumLabel}. For texts of {reportRangeLabel}.</p>
+              <p className="mt-1 text-[13px] text-fg-muted">{reportLimitsLabel}. For texts of {reportRangeLabel}.</p>
             </div>
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <Button
@@ -118,7 +118,7 @@ export function ReportRequest() {
         open={open}
         onClose={() => setOpen(false)}
         title="Paste your text for the report"
-        description={`${reportRateLabel} · ${reportMinimumLabel.toLowerCase()} · ${reportRangeLabel}. You'll choose how to pay on the next page.`}
+        description={`${reportRateLabel} · ${reportLimitsLabel.toLowerCase()} · ${reportRangeLabel}. You'll choose how to pay on the next page.`}
         placeholder="Paste the full text you want a report on. Press Enter when you're done."
         submitLabel="Create report request"
         validate={(text) => reportCharError(billableChars(text))}

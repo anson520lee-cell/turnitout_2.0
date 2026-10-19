@@ -1,6 +1,6 @@
 import { brand, freeScan, retention } from "./app";
 import { enabledManualPayments } from "./payments";
-import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "./services";
+import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel } from "./services";
 
 export interface FaqItem {
   q: string;
@@ -26,7 +26,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: "How much does it cost?",
-    a: `A report is ${reportRateLabel}, rounded up, for texts of ${reportRangeLabel}. ${reportMinimumLabel}. Writing refinement is ${refinementRateLabel}, rounded up. ${refinementMinimumLabel}. The free scan costs nothing.`,
+    a: `A report is ${reportRateLabel}, rounded up, for texts of ${reportRangeLabel}. ${reportLimitsLabel}. Writing refinement is ${refinementRateLabel}, rounded up. ${refinementMinimumLabel}. The free scan costs nothing.`,
   },
   {
     q: "How do I submit my text?",
