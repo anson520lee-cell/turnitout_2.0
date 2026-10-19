@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
-import { reportMinimumLabel, reportRateLabel } from "@/config/services";
+import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC) or PayPal";
 
@@ -18,7 +18,7 @@ export const steps = [
   {
     n: "04",
     title: "Pay with credits",
-    body: `${reportRateLabel}. ${reportMinimumLabel}. Top up credits by ${methods}.`,
+    body: `${reportRateLabel}. ${reportLimitsLabel}. Top up credits by ${methods}.`,
   },
   { n: "05", title: "Read your report", body: "It is made in about a minute: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
