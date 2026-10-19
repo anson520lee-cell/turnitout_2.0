@@ -29,7 +29,7 @@ const CONCURRENCY = 12;
 const START_BEFORE_MS = 28_000;
 
 const body = z.object({
-  action: z.enum(["setup", "work", "report", "pieces"]),
+  action: z.enum(["setup", "work", "report", "pieces", "auc"]),
   batch: z.string().min(1).max(60).default("auto"),
   sizes: z.array(z.number().int().min(300).max(20_000)).max(8).optional(),
   effort: z.enum(REASONING_EFFORTS).optional(),
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   const samples = await readAll<SampleRow>((a, b) => db.from("chunk_samples").select("id,name,origin,body,sentences").order("created_at").range(a, b));
   const eligible = samples.filter((s) => s.body.length >= minChars);
 
-  if (action === "report" || action === "pieces") {
+  if (action === "report" || action === "pieces" || action === "auc") {
     const trials = await readAll<{
       sample_id: string; batch: string; size: number; first_sentence: number; chunk: string; model: string; effort: string; report: string; ok: boolean; truncated: boolean; ms: number; tokens: number;
     }>((a, b) => db.from("chunk_trials").select("sample_id,batch,size,first_sentence,chunk,model,effort,report,ok,truncated,ms,tokens").eq("batch", batch).order("id").range(a, b));
@@ -99,6 +99,34 @@ export async function POST(request: NextRequest) {
     const scored: Trial[] = trials
       .filter((t) => map.has(t.sample_id))
       .map((t) => ({ sampleId: t.sample_id, size: t.size, model: t.model, effort: t.effort, batch: t.batch, first: t.first_sentence, chunk: t.chunk, report: t.report, ok: t.ok, truncated: t.truncated, ms: t.ms, tokens: t.tokens }));
+    if (action === "auc") {
+      // Does a whole piece's share of flagged sentences tell AI pieces from human pieces better than single sentences do?
+      type P = { origin: Origin; size: number; hm: number; hi: number };
+      const ps: P[] = scored.flatMap((t) => {
+        const sample = map.get(t.sampleId);
+        const hm = sample && scoreTrial(t, sample, "highMedium");
+        const hi = sample && scoreTrial(t, sample, "high");
+        return sample && hm && hi && hm.sentences > 0 ? [{ origin: sample.origin, size: t.size, hm: hm.called / hm.sentences, hi: hi.called / hi.sentences }] : [];
+      });
+      const auc = (pos: number[], neg: number[]) => {
+        if (!pos.length || !neg.length) return null;
+        let w = 0;
+        for (const a of pos) for (const b of neg) w += a > b ? 1 : a === b ? 0.5 : 0;
+        return w / (pos.length * neg.length);
+      };
+      const out = [...new Set(ps.map((p) => p.size))].sort((a, b) => a - b).map((size) => {
+        const at = ps.filter((p) => p.size === size);
+        const ai = at.filter((p) => p.origin === "ai");
+        const human = at.filter((p) => p.origin === "human");
+        const roc = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7].map((th) => ({
+          th,
+          aiCaught: ai.length ? ai.filter((p) => p.hm >= th).length / ai.length : null,
+          humanFlagged: human.length ? human.filter((p) => p.hm >= th).length / human.length : null,
+        }));
+        return { size, ai: ai.length, human: human.length, aucHighMedium: auc(ai.map((p) => p.hm), human.map((p) => p.hm)), aucHigh: auc(ai.map((p) => p.hi), human.map((p) => p.hi)), roc };
+      });
+      return NextResponse.json({ ok: true, rows: out }, { headers: noStore });
+    }
     if (action === "pieces") {
       const rows = scored.flatMap((t) => {
         const sample = map.get(t.sampleId);
