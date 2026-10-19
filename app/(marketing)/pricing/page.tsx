@@ -6,7 +6,7 @@ import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeScan } from "@/config/app";
 import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing } from "@/config/pricing";
-import { refinementMinimumLabel, refinementRateLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
+import { refinementMinimumLabel, refinementRateLabel, reportMaximumLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -32,7 +32,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
-              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
+              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. {reportMaximumLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
               spaces and line breaks count once. You see the exact price before you pay. A new report after you revise is a new order.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">

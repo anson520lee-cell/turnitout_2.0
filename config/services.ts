@@ -45,6 +45,12 @@ export const reportMinimumLabel = `Minimum ${formatCredits(reportPricing.minimum
   reportPricing.blockChars
 ).toLocaleString("en-HK")} characters)`;
 
+/** "Never more than 40 credits (from 8,000 characters)". */
+export const reportMaximumLabel = `Never more than ${formatCredits(reportPricing.maximum)} (from ${(
+  (reportPricing.maximum / reportPricing.perBlock) *
+  reportPricing.blockChars
+).toLocaleString("en-HK")} characters)`;
+
 /** "From 10 credits". */
 export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
 
