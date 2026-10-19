@@ -45,13 +45,15 @@ export interface Tally {
 export const emptyTally = (): Tally => ({ sentences: 0, positives: 0, hit: 0, falseAlarm: 0, called: 0 });
 
 /** Score one piece's report. Null when the piece can't be scored (failed or cut off). */
-export function scoreTrial(t: Trial, sample: Sample): Tally | null {
+export type Level = "high" | "highMedium";
+
+export function scoreTrial(t: Trial, sample: Sample, level: Level = "highMedium"): Tally | null {
   if (!t.ok || t.truncated) return null;
   const local = splitSentences(t.chunk);
   const slice = sample.sentences.slice(t.first, t.first + local.length);
   if (slice.length !== local.length) return null;
   const truth: TruthSentence[] = local.map((s, i) => ({ p: s.p, s: s.s, flagged: slice[i].flagged }));
-  const c = scoreReport(t.report, truth).highMedium;
+  const c = scoreReport(t.report, truth)[level];
   const positives = truth.filter((x) => x.flagged).length;
   return { sentences: truth.length, positives, hit: c.hit, falseAlarm: c.falseAlarm, called: c.called };
 }
@@ -106,7 +108,7 @@ export interface SettingRow {
 }
 
 /** One row per model, reasoning and piece size, pooled over every repeat. */
-export function summarize(trials: Trial[], samples: Map<string, Sample>): SettingRow[] {
+export function summarize(trials: Trial[], samples: Map<string, Sample>, level: Level = "highMedium"): SettingRow[] {
   const groups = new Map<string, Trial[]>();
   for (const t of trials) {
     const key = `${t.model}|${t.effort}|${t.size}`;
@@ -127,7 +129,7 @@ export function summarize(trials: Trial[], samples: Map<string, Sample>): Settin
       else if (t.truncated) cut += 1;
       ms += t.ms;
       tokens += t.tokens;
-      const s = scoreTrial(t, sample);
+      const s = scoreTrial(t, sample, level);
       if (!s) continue;
       all = addTally(all, s);
       byOrigin[sample.origin] = addTally(byOrigin[sample.origin] ?? emptyTally(), s);

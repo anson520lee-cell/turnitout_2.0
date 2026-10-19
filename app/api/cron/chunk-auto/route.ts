@@ -8,6 +8,7 @@ import { truthFor } from "@/lib/chunk-samples";
 import type { TruthSentence } from "@/lib/eval";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { runChunkPiece } from "@/lib/chunk-run";
+import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts";
 
 /**
  * Runs the piece-size experiment without a signed-in browser: the owner (or
@@ -32,6 +33,9 @@ const body = z.object({
   sizes: z.array(z.number().int().min(300).max(20_000)).max(8).optional(),
   effort: z.enum(REASONING_EFFORTS).optional(),
   minChars: z.number().int().min(0).max(30_000).default(3000),
+  level: z.enum(["high", "highMedium"]).default("highMedium"),
+  /** Candidate reviewer prompt to try instead of the saved one (the saved prompt is never changed). */
+  promptName: z.enum(Object.keys(CANDIDATE_PROMPTS) as [CandidatePromptName, ...CandidatePromptName[]]).optional(),
 });
 
 const same = (a: string, b: string) => {
@@ -57,7 +61,8 @@ export async function POST(request: NextRequest) {
   if (!same(request.headers.get("x-run-token") ?? "", token)) return new NextResponse("Unauthorized", { status: 401 });
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, message: "Bad request." }, { status: 400, headers: noStore });
-  const { action, batch, effort, minChars } = parsed.data;
+  const { action, batch, effort, minChars, level } = parsed.data;
+  const prompt = parsed.data.promptName ? CANDIDATE_PROMPTS[parsed.data.promptName] : undefined;
   const sizes = parsed.data.sizes ?? SIZES;
   const db = createAdminClient();
 
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
     const scored: Trial[] = trials
       .filter((t) => map.has(t.sample_id))
       .map((t) => ({ sampleId: t.sample_id, size: t.size, model: t.model, effort: t.effort, batch: t.batch, first: t.first_sentence, chunk: t.chunk, report: t.report, ok: t.ok, truncated: t.truncated, ms: t.ms, tokens: t.tokens }));
-    return NextResponse.json({ ok: true, samples: eligible.length, rows: summarize(scored, map) }, { headers: noStore });
+    return NextResponse.json({ ok: true, samples: eligible.length, rows: summarize(scored, map, level) }, { headers: noStore });
   }
 
   if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." }, { headers: noStore });
@@ -115,7 +120,7 @@ export async function POST(request: NextRequest) {
     Array.from({ length: CONCURRENCY }, async () => {
       while (next < todo.length && Date.now() - started < START_BEFORE_MS) {
         const job = todo[next++];
-        const r = await runChunkPiece({ ...job, batch, effort });
+        const r = await runChunkPiece({ ...job, batch, effort, prompt });
         if (r.ok) ok++;
         else failed.push(r.message);
       }
