@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chunkText } from "@/lib/chunking";
-import { summarize, type Origin, type Sample, type Trial } from "@/lib/chunk-eval";
+import { scoreTrial, summarize, type Origin, type Sample, type Trial } from "@/lib/chunk-eval";
 import { truthFor } from "@/lib/chunk-samples";
 import type { TruthSentence } from "@/lib/eval";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
@@ -18,6 +18,7 @@ import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts
  *   setup  loads the starter set and copies the Turnitin cases once
  *   work   runs the pieces that have no answer yet for this batch (about 55 s per call)
  *   report scores everything done so far
+ *   pieces one line per piece (origin, size, sentences, called High+Medium, called High) for piece-level analysis
  */
 
 export const maxDuration = 120;
@@ -28,7 +29,7 @@ const CONCURRENCY = 12;
 const START_BEFORE_MS = 28_000;
 
 const body = z.object({
-  action: z.enum(["setup", "work", "report"]),
+  action: z.enum(["setup", "work", "report", "pieces"]),
   batch: z.string().min(1).max(60).default("auto"),
   sizes: z.array(z.number().int().min(300).max(20_000)).max(8).optional(),
   effort: z.enum(REASONING_EFFORTS).optional(),
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
   const samples = await readAll<SampleRow>((a, b) => db.from("chunk_samples").select("id,name,origin,body,sentences").order("created_at").range(a, b));
   const eligible = samples.filter((s) => s.body.length >= minChars);
 
-  if (action === "report") {
+  if (action === "report" || action === "pieces") {
     const trials = await readAll<{
       sample_id: string; batch: string; size: number; first_sentence: number; chunk: string; model: string; effort: string; report: string; ok: boolean; truncated: boolean; ms: number; tokens: number;
     }>((a, b) => db.from("chunk_trials").select("sample_id,batch,size,first_sentence,chunk,model,effort,report,ok,truncated,ms,tokens").eq("batch", batch).order("id").range(a, b));
@@ -98,6 +99,15 @@ export async function POST(request: NextRequest) {
     const scored: Trial[] = trials
       .filter((t) => map.has(t.sample_id))
       .map((t) => ({ sampleId: t.sample_id, size: t.size, model: t.model, effort: t.effort, batch: t.batch, first: t.first_sentence, chunk: t.chunk, report: t.report, ok: t.ok, truncated: t.truncated, ms: t.ms, tokens: t.tokens }));
+    if (action === "pieces") {
+      const rows = scored.flatMap((t) => {
+        const sample = map.get(t.sampleId);
+        const hm = sample && scoreTrial(t, sample, "highMedium");
+        const hi = sample && scoreTrial(t, sample, "high");
+        return sample && hm && hi ? [[sample.origin, t.size, hm.sentences, hm.called, hi.called, hm.positives]] : [];
+      });
+      return NextResponse.json({ ok: true, columns: ["origin", "size", "sentences", "calledHighMedium", "calledHigh", "positives"], rows }, { headers: noStore });
+    }
     return NextResponse.json({ ok: true, samples: eligible.length, rows: summarize(scored, map, level) }, { headers: noStore });
   }
 
