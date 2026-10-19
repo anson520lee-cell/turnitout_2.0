@@ -7,7 +7,7 @@ const items = [
   { icon: Lock, title: "Private storage", body: "Documents and reports sit in private buckets with no public URLs." },
   { icon: KeyRound, title: "Short-lived links", body: "Files open through signed links that expire after 60 seconds." },
   { icon: UserCheck, title: "Strict access", body: "Only you and authorised staff can reach your files, enforced in the database itself." },
-  { icon: FileX2, title: "No repository storage", body: "Screenings are run with repository storage switched off, so your paper isn't kept for later matching." },
+  { icon: FileX2, title: "No paper database", body: "Your text is never sent to Turnitin or added to any paper repository, so it can't match against you later." },
   { icon: Timer, title: "Scheduled deletion", body: `Source documents are deleted ${retention.sourceDocumentDays} days after your order completes.` },
   { icon: ScrollText, title: "Audit trail", body: "Every status change and file access is recorded against the order." },
 ];

@@ -15,14 +15,14 @@ import { cn } from "@/lib/utils";
  * order pipeline a touch higher, two floating notes in front. The depth is
  * kept shallow on purpose, so it reads as a calm product shot that is subtly
  * dimensional rather than a 3D toy. One example order walks through the
- * pipeline on a loop (paid, queued, screening, review, ready), and everything
+ * pipeline on a loop (paid, starting, reading, writing up, ready), and everything
  * that depends on it moves with it: the progress line, the ring, the order's
  * badge, the "reports ready" count and the note that slides in when it lands.
  *
  * Illustration with invented data, and labelled so.
  */
 
-const STEPS = ["Paid", "Queued", "Screening", "Review", "Ready"];
+const STEPS = ["Paid", "Starting", "Reading", "Writing up", "Ready"];
 const STEP_TONE: Tone[] = ["neutral", "info", "progress", "warn", "success"];
 const NAV = [
   { icon: LayoutGrid, label: "Overview" },
@@ -227,7 +227,7 @@ export function DashboardPreview() {
                     {[
                       { t: "Sociology essay – final", tone: STEP_TONE[step], s: STEPS[step] },
                       { t: "Lab report 3", tone: "success" as Tone, s: "Ready" },
-                      { t: "Literature review", tone: "info" as Tone, s: "Queued" },
+                      { t: "Literature review", tone: "info" as Tone, s: "Starting" },
                     ].map((r) => (
                       <div key={r.t} className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 last:border-0">
                         <span className="truncate text-[13.5px]">{r.t}</span>

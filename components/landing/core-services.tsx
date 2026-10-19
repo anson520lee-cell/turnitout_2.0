@@ -42,7 +42,7 @@ export function CoreServices() {
         <SectionHeading
           eyebrow="Three services"
           title="Three services, clearly separated."
-          body="An instant estimate from us, a real screening report when you need one, and optional human refinement of your own writing. Each is labelled for exactly what it is."
+          body="An instant estimate from us, an automatic AI-writing risk report when you need one, and optional refinement of your own writing. Each is labelled for exactly what it is."
         />
         <Stagger className="mt-14 grid gap-5 md:grid-cols-3">
           {cards.map((c) => (

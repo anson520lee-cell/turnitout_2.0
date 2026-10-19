@@ -105,7 +105,7 @@ export const services: ServiceDefinition[] = [
     id: "refinement",
     kind: "refinement",
     name: "Writing Refinement",
-    short: "Human clarity, flow and style refinement of your own writing.",
+    short: "Clarity, flow and style refinement of your own writing, checked by our team.",
     priceLabel: `From ${formatCredits(refinementPricing.minimum)}`,
     cadence: refinementRateLabel,
     features: [
