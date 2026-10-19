@@ -58,6 +58,8 @@ export async function listCreditTopups(limit = 20): Promise<CreditTopup[]> {
   const { data } = await supabase
     .from("credit_topups")
     .select("id,usd,amount,method,status,payer_reference,admin_note,created_at,confirmed_at")
+    // Attempts that were cancelled or expired without a payment are noise to the customer; the row stays for our records.
+    .neq("status", "cancelled")
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as CreditTopup[];
