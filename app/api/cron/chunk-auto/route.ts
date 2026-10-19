@@ -15,7 +15,7 @@ import { runChunkPiece } from "@/lib/chunk-run";
  * leaves the server. Switched off (404) whenever CHUNK_AUTO_TOKEN is unset, so
  * deleting that variable in Vercel closes it.
  *   setup  loads the starter set and copies the Turnitin cases once
- *   work   runs the pieces that have no answer yet for this batch (about 80 s per call)
+ *   work   runs the pieces that have no answer yet for this batch (about 55 s per call)
  *   report scores everything done so far
  */
 
@@ -23,8 +23,8 @@ export const maxDuration = 120;
 
 const noStore = { "cache-control": "no-store" };
 const SIZES = [1000, 1500, 2000, 3000, 4000];
-const CONCURRENCY = 6;
-const START_BEFORE_MS = 65_000;
+const CONCURRENCY = 12;
+const START_BEFORE_MS = 28_000;
 
 const body = z.object({
   action: z.enum(["setup", "work", "report"]),
