@@ -8,7 +8,7 @@ import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 export type PieceResult = { ok: true; pieces: number; ms: number } | { ok: false; message: string };
 
 /** Runs the reviewer on one piece of one sample and keeps the answer (shared by the admin page and the automatic run). */
-export async function runChunkPiece(args: { sampleId: string; size: number; idx: number; batch: string; effort?: ReasoningEffort }): Promise<PieceResult> {
+export async function runChunkPiece(args: { sampleId: string; size: number; idx: number; batch: string; effort?: ReasoningEffort; prompt?: string }): Promise<PieceResult> {
   const { sampleId, size, idx, batch } = args;
   const db = createAdminClient();
   const { data: sample } = await db.from("chunk_samples").select("body").eq("id", sampleId).maybeSingle<{ body: string }>();
@@ -17,7 +17,8 @@ export async function runChunkPiece(args: { sampleId: string; size: number; idx:
   const piece = pieces[idx];
   if (!piece) return { ok: false, message: "No such piece." };
 
-  const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
+  const [saved, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
+  const prompt = args.prompt ?? saved;
   const effort = args.effort ?? setting.effort;
   const row = { sample_id: sampleId, batch, size, idx, first_sentence: piece.first, chunk: piece.text, model: setting.model, effort };
   try {
