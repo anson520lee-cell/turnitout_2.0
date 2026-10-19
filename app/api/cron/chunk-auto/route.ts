@@ -8,6 +8,7 @@ import { truthFor } from "@/lib/chunk-samples";
 import type { TruthSentence } from "@/lib/eval";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { runChunkPiece } from "@/lib/chunk-run";
+import { advanceAutoReport } from "@/lib/auto-report/run";
 import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts";
 
 /**
@@ -18,6 +19,8 @@ import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts
  *   setup  loads the starter set and copies the Turnitin cases once
  *   work   runs the pieces that have no answer yet for this batch (about 55 s per call)
  *   report scores everything done so far
+ *   advance runs one step of an automatic report order (orderId), like the order page does
+ *   result  reads that order's stitched report
  *   pieces one line per piece (origin, size, sentences, called High+Medium, called High) for piece-level analysis
  */
 
@@ -29,7 +32,9 @@ const CONCURRENCY = 12;
 const START_BEFORE_MS = 28_000;
 
 const body = z.object({
-  action: z.enum(["setup", "work", "report", "pieces", "auc"]),
+  action: z.enum(["setup", "work", "report", "pieces", "auc", "advance", "result"]),
+  /** For advance / result: the automatic report order to work on or read. */
+  orderId: z.string().uuid().optional(),
   batch: z.string().min(1).max(60).default("auto"),
   sizes: z.array(z.number().int().min(300).max(20_000)).max(8).optional(),
   effort: z.enum(REASONING_EFFORTS).optional(),
@@ -66,6 +71,12 @@ export async function POST(request: NextRequest) {
   const prompt = parsed.data.promptName ? CANDIDATE_PROMPTS[parsed.data.promptName] : undefined;
   const sizes = parsed.data.sizes ?? SIZES;
   const db = createAdminClient();
+
+  if ((action === "advance" || action === "result") && parsed.data.orderId) {
+    if (action === "advance") return NextResponse.json(await advanceAutoReport(parsed.data.orderId), { headers: noStore });
+    const { data } = await db.from("auto_reports").select("status,result").eq("order_id", parsed.data.orderId).maybeSingle();
+    return NextResponse.json({ ok: true, ...data }, { headers: noStore });
+  }
 
   if (action === "setup") {
     const { STARTER_SAMPLES } = await import("@/lib/starter-samples");

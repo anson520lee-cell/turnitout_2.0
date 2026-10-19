@@ -87,6 +87,10 @@ export async function GET(request: NextRequest) {
     reports++;
   }
 
+  // Automatic reports (they quote the customer's text) go with the other reports.
+  const { count: autoReports } = await db.from("auto_reports").delete({ count: "exact" }).neq("status", "running").lt("updated_at", reportCutoff);
+  reports += autoReports ?? 0;
+
   // Written scan reports the user chose to save are removed after retention.savedReportDays (the scores stay).
   const { count: savedReports } = await db
     .from("scan_results")

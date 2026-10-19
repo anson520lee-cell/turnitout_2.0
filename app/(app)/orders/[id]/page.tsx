@@ -13,8 +13,10 @@ import { OrderDetails } from "@/components/orders/order-details";
 import { CreditPayPanel } from "@/components/billing/credit-pay-panel";
 import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { ScreeningReport } from "@/components/reports/screening-report";
+import { AutoReportView } from "@/components/reports/auto-report-view";
+import { AutoReportRunner } from "@/components/reports/auto-report-runner";
 import { RefinementResult } from "@/components/reports/refinement-result";
-import { getOrderBundle } from "@/lib/data/user";
+import { getAutoReport, getOrderBundle } from "@/lib/data/user";
 import { ACTIVE_STATUSES, isScreening, statusMeta } from "@/lib/orders/status";
 import { uuid } from "@/lib/validation/schemas";
 import { serviceLabels } from "@/config/services";
@@ -40,7 +42,10 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   // it (the page refreshes itself) instead of offering to pay again.
   const confirmingCard = sp.checkout === "success" && unpaid && !pendingClaim;
   const rejectedClaim = unpaid && !pendingClaim && claims[0]?.status === "rejected" ? claims[0] : null;
-  const inProgress = ACTIVE_STATUSES.includes(order.status);
+  // Owner test orders are made automatically, piece by piece, while this page is open.
+  const auto = screeningOrder ? await getAutoReport(order.id) : null;
+  const autoRunning = Boolean(auto) && auto?.status === "running" && ["paid", "queued", "screening"].includes(order.status);
+  const inProgress = ACTIVE_STATUSES.includes(order.status) && !autoRunning;
   const reference = paymentReference(order.id);
   const balance = unpaid ? await getCreditBalance() : 0;
   const shortfall = Math.max(0, toCredits(order.price) - balance);
@@ -52,7 +57,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <ArrowLeft className="size-3.5" /> Orders
       </Link>
       <AppHeader
-        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
+        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
         title={order.title}
         body={`${serviceLabels[order.service_type]} · Order #${shortId(order.id)} · ${formatDateTime(order.created_at)}`}
         actions={pendingClaim ? <Badge tone="warn" dot>Confirming payment</Badge> : <StatusBadge status={order.status} />}
@@ -74,7 +79,19 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         )}
       </Card>
 
-      {order.status === "completed" && screeningOrder && screening && (
+      {autoRunning && (
+        <Card strong className="noise relative mb-5 overflow-hidden p-5 sm:p-7">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-accent/15 blur-3xl" />
+          <AutoReportRunner orderId={order.id} />
+        </Card>
+      )}
+      {auto?.status === "failed" && (
+        <div className="mb-5"><FormMessage>We couldn&rsquo;t finish this report. Any credits you paid have been returned. Please try again in a little while.</FormMessage></div>
+      )}
+      {order.status === "completed" && auto?.result && (
+        <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} />
+      )}
+      {order.status === "completed" && screeningOrder && !auto && screening && (
         <ScreeningReport order={order} file={file} result={screening} />
       )}
       {order.status === "completed" && !screeningOrder && refinement && (
