@@ -202,7 +202,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
       <p className="flex gap-2 rounded-2xl border border-[var(--line)] bg-ink-900/40 p-4 text-[12.5px] leading-relaxed text-fg-muted">
         <Info className="mt-0.5 size-4 shrink-0 text-accent" />
         <span>
-          {disclaimers.freeScan} Ratings are guidance from an automated reviewer and can be wrong in both directions. {disclaimers.noGuarantee}
+          {disclaimers.screeningResult} It is not a Turnitin result. {disclaimers.noGuarantee}
         </span>
       </p>
     </div>

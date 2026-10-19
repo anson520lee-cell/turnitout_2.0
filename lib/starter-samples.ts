@@ -1,4 +1,3 @@
-/* eslint-disable */
 /**
  * Starter sample texts for the chunk-size experiment (/admin/chunking).
  * Human: stretches of the Brown corpus (1961 published prose, written by people).

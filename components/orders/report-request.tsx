@@ -41,7 +41,7 @@ export function ReportRequest() {
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
               <p className="mt-2 text-4xl font-semibold tracking-tight">
                 {reportFromLabel}
-                <span className="ml-2 text-[14px] font-normal text-fg-subtle">{reportRateLabel}</span>
+                <span className="mt-1 block text-[14px] font-normal text-fg-subtle">{reportRateLabel}</span>
               </p>
               <p className="mt-1 text-[13px] text-fg-muted">{reportLimitsLabel}. For texts of {reportRangeLabel}.</p>
             </div>
@@ -111,7 +111,7 @@ export function ReportRequest() {
       </div>
 
       <p className="mt-6 px-1 text-[11.5px] leading-relaxed text-fg-subtle">
-        {disclaimers.freeScan} {disclaimers.noGuarantee}
+        {disclaimers.screeningResult} {disclaimers.noGuarantee} {disclaimers.turnitin}
       </p>
 
       <PasteDialog
@@ -139,7 +139,7 @@ export function ReportRequest() {
         }}
         footnote={
           <>
-            By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. {disclaimers.freeScan}
+            By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. {disclaimers.screeningResult}
           </>
         }
         onSubmit={async (text) => {

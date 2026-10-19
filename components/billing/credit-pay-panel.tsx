@@ -18,6 +18,7 @@ export function CreditPayPanel({
   balance,
   suggestedUsd,
   devPayments,
+  report = false,
 }: {
   orderId: string;
   /** credits */
@@ -26,6 +27,8 @@ export function CreditPayPanel({
   balance: number;
   suggestedUsd: number;
   devPayments: boolean;
+  /** A report starts at once; other orders join a queue. */
+  report?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +79,7 @@ export function CreditPayPanel({
         </Link>
       )}
       <p className="mt-2 text-center text-[11.5px] text-fg-subtle">
-        Your order joins the queue the moment it&rsquo;s paid. Credits are charged once, and returned if anything goes wrong.
+        {report ? "Your report starts the moment it\u2019s paid." : "Your order joins the queue the moment it\u2019s paid."} Credits are charged once, and returned if anything goes wrong.
       </p>
 
       <div className="mt-4">

@@ -7,14 +7,15 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
 import { buttonClasses } from "@/components/ui/button";
 import { ENGINE_SIGNALS } from "./engine-core";
 import { NeuralEngine } from "./neural-engine";
-import { brand } from "@/config/app";
+import { brand, freeScan } from "@/config/app";
 
 /**
  * Homepage promotion for the in-house analysis engine behind the free scan
  * (lib/scanning/heuristic-analyzer.ts). Every claim here describes what that
  * code does: deterministic text statistics, six signals, sentence-level
- * highlights, two readability measures, run on our server with no
- * third-party AI call, scanned text not stored. It makes no accuracy claim
+ * highlights, two readability measures, worked out on our server (the optional
+ * written feedback under a scan is separate and uses an outside AI provider,
+ * as the privacy policy says), scanned text not stored. It makes no accuracy claim
  * and no claim about Turnitin.
  */
 
@@ -30,11 +31,11 @@ const SIGNAL_NOTES: Record<(typeof ENGINE_SIGNALS)[number], string> = {
 const SPECS = [
   { value: "6", label: "writing signals" },
   { value: "2", label: "readability measures" },
-  { value: "0", label: "third-party AI calls" },
+  { value: String(freeScan.dailyLimit), label: "free scans a day" },
 ];
 
 const FACTS = [
-  { icon: Server, title: "On our own server", body: "Results in seconds. Your text is never sent to a third-party AI API." },
+  { icon: Server, title: "On our own server", body: "The six signals are worked out on our own server, in seconds. Written feedback, when shown, comes from an outside AI provider (see Privacy)." },
   { icon: ListChecks, title: "Explainable", body: "Each signal shows what it measured, with sentence-level highlights." },
   { icon: BookOpenText, title: "Readability built in", body: "Flesch reading ease and Flesch–Kincaid grade on every scan." },
   { icon: EyeOff, title: "Not stored", body: "Scanned text is analysed in memory and not kept." },

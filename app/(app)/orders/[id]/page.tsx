@@ -42,9 +42,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   // it (the page refreshes itself) instead of offering to pay again.
   const confirmingCard = sp.checkout === "success" && unpaid && !pendingClaim;
   const rejectedClaim = unpaid && !pendingClaim && claims[0]?.status === "rejected" ? claims[0] : null;
-  // Owner test orders are made automatically, piece by piece, while this page is open.
+  // Reports are made automatically, piece by piece, while this page is open.
   const auto = screeningOrder ? await getAutoReport(order.id) : null;
-  const autoRunning = Boolean(auto) && auto?.status === "running" && ["paid", "queued", "screening"].includes(order.status);
+  // A paid report with pasted text and no automatic report yet (an order from before reports became automatic) starts one now.
+  const waitingStatus = ["paid", "queued", "screening"].includes(order.status);
+  const autoRunning = waitingStatus && (auto ? auto.status === "running" : screeningOrder && Boolean(order.source_text));
   const inProgress = ACTIVE_STATUSES.includes(order.status) && !autoRunning;
   const reference = paymentReference(order.id);
   const balance = unpaid ? await getCreditBalance() : 0;
@@ -166,6 +168,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   balance={balance}
                   suggestedUsd={suggestedUsd}
                   devPayments={devPaymentsEnabled()}
+                  report={screeningOrder}
                 />
               </div>
             </Card>

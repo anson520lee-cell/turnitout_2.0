@@ -103,9 +103,9 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         style={{ opacity: report, scale: reportScale, z: 50 }}
         className="glass-strong absolute inset-[12%] rounded-3xl p-6"
       >
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ok">Screening complete</p>
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ok">Report ready</p>
         <div className="mt-5 grid grid-cols-2 gap-4">
-          {["AI-writing indicator", "Similarity"].map((l) => (
+          {["Overall risk level", "Map of your text"].map((l) => (
             <div key={l} className="rounded-2xl border border-[var(--line)] bg-ink-900/60 p-4">
               <svg viewBox="0 0 60 60" className="size-14" aria-hidden>
                 <circle cx="30" cy="30" r="24" fill="none" stroke="rgb(148 163 255 / 0.12)" strokeWidth="6" />
@@ -126,7 +126,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
           <div className="h-2 w-3/4 rounded bg-white/[0.07]" />
           <div className="h-2 w-1/2 rounded bg-white/[0.07]" />
         </div>
-        <p className="mt-5 text-[11px] text-fg-subtle">Illustration. Values appear only after a real screening.</p>
+        <p className="mt-5 text-[11px] text-fg-subtle">Illustration. Values appear only in a real report.</p>
       </motion.div>
       </div>
     </div>
