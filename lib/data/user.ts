@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { higherLevel, overallRisk, parseReport, verdictLevel } from "@/lib/report-format";
 import type {
   Order,
@@ -72,4 +74,17 @@ export async function getOrderBundle(id: string) {
     /** Newest first. */
     claims: (claims.data ?? []) as PaymentClaim[],
   };
+}
+
+/**
+ * The automatic report of an order, or null when the order has none (older orders were made by hand).
+ * The page checks the viewer owns the order before calling this.
+ */
+export async function getAutoReport(orderId: string): Promise<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; updatedAt: string } | null> {
+  const { data } = await createAdminClient()
+    .from("auto_reports")
+    .select("status,result,updated_at")
+    .eq("order_id", orderId)
+    .maybeSingle<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; updated_at: string }>();
+  return data ? { status: data.status, result: data.result, updatedAt: data.updated_at } : null;
 }

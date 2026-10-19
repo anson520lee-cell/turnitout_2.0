@@ -9,7 +9,7 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
  * best-effort: a logging problem never affects the user's request.
  */
 
-export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test";
+export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test" | "paid_report";
 
 /**
  * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
@@ -72,6 +72,29 @@ export async function reportLimitReached(): Promise<boolean> {
       .from("model_usage")
       .select("id", { count: "exact", head: true })
       .in("purpose", ["scan_report", "scan_recheck"])
+      .gte("created_at", startUtc.toISOString());
+    return (count ?? 0) >= limit;
+  } catch {
+    return false;
+  }
+}
+
+/** Pieces of paid reports a day may review before they pause (a cost brake of its own, apart from free scans). DAILY_PAID_PIECE_LIMIT in Vercel changes it; 0 turns it off. */
+export function dailyPaidPieceLimit(): number {
+  const n = Number(process.env.DAILY_PAID_PIECE_LIMIT);
+  return Number.isFinite(n) && n >= 0 && process.env.DAILY_PAID_PIECE_LIMIT?.trim() ? Math.floor(n) : 1500;
+}
+
+export async function paidPieceLimitReached(): Promise<boolean> {
+  const limit = dailyPaidPieceLimit();
+  if (limit === 0 || !isSupabaseConfigured) return false;
+  try {
+    const hkNow = new Date(Date.now() + 8 * 3_600_000);
+    const startUtc = new Date(Date.UTC(hkNow.getUTCFullYear(), hkNow.getUTCMonth(), hkNow.getUTCDate()) - 8 * 3_600_000);
+    const { count } = await createAdminClient()
+      .from("model_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("purpose", "paid_report")
       .gte("created_at", startUtc.toISOString());
     return (count ?? 0) >= limit;
   } catch {
