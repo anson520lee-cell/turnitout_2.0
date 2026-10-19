@@ -19,8 +19,8 @@ export default function RefundsPage() {
       <Container className="prose-doc max-w-3xl">
         <h2>1. Credits</h2>
         <p>
-          Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by card, PayPal or
-          crypto. Credits do not expire and are tied to your account.
+          Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by PayPal or
+          crypto (USDT, USDC or Bitcoin). Credits do not expire and are tied to your account.
         </p>
 
         <h2>2. If we can&rsquo;t deliver</h2>
@@ -40,7 +40,7 @@ export default function RefundsPage() {
         <h2>4. Refunding unused credits</h2>
         <ul>
           <li>Within 14 days of a top-up, credits from it that you have not spent can be refunded.</li>
-          <li>Card and PayPal refunds go back to the original payment method.</li>
+          <li>PayPal refunds go back to the PayPal account that paid.</li>
           <li>
             Crypto refunds are sent in the same coin to an address you give us, on the same network, less the network fee. The
             amount is the US dollar value you paid, not the coin&rsquo;s later price.
@@ -60,8 +60,8 @@ export default function RefundsPage() {
             difference; if you sent more, we credit the extra.
           </li>
           <li>
-            <strong>Payment not showing.</strong> Stablecoin payments are usually confirmed automatically within minutes; PayPal
-            and Bitcoin are checked by hand. If nothing has happened after a working day, contact us with your reference.
+            <strong>Payment not showing.</strong> Crypto payments are usually confirmed automatically within minutes (Bitcoin can take longer while the network
+            confirms it); PayPal payments are checked by hand. If nothing has happened after a working day, contact us with your reference.
           </li>
         </ul>
 
