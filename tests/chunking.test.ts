@@ -73,3 +73,12 @@ test("failed or cut-off pieces are not scored", () => {
   assert.equal(scoreTrial(t, sample), null);
   assert.equal(scoreTrial({ ...t, truncated: false, ok: false }, sample), null);
 });
+
+test("base size 3,500: a text slightly over it is still one piece, whatever the paragraphs", () => {
+  for (const layout of [[50], [25, 25], [17, 17, 16], [10, 10, 10, 10, 10], [45, 5, 2], [35, 15]]) {
+    let at = 1;
+    const text = layout.map((n) => { const p = paragraph(at, n); at += n; return p; }).join("\n\n");
+    assert.ok(text.length > 3500 && text.length < 3900, `text of ${text.length}`);
+    assert.equal(chunkText(text, 3500).length, 1, layout.join("+"));
+  }
+});
