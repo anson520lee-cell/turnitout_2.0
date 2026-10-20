@@ -35,7 +35,7 @@ export function ReportRequest() {
         <Card strong className="noise flex flex-col overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-accent/15 blur-3xl" />
           <div aria-hidden className="pointer-events-none absolute -bottom-28 right-0 size-72 rounded-full bg-violet/15 blur-3xl" />
-          <ReportVisual className="relative min-h-[545px] flex-1 sm:min-h-[430px]" />
+          <ReportVisual className="relative min-h-[520px] flex-1 sm:min-h-[430px]" />
           <div className="relative mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
