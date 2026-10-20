@@ -63,12 +63,12 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
       {/* verification field */}
       <motion.div
         style={{ opacity: layerOpacity, z: layerZ, rotateX: 64 }}
-        className="absolute left-[8%] right-[8%] top-[46%] h-[48%] rounded-[28px] border border-accent/40 bg-[linear-gradient(180deg,rgb(91_140_255/0.18),rgb(154_123_255/0.05))] shadow-[0_0_60px_rgb(91_140_255/0.35)] [transform-style:preserve-3d]"
+        className="absolute left-[8%] right-[8%] top-[46%] h-[48%] rounded-[28px] border border-accent/40 bg-[linear-gradient(180deg,rgb(91_140_255/0.18),rgb(141_150_172/0.06))] shadow-[0_0_60px_rgb(91_140_255/0.35)] [transform-style:preserve-3d]"
       >
         <div className="absolute inset-0 rounded-[28px] bg-grid opacity-70" />
         {/* stacked like the layers of a network: the document passes through each */}
-        <div className="absolute inset-0 rounded-[28px] border border-violet/30 bg-grid opacity-45 [transform:translateZ(-44px)]" />
-        <div className="absolute inset-0 rounded-[28px] border border-cyan/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
+        <div className="absolute inset-0 rounded-[28px] border border-chart-low/30 bg-grid opacity-45 [transform:translateZ(-44px)]" />
+        <div className="absolute inset-0 rounded-[28px] border border-chart-mid/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
         <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
       </motion.div>
       {/* round the document: a spectrum of per-token readings, strongest where the four signals are */}
@@ -93,7 +93,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
           className="absolute [--spread:0.55] sm:[--spread:1]"
         >
           <div className="glass flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
-            <span className={cn("size-1.5 rounded-full", i % 2 ? "bg-violet" : "bg-cyan")} />
+            <span className={cn("size-1.5 rounded-full", i % 2 ? "bg-chart-low" : "bg-chart-mid")} />
             {s.t}
           </div>
         </motion.div>
@@ -108,13 +108,13 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
           {["Overall risk level", "Map of your text"].map((l) => (
             <div key={l} className="rounded-2xl border border-[var(--line)] bg-ink-900/60 p-4">
               <svg viewBox="0 0 60 60" className="size-14" aria-hidden>
-                <circle cx="30" cy="30" r="24" fill="none" stroke="rgb(148 163 255 / 0.12)" strokeWidth="6" />
+                <circle cx="30" cy="30" r="24" fill="none" stroke="rgb(170 176 196 / 0.14)" strokeWidth="6" />
                 <motion.circle
                   cx="30" cy="30" r="24" fill="none" stroke="url(#ss-grad)" strokeWidth="6" strokeLinecap="round"
                   style={{ pathLength: ring }} transform="rotate(-90 30 30)"
                 />
                 <defs>
-                  <linearGradient id="ss-grad"><stop offset="0" stopColor="#5fd8f5" /><stop offset="1" stopColor="#9a7bff" /></linearGradient>
+                  <linearGradient id="ss-grad"><stop offset="0" stopColor="#8db3ff" /><stop offset="1" stopColor="#3f7bff" /></linearGradient>
                 </defs>
               </svg>
               <p className="mt-3 text-[12px] text-fg-muted">{l}</p>

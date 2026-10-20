@@ -119,7 +119,7 @@ export function AnalysisPreview() {
                   <span
                     key={i}
                     className={cn(
-                      seg.k === "transition" && "rounded bg-violet/15 px-0.5 text-[#d6cbff] underline decoration-violet/60 decoration-2 underline-offset-4",
+                      seg.k === "transition" && "rounded bg-chart-mid/15 px-0.5 text-[#d3e2ff] underline decoration-chart-mid/60 decoration-2 underline-offset-4",
                       seg.k === "phrase" && "rounded bg-accent/10 underline decoration-accent/50 decoration-dotted decoration-2 underline-offset-4",
                     )}
                   >
@@ -129,7 +129,7 @@ export function AnalysisPreview() {
               </motion.p>
             </AnimatePresence>
             <div className="mt-6 flex flex-wrap gap-4 text-[12px] text-fg-subtle">
-              <span className="flex items-center gap-2"><span className="h-2 w-4 rounded-sm bg-violet/40" />Repeated connector</span>
+              <span className="flex items-center gap-2"><span className="h-2 w-4 rounded-sm bg-chart-mid/40" />Repeated connector</span>
               <span className="flex items-center gap-2"><span className="h-2 w-4 rounded-sm bg-accent/30" />Stock phrasing</span>
             </div>
           </Card>
@@ -153,7 +153,7 @@ export function AnalysisPreview() {
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                     <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan via-accent to-violet"
+                      className="h-full rounded-full bg-gradient-to-r from-chart-mid via-accent to-chart-high"
                       initial={false}
                       animate={{ width: `${v}%` }}
                       transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}

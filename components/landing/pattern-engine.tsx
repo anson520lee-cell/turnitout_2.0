@@ -49,7 +49,7 @@ export function PatternEngine() {
     <section id="engine" aria-labelledby="engine-title" className="relative overflow-hidden py-24 sm:py-32">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div data-depth="-2" className="absolute right-[-10%] top-[8%] size-[720px] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.12),transparent_70%)]" />
-        <div data-depth="-1" className="absolute left-[-14%] bottom-[0%] size-[560px] rounded-full bg-[radial-gradient(closest-side,rgb(154_123_255/0.09),transparent_70%)]" />
+        <div data-depth="-1" className="absolute left-[-14%] bottom-[0%] size-[560px] rounded-full bg-[radial-gradient(closest-side,rgb(141_150_172/0.09),transparent_70%)]" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--line-strong)] to-transparent" />
       </div>
       <Container className="relative">
@@ -61,7 +61,7 @@ export function PatternEngine() {
           <div data-tilt="4" className="max-w-xl [transform-style:preserve-3d] lg:max-w-none">
             <Reveal>
               <Eyebrow className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-cyan shadow-[0_0_10px_#5fd8f5]" aria-hidden />
+                <span className="size-1.5 rounded-full bg-chart-mid shadow-[0_0_10px_#8db3ff]" aria-hidden />
                 Built in-house
               </Eyebrow>
             </Reveal>

@@ -561,7 +561,7 @@ export function NeuralEngine({
   return (
     <div ref={root} aria-hidden className="relative mx-auto aspect-square w-full max-w-[560px] select-none">
       {/* ambient glow */}
-      <div data-depth="-2" className="absolute inset-[-14%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(154_123_255/0.1)_55%,transparent_75%)]" />
+      <div data-depth="-2" className="absolute inset-[-14%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(141_150_172/0.1)_55%,transparent_75%)]" />
       <div className="glass-strong absolute inset-0 overflow-hidden rounded-[24px]" data-tilt="6">
         <canvas ref={canvasRef} className="absolute inset-0 size-full" />
       </div>

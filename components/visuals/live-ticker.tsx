@@ -51,9 +51,9 @@ const levelOf = (i: number): Level => {
 };
 
 const LEVEL = {
-  low: { label: "Low", color: "var(--color-ok)", bar: "bg-ok/55", chip: "border-ok/30 bg-ok/10 text-ok", dot: "bg-ok" },
-  medium: { label: "Medium", color: "var(--color-warn)", bar: "bg-warn/80", chip: "border-warn/30 bg-warn/10 text-warn", dot: "bg-warn" },
-  high: { label: "High", color: "var(--color-risk)", bar: "bg-risk/90", chip: "border-risk/35 bg-risk/10 text-risk", dot: "bg-risk" },
+  low: { label: "Low", color: "var(--color-chart-low)", bar: "bg-chart-low/60", chip: "border-chart-low/30 bg-chart-low/10 text-chart-low", dot: "bg-chart-low" },
+  medium: { label: "Medium", color: "var(--color-chart-mid)", bar: "bg-chart-mid/80", chip: "border-chart-mid/35 bg-chart-mid/10 text-chart-mid", dot: "bg-chart-mid" },
+  high: { label: "High", color: "var(--color-chart-high)", bar: "bg-chart-high/90", chip: "border-chart-high/45 bg-chart-high/15 text-[#7ea4ff]", dot: "bg-chart-high" },
 } as const;
 
 const pad = (n: number, w: number) => String(n).padStart(w, "0");
@@ -155,15 +155,15 @@ function Chart({
             </linearGradient>
           </defs>
           {[25, 50, 75].map((g) => (
-            <line key={g} x1="0" x2={W} y1={g} y2={g} stroke="rgb(148 163 255)" strokeOpacity="0.1" strokeDasharray="2 3" vectorEffect="non-scaling-stroke" />
+            <line key={g} x1="0" x2={W} y1={g} y2={g} stroke="rgb(170 176 196)" strokeOpacity="0.1" strokeDasharray="2 3" vectorEffect="non-scaling-stroke" />
           ))}
           {Array.from({ length: 6 }, (_, i) => {
             const x = i * 12 - ((k0 + frac) % 12); // vertical grid scrolls with the data
-            return <line key={i} x1={x} x2={x} y1="0" y2={H} stroke="rgb(148 163 255)" strokeOpacity="0.06" vectorEffect="non-scaling-stroke" />;
+            return <line key={i} x1={x} x2={x} y1="0" y2={H} stroke="rgb(170 176 196)" strokeOpacity="0.06" vectorEffect="non-scaling-stroke" />;
           })}
-          {other && <path d={other.line} fill="none" stroke="var(--color-violet)" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.9" vectorEffect="non-scaling-stroke" />}
+          {other && <path d={other.line} fill="none" stroke="var(--color-chart-low)" strokeWidth="1.5" strokeLinejoin="round" strokeOpacity="0.9" vectorEffect="non-scaling-stroke" />}
           <path d={main.area} fill={`url(#${gid})`} />
-          <path d={main.line} fill="none" stroke={second ? "var(--color-cyan)" : "var(--color-accent)"} strokeWidth="1.8" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 4px rgb(91 140 255 / 0.8))" }} />
+          <path d={main.line} fill="none" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 4px rgb(91 140 255 / 0.8))" }} />
         </svg>
         {label && <span className="absolute left-2 top-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-fg-subtle">{label}</span>}
       </div>
@@ -234,7 +234,7 @@ function Live({ reduce, clock, title = "AI-Writing Risk Report", tiles = ["Sente
   return (
     <div ref={ref} className="glass-strong noise relative overflow-hidden rounded-2xl">
       <div aria-hidden className="absolute -right-16 -top-20 size-56 rounded-full bg-accent/20 blur-3xl" />
-      <div aria-hidden className="absolute -bottom-24 -left-10 size-56 rounded-full bg-violet/15 blur-3xl" />
+      <div aria-hidden className="absolute -bottom-24 -left-10 size-56 rounded-full bg-chart-low/15 blur-3xl" />
 
       {/* title bar */}
       <div className="relative flex items-center gap-2.5 border-b border-[var(--line)] px-4 py-2.5">
@@ -256,7 +256,7 @@ function Live({ reduce, clock, title = "AI-Writing Risk Report", tiles = ["Sente
         <div className="min-w-0">
           <div className="grid grid-cols-2 gap-2">
             <Tile label={tiles[0]}>{num(184_000 + sent)}</Tile>
-            <Tile label={tiles[1]} className="text-risk">{num(75_400 + marked)}</Tile>
+            <Tile label={tiles[1]} className="text-[#7ea4ff]">{num(75_400 + marked)}</Tile>
           </div>
           <div className="mt-3">
             <Chart t={t} tick={tick} reduce={reduce} second={!!compare} label={compare ? null : "Flagged share"} className="h-[96px] sm:h-[116px]" />
@@ -265,8 +265,8 @@ function Live({ reduce, clock, title = "AI-Writing Risk Report", tiles = ["Sente
           <div className="mt-2 flex items-center gap-3 text-[10px] text-fg-subtle">
             {compare ? (
               <>
-                <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-violet" /> {compare[0]}</span>
-                <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-cyan" /> {compare[1]}</span>
+                <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-chart-low" /> {compare[0]}</span>
+                <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-accent" /> {compare[1]}</span>
               </>
             ) : (
               (["low", "medium", "high"] as const).map((l) => (
@@ -348,9 +348,9 @@ export function LiveStage({
                 </div>
               </div>
               <div className="absolute -bottom-2 right-1 hidden sm:block">
-                <div className="glass-strong rounded-xl p-3 shadow-[0_18px_40px_-14px_rgb(0_0_0/0.8),0_0_30px_-8px_rgb(255_122_138/0.35)]">
-                  <p className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-risk">
-                    <span className="size-1.5 rounded-full bg-risk shadow-[0_0_8px_2px_rgb(255_122_138/0.6)]" /> Latest high-risk sentence
+                <div className="glass-strong rounded-xl p-3 shadow-[0_18px_40px_-14px_rgb(0_0_0/0.8),0_0_30px_-8px_rgb(63_123_255/0.35)]">
+                  <p className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#7ea4ff]">
+                    <span className="size-1.5 rounded-full bg-chart-high shadow-[0_0_8px_2px_rgb(63_123_255/0.6)]" /> Latest high-risk sentence
                   </p>
                   <p className="mt-1.5 font-mono text-[20px] font-semibold leading-none tabular-nums">#{high}</p>
                   <p className="mt-1 text-[11px] text-fg-muted">Paragraph {Math.floor(high / 12)} · marked to look at again</p>
@@ -367,7 +367,7 @@ export function LiveStage({
       <DepthLayer depth={-30} className="inset-x-[0.5%] inset-y-[-1%]">
         <div className="glass-strong noise relative size-full overflow-hidden rounded-3xl">
           <div aria-hidden className="absolute -right-16 -top-20 size-64 rounded-full bg-accent/25 blur-3xl" />
-          <div aria-hidden className="absolute -bottom-24 -left-10 size-64 rounded-full bg-violet/20 blur-3xl" />
+          <div aria-hidden className="absolute -bottom-24 -left-10 size-64 rounded-full bg-chart-low/15 blur-3xl" />
           <div aria-hidden className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_70%_at_50%_40%,black,transparent)]" />
         </div>
       </DepthLayer>

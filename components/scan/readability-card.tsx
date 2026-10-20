@@ -37,7 +37,7 @@ export function ReadabilityCard({ r }: { r: Readability }) {
       </dl>
       {r.readingEase !== null && (
         <div className="mt-4" aria-hidden>
-          <div className="relative h-2 rounded-full bg-gradient-to-r from-risk/80 via-warn/80 to-ok/80 shadow-[0_0_18px_-2px_rgb(120_160_255/0.35)]">
+          <div className="relative h-2 rounded-full bg-gradient-to-r from-chart-low/70 via-chart-mid/80 to-chart-high/90 shadow-[0_0_18px_-2px_rgb(120_160_255/0.35)]">
             <span
               className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_0_4px_rgb(255_255_255/0.12),0_0_16px_rgb(255_255_255/0.8)]"
               style={{ left: `${r.readingEase}%` }}

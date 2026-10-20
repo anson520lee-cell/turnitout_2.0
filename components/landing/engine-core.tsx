@@ -224,7 +224,7 @@ export function EngineCore({
       className="relative mx-auto aspect-square w-full max-w-[540px] select-none [container-type:inline-size]"
     >
       {/* ambient glow and floor shadow */}
-      <div data-depth="-2" className="absolute inset-[-12%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.22),rgb(154_123_255/0.08)_55%,transparent_75%)]" />
+      <div data-depth="-2" className="absolute inset-[-12%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.22),rgb(141_150_172/0.08)_55%,transparent_75%)]" />
       <div className="absolute inset-x-[18%] bottom-[4%] h-[9%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(0_0_0/0.75),transparent)]" />
 
       {/* the tilted orbit plane */}
@@ -234,11 +234,11 @@ export function EngineCore({
           className="absolute left-[9%] top-[17%] size-[82%] [transform-style:preserve-3d]"
           style={{ transform: planeTransform(BASE) }}
         >
-          <div className="absolute inset-0 rounded-full border border-[rgb(143_176_255/0.4)] bg-[radial-gradient(closest-side,rgb(91_140_255/0.1),rgb(91_140_255/0.03)_70%,transparent)] shadow-[0_0_60px_-10px_rgb(91_140_255/0.55),inset_0_0_50px_-12px_rgb(154_123_255/0.5)]" />
+          <div className="absolute inset-0 rounded-full border border-[rgb(143_176_255/0.4)] bg-[radial-gradient(closest-side,rgb(91_140_255/0.1),rgb(91_140_255/0.03)_70%,transparent)] shadow-[0_0_60px_-10px_rgb(91_140_255/0.55),inset_0_0_50px_-12px_rgb(141_150_172/0.5)]" />
           <div className="absolute inset-[16%] rounded-full border border-dashed border-[rgb(143_176_255/0.22)]" />
-          <div className="absolute inset-[34%] rounded-full border border-[rgb(95_216_245/0.25)]" />
+          <div className="absolute inset-[34%] rounded-full border border-[rgb(141_179_255/0.25)]" />
           {/* radar sweep */}
-          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgb(95_216_245/0.0)_300deg,rgb(95_216_245/0.13)_356deg,rgb(200_245_255/0.4)_360deg)] [--spin:7s] [mask-image:radial-gradient(closest-side,#000_97%,transparent)]" />
+          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgb(141_179_255/0.0)_300deg,rgb(141_179_255/0.13)_356deg,rgb(200_245_255/0.4)_360deg)] [--spin:7s] [mask-image:radial-gradient(closest-side,#000_97%,transparent)]" />
           {/* ticks around the rim */}
           <div className="absolute inset-[-3%] rounded-full bg-[repeating-conic-gradient(from_0deg,rgb(170_195_255/0.4)_0deg_0.6deg,transparent_0.6deg_6deg)] [mask-image:radial-gradient(closest-side,transparent_93%,#000_94%,#000_99%,transparent)]" />
           {/* the arc of the ring nearest the cursor catches the light */}
@@ -280,7 +280,7 @@ export function EngineCore({
       </svg>
 
       {/* a column of light from the lens down to the ring's centre */}
-      <div className="absolute left-1/2 top-[40%] z-[6] h-[18%] w-[16%] -translate-x-1/2 bg-[linear-gradient(to_bottom,rgb(95_216_245/0.28),rgb(91_140_255/0.1)_60%,transparent)] [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
+      <div className="absolute left-1/2 top-[40%] z-[6] h-[18%] w-[16%] -translate-x-1/2 bg-[linear-gradient(to_bottom,rgb(141_179_255/0.28),rgb(91_140_255/0.1)_60%,transparent)] [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
       <div className="absolute left-1/2 top-[58%] z-[6] h-[3%] w-[22%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(150_220_255/0.6),rgb(91_140_255/0.18)_60%,transparent)]" />
 
       {/* the lens, with two gyroscope rings passing through it in 3D */}
@@ -288,9 +288,9 @@ export function EngineCore({
         ref={core}
         className="absolute left-1/2 top-[40%] z-20 size-[36%] -translate-x-1/2 -translate-y-1/2 [perspective:120cqw]"
       >
-        <div className="engine-pulse absolute inset-[-32%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.38),rgb(154_123_255/0.12)_55%,transparent)]" />
+        <div className="engine-pulse absolute inset-[-32%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.38),rgb(141_150_172/0.12)_55%,transparent)]" />
         <div className="absolute inset-0 [transform-style:preserve-3d]">
-          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,#5fd8f5,#5b8cff_25%,#9a7bff_45%,transparent_60%,transparent_80%,#5fd8f5)] [--spin:9s] [mask-image:radial-gradient(closest-side,transparent_86%,#000_88%,#000_97%,transparent)]" />
+          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,#8db3ff,#5b8cff_25%,#8d96ac_45%,transparent_60%,transparent_80%,#8db3ff)] [--spin:9s] [mask-image:radial-gradient(closest-side,transparent_86%,#000_88%,#000_97%,transparent)]" />
           <div className="engine-spin-rev absolute inset-[7%] rounded-full bg-[repeating-conic-gradient(from_0deg,rgb(170_195_255/0.55)_0deg_1.2deg,transparent_1.2deg_10deg)] [--spin:26s] [mask-image:radial-gradient(closest-side,transparent_88%,#000_90%,#000_98%,transparent)]" />
           <div
             className="absolute inset-[15%] rounded-full border border-white/20 shadow-[0_0_46px_-4px_rgb(91_140_255/0.75),inset_0_-12px_26px_rgb(0_0_0/0.55),inset_0_2px_0_rgb(255_255_255/0.25)]"
@@ -313,7 +313,7 @@ export function EngineCore({
                   cx={(34 * Math.cos(rad(i * 60 - 90))).toFixed(2)}
                   cy={(34 * Math.sin(rad(i * 60 - 90))).toFixed(2)}
                   r="6"
-                  fill={i % 2 ? "#b9a6ff" : "#8feaff"}
+                  fill={i % 2 ? "#aab2c6" : "#a9c4ff"}
                   style={{ opacity: `calc(0.35 + var(--s${i}, 0) * 0.65)` }}
                 />
               ))}

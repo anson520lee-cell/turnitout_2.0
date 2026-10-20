@@ -49,7 +49,7 @@ function Ring({ available }: { available: boolean }) {
   return (
     <div className="relative grid size-24 shrink-0 place-items-center" aria-hidden>
       <svg viewBox="0 0 80 80" className="absolute inset-0 -rotate-90">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgb(148 163 255 / 0.14)" strokeWidth="5" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="rgb(170 176 196 / 0.16)" strokeWidth="5" />
         <circle
           cx="40"
           cy="40"
@@ -65,7 +65,7 @@ function Ring({ available }: { available: boolean }) {
         <defs>
           <linearGradient id="daily-ring" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#5b8cff" />
-            <stop offset="1" stopColor="#5fd8f5" />
+            <stop offset="1" stopColor="#8db3ff" />
           </linearGradient>
         </defs>
       </svg>
@@ -106,7 +106,7 @@ export function DailyReportCard({
     <>
       <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
         <div aria-hidden className={cn("pointer-events-none absolute -left-16 -top-20 size-64 rounded-full blur-3xl", used ? "bg-white/[0.04]" : "bg-accent/20")} />
-        <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-cyan/12")} />
+        <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-accent/12")} />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
           <Ring available={!used} />
           <div className="min-w-0 flex-1">

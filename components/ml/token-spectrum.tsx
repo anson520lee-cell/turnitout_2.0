@@ -12,7 +12,7 @@ const BARS = 120;
 const R0 = 43.5; // where the bars start
 /** Sector centres in degrees (0 = right, clockwise), placed behind the four signal chips. */
 const SECTORS = [214, 342, 164, 35];
-const TONES = ["#6fe0f7", "#b79cff", "#6fe0f7", "#b79cff"];
+const TONES = ["#8db3ff", "#aab2c6", "#8db3ff", "#aab2c6"];
 
 function hash(i: number) {
   const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
@@ -49,7 +49,7 @@ export function TokenSpectrum({ className }: { className?: string }) {
     <svg viewBox="-62 -62 124 124" aria-hidden className={className}>
       <defs>
         <linearGradient id="spec-sweep" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#6fe0f7" stopOpacity="0" />
+          <stop offset="0" stopColor="#8db3ff" stopOpacity="0" />
           <stop offset="1" stopColor="#eaf6ff" stopOpacity="0.95" />
         </linearGradient>
       </defs>
