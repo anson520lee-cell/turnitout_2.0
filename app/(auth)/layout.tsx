@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
-import { CssDocument } from "@/components/landing/css-document";
+import { LiveStage } from "@/components/visuals/live-ticker";
 import { disclaimers } from "@/config/services";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
       <aside className="relative hidden lg:block" aria-hidden>
         <div className="absolute inset-x-0 top-[8%] bottom-[22%]">
-          <CssDocument />
+          <LiveStage className="h-full" title="Writing review" feed={false} center />
         </div>
         <div className="absolute inset-x-12 bottom-12">
           <p className="text-xl font-semibold tracking-tight">Designed for genuine student writing.</p>

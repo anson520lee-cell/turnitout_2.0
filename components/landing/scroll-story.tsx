@@ -10,7 +10,7 @@ import {
 import { Container, Eyebrow } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
-import { GreekText } from "@/components/landing/greek-text";
+import { LiveMini } from "@/components/visuals/live-ticker";
 import { TokenSpectrum } from "@/components/ml/token-spectrum";
 
 const stages = [
@@ -81,7 +81,7 @@ function Stage({ progress }: { progress: MotionValue<number> }) {
         className="glass-strong absolute left-[26%] top-[12%] h-[70%] w-[48%] rounded-2xl p-[5%] [transform-style:preserve-3d]"
       >
         <div className="absolute inset-[5%]">
-          <GreekText maxChars={26} textClass="text-[8px]" caption />
+          <LiveMini />
         </div>
       </motion.div>
       {/* signal labels */}
