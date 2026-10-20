@@ -41,7 +41,7 @@ export function RiskGauge({ level }: { level: RiskLevel }) {
           {ticks.map((d) => {
             const [x0, y0] = pt(d, 97);
             const [x1, y1] = pt(d, d % 30 === 0 ? 90 : 93.5);
-            return <line key={d} x1={x0} y1={y0} x2={x1} y2={y1} stroke="#9fb4ff" strokeOpacity={d % 30 === 0 ? 0.9 : 0.4} strokeWidth={d % 30 === 0 ? 1 : 0.6} />;
+            return <line key={d} x1={x0.toFixed(2)} y1={y0.toFixed(2)} x2={x1.toFixed(2)} y2={y1.toFixed(2)} stroke="#9fb4ff" strokeOpacity={d % 30 === 0 ? 0.9 : 0.4} strokeWidth={d % 30 === 0 ? 1 : 0.6} />;
           })}
         </g>
         <path d={arc(0, 180, 84)} fill="none" stroke="rgb(148 163 255 / 0.1)" strokeWidth="0.8" strokeDasharray="1 3" />
