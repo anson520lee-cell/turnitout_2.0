@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * volume bars under it scroll in step, counters run on and a sentence feed
  * streams past. Nothing ever resets or stops: every curve is a continuous
  * function of time, so there is no loop point to see. Everything is made-up
- * sample data (labelled as such) and never a real result.
+ * demo data and never a real result.
  */
 
 type Level = "low" | "medium" | "high";
@@ -189,9 +189,6 @@ function Live({ reduce, clock }: { reduce: boolean; clock: Clock }) {
           <FileText className="size-3.5" />
         </span>
         <span className="text-[12.5px] font-medium">AI-Writing Risk Report</span>
-        <span className="rounded-full border border-violet/30 bg-violet/10 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#c7b8ff]">
-          Sample data
-        </span>
         <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
           <span className="relative flex size-1.5">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/70" />
