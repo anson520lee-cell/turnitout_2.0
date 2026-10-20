@@ -106,3 +106,29 @@ export const verdictLevel: Partial<Record<Risk, DialLevel>> = { high: "elevated"
 export function higherLevel(a: DialLevel, b: DialLevel | undefined): DialLevel {
   return b && DIAL_RANK[b] > DIAL_RANK[a] ? b : a;
 }
+
+/**
+ * One line of a report with its reasons taken out, for the free scan: where the problem is and how risky it
+ * looks, nothing about why. Keeps section headings, an item's location and risk (the grammar line, which only
+ * names a place and a type, as is); drops reasons, questions, summary text and wrapped continuation lines.
+ * Returns null when nothing is left of the line.
+ */
+export function stripReasons(line: string): string | null {
+  const text = line.replace(/\*\*/g, "").replace(/^#+\s*/, "").trim();
+  if (!text) return null;
+  if (SUMMARY.test(text)) return null;
+  if (SECTION.test(text) && !BULLET.test(text)) return text;
+  if (!BULLET.test(text)) return null;
+  const marker = /^(?:[-*•]|\d+[.)])\s+/.exec(text)![0];
+  const body = text.slice(marker.length);
+  const fields = body.split(/\s+\|\s+/).map((f) => f.trim()).filter(Boolean);
+  if (fields.length < 2) {
+    const overall = /^(overall risk\s*[:：]\s*[^,.;(]+)/i.exec(body);
+    return `${marker}${overall ? overall[1].trim() : body}`;
+  }
+  const kept = fields.filter((field, i) => {
+    const label = /^([A-Za-z][A-Za-z ]{0,20})\s*:\s*/.exec(field)?.[1].toLowerCase().trim();
+    return label === "risk" || (i === 0 && !label);
+  });
+  return kept.length ? `${marker}${kept.join(" | ")}` : null;
+}

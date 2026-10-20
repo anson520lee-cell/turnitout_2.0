@@ -5,13 +5,16 @@ import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { DRAFT_GUARD, SCAN_RECHECK_ADDENDUM } from "@/lib/local-model/prompts";
 import { recheckInput } from "@/lib/recheck";
+import { stripReasons } from "@/lib/report-format";
 import { scanInput } from "@/lib/validation/schemas";
 
 /**
  * Written feedback under a free scan. The scan action hands the browser a
  * signed ticket for that exact text; this route redeems it and asks DeepSeek.
  * The text is not stored or logged (the usage log keeps token counts only), and
- * the provider's errors never reach the browser.
+ * the provider's errors never reach the browser. The free scan only says where
+ * the problems are: the reasons are taken out here, line by line, before anything
+ * is sent.
  */
 
 export const maxDuration = 120;
@@ -55,10 +58,23 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (obj: Record<string, unknown>) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      let pending = "";
+      const sendLine = (line: string) => {
+        const kept = stripReasons(line);
+        if (kept) send({ t: "d", v: `${kept}\n` });
+      };
       try {
         for await (const event of deepseekStream(input)) {
-          if (event.type === "delta") send({ t: "d", v: event.text });
-          else {
+          if (event.type === "delta") {
+            pending += event.text;
+            let nl: number;
+            while ((nl = pending.indexOf("\n")) >= 0) {
+              sendLine(pending.slice(0, nl));
+              pending = pending.slice(nl + 1);
+            }
+          } else {
+            sendLine(pending);
+            pending = "";
             await logModelCall(recheck ? "scan_recheck" : "scan_report", { ok: true, result: event.result });
             send({ t: "done", cut: event.result.truncated });
           }

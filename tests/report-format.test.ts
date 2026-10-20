@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { overallRisk, parseReport, parseRisk } from "../lib/report-format";
+import { overallRisk, parseReport, parseRisk, stripReasons } from "../lib/report-format";
 
 const sample = `A. Sentence flags
 - P1 S1 "Urban streets deserve greater attention..." | Risk: High | Signals 1, 4: stock collocation | Ask: Who is this really about?
@@ -84,4 +84,23 @@ test("history and dial agree: the higher of the statistics and the review wins",
   assert.equal(higherLevel("low", verdictLevel.uncertain), "low");
   const report = "Overall risk: High, because the rhythm is uniform.";
   assert.equal(higherLevel("low", verdictLevel[overallRisk(parseReport(report)) ?? "uncertain"]), "elevated");
+});
+
+test("the free scan keeps where and how risky, never why", () => {
+  const kept = sample.split("\n").map(stripReasons).filter(Boolean).join("\n");
+  assert.equal(
+    kept,
+    [
+      "A. Sentence flags",
+      '- P1 S1 "Urban streets deserve greater attention..." | Risk: High',
+      '- P1 S3 "Some projects make money while..." | Risk: Uncertain',
+      "B. Paragraph overview",
+      "- P1: 5 high/medium sentences, in a row (S1-S5) | Risk: High",
+      "C. Overall",
+      "- Overall risk: High",
+      "D. Grammar (location and type only)",
+      '- P2 S3: subject-verb agreement ("Residents has").',
+    ].join("\n"),
+  );
+  assert.equal(overallRisk(parseReport(kept)), "high");
 });
