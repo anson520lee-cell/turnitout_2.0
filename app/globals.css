@@ -757,6 +757,13 @@ html[data-interactive] [data-depth] {
   50% { transform: translateY(-10px); }
 }
 
+/* The light bar sweeping along the report preview's text map. */
+.report-sweep { animation: report-sweep 4.6s ease-in-out infinite; }
+@keyframes report-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(715%); }
+}
+
 /* Aurora blobs behind the hero, drifting slowly (compositor-only). */
 .aurora {
   position: absolute;
@@ -879,7 +886,7 @@ html[data-interactive] [data-depth] {
 .reveal-3d { transform-origin: 50% 100%; }
 
 @media (prefers-reduced-motion: reduce) {
-  .orbit-ring, .hero-floor-grid, .aurora, .doc-bob, .engine-spin, .engine-spin-rev, .engine-pulse { animation: none; }
+  .orbit-ring, .hero-floor-grid, .aurora, .doc-bob, .report-sweep, .engine-spin, .engine-spin-rev, .engine-pulse { animation: none; }
 }
 
 /* ------------------------------------------------------------------
