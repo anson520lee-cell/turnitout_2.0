@@ -8,6 +8,7 @@ import { OrderRow } from "@/components/orders/order-row";
 import { HudCorners, HudLabel, SegmentBar } from "@/components/ui/hud";
 import { NeuralMark } from "@/components/ui/neural-mark";
 import { DashboardEngine } from "./dashboard-engine";
+import { DailyReportCard, type DailyReportStatus } from "@/components/orders/daily-report-card";
 import type { Order, ScanResultRow } from "@/types/domain";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
 import { freeScan } from "@/config/app";
@@ -22,6 +23,7 @@ export function DashboardView({
   email,
   displayName,
   remaining,
+  dailyReport,
   orders,
   scans,
   pendingClaims,
@@ -29,6 +31,8 @@ export function DashboardView({
   email: string;
   displayName: string | null;
   remaining: number;
+  /** The daily free report allowance; the card is left out when not given. */
+  dailyReport?: DailyReportStatus;
   orders: Order[];
   scans: ScanResultRow[];
   pendingClaims: Set<string>;
@@ -73,6 +77,8 @@ export function DashboardView({
           <Link href="/settings" className="mt-3 inline-block text-[12.5px] text-accent hover:underline">Settings</Link>
         </Card>
       </div>
+
+      {dailyReport && <DailyReportCard status={dailyReport} className="mt-5" />}
 
       <Card strong className="noise mt-5 overflow-hidden p-5 sm:p-6">
         <HudCorners />

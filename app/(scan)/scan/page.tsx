@@ -11,6 +11,8 @@ import { buttonClasses } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { getSessionUser } from "@/lib/auth/session";
 import { deepseekEnabled } from "@/lib/deepseek";
+import { DailyReportCard } from "@/components/orders/daily-report-card";
+import { getFreeReportStatus } from "@/lib/free-report";
 import { guestRemainingScans } from "@/lib/scanning/guest";
 import { getRemainingScans } from "@/lib/scanning/usage";
 import { createClient } from "@/lib/supabase/server";
@@ -83,6 +85,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
           <FormMessage tone="info">That saved scan wasn&rsquo;t found in your history. You can run a new one below.</FormMessage>
         </div>
       )}
+      <DailyReportCard status={await getFreeReportStatus()} paidHref="/services/screening" className="mb-6" />
       <ScanWorkspace access={access} modelFeedback={deepseekEnabled()} />
     </>
   );

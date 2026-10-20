@@ -9,6 +9,7 @@ import { reportService, serviceLabels } from "@/config/services";
 import { acceptsClaims, manualPayments } from "@/config/payments";
 import { uploads } from "@/config/app";
 import {
+  freeReportOrderInput,
   paymentClaimInput,
   refinementOrderInput,
   screeningOrderInput,
@@ -19,6 +20,7 @@ import { docxWordCount, extensionOk, safeFileName, sniff } from "@/lib/storage/f
 import { autoTitle } from "@/lib/orders/limits";
 import { countWords, appUrl, shortId } from "@/lib/utils";
 import { audit } from "@/lib/audit";
+import { consumeFreeReport, refundFreeReport } from "@/lib/free-report";
 import { notifyOwner } from "@/lib/notify";
 import { devPaymentsEnabled, isStripeConfigured, isSupabaseConfigured } from "@/lib/env";
 import { stripe } from "@/lib/payments/stripe";
@@ -133,6 +135,72 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     amount: formatCredits(price),
     email: user.email,
   });
+  revalidatePath("/orders");
+  return { ok: true, orderId: order.id };
+}
+
+/**
+ * The daily free report: the same automatic report as a paid one, for texts up
+ * to freeReport.maxChars, once a day per account (and a few per network
+ * address). The order is created at price 0 and marked paid at once with the
+ * "free_daily" provider, so the order page starts the live scan right away.
+ * An admin account has no daily limit.
+ */
+export async function createFreeReportOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: signInMessage() };
+  const parsed = freeReportOrderInput.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
+
+  const text = parsed.data.text;
+  const words = countWords(text);
+  const chars = billableChars(text);
+  const db = createAdminClient();
+  const { data: order, error } = await db
+    .from("orders")
+    .insert({
+      user_id: user.id,
+      service_type: reportService,
+      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Daily free report", chars, "characters"),
+      price: 0,
+      currency,
+      word_count: words,
+      source_text: text,
+      integrity_confirmed: true,
+    })
+    .select("id")
+    .single();
+  if (error || !order) return { ok: false, message: "We couldn't create your free report. Please try again." };
+
+  if (!isAdminUser(user)) {
+    const taken = await consumeFreeReport(order.id, user.id);
+    if (taken !== "ok") {
+      await db.from("orders").delete().eq("id", order.id);
+      return {
+        ok: false,
+        message:
+          taken === "used"
+            ? "You've used today's free report. It comes back at midnight Hong Kong time, or you can get a full report with credits."
+            : taken === "network"
+              ? "Today's free reports from this network are used up. Try again tomorrow, or get a full report with credits."
+              : "We couldn't check your free report allowance. Please try again.",
+      };
+    }
+  }
+
+  const res = await markOrderPaid({
+    orderId: order.id,
+    provider: "free_daily",
+    providerPaymentId: `free_daily_${order.id}`,
+    amount: 0,
+    currency,
+  });
+  if (!res.ok || !res.newlyPaid) {
+    await refundFreeReport(order.id);
+    await db.from("orders").delete().eq("id", order.id);
+    return { ok: false, message: "We couldn't start your free report. Your allowance was not used; please try again." };
+  }
+  await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: reportService, words, chars, source: "paste", free: true } });
   revalidatePath("/orders");
   return { ok: true, orderId: order.id };
 }

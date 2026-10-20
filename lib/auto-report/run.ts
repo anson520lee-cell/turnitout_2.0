@@ -6,6 +6,7 @@ import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
+import { refundFreeReport } from "@/lib/free-report";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
 import { PIECE_SIZE, stitchReport, type PieceAnswer } from "./stitch";
@@ -55,8 +56,10 @@ async function failReport(orderId: string, reason: string): Promise<void> {
       p_note: `Refund: report ${shortId(orderId)} could not be completed`,
     });
   }
+  // A daily free report that could not be made gives the day's allowance back.
+  const freeBack = await refundFreeReport(orderId);
   await db.from("auto_report_pieces").delete().eq("order_id", orderId);
-  await audit("report_failed", { orderId, detail: { reason, refunded: Boolean(paid) } });
+  await audit("report_failed", { orderId, detail: { reason, refunded: Boolean(paid) || freeBack } });
 }
 
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {

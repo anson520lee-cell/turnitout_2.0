@@ -85,6 +85,7 @@ export function toCredits(cents: number): number {
 /** "15 credits" / "1 credit". */
 export function formatCredits(cents: number): string {
   const c = toCredits(cents);
+  if (c === 0) return "Free";
   return `${c.toLocaleString("en-HK")} ${c === 1 ? "credit" : "credits"}`;
 }
 

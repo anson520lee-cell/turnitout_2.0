@@ -72,7 +72,8 @@ export function trustsProxyHeaders(): boolean {
   return Boolean(process.env.VERCEL) || process.env.TRUST_PROXY_IP_HEADERS === "true";
 }
 
-async function ipHash(): Promise<string> {
+/** The salted hash of the visitor's address bucket (also used for the daily free report). */
+export async function ipHash(): Promise<string> {
   let bucket = "unknown";
   if (trustsProxyHeaders()) {
     const h = await headers();

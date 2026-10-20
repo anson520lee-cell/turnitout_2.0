@@ -1,4 +1,4 @@
-import { brand, freeScan, retention } from "./app";
+import { brand, freeReport, freeScan, retention } from "./app";
 import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel } from "./services";
 
 export interface FaqItem {
@@ -66,5 +66,9 @@ export const faq: FaqItem[] = [
   {
     q: "How many free scans do I get?",
     a: `${freeScan.dailyLimit} per calendar day (Hong Kong time). Signed-in accounts are counted per account. Visitors without an account are counted by a one-way hash of their network address, so the address itself is never stored. The allowance resets automatically at midnight.`,
+  },
+  {
+    q: "What is the daily free report?",
+    a: `Every signed-in account gets ${freeReport.dailyLimit} full report a day for free, on top of the free scans, for texts of up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. It is the same automatic report as a paid one: the live scan, the AI score, every sentence rated with its reason, the paragraph map and a PDF. It resets at midnight Hong Kong time.`,
   },
 ];
