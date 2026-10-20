@@ -214,14 +214,14 @@ export function ModelFeedback({
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-violet/15 blur-3xl" />
       <div className="relative flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2.5 text-[15px] font-semibold">
-          <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-violet/15 text-[#c7b8ff]">
+          <span aria-hidden className="grid size-7 place-items-center rounded-lg bg-violet/15 text-[#b4bccf]">
             <MessageSquareText className="size-3.5" />
           </span>
           {previousText ? "Re-check" : "Self-check report"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {verdict && <Badge tone={verdict.tone} className={riskPrintClass[verdict.tone]}>Review: {verdict.label} risk</Badge>}
-          <Badge tone="progress" className="print:border-[#4b3a9a] print:bg-transparent print:text-[#4b3a9a]">Written by our language model</Badge>
+          <Badge tone="progress" className="print:border-[#3a4258] print:bg-transparent print:text-[#3a4258]">Written by our language model</Badge>
         </div>
       </div>
 
@@ -229,7 +229,7 @@ export function ModelFeedback({
         <>
           <ReportView blocks={blocks} />
           {state.status === "done" && state.cut && (
-            <p className="relative mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] px-3.5 py-2.5 text-[12.5px] text-[#f7d9a0]">
+            <p className="relative mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] px-3.5 py-2.5 text-[12.5px] text-[#cfe0ff]">
               This report was cut short because it ran long. Scan again to get the full review.
             </p>
           )}

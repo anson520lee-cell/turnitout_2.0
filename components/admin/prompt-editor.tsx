@@ -101,7 +101,7 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
 
       <section className="rounded-2xl border border-[var(--line)] bg-white/[0.02] p-4 sm:p-5">
         <h3 className="flex items-center gap-2 text-[14px] font-semibold">
-          <FlaskConical className="size-4 text-[#c7b8ff]" aria-hidden /> Test the prompt in the editor
+          <FlaskConical className="size-4 text-[#b4bccf]" aria-hidden /> Test the prompt in the editor
         </h3>
         <p className="mt-1 text-[12.5px] text-fg-muted">
           Runs the text above (saved or not) on this sample with the model chosen above, exactly as a scan would. Nothing is saved. Costs a few cents at most.
@@ -160,7 +160,7 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
 
       <section>
         <h3 className="flex items-center gap-2 text-[14px] font-semibold">
-          <History className="size-4 text-[#c7b8ff]" aria-hidden /> Saved versions
+          <History className="size-4 text-[#b4bccf]" aria-hidden /> Saved versions
         </h3>
         {versions.length === 0 ? (
           <p className="mt-2 text-[12.5px] text-fg-subtle">Every time you press Save prompt, a copy is kept here so you can go back to it.</p>

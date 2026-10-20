@@ -12,7 +12,7 @@ export function HeroVisual() {
         {/* radial lighting behind the stage */}
         <div
           data-depth="-2"
-          className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(110_130_255/0.17)_22%,rgb(130_125_255/0.09)_42%,rgb(154_123_255/0.04)_62%,rgb(154_123_255/0.012)_80%,transparent)]"
+          className="absolute inset-[-24%] bg-[radial-gradient(closest-side,rgb(91_140_255/0.26),rgb(100_135_255/0.17)_22%,rgb(110_140_255/0.09)_42%,rgb(141_150_172/0.04)_62%,rgb(141_150_172/0.012)_80%,transparent)]"
         />
         <div
           data-depth="-1"

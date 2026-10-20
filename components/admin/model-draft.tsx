@@ -56,7 +56,7 @@ export function ModelDraftStatus({
     <Card className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-[14px] font-semibold">
-          <Cpu className="size-4 text-[#c7b8ff]" aria-hidden /> Model draft
+          <Cpu className="size-4 text-[#b4bccf]" aria-hidden /> Model draft
         </h2>
         {!draft ? (
           <Badge>None yet</Badge>

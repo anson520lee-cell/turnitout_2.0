@@ -179,7 +179,7 @@ export function ReportScan({
       aria-label="Your report is being made"
       className="scan-overlay fixed inset-0 z-[100] flex flex-col overflow-y-auto bg-ink-950 lg:overflow-hidden"
     >
-      <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_50%_at_70%_-10%,rgb(91_140_255/0.18),transparent_70%),radial-gradient(40%_40%_at_0%_100%,rgb(154_123_255/0.12),transparent_70%)]" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_50%_at_70%_-10%,rgb(91_140_255/0.18),transparent_70%),radial-gradient(40%_40%_at_0%_100%,rgb(141_150_172/0.12),transparent_70%)]" />
       <div aria-hidden className="scan-scanlines pointer-events-none fixed inset-0" />
 
       <header className="relative flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-4 py-2.5 sm:px-6">

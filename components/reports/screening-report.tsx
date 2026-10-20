@@ -72,7 +72,7 @@ export function ScreeningReport({
         animate={{ opacity: 1, y: 0 }}
         className="glass-strong noise relative overflow-hidden rounded-3xl p-6 sm:p-8"
       >
-        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(79_209_165/0.12),transparent_70%)]" />
+        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(91_140_255/0.12),transparent_70%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok">

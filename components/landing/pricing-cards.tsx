@@ -7,9 +7,9 @@ import { PaymentMethodStrip } from "@/components/orders/payment-methods";
 import { cn } from "@/lib/utils";
 
 const kindMeta: Record<ServiceKind, { label: string; icon: typeof Gauge; text: string; glow: string }> = {
-  free: { label: "Free · Preliminary", icon: Gauge, text: "text-cyan", glow: "rgb(95 216 245 / 0.45)" },
+  free: { label: "Free · Preliminary", icon: Gauge, text: "text-cyan", glow: "rgb(141 179 255 / 0.45)" },
   screening: { label: "Report", icon: FileCheck2, text: "text-accent", glow: "rgb(91 140 255 / 0.55)" },
-  refinement: { label: "Writing Refinement", icon: PenLine, text: "text-violet", glow: "rgb(154 123 255 / 0.5)" },
+  refinement: { label: "Writing Refinement", icon: PenLine, text: "text-violet", glow: "rgb(141 150 172 / 0.5)" },
 };
 
 /** A 1.5px light that runs around the highlighted card's edge. */
@@ -25,7 +25,7 @@ function RunningEdge() {
         mask: "linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)",
       }}
     >
-      <div className="absolute left-1/2 top-1/2 aspect-square w-[160%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(from_0deg,transparent_0deg,transparent_230deg,#5fd8f5_280deg,#5b8cff_310deg,#9a7bff_335deg,transparent_360deg)] motion-safe:animate-[spin_6s_linear_infinite]" />
+      <div className="absolute left-1/2 top-1/2 aspect-square w-[160%] -translate-x-1/2 -translate-y-1/2 bg-[conic-gradient(from_0deg,transparent_0deg,transparent_230deg,#8db3ff_280deg,#5b8cff_310deg,#8d96ac_335deg,transparent_360deg)] motion-safe:animate-[spin_6s_linear_infinite]" />
     </div>
   );
 }

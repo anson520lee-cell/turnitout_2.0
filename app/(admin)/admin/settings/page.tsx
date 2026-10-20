@@ -122,7 +122,7 @@ export default async function AdminSettings() {
               carry order numbers, amounts, methods and the account email, never document text or titles.
             </p>
             {!channels.telegram && !channels.email && (
-              <p className="mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] p-3 text-[12.5px] text-[#f7d9a0]">
+              <p className="mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] p-3 text-[12.5px] text-[#cfe0ff]">
                 No channel is configured, so you won&rsquo;t be told about new orders or payments. Set up Telegram or email.
               </p>
             )}

@@ -85,7 +85,7 @@ export function FormMessage({ tone = "error", children }: { tone?: "error" | "su
       role={tone === "error" ? "alert" : "status"}
       className={cn(
         "rounded-xl border px-3.5 py-2.5 text-[13px] leading-relaxed",
-        tone === "error" && "border-risk/25 bg-risk/[0.07] text-[#ffb3bd]",
+        tone === "error" && "border-risk/25 bg-risk/[0.07] text-[#c7d8ff]",
         tone === "success" && "border-ok/25 bg-ok/[0.07] text-ok",
         tone === "info" && "border-accent/25 bg-accent/[0.07] text-[#b9ccff]",
       )}

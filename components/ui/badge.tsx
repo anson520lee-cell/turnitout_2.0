@@ -6,7 +6,7 @@ export type Tone = "neutral" | "info" | "progress" | "success" | "danger" | "war
 const tones: Record<Tone, string> = {
   neutral: "border-white/10 bg-white/[0.04] text-fg-muted",
   info: "border-accent/25 bg-accent/10 text-[#a9c1ff]",
-  progress: "border-violet/30 bg-violet/10 text-[#c7b8ff]",
+  progress: "border-violet/30 bg-violet/10 text-[#b4bccf]",
   success: "border-ok/25 bg-ok/10 text-ok",
   danger: "border-risk/25 bg-risk/10 text-risk",
   warn: "border-warn/25 bg-warn/10 text-warn",

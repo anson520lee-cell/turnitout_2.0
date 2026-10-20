@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  */
 
 const STATE: Record<RiskLevel, string> = { elevated: "high", moderate: "medium", low: "low" };
-const RANGE_COLOR: Record<RiskLevel, string> = { low: "#4fd1a5", moderate: "#f5c35b", elevated: "#ff7a8a" };
+const RANGE_COLOR: Record<RiskLevel, string> = { low: "#8d96ac", moderate: "#8db3ff", elevated: "#4d83ff" };
 const clock = (ms: number) => `${String(Math.floor(ms / 60_000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 
 /** The live score over the last few seconds: a small line that rises and falls as sentences are read. */
@@ -224,7 +224,7 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
                           ? x.words.map((w, j) => (
                               <span key={j}>
                                 {j ? " " : null}
-                                <span data-aw={j === activeWord ? "" : undefined} className={cn(j === activeWord && "rounded-[4px] bg-cyan/15 shadow-[0_0_0_1px_rgb(95_216_245/0.85),0_0_14px_rgb(95_216_245/0.35)]")}>{w}</span>
+                                <span data-aw={j === activeWord ? "" : undefined} className={cn(j === activeWord && "rounded-[4px] bg-cyan/15 shadow-[0_0_0_1px_rgb(141_179_255/0.85),0_0_14px_rgb(141_179_255/0.35)]")}>{w}</span>
                               </span>
                             ))
                           : x.text}

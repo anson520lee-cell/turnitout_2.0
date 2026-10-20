@@ -8,9 +8,9 @@ export type RiskTone = "danger" | "warn" | "success" | "neutral";
 
 /** Darker text for the printed PDF: the screen colours are light and would vanish on white paper. */
 export const riskPrintClass: Record<RiskTone, string> = {
-  danger: "print:border-[#b3263a] print:bg-transparent print:text-[#b3263a]",
-  warn: "print:border-[#8a5a00] print:bg-transparent print:text-[#8a5a00]",
-  success: "print:border-[#0d7a5a] print:bg-transparent print:text-[#0d7a5a]",
+  danger: "print:border-[#1f4fc9] print:bg-transparent print:text-[#1f4fc9]",
+  warn: "print:border-[#3b6fd6] print:bg-transparent print:text-[#3b6fd6]",
+  success: "print:border-[#4a5266] print:bg-transparent print:text-[#4a5266]",
   neutral: "print:border-[#5d6478] print:bg-transparent print:text-[#3b4256]",
 };
 
@@ -37,7 +37,7 @@ export function ReportView({ blocks }: { blocks: ReportBlock[] }) {
         if (b.kind === "section") {
           return (
             <motion.div key={i} variants={fade} className={cn(i > 0 && "pt-3")}>
-              <h3 className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#c7b8ff] print:text-[#4b3a9a]">{b.title}</h3>
+              <h3 className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">{b.title}</h3>
               {b.text && <p className="mt-2 text-[13.5px] leading-relaxed text-fg">{b.text}</p>}
             </motion.div>
           );
@@ -50,7 +50,7 @@ export function ReportView({ blocks }: { blocks: ReportBlock[] }) {
             className="relative flex gap-3 overflow-hidden rounded-xl border border-[var(--line)] bg-ink-900/40 p-3.5 text-[13.5px] leading-relaxed text-fg-muted"
           >
             {risk && <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", risk.rail)} />}
-            <span aria-hidden className="mt-0.5 font-mono text-[11px] text-[#c7b8ff] print:text-[#4b3a9a]">{String(numbers[i]).padStart(2, "0")}</span>
+            <span aria-hidden className="mt-0.5 font-mono text-[11px] text-[#b4bccf] print:text-[#3a4258]">{String(numbers[i]).padStart(2, "0")}</span>
             <div className="min-w-0 flex-1 space-y-1.5 break-words">
               {(b.location || risk) && (
                 <div className="flex flex-wrap items-center gap-2">

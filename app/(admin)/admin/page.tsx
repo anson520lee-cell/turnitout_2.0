@@ -62,7 +62,7 @@ export default async function AdminHome() {
       <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
         {stats.map(([k, v, alert]) => (
-          <div key={k} className={alert ? "glass rounded-2xl border-warn/40 p-4 shadow-[0_0_0_1px_rgb(245_195_91/0.2)]" : "glass rounded-2xl p-4"}>
+          <div key={k} className={alert ? "glass rounded-2xl border-warn/40 p-4 shadow-[0_0_0_1px_rgb(141_179_255/0.2)]" : "glass rounded-2xl p-4"}>
             <p className={alert ? "text-[12px] text-warn" : "text-[12px] text-fg-muted"}>{k}</p>
             <p className="mt-1.5 text-2xl font-semibold tracking-tight">{v}</p>
           </div>

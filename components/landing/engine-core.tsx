@@ -238,7 +238,7 @@ export function EngineCore({
           <div className="absolute inset-[16%] rounded-full border border-dashed border-[rgb(143_176_255/0.22)]" />
           <div className="absolute inset-[34%] rounded-full border border-[rgb(141_179_255/0.25)]" />
           {/* radar sweep */}
-          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgb(141_179_255/0.0)_300deg,rgb(141_179_255/0.13)_356deg,rgb(200_245_255/0.4)_360deg)] [--spin:7s] [mask-image:radial-gradient(closest-side,#000_97%,transparent)]" />
+          <div className="engine-spin absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgb(141_179_255/0.0)_300deg,rgb(141_179_255/0.13)_356deg,rgb(200_220_255/0.4)_360deg)] [--spin:7s] [mask-image:radial-gradient(closest-side,#000_97%,transparent)]" />
           {/* ticks around the rim */}
           <div className="absolute inset-[-3%] rounded-full bg-[repeating-conic-gradient(from_0deg,rgb(170_195_255/0.4)_0deg_0.6deg,transparent_0.6deg_6deg)] [mask-image:radial-gradient(closest-side,transparent_93%,#000_94%,#000_99%,transparent)]" />
           {/* the arc of the ring nearest the cursor catches the light */}
@@ -281,7 +281,7 @@ export function EngineCore({
 
       {/* a column of light from the lens down to the ring's centre */}
       <div className="absolute left-1/2 top-[40%] z-[6] h-[18%] w-[16%] -translate-x-1/2 bg-[linear-gradient(to_bottom,rgb(141_179_255/0.28),rgb(91_140_255/0.1)_60%,transparent)] [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
-      <div className="absolute left-1/2 top-[58%] z-[6] h-[3%] w-[22%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(150_220_255/0.6),rgb(91_140_255/0.18)_60%,transparent)]" />
+      <div className="absolute left-1/2 top-[58%] z-[6] h-[3%] w-[22%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(150_190_255/0.6),rgb(91_140_255/0.18)_60%,transparent)]" />
 
       {/* the lens, with two gyroscope rings passing through it in 3D */}
       <div

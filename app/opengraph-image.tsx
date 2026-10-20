@@ -17,14 +17,14 @@ export default function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "72px 80px",
-          background: "radial-gradient(circle at 78% 30%, rgba(91,140,255,0.35), rgba(154,123,255,0.12) 38%, #04060b 70%)",
+          background: "radial-gradient(circle at 78% 30%, rgba(91,140,255,0.35), rgba(141,150,172,0.12) 38%, #04060b 70%)",
           backgroundColor: "#04060b",
           color: "#eef2ff",
           fontFamily: "sans-serif",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 30, color: "#a9c1ff", letterSpacing: 4, textTransform: "uppercase" }}>
-          <div style={{ width: 14, height: 14, borderRadius: 7, background: "#5fd8f5", boxShadow: "0 0 18px #5fd8f5" }} />
+          <div style={{ width: 14, height: 14, borderRadius: 7, background: "#8db3ff", boxShadow: "0 0 18px #8db3ff" }} />
           Writing checks before you submit
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>

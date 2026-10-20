@@ -248,7 +248,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
                 {!limitReached && (
                   <span
                     aria-hidden
-                    className="absolute -inset-1.5 rounded-2xl bg-[linear-gradient(90deg,#5b8cff,#9a7bff,#5fd8f5,#5b8cff)] bg-[length:200%_100%] opacity-50 blur-lg animate-shimmer"
+                    className="absolute -inset-1.5 rounded-2xl bg-[linear-gradient(90deg,#5b8cff,#8d96ac,#8db3ff,#5b8cff)] bg-[length:200%_100%] opacity-50 blur-lg animate-shimmer"
                   />
                 )}
                 <Button size="lg" onClick={() => openDialog("button")} disabled={limitReached} aria-haspopup="dialog">
