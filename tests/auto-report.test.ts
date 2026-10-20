@@ -39,12 +39,12 @@ test("a paragraph is never rated safer than its sentences", () => {
 });
 
 test("overall bands", () => {
-  // Bands follow the AI score: under 30 Low, 30 to 69 Moderate, 70 and over Elevated.
+  // Bands follow the AI score: under 30 Low, 30 to 59 Moderate, 60 and over Elevated.
   assert.equal(overallFor(0.1), "low");
   assert.equal(overallFor(0.42), "low");
   assert.equal(overallFor(0.44), "moderate");
-  assert.equal(overallFor(0.56), "moderate");
-  assert.equal(overallFor(0.58), "elevated");
+  assert.equal(overallFor(0.53), "moderate");
+  assert.equal(overallFor(0.54), "elevated");
   assert.equal(overallFor(0.8), "elevated");
 });
 
