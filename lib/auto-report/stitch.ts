@@ -95,11 +95,11 @@ export function aiScore(flaggedShare: number): number {
 
 /**
  * Overall bands on the AI score scale, so the colour always matches the number shown: under 30 Low (green), 30 to
- * 69 Moderate (yellow), 70 and over Elevated (red) (Jordan, 2026-10-20). In flagged-sentence terms that is about
- * 43% and 57%. On the backtest samples 19 of 21 AI texts are Elevated (was 20 with the old 35% / 50% lines) and
- * 10 of 20 human texts are Low (was 7). Guidance only; never a percentage chance.
+ * 59 Moderate (yellow), 60 and over Elevated (red) (Jordan, 2026-10-20). In flagged-sentence terms that is about
+ * 43% and 53%. On the backtest samples 20 of 21 AI texts are Elevated (as with the old 35% / 50% lines) and 10 of
+ * 20 human texts are Low (was 7). Guidance only; never a percentage chance.
  */
-export const SCORE_BANDS = { moderate: 0.3, elevated: 0.7 } as const;
+export const SCORE_BANDS = { moderate: 0.3, elevated: 0.6 } as const;
 
 export function overallFor(flaggedShare: number): Overall {
   const score = aiScore(flaggedShare);
