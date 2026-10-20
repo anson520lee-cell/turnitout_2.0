@@ -82,3 +82,12 @@ test("base size 3,500: a text slightly over it is still one piece, whatever the 
     assert.equal(chunkText(text, 3500).length, 1, layout.join("+"));
   }
 });
+
+test("queued backtest runs stay under their own cap and the daily cap", async () => {
+  const { pieceBudget } = await import("../lib/chunk-queue");
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 0 }), 150);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 140, usedLast24h: 0 }), 10);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 380 }), 20);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 150, usedLast24h: 0 }), 0);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 500 }), 0);
+});
