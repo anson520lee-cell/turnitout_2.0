@@ -27,12 +27,15 @@ export function DepthStage({
   className,
   tilt = 14,
   glare = true,
+  overlay,
 }: {
   children: ReactNode;
   className?: string;
   /** Degrees at the edge. */
   tilt?: number;
   glare?: boolean;
+  /** Drawn flat over the rig, so it never turns with it. Use for text: rotated text is resampled and goes soft. */
+  overlay?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = usePrefersReducedMotion();
@@ -89,6 +92,7 @@ export function DepthStage({
             )}
           </motion.div>
         </div>
+        {overlay}
       </div>
     </PointerContext.Provider>
   );

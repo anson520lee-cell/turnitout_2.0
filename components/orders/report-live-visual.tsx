@@ -257,22 +257,40 @@ export function ReportLiveVisual({ className }: { className?: string }) {
   let high = sent;
   while (levelOf(high) !== "high") high--;
   return (
-    <DepthStage className={cn("relative w-full", className)} tilt={9}>
-      <DepthLayer depth={0} className="inset-x-0 top-0 sm:inset-x-[2%]">
-        <Live reduce={reduce} clock={clock} />
-      </DepthLayer>
-      <DepthLayer depth={60} drift={8} className="-bottom-1 left-6 hidden sm:block">
-        <div className="glass-strong flex items-center gap-2 rounded-full px-3 py-1.5 text-[11.5px] font-medium">
-          <Download className="size-3.5 text-accent" /> PDF download
+    <DepthStage
+      className={cn("relative w-full", className)}
+      tilt={9}
+      // The report itself is flat: turning text with the rig makes it soft, so only the glass plates behind it lean.
+      overlay={
+        <div className="absolute inset-0 z-10">
+          <div className="sm:mx-[2%]">
+            <Live reduce={reduce} clock={clock} />
+          </div>
+          <div className="absolute -bottom-1 left-[calc(2%+24px)] hidden sm:block">
+            <div className="glass-strong flex items-center gap-2 rounded-full px-3 py-1.5 text-[11.5px] font-medium">
+              <Download className="size-3.5 text-accent" /> PDF download
+            </div>
+          </div>
+          <div className="absolute -bottom-2 right-1 hidden sm:block">
+            <div className="glass-strong rounded-xl p-3 shadow-[0_18px_40px_-14px_rgb(0_0_0/0.8),0_0_30px_-8px_rgb(255_122_138/0.35)]">
+              <p className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-risk">
+                <span className="size-1.5 rounded-full bg-risk shadow-[0_0_8px_2px_rgb(255_122_138/0.6)]" /> Latest high-risk sentence
+              </p>
+              <p className="mt-1.5 font-mono text-[20px] font-semibold leading-none tabular-nums">#{high}</p>
+              <p className="mt-1 text-[11px] text-fg-muted">Paragraph {Math.floor(high / 12)} · marked to look at again</p>
+            </div>
+          </div>
         </div>
+      }
+    >
+      <DepthLayer depth={-70} className="inset-x-[-1%] bottom-[-2%] top-[4%] hidden rotate-[-3deg] sm:block">
+        <div className="glass size-full rounded-3xl opacity-60" />
       </DepthLayer>
-      <DepthLayer depth={75} drift={10} className="-bottom-2 right-1 hidden sm:block">
-        <div className="glass-strong rounded-xl p-3 shadow-[0_18px_40px_-14px_rgb(0_0_0/0.8),0_0_30px_-8px_rgb(255_122_138/0.35)]">
-          <p className="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-risk">
-            <span className="size-1.5 rounded-full bg-risk shadow-[0_0_8px_2px_rgb(255_122_138/0.6)]" /> Latest high-risk sentence
-          </p>
-          <p className="mt-1.5 font-mono text-[20px] font-semibold leading-none tabular-nums">#{high}</p>
-          <p className="mt-1 text-[11px] text-fg-muted">Paragraph {Math.floor(high / 12)} · marked to look at again</p>
+      <DepthLayer depth={-30} className="inset-x-[0.5%] inset-y-[-1%]">
+        <div className="glass-strong noise relative size-full overflow-hidden rounded-3xl">
+          <div aria-hidden className="absolute -right-16 -top-20 size-64 rounded-full bg-accent/25 blur-3xl" />
+          <div aria-hidden className="absolute -bottom-24 -left-10 size-64 rounded-full bg-violet/20 blur-3xl" />
+          <div aria-hidden className="absolute inset-0 bg-grid opacity-50 [mask-image:radial-gradient(70%_70%_at_50%_40%,black,transparent)]" />
         </div>
       </DepthLayer>
     </DepthStage>
