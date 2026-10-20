@@ -234,14 +234,15 @@ function makeSprite(cl: Cloud): HTMLCanvasElement {
 
 /**
  * Scroll position -> assembly progress, from the heading's own position: 0
- * while it is still a fifth of a window below the screen, 1 once it has risen
- * to just below the middle (its centre 60% down the window, 40% up from the
- * bottom).
+ * while its centre is in the bottom fifth of the window or below it (so a
+ * heading peeking in at the foot of the first screen shows no stray particles
+ * on arrival; the particles only start once the visitor scrolls to it), 1
+ * once it has risen to 40% down the window.
  */
 function scrollProgress(el: HTMLElement) {
   const r = el.getBoundingClientRect();
   const y = r.top + r.height / 2;
-  return clamp((innerHeight * 1.2 - y) / (innerHeight * 0.6), 0, 1);
+  return clamp((innerHeight * 0.8 - y) / (innerHeight * 0.4), 0, 1);
 }
 
 function frame(now: number) {
