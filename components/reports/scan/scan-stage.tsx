@@ -1,26 +1,30 @@
 "use client";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  isFlagged,
-  levelLabel,
+  normWord,
   paragraphLine,
+  phraseLine,
   quote,
+  repeatedWords,
   reviewerLines,
+  rhythmLine,
   sentenceFacts,
-  sharedWords,
+  transitionOpener,
+  xrayLine,
   type LogLine,
   type ScanPlan,
 } from "@/lib/auto-report/scan-script";
 import type { AutoReportResult, Level, ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RatePanel, TERMS, Terminal, type TermId, type TermLine } from "./scan-panels";
+import type { RateMeter } from "./rate-meter";
 import type { ReportFeed } from "./use-report-feed";
 
 /**
- * The live scan: the customer's own text is the main picture, with scan agents
- * jumping across its words, a set of terminal windows logging what is read and
- * found, and the AI rate on the far right. Sentences are rated only from the
+ * The live scan: the customer's own text is the main picture, with four scan
+ * agents working through it in order, each with its own job, a set of terminal
+ * windows logging what is read and found, and the AI rate on the far right. Sentences are rated only from the
  * finished report: the scan shows each sentence's real rating as it passes it.
  */
 
@@ -44,7 +48,8 @@ export function ScanStage({
   frontier,
   within,
   revealed,
-  rate,
+  meter,
+  estimate,
   elapsedMs,
   reduce,
   done,
@@ -59,7 +64,9 @@ export function ScanStage({
   within: number;
   /** Sentences whose rating is shown, from the start. */
   revealed: number;
-  rate: number;
+  meter: RateMeter;
+  /** The real live estimate, or null before the first rating is shown. */
+  estimate: number | null;
   elapsedMs: number;
   reduce: boolean;
   done: boolean;
@@ -92,10 +99,11 @@ export function ScanStage({
     );
     push("agents", [
       { tone: "info", text: `scan started · ${total} sentences · ${plan.paragraphs.length} paragraphs` },
-      { tone: "dim", text: "4 agents deployed: A1 reads, A2 and A3 cross-check, A4 re-checks flagged lines" },
+      { tone: "dim", text: "4 agents deployed: A1 READ word by word · A2 X-RAY one line ahead · A3 PHRASE repeated wording · A4 RHYTHM sentence lengths" },
+      ...(plan.sentences[1] ? [xrayLine(plan.sentences[1], plan.sentences[0])] : []),
     ]);
     return () => timers.forEach(clearTimeout);
-  }, [push, total, plan.paragraphs.length]);
+  }, [push, total, plan]);
 
   const toggle = (id: TermId) => {
     touched.current.add(id);
@@ -103,7 +111,10 @@ export function ScanStage({
     setTab(id);
   };
 
-  // Reader: one line per finished sentence, with what was counted in it.
+  // Reader: one line per finished sentence, with what was counted in it. The
+  // other agents report in step: X-ray on the sentence ahead, the phrase pen on
+  // the one it just finished behind, rhythm on each finished paragraph.
+  const repeats = useMemo(() => repeatedWords(plan), [plan]);
   const prevFrontier = useRef(0);
   useEffect(() => {
     const from = prevFrontier.current;
@@ -111,17 +122,24 @@ export function ScanStage({
     if (frontier <= from) return;
     const start = Math.max(from, frontier - 6);
     const lines: LogLine[] = [];
+    const side: LogLine[] = [];
     for (let i = start; i < frontier && i < total; i++) {
       const x = plan.sentences[i];
       lines.push({ tone: "ok", text: `✓ P${x.p} S${x.s} · ${sentenceFacts(x)}` });
+      const ahead = plan.sentences[i + 2];
+      if (ahead) side.push(xrayLine(ahead, plan.sentences[i + 1]));
+      if (i >= 2) side.push(phraseLine(plan.sentences[i - 2], repeats));
       const para = plan.paragraphs.find((p) => p.last === i);
       if (para) {
         const lengths = plan.sentences.slice(para.first, para.last + 1).map((s) => s.words.length);
-        lines.push({ tone: "info", text: `¶${para.p} read · rhythm ${lengths.join("·")} words` });
+        lines.push({ tone: "info", text: `¶${para.p} read · ${lengths.length} sentences · ${lengths.reduce((a, b) => a + b, 0)} words` });
+        side.push(rhythmLine(para.p, lengths));
       }
     }
+    if (frontier >= total) for (let i = Math.max(0, total - 2); i < total; i++) side.push(phraseLine(plan.sentences[i], repeats));
     push("reader", lines);
-  }, [frontier, plan, total, push]);
+    push("agents", side);
+  }, [frontier, plan, total, repeats, push]);
 
   // Reviewer: each sentence's real rating and reasons as the scan shows them; paragraph tallies; grammar spots.
   const prevRevealed = useRef(0);
@@ -146,7 +164,7 @@ export function ScanStage({
         out.push(...reviewerLines(x, rated));
       }
       const issue = grammarAt.get(x.n);
-      if (issue) side.push({ tone: "violet", text: `grammar · P${x.p} S${x.s} · ${issue}` });
+      if (issue) side.push({ tone: "violet", text: `A3 PHRASE P${x.p} S${x.s} · reviewer's grammar note: ${issue}` });
       const para = plan.paragraphs.find((p) => p.last === i);
       const rp = para && result.paragraphs.find((p) => p.p === para.p);
       if (rp) out.push(paragraphLine(rp.p, rp.sentences, rp.risk));
@@ -194,51 +212,11 @@ export function ScanStage({
     return () => clearInterval(t);
   }, [ratings, feed.paused, feed.trouble, feed.reviewed, feed.total, plan.pieces, push]);
 
-  // Agents' moves, logged a few per second at most.
-  const lastAgentLine = useRef(0);
-  const onAgent = useCallback(
-    (agent: number, index: number) => {
-      const now = performance.now();
-      if (now - lastAgentLine.current < 320) return;
-      lastAgentLine.current = now;
-      const x = plan.sentences[index];
-      if (!x) return;
-      const tag = `A${agent + 1} → P${x.p} S${x.s}`;
-      const rated = index < prevRevealed.current ? ratings?.get(x.n) : undefined;
-      if (agent === 3 && rated) {
-        push("agents", [{ tone: isFlagged(rated.risk) ? "warn" : "dim", text: `${tag} re-check · stays ${levelLabel[rated.risk].toLowerCase()}` }]);
-        return;
-      }
-      const lead = plan.sentences[Math.min(prevFrontier.current, total - 1)];
-      const shared = lead && lead.n !== x.n ? sharedWords(x.text, lead.text) : [];
-      push("agents", [
-        {
-          tone: "dim",
-          text: shared.length
-            ? `${tag} cross-check with P${lead.p} S${lead.s} · shares ${shared.map((w) => `“${w}”`).join(", ")}`
-            : `${tag} ${quote(x.text, 34)}`,
-        },
-      ]);
-    },
-    [plan, ratings, total, push],
-  );
-
   const counts = useMemo(() => {
     const c: Record<Level, number> = { high: 0, medium: 0, uncertain: 0, low: 0 };
     if (ratings) for (let i = 0; i < revealed && i < total; i++) c[ratings.get(plan.sentences[i].n)?.risk ?? "low"] += 1;
     return c;
   }, [ratings, revealed, plan, total]);
-
-  const [history, setHistory] = useState<number[]>([]);
-  const rateRef = useRef(rate);
-  useEffect(() => {
-    rateRef.current = rate;
-  });
-  useEffect(() => {
-    if (!ratings) return;
-    const t = setInterval(() => setHistory((h) => [...h, rateRef.current].slice(-60)), 1_000);
-    return () => clearInterval(t);
-  }, [ratings]);
 
   const lead = plan.sentences[Math.min(frontier, total - 1)];
   const readerLive =
@@ -250,15 +228,15 @@ export function ScanStage({
     ) : null;
 
   const rateProps = {
-    rate,
-    ready: Boolean(ratings),
+    meter,
+    estimate: estimate ?? 0,
+    ready: estimate !== null,
     final: done,
     scanned: ratings ? Math.min(revealed, total) : 0,
     total,
     high: counts.high,
     medium: counts.medium,
     uncertain: counts.uncertain,
-    history,
   };
 
   const terminalFor = (id: TermId, mobile = false) => {
@@ -279,14 +257,14 @@ export function ScanStage({
   };
 
   return (
-    <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_340px_236px]">
+    <div className="grid gap-3 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_316px_288px]">
       {/* Phone and tablet: the rate on top. */}
       <div className="rounded-xl border border-[var(--line-strong)] bg-ink-950/80 px-3.5 py-2.5 lg:hidden">
         <RatePanel {...rateProps} compact />
       </div>
 
       <section className="relative min-h-0 overflow-hidden rounded-2xl border border-[var(--line-strong)] bg-ink-950/70" aria-label="Your text, being scanned">
-        <Document plan={plan} frontier={frontier} within={within} revealed={revealed} ratings={ratings} reduce={reduce} done={done} onAgent={onAgent} />
+        <Document plan={plan} frontier={frontier} within={within} revealed={revealed} ratings={ratings} grammar={grammarAt} repeats={repeats} reduce={reduce} done={done} />
         <AnimatePresence>
           {verify && (
             <motion.div
@@ -366,16 +344,18 @@ export function ScanStage({
 }
 
 const AGENTS = [
-  { c: "cyan", role: "reads" },
-  { c: "accent", role: "cross-checks" },
-  { c: "violet", role: "cross-checks" },
-  { c: "warn", role: "re-checks" },
+  { c: "cyan", name: "A1 READ", job: "Reads your text word by word" },
+  { c: "violet", name: "A2 X-RAY", job: "Looks one line ahead at how the next sentence is built" },
+  { c: "warn", name: "A3 PHRASE", job: "Follows behind, marking wording your text repeats" },
+  { c: "accent", name: "A4 RHYTHM", job: "Measures each sentence's length" },
 ] as const;
 
 /**
- * The text itself, with the scan agents over it. Sentence states are written
- * straight onto the spans (data-st), and the agents are moved with transforms,
- * so the text is rendered by React only once.
+ * The text itself, with the four scan agents working through it in order:
+ * A1 reads the current word, A2's X-ray lens sweeps the line ahead, A3's pen
+ * follows two sentences behind, and A4 measures the sentence being read.
+ * States are written straight onto the spans and the agents are moved with
+ * transforms, so the text is rendered by React only once.
  */
 const Document = memo(function Document({
   plan,
@@ -383,35 +363,41 @@ const Document = memo(function Document({
   within,
   revealed,
   ratings,
+  grammar,
+  repeats,
   reduce,
   done,
-  onAgent,
 }: {
   plan: ScanPlan;
   frontier: number;
   within: number;
   revealed: number;
   ratings: Map<number, ReportSentence> | null;
+  grammar: Map<number, string>;
+  repeats: Map<string, number>;
   reduce: boolean;
   done: boolean;
-  onAgent: (agent: number, index: number) => void;
 }) {
+  const total = plan.sentences.length;
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const spans = useRef<(HTMLSpanElement | null)[]>([]);
-  const agents = useRef<(HTMLDivElement | null)[]>([]);
+  const words = useRef<(HTMLSpanElement | null)[][]>([]);
+  const read = useRef<HTMLDivElement>(null);
   const beam = useRef<HTMLDivElement>(null);
-  const live = useRef({ frontier, within, revealed, ratings, done });
-  const onAgentRef = useRef(onAgent);
+  const xray = useRef<HTMLDivElement>(null);
+  const pen = useRef<HTMLDivElement>(null);
+  const ruler = useRef<HTMLDivElement>(null);
+  const rulerN = useRef<HTMLSpanElement>(null);
+  const live = useRef({ frontier, within, done });
   useLayoutEffect(() => {
-    live.current = { frontier, within, revealed, ratings, done };
-    onAgentRef.current = onAgent;
+    live.current = { frontier, within, done };
   });
   const userScrolledAt = useRef(-Infinity);
+  const openers = useMemo(() => plan.sentences.map((x) => transitionOpener(x.text)?.split(/\s+/).length ?? 0), [plan]);
 
-  const offsets = useMemo(() => plan.sentences.map((s) => [...s.text.matchAll(/\S+/g)].map((m) => [m.index!, m.index! + m[0].length] as const)), [plan]);
-
-  // Sentence states.
+  // Sentence states; openers A2 has seen; grammar notes A3 has passed.
+  const marked = useRef(0);
   useEffect(() => {
     const list = spans.current;
     for (let i = 0; i < list.length; i++) {
@@ -431,122 +417,225 @@ const Document = memo(function Document({
           el.classList.add("scan-hit");
         }
       }
+      el.toggleAttribute("data-gr", Boolean(ratings) && i < revealed && (i < frontier - 2 || frontier >= total) && grammar.has(plan.sentences[i].n));
     }
-  }, [frontier, revealed, ratings, plan, reduce]);
+    for (; marked.current < Math.min(total, frontier + 2); marked.current++) {
+      const ws = words.current[marked.current] ?? [];
+      for (let j = 0; j < openers[marked.current]; j++) ws[j]?.setAttribute("data-tr", "");
+    }
+  }, [frontier, revealed, ratings, grammar, plan, total, openers, reduce]);
 
-  // Agents.
+  // The agents, moved every few frames.
   useEffect(() => {
-    if (reduce) return;
-    const total = plan.sentences.length;
-    if (!total) return;
-    const next = AGENTS.map((_, i) => performance.now() + 300 + i * 220);
-    const rectOf = (i: number, w: number) => {
-      const el = spans.current[i];
-      const node = el?.firstChild;
-      const box = content.current?.getBoundingClientRect();
-      if (!el || !node || !box) return null;
-      const off = offsets[i];
-      const word = off[Math.max(0, Math.min(off.length - 1, w))];
-      if (!word) return null;
-      const range = document.createRange();
-      range.setStart(node, word[0]);
-      range.setEnd(node, word[1]);
-      const r = range.getClientRects()[0] ?? range.getBoundingClientRect();
-      return { x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height };
+    if (reduce || !total) return;
+    const at = (el: HTMLElement) => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
+    const wordAt = (i: number, f: number) => {
+      const ws = words.current[i];
+      if (!ws?.length) return null;
+      return ws[Math.max(0, Math.min(ws.length - 1, Math.floor(f * ws.length)))];
     };
-    const place = (k: number, r: { x: number; y: number; w: number; h: number }) => {
-      const el = agents.current[k];
-      if (!el) return;
-      el.style.transform = `translate3d(${r.x - 4}px, ${r.y - 3}px, 0)`;
-      el.style.width = `${Math.max(18, r.w + 8)}px`;
-      el.style.height = `${r.h + 6}px`;
-      el.style.opacity = "1";
-    };
-    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const hide = (...els: (HTMLElement | null)[]) => els.forEach((el) => el && (el.style.opacity = "0"));
+    const pc = { i: 0, j: 0 }; // how far A3's pen has marked
     let lastScroll = 0;
     const tick = () => {
-      const { frontier: f, within: wn, revealed: rv, ratings: rt, done: finished } = live.current;
-      const now = performance.now();
-      if (finished) {
-        agents.current.forEach((el) => el && (el.style.opacity = "0"));
-        if (beam.current) beam.current.style.opacity = "0";
+      const { frontier: f, within: wn, done: finished } = live.current;
+      if (finished || f >= total) {
+        hide(read.current, beam.current, xray.current, pen.current, ruler.current);
         return;
       }
-      const at = Math.min(f, total - 1);
-      // A1 follows the reading position word by word.
-      const words = offsets[at].length;
-      const leadRect = rectOf(at, f >= total ? words - 1 : Math.floor(wn * words));
-      if (leadRect) {
-        place(0, leadRect);
-        if (beam.current) {
-          beam.current.style.transform = `translate3d(0, ${leadRect.y + leadRect.h / 2}px, 0)`;
-          beam.current.style.opacity = "1";
-        }
-        // Keep the reading position in view, unless the customer is scrolling the text themselves.
-        const sc = scroller.current;
-        if (sc && now - userScrolledAt.current > 4_000 && now - lastScroll > 700) {
-          const inView = leadRect.y + content.current!.getBoundingClientRect().top - sc.getBoundingClientRect().top;
-          if (inView > sc.clientHeight * 0.62 || inView < sc.clientHeight * 0.1) {
-            lastScroll = now;
-            sc.scrollTo({ top: Math.max(0, sc.scrollTop + inView - sc.clientHeight * 0.32), behavior: "smooth" });
+      const now = performance.now();
+      const lead = wordAt(f, wn);
+      if (!lead) return;
+      const r = at(lead);
+      // A1 READ: the word being read.
+      if (read.current) {
+        read.current.style.transform = `translate3d(${r.x - 4}px, ${r.y - 3}px, 0)`;
+        read.current.style.width = `${Math.max(18, r.w + 8)}px`;
+        read.current.style.height = `${r.h + 6}px`;
+        read.current.style.opacity = "1";
+      }
+      if (beam.current) {
+        beam.current.style.transform = `translate3d(0, ${r.y + r.h / 2}px, 0)`;
+        beam.current.style.opacity = "1";
+      }
+      // A2 X-RAY: the next line down.
+      let next: { y: number; h: number } | null = null;
+      outer: for (let i = f, j = Math.floor(wn * (words.current[f]?.length ?? 0)), seen = 0; i < total && seen < 80; i++, j = 0) {
+        const ws = words.current[i] ?? [];
+        for (; j < ws.length; j++, seen++) {
+          const el = ws[j];
+          if (el && el.offsetTop > r.y + r.h * 0.6) {
+            next = { y: el.offsetTop, h: el.offsetHeight };
+            break outer;
           }
         }
       }
-      for (let k = 1; k < AGENTS.length; k++) {
-        if (now < next[k]) continue;
-        next[k] = now + rnd(170, 620);
-        let target: number;
-        if (k === 3 && rt && rv > 0) {
-          const flagged: number[] = [];
-          for (let i = Math.max(0, rv - 40); i < rv; i++) if (isFlagged(rt.get(plan.sentences[i].n)?.risk)) flagged.push(i);
-          target = flagged.length && Math.random() < 0.7 ? flagged[Math.floor(Math.random() * flagged.length)] : Math.floor(Math.random() * rv);
-        } else {
-          target = Math.floor(rnd(Math.max(0, at - 10), Math.min(total, at + 4)));
+      if (xray.current) {
+        if (next) {
+          xray.current.style.transform = `translate3d(0, ${next.y - 4}px, 0)`;
+          xray.current.style.height = `${next.h + 8}px`;
+          xray.current.style.opacity = "1";
+        } else xray.current.style.opacity = "0";
+      }
+      // A3 PHRASE: two sentences behind, word by word, marking repeated wording as it goes.
+      const b = f - 2;
+      if (b >= 0 && pen.current) {
+        const ws = words.current[b] ?? [];
+        const j = Math.min(ws.length - 1, Math.floor(wn * ws.length));
+        const el = ws[j];
+        if (el) {
+          const p = at(el);
+          pen.current.style.transform = `translate3d(${p.x}px, ${p.y + p.h + 1}px, 0)`;
+          pen.current.style.width = `${Math.max(8, p.w)}px`;
+          pen.current.style.opacity = "1";
         }
-        target = Math.max(0, Math.min(total - 1, target));
-        const r = rectOf(target, Math.floor(Math.random() * offsets[target].length));
-        if (r) {
-          place(k, r);
-          onAgentRef.current(k, target);
+        while (pc.i < b || (pc.i === b && pc.j <= j)) {
+          const w = words.current[pc.i]?.[pc.j];
+          if (w?.hasAttribute("data-rep")) w.setAttribute("data-ph", "");
+          pc.j++;
+          if (pc.j >= (words.current[pc.i]?.length ?? 0)) {
+            pc.i++;
+            pc.j = 0;
+          }
+          if (pc.i >= total) break;
+        }
+      } else hide(pen.current);
+      // A4 RHYTHM: a ruler down the margin over the sentence being read, with its word count.
+      const first = words.current[f]?.[0];
+      if (first && ruler.current) {
+        const top = first.offsetTop;
+        ruler.current.style.transform = `translate3d(0, ${top}px, 0)`;
+        ruler.current.style.height = `${Math.max(r.h, r.y + r.h - top)}px`;
+        ruler.current.style.opacity = "1";
+        if (rulerN.current) rulerN.current.textContent = `${Math.max(1, Math.ceil(wn * (words.current[f]?.length ?? 1)))}w`;
+      }
+      // Keep the reading position in view, unless the customer is scrolling the text themselves.
+      const sc = scroller.current;
+      if (sc && content.current && now - userScrolledAt.current > 4_000 && now - lastScroll > 700) {
+        const inView = content.current.offsetTop + r.y - sc.scrollTop;
+        if (inView > sc.clientHeight * 0.62 || inView < sc.clientHeight * 0.1) {
+          lastScroll = now;
+          sc.scrollTo({ top: Math.max(0, sc.scrollTop + inView - sc.clientHeight * 0.32), behavior: "smooth" });
         }
       }
     };
-    const t = setInterval(tick, 70);
+    const t = setInterval(tick, 60);
     const ro = new ResizeObserver(tick);
     if (content.current) ro.observe(content.current);
     return () => {
       clearInterval(t);
       ro.disconnect();
     };
-  }, [plan, offsets, reduce]);
+  }, [total, reduce]);
 
   return (
-    <div
-      ref={scroller}
-      className="scan-doc relative h-full overflow-y-auto overscroll-contain px-4 py-5 max-lg:h-[44dvh] sm:px-8 sm:py-7"
-      onWheel={() => (userScrolledAt.current = performance.now())}
-      onTouchMove={() => (userScrolledAt.current = performance.now())}
-    >
-      <div aria-hidden className="scan-doc-grid pointer-events-none absolute inset-0" />
-      <div ref={content} className="relative mx-auto max-w-[72ch]">
-        <div ref={beam} aria-hidden className="scan-beam pointer-events-none absolute -inset-x-8 top-0 h-px opacity-0" />
-        {plan.paragraphs.map((para) => (
-          <p key={para.p} className="mb-5 text-[15px] leading-[1.9] sm:text-[16px]">
-            {plan.sentences.slice(para.first, para.last + 1).map((x, k) => (
-              <span key={x.n}>
-                <span ref={(el) => void (spans.current[para.first + k] = el)} data-st="todo" className="scan-sent">
-                  {x.text}
-                </span>{" "}
-              </span>
-            ))}
-          </p>
-        ))}
-        {AGENTS.map((a, k) => (
-          <div key={k} ref={(el) => void (agents.current[k] = el)} aria-hidden className="scan-agent pointer-events-none absolute left-0 top-0 opacity-0" data-c={a.c}>
-            <span className="scan-agent-tag">A{k + 1}</span>
+    <div className="flex flex-col max-lg:h-[50dvh] lg:h-full">
+      <AgentBar plan={plan} frontier={frontier} within={within} repeats={repeats} done={done} />
+      <div
+        ref={scroller}
+        className="scan-doc relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-10 sm:py-7"
+        onWheel={() => (userScrolledAt.current = performance.now())}
+        onTouchMove={() => (userScrolledAt.current = performance.now())}
+      >
+        <div aria-hidden className="scan-doc-grid pointer-events-none absolute inset-0" />
+        <div ref={content} className="relative mx-auto max-w-[72ch]">
+          <div ref={xray} aria-hidden className="scan-xray pointer-events-none absolute -inset-x-3 top-0 opacity-0" />
+          <div ref={beam} aria-hidden className="scan-beam pointer-events-none absolute -inset-x-8 top-0 h-px opacity-0" />
+          <Text plan={plan} repeats={repeats} spans={spans} words={words} />
+          <div ref={ruler} aria-hidden className="scan-ruler pointer-events-none absolute top-0 opacity-0">
+            <span ref={rulerN} className="scan-ruler-n" />
           </div>
-        ))}
+          <div ref={pen} aria-hidden className="scan-pen pointer-events-none absolute left-0 top-0 opacity-0" />
+          <div ref={read} aria-hidden className="scan-agent pointer-events-none absolute left-0 top-0 opacity-0" data-c="cyan" />
+        </div>
       </div>
     </div>
   );
 });
+
+/** The words, rendered once. Each word is its own span so the agents can find it. */
+const Text = memo(function Text({
+  plan,
+  repeats,
+  spans,
+  words,
+}: {
+  plan: ScanPlan;
+  repeats: Map<string, number>;
+  spans: React.RefObject<(HTMLSpanElement | null)[]>;
+  words: React.RefObject<(HTMLSpanElement | null)[][]>;
+}) {
+  return plan.paragraphs.map((para) => (
+    <p key={para.p} className="mb-5 text-[15px] leading-[1.9] sm:text-[16px]">
+      {plan.sentences.slice(para.first, para.last + 1).map((x, k) => {
+        const i = para.first + k;
+        return (
+          <span key={x.n}>
+            <span ref={(el) => void (spans.current[i] = el)} data-st="todo" className="scan-sent">
+              {x.words.map((w, j) => (
+                <Fragment key={j}>
+                  {j ? " " : null}
+                  <span ref={(el) => void ((words.current[i] ??= [])[j] = el)} className="scan-w" data-rep={repeats.has(normWord(w)) ? "" : undefined}>
+                    {w}
+                  </span>
+                </Fragment>
+              ))}
+            </span>{" "}
+          </span>
+        );
+      })}
+    </p>
+  ));
+});
+
+/** What each agent is on right now, in order. */
+function AgentBar({ plan, frontier, within, repeats, done }: { plan: ScanPlan; frontier: number; within: number; repeats: Map<string, number>; done: boolean }) {
+  const total = plan.sentences.length;
+  const f = Math.min(frontier, total - 1);
+  const x = plan.sentences[f];
+  const ahead = plan.sentences[f + 1];
+  const behind = plan.sentences[f - 2];
+  const marks = useMemo(() => {
+    const out = [0];
+    plan.sentences.forEach((s, i) => out.push(out[i] + s.words.filter((w) => repeats.has(normWord(w))).length));
+    return out;
+  }, [plan, repeats]);
+  const marked = behind ? marks[f - 2] + behind.words.slice(0, Math.floor(within * behind.words.length) + 1).filter((w) => repeats.has(normWord(w))).length : 0;
+  const para = plan.paragraphs.find((p) => p.first <= f && f <= p.last);
+  const over = done || frontier >= total;
+  const target = [
+    x && !over ? `P${x.p} S${x.s} · w${Math.max(1, Math.ceil(within * x.words.length))}/${x.words.length}` : "done",
+    ahead && !over ? `P${ahead.p} S${ahead.s}` : over ? "done" : "last line",
+    over ? `${marks[total]} marked` : behind ? `P${behind.p} S${behind.s} · ${marked} marked` : "waiting",
+    null,
+  ];
+  return (
+    <div className="scan-agentbar flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--line)] bg-ink-950/70 px-3 py-2" aria-label="Scan agents">
+      {AGENTS.map((a, k) => (
+        <div key={a.name} title={a.job} className="scan-chip flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-1 font-mono text-[10px]" data-c={a.c}>
+          <span className="scan-chip-dot" aria-hidden />
+          <span className="font-semibold tracking-wider text-fg">{a.name}</span>
+          {k < 3 ? (
+            <span className="tabular-nums text-fg-subtle">{target[k]}</span>
+          ) : para && !over ? (
+            <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
+              {plan.sentences.slice(para.first, para.last + 1).map((s, i) => {
+                const idx = para.first + i;
+                const max = Math.max(...plan.sentences.slice(para.first, para.last + 1).map((y) => y.words.length));
+                const part = idx < frontier ? 1 : idx === frontier ? within : 0;
+                return (
+                  <span key={idx} className="relative w-[4px] rounded-[1px] bg-accent/15" style={{ height: `${Math.max(18, (s.words.length / max) * 100)}%` }}>
+                    <span className="absolute inset-x-0 bottom-0 rounded-[1px] bg-accent" style={{ height: `${part * 100}%` }} />
+                  </span>
+                );
+              })}
+              <span className="ml-1 text-fg-subtle">¶{para.p}</span>
+            </span>
+          ) : (
+            <span className="text-fg-subtle">{over ? "done" : "waiting"}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

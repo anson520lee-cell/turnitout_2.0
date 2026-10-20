@@ -95,18 +95,28 @@ export function ratingsBySentence(result: AutoReportResult): Map<number, ReportS
 
 export const isFlagged = (r: Level | undefined) => r === "high" || r === "medium";
 
+/** prefix[k] = flagged sentences among the first k, from the report's ratings. */
+export function flaggedPrefix(plan: ScanPlan, ratings: Map<number, ReportSentence>): number[] {
+  const out = [0];
+  plan.sentences.forEach((x, i) => out.push(out[i] + (isFlagged(ratings.get(x.n)?.risk) ? 1 : 0)));
+  return out;
+}
+
 /**
- * The live rate after the first `revealed` sentences: the share of the whole
- * text's sentences flagged so far. It only ever climbs, and once every sentence
- * is shown it equals the report's own figure (High + Medium sentences out of
- * all reviewed sentences).
+ * The live AI rate when the scan has shown `at` sentences (a fraction means it
+ * is part-way through one): the share of the sentences shown so far that the
+ * report flags. It goes up on a flagged sentence and down on a clear one, word
+ * by word, and once every sentence is shown it is exactly the report's own
+ * figure. Until two sentences are finished there is too little to show.
  */
-export function liveRate(result: AutoReportResult, ratings: Map<number, ReportSentence>, revealed: number, total: number): number {
-  if (revealed >= total) return result.summary.flaggedShare;
-  let flagged = 0;
-  for (let n = 1; n <= revealed; n++) if (isFlagged(ratings.get(n)?.risk)) flagged += 1;
-  const of = Math.max(1, result.summary.sentences || total);
-  return Math.min(result.summary.flaggedShare, flagged / of);
+export function liveEstimate(prefix: number[], total: number, finalShare: number, at: number): number | null {
+  if (total <= 0 || at >= total) return total > 0 ? finalShare : null;
+  if (at < 2) return null;
+  const k = Math.floor(at);
+  const frac = at - k;
+  const raw = (prefix[k] + (prefix[k + 1] - prefix[k]) * frac) / at;
+  // Over the last sentence, meet the report's figure exactly (they only differ if the report counted sentences differently).
+  return at > total - 1 ? raw + (finalShare - raw) * (at - (total - 1)) : raw;
 }
 
 export function bandFor(rate: number): Overall {
@@ -172,4 +182,71 @@ export function paragraphLine(p: number, sentences: ReportSentence[], risk: Leve
   const flagged = sentences.filter((x) => isFlagged(x.risk)).length;
   const share = sentences.length ? Math.round((flagged / sentences.length) * 100) : 0;
   return { tone: toneFor[risk], text: `¶${p} done · ${flagged}/${sentences.length} flagged (${share}%) · paragraph ${levelLabel[risk].toLowerCase()}` };
+}
+
+/* ------------------------------------------------------------------
+   What the scan agents look at. All counted from the text itself.
+   A1 READ reads word by word; A2 X-RAY looks one line ahead at how the
+   next sentence is built; A3 PHRASE follows behind, marking wording the
+   text repeats; A4 RHYTHM measures sentence lengths per paragraph.
+   ------------------------------------------------------------------ */
+
+const TRANSITIONS = [
+  "however", "furthermore", "moreover", "additionally", "in addition", "consequently", "therefore", "thus", "hence",
+  "nevertheless", "nonetheless", "in conclusion", "to conclude", "in summary", "overall", "ultimately", "notably",
+  "importantly", "similarly", "likewise", "meanwhile", "firstly", "secondly", "thirdly", "finally", "on the other hand",
+  "as a result", "in contrast", "for example", "for instance", "it is important to note", "it is worth noting",
+];
+const TRANSITION_RE = new RegExp(`^(${[...TRANSITIONS].sort((a, b) => b.length - a.length).join("|")})\\b`, "i");
+
+/** The linking phrase a sentence opens with ("However", "In addition", …), if any. */
+export function transitionOpener(text: string): string | null {
+  const m = text.trim().replace(/^[“"'‘(]+/, "").match(TRANSITION_RE);
+  return m ? m[1] : null;
+}
+
+export const normWord = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+/** Longer content words the text uses at least `min` times, with their counts. */
+export function repeatedWords(plan: ScanPlan, min = 3): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const x of plan.sentences)
+    for (const w of x.words) {
+      const k = normWord(w);
+      if (k.length > 4 && !STOP.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  return new Map([...counts].filter(([, c]) => c >= min));
+}
+
+const breaksIn = (text: string) => (text.match(/[,;:—–]/g) ?? []).length;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** Sentence lengths of a paragraph: average, spread, and how even they are. */
+export function rhythmOf(lengths: number[]): { avg: number; spread: number; label: string } {
+  const avg = lengths.reduce((a, b) => a + b, 0) / Math.max(1, lengths.length);
+  const spread = Math.sqrt(lengths.reduce((a, b) => a + (b - avg) ** 2, 0) / Math.max(1, lengths.length));
+  const cv = avg ? spread / avg : 0;
+  const label = lengths.length < 2 ? "single sentence" : cv < 0.2 ? "very even" : cv < 0.35 ? "even" : cv < 0.6 ? "mixed" : "varied";
+  return { avg, spread, label };
+}
+
+/** A2 X-RAY, on the sentence ahead of the reader: how it opens and how it is built. */
+export function xrayLine(x: ScanSentence, prev?: ScanSentence): LogLine {
+  const tr = transitionOpener(x.text);
+  const first = normWord(x.words[0] ?? "");
+  const opener = tr ? `opens with link “${tr}”` : prev && first && normWord(prev.words[0] ?? "") === first ? `same opener as S${prev.s} (“${x.words[0]}”)` : `opens “${x.words[0]?.replace(/[^\p{L}\p{N}'’-]/gu, "") ?? ""}”`;
+  return { tone: tr ? "violet" : "dim", text: `A2 X-RAY P${x.p} S${x.s} · ${opener} · ${plural(breaksIn(x.text), "break")} · ${x.words.length} words` };
+}
+
+/** A3 PHRASE, on a sentence behind the reader: the wording it shares with the rest of the text. */
+export function phraseLine(x: ScanSentence, repeats: Map<string, number>): LogLine {
+  const hits = [...new Set(x.words.map(normWord))].filter((w) => repeats.has(w)).sort((a, b) => repeats.get(b)! - repeats.get(a)!);
+  if (!hits.length) return { tone: "dim", text: `A3 PHRASE P${x.p} S${x.s} · no repeated wording` };
+  return { tone: "warn", text: `A3 PHRASE P${x.p} S${x.s} · ${hits.slice(0, 2).map((w) => `“${w}” ×${repeats.get(w)}`).join(", ")} in the text` };
+}
+
+/** A4 RHYTHM, when a paragraph is finished: its sentence lengths. */
+export function rhythmLine(p: number, lengths: number[]): LogLine {
+  const r = rhythmOf(lengths);
+  return { tone: "info", text: `A4 RHYTHM ¶${p} · ${lengths.join("·")} words · avg ${r.avg.toFixed(1)} · spread ±${r.spread.toFixed(1)} → ${r.label}` };
 }
