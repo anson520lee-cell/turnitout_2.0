@@ -23,6 +23,20 @@ export const freeScan = {
   maxChars: 2000,
 } as const;
 
+/**
+ * The daily free full report: every account gets this many a day on top of the
+ * free scans, with every effect and the whole report, for texts up to maxChars.
+ * Hong Kong calendar day, like the free scan. The account limit must match
+ * `consume_free_report` in supabase/migrations/0015_daily_free_report.sql.
+ */
+export const freeReport = {
+  dailyLimit: 1,
+  minChars: 500,
+  maxChars: 4000,
+  /** Free reports one network address may hand out a day (accounts made on the fly share it). */
+  perNetworkLimit: 3,
+} as const;
+
 export const uploads = {
   maxBytes: 20 * 1024 * 1024,
   allowedMimeTypes: [

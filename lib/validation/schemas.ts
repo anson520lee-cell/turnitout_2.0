@@ -2,7 +2,7 @@ import { z } from "zod";
 import { freeScan, refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { freeScanCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
+import { freeReportCharError, freeScanCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
 
 export const scanInput = z
   .string()
@@ -37,6 +37,18 @@ export const screeningTextOrderInput = z.object({
     .transform((s) => s.trim())
     .superRefine((s, ctx) => {
       const problem = s ? reportCharError(billableChars(s)) : "Paste the text you want a report for.";
+      if (problem) ctx.addIssue({ code: "custom", message: problem });
+    }),
+});
+
+/** Daily free report: the pasted text only; the server sets title and price (0). */
+export const freeReportOrderInput = z.object({
+  text: z
+    .string()
+    .max(MAX_PASTE_CHARS, "That text is too long for the daily free report.")
+    .transform((s) => s.trim())
+    .superRefine((s, ctx) => {
+      const problem = s ? freeReportCharError(billableChars(s)) : "Paste the text you want a report for.";
       if (problem) ctx.addIssue({ code: "custom", message: problem });
     }),
 });
