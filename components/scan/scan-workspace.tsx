@@ -11,6 +11,7 @@ import { FormMessage } from "@/components/ui/field";
 import { PasteDialog, type PasteResult } from "@/components/ui/paste-dialog";
 import { ScanResult } from "./scan-result";
 import { ScanVisual } from "./scan-visual";
+import { QuickScan } from "./quick-scan";
 import { freeScan, retention } from "@/config/app";
 import { countChars, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -20,7 +21,7 @@ import { extractText, ExtractError } from "@/lib/extract-text";
 /** What the visitor can do on /scan, decided on the server. */
 export type ScanAccess = { mode: "account" | "guest"; remaining: number };
 
-const WAITING_STEPS = ["Segmenting sentences", "Measuring rhythm and structure", "Checking phrasing patterns", "Preparing your report"];
+const WAITING_STEPS = ["Receiving your text", "Reading it sentence by sentence", "Assessing each paragraph", "Preparing your quick scan"];
 
 function UsageMeter({ remaining }: { remaining: number }) {
   return (
@@ -72,6 +73,9 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const resultRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const revealPending = useRef(false);
+  // The quick live scan plays over the page after each scan; the result shows when it ends.
+  const [live, setLive] = useState(false);
+  const playLive = useRef(false);
 
   const limitReached = remaining <= 0;
   const limitMessage = guest
@@ -93,7 +97,12 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setRecheck(false);
     if (!revealPending.current) return;
     revealPending.current = false;
-    // After the dialog has closed (and handed focus back), bring the report into view.
+    if (playLive.current) setLive(true);
+    else reveal();
+  };
+
+  const reveal = () => {
+    // After the dialog or the live scan has closed (and handed focus back), bring the report into view.
     setTimeout(() => {
       headingRef.current?.focus({ preventScroll: true });
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -138,6 +147,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setLastText(text);
     setRun((n) => n + 1);
     revealPending.current = true;
+    playLive.current = Boolean(res.result.sentences?.length);
     track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
     return { ok: true };
   };
@@ -158,7 +168,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
           Loaded &ldquo;{dropped.name}&rdquo;. Check the text, then press Enter.
         </span>
       )}
-      {remaining} of {freeScan.dailyLimit} free scans left today{guest ? ", no account needed" : ""}. We measure sentence rhythm, structure and phrasing patterns.
+      {remaining} of {freeScan.dailyLimit} free scans left today{guest ? ", no account needed" : ""}. You get a quick AI-score range and the sentences that stand out.
     </>
   );
 
@@ -212,7 +222,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
               Paste your paragraphs. <span className="text-gradient">Press Enter.</span> See what stands out.
             </h2>
             <p className="mt-3 max-w-md text-[14px] leading-relaxed text-fg-muted">
-              Sentence rhythm, structure, phrasing and readability, down to the sentences that drive the estimate.{" "}
+              A quick AI-score range, the sentences that stand out, and readability.{" "}
               {freeScan.minChars.toLocaleString()}–{freeScan.maxChars.toLocaleString()} characters per scan.
             </p>
             <div className="mt-6">
@@ -275,7 +285,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
       )}
 
       <div ref={resultRef} className="scroll-mt-24">
-        {result && (
+        {result && !live && (
           <motion.section
             key={run}
             aria-labelledby="scan-report-title"
@@ -325,6 +335,18 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
         {textNote}{" "}
         <Link href="/privacy" className={buttonClasses("ghost", "sm", "h-auto px-1 underline")}>Privacy</Link>
       </p>
+
+      {live && result?.sentences && (
+        <QuickScan
+          key={run}
+          sentences={result.sentences}
+          level={result.overallRisk}
+          onDone={() => {
+            setLive(false);
+            reveal();
+          }}
+        />
+      )}
 
       <PasteDialog
         open={open}

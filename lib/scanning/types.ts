@@ -62,6 +62,8 @@ export interface AnalysisResult {
   sentences?: SentenceSignal[];
   readability?: Readability;
   recommendations: string[];
+  /** Share (0 to 1) of sentences that stand out. Kept when saved, so a saved scan shows the same range. Missing on older scans. */
+  standoutShare?: number;
   metadata: {
     analyzer: string;
     version: string;
@@ -88,4 +90,19 @@ export function forStorage(result: AnalysisResult): AnalysisResult {
   const { sentences: _omit, ...rest } = result;
   void _omit;
   return { ...rest, paragraphs: result.paragraphs.map((p) => ({ ...p, excerpt: "" })) };
+}
+
+/**
+ * What the browser gets: the levels and the text, without what would show how
+ * the scan measures (signal names and measurements, per-sentence reasons,
+ * paragraph notes, recommendations). Jordan, 2026-10-20: the method stays private.
+ */
+export function forBrowser(result: AnalysisResult): AnalysisResult {
+  return {
+    ...result,
+    signals: [],
+    recommendations: [],
+    paragraphs: result.paragraphs.map((p) => ({ ...p, notes: [] })),
+    ...(result.sentences ? { sentences: result.sentences.map((s) => ({ ...s, reasons: [] })) } : {}),
+  };
 }

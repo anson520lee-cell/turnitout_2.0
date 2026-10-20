@@ -2,6 +2,8 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { ScanResult } from "@/components/scan/scan-result";
 import { getAnalyzer } from "@/lib/scanning";
+import { standoutShare } from "@/lib/scanning/free-range";
+import { forBrowser } from "@/lib/scanning/types";
 import type { Order, ScanResultRow } from "@/types/domain";
 
 /**
@@ -22,7 +24,8 @@ const order = (id: string, service_type: Order["service_type"], status: Order["s
 });
 
 export default async function AppModulesPreview() {
-  const result = await getAnalyzer().analyze(SAMPLE);
+  const analysed = await getAnalyzer().analyze(SAMPLE);
+  const result = forBrowser({ ...analysed, standoutShare: standoutShare(analysed.sentences) });
   const orders = [
     order("a1b2c3d4-0000-0000-0000-000000000001", "combined_screening", "screening", "Essay draft 2", 35),
     order("a1b2c3d4-0000-0000-0000-000000000002", "refinement", "awaiting_payment", "Literature review", 55),

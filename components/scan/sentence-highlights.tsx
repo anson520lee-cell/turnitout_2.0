@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { SentenceSignal } from "@/lib/scanning/types";
 import { Card } from "@/components/ui/card";
@@ -12,8 +13,9 @@ const mark = {
 } as const;
 
 /**
- * The user's text with each sentence tinted by the patterns found in it.
- * Clicking (or focusing) a sentence shows why it was flagged.
+ * The user's text with each sentence tinted by how much it stands out. The
+ * free scan does not say why (that is in the paid report, and the method stays
+ * private), so selecting a sentence points to the full report.
  */
 export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] }) {
   const [selected, setSelected] = useState<number | null>(null);
@@ -43,7 +45,7 @@ export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] 
         <div>
           <h2 className="text-[15px] font-semibold">Sentence highlights</h2>
           <p className="mt-1 text-[12.5px] text-fg-subtle">
-            Select a sentence to see which patterns it contains. Shown only now; your text isn&rsquo;t saved.
+            Sentences that stand out are marked. Shown only now; your text isn&rsquo;t saved.
           </p>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-fg-muted print:hidden">
@@ -59,13 +61,13 @@ export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] 
 
       <div className="mt-4 flex flex-wrap gap-4 text-[12px] text-fg-muted">
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm bg-risk/60" /> Several patterns · {counts.elevated}
+          <span className="size-2.5 rounded-sm bg-risk/60" /> Stands out strongly · {counts.elevated}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm bg-warn/60" /> One pattern · {counts.moderate}
+          <span className="size-2.5 rounded-sm bg-warn/60" /> Stands out · {counts.moderate}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-sm border border-white/15" /> None found · {sentences.length - counts.elevated - counts.moderate}
+          <span className="size-2.5 rounded-sm border border-white/15" /> Reads naturally · {sentences.length - counts.elevated - counts.moderate}
         </span>
       </div>
 
@@ -78,7 +80,7 @@ export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] 
                   role="button"
                   tabIndex={0}
                   aria-pressed={selected === i}
-                  aria-label={s.reasons.length ? `Sentence ${i + 1}: ${s.reasons.join("; ")}` : undefined}
+                  aria-label={`Sentence ${i + 1}: ${s.level === "elevated" ? "stands out strongly" : s.level === "moderate" ? "stands out" : "reads naturally"}`}
                   onClick={() => setSelected(selected === i ? null : i)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -104,14 +106,13 @@ export function SentenceHighlights({ sentences }: { sentences: SentenceSignal[] 
 
       <div className="mt-3 min-h-[52px] rounded-xl border border-[var(--line)] bg-white/[0.02] px-4 py-3 text-[13px] print:hidden" aria-live="polite">
         {current ? (
-          current.reasons.length ? (
-            <ul className="flex flex-wrap gap-1.5">
-              {current.reasons.map((r) => (
-                <li key={r} className="rounded-md bg-white/[0.06] px-2 py-0.5 text-fg-muted">{r}</li>
-              ))}
-            </ul>
+          current.level !== "low" ? (
+            <p className="text-fg-muted">
+              This sentence stands out. Why, and how risky it is, is in the{" "}
+              <Link href="/services/screening" className="text-accent hover:underline">full report</Link>.
+            </p>
           ) : (
-            <p className="text-fg-muted">No patterns found in this sentence.</p>
+            <p className="text-fg-muted">This sentence reads naturally in the quick scan.</p>
           )
         ) : (
           <p className="text-fg-subtle">Highlights mark regular patterns, not authorship. Plenty of human writing is flagged here.</p>

@@ -1760,7 +1760,7 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-agent::before, .scan-agent::after { content: ""; position: absolute; width: 6px; height: 6px; border: 1.5px solid var(--c); }
 .scan-agent::before { left: -3px; top: -3px; border-right: 0; border-bottom: 0; }
 .scan-agent::after { right: -3px; bottom: -3px; border-left: 0; border-top: 0; }
-/* A2 X-RAY: a lens over the line ahead, with a sweep and a ruler, that lights up the text under it. */
+/* A2 LOOKAHEAD: a lens over the line ahead, with a sweep, that lights up the text under it. */
 .scan-xray {
   border-radius: 6px;
   border-block: 1px solid rgb(154 123 255 / 0.22);
@@ -1778,9 +1778,8 @@ html.ent-pre :is(.depth-title, h1, h2) {
   animation: scan-xray-sweep 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 @keyframes scan-xray-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
-.scan-w[data-tr] { color: #d9ccff; border-radius: 3px; background: rgb(154 123 255 / 0.16); box-shadow: 0 0 0 1px rgb(154 123 255 / 0.4); }
 
-/* A3 PHRASE: a small glass lens gliding over the words two sentences behind; repeated wording gets a fine dotted line. */
+/* A3 VERIFY: a small glass lens gliding over the words two sentences behind. */
 .scan-pen {
   border-radius: 999px;
   border: 1px solid rgb(226 232 255 / 0.3);
@@ -1790,12 +1789,9 @@ html.ent-pre :is(.depth-title, h1, h2) {
   backdrop-filter: brightness(1.35);
   transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.2s ease, opacity 0.4s ease;
 }
-.scan-w[data-rep][data-ph] {
-  background: radial-gradient(circle, rgb(206 216 255 / 0.75) 0 0.7px, transparent 1.1px) 0 calc(100% - 1px) / 4px 3px repeat-x;
-}
 .scan-sent[data-gr] { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-color: rgb(154 123 255 / 0.85); text-decoration-thickness: 1px; }
 
-/* A4 RHYTHM: a ruler in the margin over the sentence being read. */
+/* A4 CONTEXT: a bracket in the margin over the paragraph being read. */
 .scan-ruler {
   left: -13px; width: 2px; border-radius: 2px;
   background: linear-gradient(var(--color-accent), rgb(91 140 255 / 0.25));
@@ -1805,7 +1801,7 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-ruler::before, .scan-ruler::after { content: ""; position: absolute; left: -2px; width: 6px; height: 1.5px; background: var(--color-accent); }
 .scan-ruler::before { top: 0; }
 .scan-ruler::after { bottom: 0; }
-.scan-ruler-n { position: absolute; right: 7px; bottom: -3px; font: 600 9px/1 var(--font-mono); color: var(--color-accent); white-space: nowrap; }
+.scan-ruler-n { position: absolute; right: 7px; top: -3px; font: 600 9px/1 var(--font-mono); color: var(--color-accent); white-space: nowrap; }
 @media (max-width: 639px) { .scan-ruler-n { display: none; } }
 
 .scan-agentbar { scrollbar-width: none; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { stitchReport } from "../lib/auto-report/stitch";
-import { flaggedPrefix, liveEstimate, phraseLine, ratingsBySentence, repeatedWords, rhythmOf, scanDurationMs, scanPlan, scanPosition, transitionOpener } from "../lib/auto-report/scan-script";
+import { contextLine, flaggedPrefix, liveEstimate, lookaheadLine, ratingsBySentence, reviewerLines, scanDurationMs, scanPlan, scanPosition, thinkingLine, verifyLine } from "../lib/auto-report/scan-script";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -44,16 +44,18 @@ test("the live rate moves up and down with each sentence and lands exactly on th
   assert.equal(Math.round(final * 100), 20);
 });
 
-test("agent facts come from the text", () => {
-  assert.equal(transitionOpener("However, speed alone is not enough."), "However");
-  assert.equal(transitionOpener("In addition, local shops help."), "In addition");
-  assert.equal(transitionOpener("Howevers are not words."), null);
+test("scan logs point at the text but never say how it is judged", () => {
+  const flags = ["- P1 S2 \"x\" | Risk: High | Signals 1, 4: repeated wording and even sentence lengths"];
+  const result = stitchReport(essay, [{ idx: 0, ok: true, truncated: false, report: answer(flags) }]);
   const plan = scanPlan(essay);
-  const repeats = repeatedWords(plan);
-  assert.equal(repeats.get("sentence"), 15);
-  assert.match(phraseLine(plan.sentences[0], repeats).text, /“sentence” ×15/);
-  assert.equal(rhythmOf([10, 10, 10]).label, "very even");
-  assert.equal(rhythmOf([4, 20, 9]).label, "varied");
+  const ratings = ratingsBySentence(result);
+  const lines = [
+    ...plan.sentences.flatMap((x) => [lookaheadLine(x), verifyLine(x), thinkingLine(x), ...reviewerLines(x, ratings.get(x.n))]),
+    ...plan.paragraphs.flatMap((p) => [contextLine(p.p, "start", 3), contextLine(p.p, "end", 3)]),
+  ].map((l) => l.text);
+  for (const t of lines) assert.doesNotMatch(t, /signal|repeat|rhythm|phrase|length|transition|connector|words?\b|×|avg|spread/i, t);
+  assert.ok(lines.some((t) => /P1 S2 .*→ HIGH/.test(t)), "the real rating is shown");
+  assert.ok(lines.some((t) => /paragraph 2 of 3/.test(t)));
 });
 
 test("scan length: about two minutes for 5,000 characters, within 40 s to 5 min", () => {

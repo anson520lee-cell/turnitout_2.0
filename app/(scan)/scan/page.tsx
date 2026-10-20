@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { ScanWorkspace, type ScanAccess } from "@/components/scan/scan-workspace";
+import { forBrowser } from "@/lib/scanning/types";
 import { ScanResult } from "@/components/scan/scan-result";
 import { SavedReport } from "@/components/scan/saved-report";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ import { freeScan } from "@/config/app";
 
 export const metadata: Metadata = {
   title: "Free writing scan",
-  description: `Paste ${freeScan.minChars.toLocaleString("en-HK")} to ${freeScan.maxChars.toLocaleString("en-HK")} characters and get a free preliminary scan of sentence rhythm, structure and phrasing. ${freeScan.dailyLimit} free scans a day, no account needed.`,
+  description: `Paste ${freeScan.minChars.toLocaleString("en-HK")} to ${freeScan.maxChars.toLocaleString("en-HK")} characters and get a free preliminary AI-risk range for your writing. ${freeScan.dailyLimit} free scans a day, no account needed.`,
   alternates: { canonical: "/scan" },
 };
 
@@ -50,7 +51,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
             />
             <div className="space-y-6">
               {data.report_text && <SavedReport scanId={data.id} report={data.report_text} savedAt={data.report_saved_at ?? null} />}
-              <ScanResult result={data.result_json} createdAt={formatDateTime(data.created_at)} storedLevel={data.overall_risk} />
+              <ScanResult result={forBrowser(data.result_json)} createdAt={formatDateTime(data.created_at)} storedLevel={data.overall_risk} />
             </div>
           </>
         );

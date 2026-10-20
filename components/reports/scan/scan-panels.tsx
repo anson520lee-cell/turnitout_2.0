@@ -23,8 +23,8 @@ const TONE: Record<LogTone, string> = {
 export type TermId = "reader" | "reviewer" | "agents";
 export const TERMS: { id: TermId; title: string; dot: string; hint: string }[] = [
   { id: "reader", title: "reader.log", dot: "bg-cyan", hint: "Reading your text, word by word" },
-  { id: "reviewer", title: "reviewer.log", dot: "bg-violet", hint: "The reviewer's ratings and reasons, sentence by sentence" },
-  { id: "agents", title: "agents.log", dot: "bg-accent", hint: "Scan agents cross-checking sentences" },
+  { id: "reviewer", title: "reviewer.log", dot: "bg-violet", hint: "The reviewer's rating for each sentence" },
+  { id: "agents", title: "agents.log", dot: "bg-accent", hint: "What the scan agents are working on" },
 ];
 
 /** One terminal window: title bar with minimise/close, a log that keeps to the newest lines, and an optional live last line. */
