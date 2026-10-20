@@ -33,7 +33,7 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <Card strong className="noise flex flex-col overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-violet/20 blur-3xl" />
-          <RefinementVisual className="relative min-h-[300px] flex-1 sm:min-h-[330px]" />
+          <RefinementVisual className="relative min-h-[540px] flex-1 sm:min-h-[330px]" />
           <div className="relative mt-6 grid gap-4 border-t border-[var(--line)] pt-6 sm:grid-cols-3">
             <div>
               <p className="text-[12px] text-fg-subtle">Rate</p>
