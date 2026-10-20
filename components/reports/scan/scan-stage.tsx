@@ -346,13 +346,13 @@ export function ScanStage({
 const AGENTS = [
   { c: "cyan", name: "A1 READ", job: "Reads your text word by word" },
   { c: "violet", name: "A2 X-RAY", job: "Looks one line ahead at how the next sentence is built" },
-  { c: "warn", name: "A3 PHRASE", job: "Follows behind, marking wording your text repeats" },
+  { c: "silver", name: "A3 PHRASE", job: "Follows behind, marking wording your text repeats" },
   { c: "accent", name: "A4 RHYTHM", job: "Measures each sentence's length" },
 ] as const;
 
 /**
  * The text itself, with the four scan agents working through it in order:
- * A1 reads the current word, A2's X-ray lens sweeps the line ahead, A3's pen
+ * A1 reads the current word, A2's X-ray lens sweeps the line ahead, A3's lens
  * follows two sentences behind, and A4 measures the sentence being read.
  * States are written straight onto the spans and the agents are moved with
  * transforms, so the text is rendered by React only once.
@@ -384,7 +384,6 @@ const Document = memo(function Document({
   const spans = useRef<(HTMLSpanElement | null)[]>([]);
   const words = useRef<(HTMLSpanElement | null)[][]>([]);
   const read = useRef<HTMLDivElement>(null);
-  const beam = useRef<HTMLDivElement>(null);
   const xray = useRef<HTMLDivElement>(null);
   const pen = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
@@ -440,7 +439,7 @@ const Document = memo(function Document({
     const tick = () => {
       const { frontier: f, within: wn, done: finished } = live.current;
       if (finished || f >= total) {
-        hide(read.current, beam.current, xray.current, pen.current, ruler.current);
+        hide(read.current, xray.current, pen.current, ruler.current);
         return;
       }
       const now = performance.now();
@@ -453,10 +452,6 @@ const Document = memo(function Document({
         read.current.style.width = `${Math.max(18, r.w + 8)}px`;
         read.current.style.height = `${r.h + 6}px`;
         read.current.style.opacity = "1";
-      }
-      if (beam.current) {
-        beam.current.style.transform = `translate3d(0, ${r.y + r.h / 2}px, 0)`;
-        beam.current.style.opacity = "1";
       }
       // A2 X-RAY: the next line down.
       let next: { y: number; h: number } | null = null;
@@ -477,7 +472,7 @@ const Document = memo(function Document({
           xray.current.style.opacity = "1";
         } else xray.current.style.opacity = "0";
       }
-      // A3 PHRASE: two sentences behind, word by word, marking repeated wording as it goes.
+      // A3 PHRASE: a glass lens two sentences behind, word by word, marking repeated wording as it goes.
       const b = f - 2;
       if (b >= 0 && pen.current) {
         const ws = words.current[b] ?? [];
@@ -485,8 +480,9 @@ const Document = memo(function Document({
         const el = ws[j];
         if (el) {
           const p = at(el);
-          pen.current.style.transform = `translate3d(${p.x}px, ${p.y + p.h + 1}px, 0)`;
-          pen.current.style.width = `${Math.max(8, p.w)}px`;
+          pen.current.style.transform = `translate3d(${p.x - 5}px, ${p.y - 1}px, 0)`;
+          pen.current.style.width = `${Math.max(14, p.w + 10)}px`;
+          pen.current.style.height = `${p.h + 2}px`;
           pen.current.style.opacity = "1";
         }
         while (pc.i < b || (pc.i === b && pc.j <= j)) {
@@ -540,7 +536,6 @@ const Document = memo(function Document({
         <div aria-hidden className="scan-doc-grid pointer-events-none absolute inset-0" />
         <div ref={content} className="relative mx-auto max-w-[72ch]">
           <div ref={xray} aria-hidden className="scan-xray pointer-events-none absolute -inset-x-3 top-0 opacity-0" />
-          <div ref={beam} aria-hidden className="scan-beam pointer-events-none absolute -inset-x-8 top-0 h-px opacity-0" />
           <Text plan={plan} repeats={repeats} spans={spans} words={words} />
           <div ref={ruler} aria-hidden className="scan-ruler pointer-events-none absolute top-0 opacity-0">
             <span ref={rulerN} className="scan-ruler-n" />
