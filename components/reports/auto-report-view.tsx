@@ -7,7 +7,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
-import type { AutoReportResult, Level, Overall, ReportParagraph } from "@/lib/auto-report/stitch";
+import { overallFor, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,12 @@ const mark: Record<Level, string> = {
 const rail: Record<Level, string> = { high: "bg-risk", medium: "bg-warn", uncertain: "bg-fg-subtle", low: "bg-ok" };
 const label: Record<Level, string> = { high: "High", medium: "Medium", uncertain: "Uncertain", low: "Low" };
 
-function Stat({ title, value, of }: { title: string; value: string; of?: string }) {
+const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+const isFlagged = (r: Level) => r === "high" || r === "medium";
+/** Share of a paragraph's sentences rated High or Medium, in whole percent. */
+const paragraphShare = (p: ReportParagraph) => pct(p.sentences.filter((s) => isFlagged(s.risk)).length, p.sentences.length);
+
+function Stat({ title, value, of, sub }: { title: string; value: string; of?: string; sub?: string }) {
   return (
     <div className="rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
       <p className="text-[12px] text-fg-subtle">{title}</p>
@@ -35,12 +40,14 @@ function Stat({ title, value, of }: { title: string; value: string; of?: string 
         {value}
         {of && <span className="ml-1 text-[13px] font-normal text-fg-subtle">{of}</span>}
       </p>
+      {sub && <p className="mt-0.5 font-mono text-[11px] text-fg-subtle">{sub}</p>}
     </div>
   );
 }
 
 function ParagraphCard({ para }: { para: ReportParagraph }) {
   const flagged = para.sentences.filter((s) => s.risk !== "low");
+  const share = paragraphShare(para);
   return (
     <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
@@ -49,7 +56,10 @@ function ParagraphCard({ para }: { para: ReportParagraph }) {
         <Badge tone={riskStyle[para.risk].tone} className={riskPrintClass[riskStyle[para.risk].tone]}>
           {label[para.risk]} risk
         </Badge>
-        {flagged.length > 0 && <span className="text-[12px] text-fg-subtle">{flagged.length} of {para.sentences.length} sentences marked</span>}
+        <span className="text-[12px] text-fg-subtle">
+          <span className="font-mono font-medium text-fg-muted">{share}%</span> of sentences flagged
+          {flagged.length > 0 && <> · {flagged.length} of {para.sentences.length} marked</>}
+        </span>
       </div>
       <p className="mt-3 text-[14.5px] leading-[1.75] text-fg-muted">
         {para.sentences.map((s) => (
@@ -86,8 +96,13 @@ function ParagraphCard({ para }: { para: ReportParagraph }) {
 export function AutoReportView({ title, finishedAt, result }: { title: string; finishedAt: string; result: AutoReportResult }) {
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
+  const flaggedPct = Math.round(summary.flaggedShare * 100);
+  const clear = Math.max(0, summary.sentences - flagged);
+  const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
+  const overall = overallFor(summary.flaggedShare);
+  const dense = paragraphs.length > 14;
   const first = paragraphs.filter((p) => p.risk === "high").slice(0, 5);
-  const text = overallText[summary.overall];
+  const text = overallText[overall];
   const partial = pieces.reviewed < pieces.total;
   return (
     <div className="space-y-5">
@@ -120,17 +135,26 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
 
         <div className="relative mt-6 grid items-center gap-6 border-t border-[var(--line)] pt-6 lg:grid-cols-[minmax(0,260px)_1fr]">
           <div>
-            <RiskGauge level={summary.overall} />
-            <p className="mt-2 text-center text-[13px] font-medium">{text.title} overall</p>
+            <RiskGauge level={overall} share={summary.flaggedShare} />
           </div>
           <div>
-            <p className="text-[15px] leading-relaxed text-fg">{text.line}</p>
+            <p className="text-[15px] leading-relaxed text-fg">
+              <span className="font-semibold">{flaggedPct}% of sentences flagged</span> ({flagged} of {summary.sentences}), so the overall band is{" "}
+              <span className="font-semibold">{text.title}</span>. {text.line}
+            </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat title="Sentences marked" value={String(flagged)} of={`of ${summary.sentences}`} />
-              <Stat title="Paragraphs at risk" value={String(summary.riskyParagraphs)} of={`of ${summary.paragraphs}`} />
+              <Stat title="Flagged sentences" value={String(flagged)} of={`of ${summary.sentences}`} sub={`${flaggedPct}%`} />
+              <Stat title="High risk" value={String(summary.high)} sub={`${pct(summary.high, summary.sentences)}% of text`} />
+              <Stat title="Medium risk" value={String(summary.medium)} sub={`${pct(summary.medium, summary.sentences)}% of text`} />
+              <Stat title="Not flagged" value={String(clear)} sub={`${pct(clear, summary.sentences)}% of text`} />
+              <Stat title="Risky paragraphs" value={String(summary.riskyParagraphs)} of={`of ${summary.paragraphs}`} sub={`${pct(summary.riskyParagraphs, summary.paragraphs)}% of paragraphs`} />
               <Stat title="Words" value={summary.words.toLocaleString("en-HK")} />
-              <Stat title="Sections read" value={String(pieces.reviewed)} of={`of ${pieces.total}`} />
+              <Stat title="Avg. sentence" value={summary.sentences ? String(Math.round(summary.words / summary.sentences)) : "0"} of="words" />
+              <Stat title="Sections read" value={String(pieces.reviewed)} of={`of ${pieces.total}`} sub={`${pct(pieces.reviewed, pieces.total)}% covered`} />
             </div>
+            <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">
+              The percentage is the share of sentences marked High or Medium. It is not the chance that AI wrote your text, and it is not a Turnitin score.
+            </p>
           </div>
         </div>
       </Card>
@@ -143,26 +167,63 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
 
       <Card className="p-5 sm:p-6 print:break-inside-avoid">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight">Map of your text</h3>
+          <h3 className="text-[15px] font-semibold tracking-tight">Sentence breakdown</h3>
+          <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
+            {([["high", summary.high], ["medium", summary.medium], ["uncertain", summary.uncertain], ["low", lowOnly]] as const).map(([l, n]) => (
+              <span key={l} className="inline-flex items-center gap-1.5">
+                <span className={cn("size-2.5 rounded-sm", rail[l])} />
+                {label[l]} <span className="font-mono text-fg-muted">{n} · {pct(n, summary.sentences)}%</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex h-3.5 overflow-hidden rounded-full bg-ink-900/60" role="img" aria-label={`${flaggedPct}% of sentences flagged`}>
+          {([["high", summary.high], ["medium", summary.medium], ["uncertain", summary.uncertain], ["low", lowOnly]] as const).map(([l, n]) =>
+            n > 0 ? <span key={l} className={cn("h-full", rail[l])} style={{ width: `${(n / Math.max(1, summary.sentences)) * 100}%` }} /> : null,
+          )}
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6 print:break-inside-avoid">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
           <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
             {(["high", "medium", "low"] as const).map((l) => (
               <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", rail[l])} />{label[l]}</span>
             ))}
           </div>
         </div>
-        <div className="mt-4 flex h-9 gap-[3px]" role="list" aria-label="Risk of each paragraph, in order">
-          {paragraphs.map((p) => (
-            <a
-              key={p.p}
-              role="listitem"
-              href={`#para-${p.p}`}
-              title={`Paragraph ${p.p}: ${label[p.risk]} risk`}
-              className={cn("min-w-[6px] flex-1 rounded-[4px] opacity-90 transition hover:opacity-100 hover:brightness-125", rail[p.risk])}
-            />
+        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
+          {[0, 50, 100].map((g) => (
+            <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
+              <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
+            </span>
           ))}
+          <div className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]">
+            {paragraphs.map((p) => {
+              const share = paragraphShare(p);
+              return (
+                <a
+                  key={p.p}
+                  role="listitem"
+                  href={`#para-${p.p}`}
+                  title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
+                  className="group relative flex h-full min-w-[6px] flex-1 items-end"
+                >
+                  {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
+                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", rail[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                </a>
+              );
+            })}
+          </div>
         </div>
+        {!dense && (
+          <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
+            {paragraphs.map((p) => <span key={p.p} className="min-w-[6px] flex-1 text-center">P{p.p}</span>)}
+          </div>
+        )}
         <p className="mt-3 text-[12px] text-fg-subtle">
-          Red marks the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
+          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall red bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
         </p>
       </Card>
 
@@ -174,7 +235,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
               <li key={p.p}>
                 <a href={`#para-${p.p}`} className="font-medium text-fg underline-offset-2 hover:underline">Paragraph {p.p}</a>
                 {": "}
-                {p.sentences.filter((s) => s.risk === "high" || s.risk === "medium").length} marked sentences close together
+                {p.sentences.filter((s) => isFlagged(s.risk)).length} of {p.sentences.length} sentences flagged ({paragraphShare(p)}%)
               </li>
             ))}
           </ul>
@@ -202,7 +263,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
       <p className="flex gap-2 rounded-2xl border border-[var(--line)] bg-ink-900/40 p-4 text-[12.5px] leading-relaxed text-fg-muted">
         <Info className="mt-0.5 size-4 shrink-0 text-accent" />
         <span>
-          {disclaimers.screeningResult} It is not a Turnitin result. {disclaimers.noGuarantee}
+          {disclaimers.screeningResult} The percentage shows the share of sentences flagged, not the probability that AI wrote the text, and it is not a Turnitin result. {disclaimers.noGuarantee}
         </span>
       </p>
     </div>
