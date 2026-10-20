@@ -20,7 +20,7 @@ const paid = [
   ["Overall level and a map of your text", true],
   ["Marked sentences with questions to ask yourself", true],
   ["PDF download", true],
-  ["Made in about a minute", true],
+  ["Made in a few minutes", true],
   ["Not a Turnitin result", true],
 ] as const;
 

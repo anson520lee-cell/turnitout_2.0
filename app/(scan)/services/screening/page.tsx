@@ -16,7 +16,7 @@ export default function Page() {
   return (
     <>
       <AppHeader
-        eyebrow={<Badge tone="info" dot>Automatic · ready in about a minute</Badge>}
+        eyebrow={<Badge tone="info" dot>Automatic · ready in a few minutes</Badge>}
         title={serviceLabels[reportService]}
         body={
           <>

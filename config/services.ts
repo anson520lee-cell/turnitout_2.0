@@ -86,7 +86,7 @@ export const services: ServiceDefinition[] = [
     id: reportService,
     kind: "screening",
     name: serviceLabels[reportService],
-    short: "A full AI-writing risk report on your own text, made by this website in about a minute.",
+    short: "A full AI-writing risk report on your own text, made by this website in a few minutes.",
     priceLabel: reportFromLabel,
     cadence: reportRateLabel,
     features: [

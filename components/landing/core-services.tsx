@@ -19,7 +19,7 @@ const cards = [
   },
   {
     icon: FileCheck2,
-    tag: <Badge tone="info">Automatic · about a minute</Badge>,
+    tag: <Badge tone="info">Automatic · a few minutes</Badge>,
     title: serviceLabels[reportService],
     body: "Paste your text and press Enter. Every sentence and paragraph is read, and you get an overall level, a map of your text, the sentences to look at again and grammar spots, with a PDF to download.",
     meta: `${reportFromLabel} · ${reportRateLabel} · ${reportRangeLabel}`,

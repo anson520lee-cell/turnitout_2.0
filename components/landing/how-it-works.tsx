@@ -20,7 +20,7 @@ export const steps = [
     title: "Pay with credits",
     body: `${reportRateLabel}. ${reportLimitsLabel}. Top up credits by ${methods}.`,
   },
-  { n: "05", title: "Read your report", body: "It is made in about a minute: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
+  { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
 
 export function HowItWorks({ heading = true }: { heading?: boolean }) {

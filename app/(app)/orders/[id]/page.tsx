@@ -84,7 +84,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
       {autoRunning && (
         <Card strong className="noise relative mb-5 overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-accent/15 blur-3xl" />
-          <AutoReportRunner orderId={order.id} />
+          <AutoReportRunner orderId={order.id} text={order.source_text ?? ""} title={order.title} reference={`Order #${shortId(order.id)}`} />
         </Card>
       )}
       {auto?.status === "failed" && (
