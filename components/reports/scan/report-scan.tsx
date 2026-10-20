@@ -1,13 +1,14 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, FileCheck2, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { disclaimers } from "@/config/services";
-import { INTRO_MS, bandFor, liveRate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
+import { INTRO_MS, bandFor, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
+import { RateMeter, type MeterInput } from "./rate-meter";
 import { RatePanel } from "./scan-panels";
 import { ScanIntro } from "./scan-intro";
 import { ScanStage } from "./scan-stage";
@@ -19,7 +20,7 @@ import type { ReportFeed } from "./use-report-feed";
  * 2. the live scan of their own text, about two minutes for 5,000 characters.
  *
  * The real report is made in the background meanwhile (see `feed`). The scan
- * only shows ratings from it: a sentence is marked, and the AI rate climbs,
+ * only shows ratings from it: a sentence is marked, and the AI rate moves,
  * only once the reviewer's answer is in. If the answer is late the scan waits
  * near the end; if it comes early the scan still runs at its own pace, and a
  * "Skip to report" link appears.
@@ -93,11 +94,25 @@ export function ReportScan({
   // Ratings are shown as the scan passes each sentence; ones it passed before the reviewer answered are filled in quickly.
   if (result && resultAt === null) setResultAt(scanMs);
   const cascade = Math.max(25, total / 4); // sentences per second while catching up
-  const revealed = result ? Math.min(frontier, Math.floor((Math.max(0, scanMs - (resultAt ?? scanMs)) / 1000) * cascade)) : 0;
+  const at = frontier >= total ? total : pos.index + pos.within;
+  const revealedAt = result ? Math.min(at, (Math.max(0, scanMs - (resultAt ?? scanMs)) / 1000) * cascade) : 0;
+  const revealed = Math.floor(revealedAt);
 
   const done = Boolean(result) && fraction >= 1 && revealed >= total;
   if (done && doneAt === null) setDoneAt(now);
-  const rate = result && ratings ? liveRate(result, ratings, revealed, total) : 0;
+  const prefix = useMemo(() => (ratings ? flaggedPrefix(plan, ratings) : null), [plan, ratings]);
+  const estimate = result && prefix ? liveEstimate(prefix, total, result.summary.flaggedShare, revealedAt) : null;
+
+  // The live rate ticks on its own clock, following the real estimate.
+  const [meter] = useState(() => new RateMeter());
+  const input = useRef<MeterInput>({ ready: false, base: 0, progress: 0, done: false, final: 0, reduce });
+  useLayoutEffect(() => {
+    input.current = { ready: estimate !== null && !inIntro, base: estimate ?? 0, progress: total ? revealedAt / total : 0, done, final: result?.summary.flaggedShare ?? 0, reduce };
+  });
+  useEffect(() => {
+    const t = setInterval(() => meter.step(input.current, performance.now()), 50);
+    return () => clearInterval(t);
+  }, [meter]);
 
   useEffect(() => {
     if (feed.state === "failed") end();
@@ -141,7 +156,7 @@ export function ReportScan({
         </Button>
       </div>
       <div className="mt-4">
-        <RatePanel compact rate={rate} ready={Boolean(ratings) && !inIntro} final={done} scanned={scanned} total={total} high={counts.high} medium={counts.medium} uncertain={counts.uncertain} history={[]} />
+        <RatePanel compact meter={meter} ready={estimate !== null && !inIntro} estimate={estimate ?? 0} final={done} scanned={scanned} total={total} high={counts.high} medium={counts.medium} uncertain={counts.uncertain} />
       </div>
       <p className="mt-3 text-[12px] text-fg-subtle">You can close this page: your report is saved and carries on when you come back.</p>
     </div>
@@ -211,7 +226,8 @@ export function ReportScan({
                 frontier={frontier}
                 within={pos.within}
                 revealed={revealed}
-                rate={rate}
+                meter={meter}
+                estimate={estimate}
                 elapsedMs={scanMs}
                 reduce={reduce}
                 done={done}

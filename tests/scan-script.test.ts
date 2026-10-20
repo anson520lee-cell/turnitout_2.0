@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { stitchReport } from "../lib/auto-report/stitch";
-import { liveRate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "../lib/auto-report/scan-script";
+import { flaggedPrefix, liveEstimate, phraseLine, ratingsBySentence, repeatedWords, rhythmOf, scanDurationMs, scanPlan, scanPosition, transitionOpener } from "../lib/auto-report/scan-script";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -18,20 +18,42 @@ test("the scan numbers sentences the same way the report does", () => {
   assert.equal(plan.pieces, 1);
 });
 
-test("the live rate climbs and lands exactly on the report's figure", () => {
+test("the live rate moves up and down with each sentence and lands exactly on the report's figure", () => {
   const flags = ["- P1 S2 \"x\" | Risk: High | Signals 1: tidy", "- P2 S1 \"x\" | Risk: Medium | Signals 2: stock", "- P3 S6 \"x\" | Risk: High | Signals 3: list"];
   const result = stitchReport(essay, [{ idx: 0, ok: true, truncated: false, report: answer(flags) }]);
-  const ratings = ratingsBySentence(result);
-  const total = scanPlan(essay).sentences.length;
-  let last = 0;
-  for (let k = 0; k <= total; k++) {
-    const r = liveRate(result, ratings, k, total);
-    assert.ok(r >= last, "never goes down");
-    assert.ok(r <= result.summary.flaggedShare + 1e-9, "never above the final figure");
-    last = r;
+  const plan = scanPlan(essay);
+  const total = plan.sentences.length;
+  const prefix = flaggedPrefix(plan, ratingsBySentence(result));
+  const final = result.summary.flaggedShare;
+  assert.equal(liveEstimate(prefix, total, final, 1.5), null, "too little to show before two sentences are read");
+  assert.equal(liveEstimate(prefix, total, final, 2), 0.5, "sentence 2 is flagged: 1 of 2");
+  assert.equal(liveEstimate(prefix, total, final, 4), 0.25);
+  let prev = liveEstimate(prefix, total, final, 2)!;
+  let ups = 0;
+  let downs = 0;
+  for (let at = 2.01; at < total; at += 0.01) {
+    const v = liveEstimate(prefix, total, final, at)!;
+    assert.ok(Math.abs(v - prev) < 0.02, "moves smoothly, word by word");
+    if (v > prev + 1e-9) ups++;
+    if (v < prev - 1e-9) downs++;
+    prev = v;
   }
-  assert.equal(liveRate(result, ratings, total, total), result.summary.flaggedShare);
-  assert.equal(Math.round(result.summary.flaggedShare * 100), 20);
+  assert.ok(ups > 0 && downs > 0, "goes both ways");
+  assert.ok(Math.abs(prev - final) < 0.02);
+  assert.equal(liveEstimate(prefix, total, final, total), final);
+  assert.equal(Math.round(final * 100), 20);
+});
+
+test("agent facts come from the text", () => {
+  assert.equal(transitionOpener("However, speed alone is not enough."), "However");
+  assert.equal(transitionOpener("In addition, local shops help."), "In addition");
+  assert.equal(transitionOpener("Howevers are not words."), null);
+  const plan = scanPlan(essay);
+  const repeats = repeatedWords(plan);
+  assert.equal(repeats.get("sentence"), 15);
+  assert.match(phraseLine(plan.sentences[0], repeats).text, /“sentence” ×15/);
+  assert.equal(rhythmOf([10, 10, 10]).label, "very even");
+  assert.equal(rhythmOf([4, 20, 9]).label, "varied");
 });
 
 test("scan length: about two minutes for 5,000 characters, within 40 s to 5 min", () => {
