@@ -42,18 +42,17 @@ export function freeRange(share: number | undefined, level: RiskLevel): FreeRang
 
 /**
  * What the free scan's range gauge shows while it is still reading (Jordan,
- * 2026-10-20: it sat at 0-20 and jumped at the end). It starts from the AI
- * score of the sentences read so far, so it rises and falls as the scan meets
- * sentences that stand out, and is drawn towards the finished result's own
- * range as more of the text has been read (a short sample says little, the
- * whole text says it all). Once everything is read it is inside the final range.
+ * 2026-10-20: it must be measured from the visitor's own text, like the paid
+ * report's live rate, not a drawn climb). It is the AI score of the share of
+ * sentences read so far that stand out, so it goes up on a stand-out sentence
+ * and down on a clear one. From the middle of the text on it is drawn gently into
+ * the finished result's own range, which can sit higher than the sentences
+ * alone when the written review raised it.
  */
-export function liveScore(runningShare: number | undefined, progress: number, finalShare: number | undefined, final: FreeRange): number {
+export function liveScore(runningShare: number, progress: number, finalShare: number | undefined, final: FreeRange): number {
   const own = finalShare === undefined ? final.lo + 10 : aiScore(finalShare) * 100;
   const end = Math.max(final.lo + 1, Math.min(final.hi - 1, own));
-  const p = Math.max(0, Math.min(1, progress));
-  if (runningShare === undefined) return end * p;
-  const w = Math.pow(p, 2.2);
+  const w = Math.pow(Math.max(0, Math.min(1, (progress - 0.5) / 0.5)), 1.5);
   return aiScore(runningShare) * 100 * (1 - w) + end * w;
 }
 

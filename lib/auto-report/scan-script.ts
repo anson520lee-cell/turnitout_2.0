@@ -79,9 +79,9 @@ export function planFromSentences(list: { p: number; text: string }[]): ScanPlan
   return { sentences, paragraphs, chars: list.reduce((n, x) => n + x.text.length, 0), words: sentences.reduce((n, x) => n + x.words.length, 0), pieces: 0 };
 }
 
-/** The free scan's lighter live view: about 20 seconds for 2,000 characters (Jordan, 2026-10-20), never under 8. */
+/** The free scan's lighter live view: about 14 seconds for 2,000 characters (it replays a finished result, after its own opening), never under 8. */
 export function quickScanDurationMs(chars: number): number {
-  return Math.round(Math.min(25_000, Math.max(8_000, chars * 10)));
+  return Math.round(Math.min(18_000, Math.max(8_000, chars * 7)));
 }
 
 /**
