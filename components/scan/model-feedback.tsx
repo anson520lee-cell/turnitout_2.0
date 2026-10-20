@@ -109,6 +109,44 @@ function startRequest(store: Store, ticket: string, text: string, previousText?:
 
 const WAITING: State = { status: "waiting" };
 
+/** Starts the written feedback right away (the free scan's opening animation runs while it is written). */
+export function prefetchFeedback(ticket: string, text: string, previousText?: string) {
+  startRequest(getStore(ticket), ticket, text, previousText);
+}
+
+/** The reviewer's overall verdict from a finished (or part-written) report, or null while there is none. */
+function verdictOf(state: State): Risk | null {
+  const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
+  return overallRisk(parseReport(shown)) ?? null;
+}
+
+const NOT_STARTED = { settled: false, verdict: null } as const;
+
+/**
+ * Where the written feedback stands, without starting it: `settled` once it has finished (or failed), and the
+ * reviewer's verdict once it is known. Lets the free scan's live view wait for the same report the result shows.
+ */
+export function useFeedbackProgress(ticket: string | null): { settled: boolean; verdict: Risk | null } {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!ticket) return () => {};
+      const store = getStore(ticket);
+      store.subscribers.add(onChange);
+      return () => {
+        store.subscribers.delete(onChange);
+      };
+    },
+    [ticket],
+  );
+  const state = useSyncExternalStore(
+    subscribe,
+    () => (ticket ? getStore(ticket).state : WAITING),
+    () => WAITING,
+  );
+  if (!ticket) return NOT_STARTED;
+  return { settled: state.status === "done" || state.status === "unavailable", verdict: state.status === "done" ? verdictOf(state) : null };
+}
+
 function useFeedback(ticket: string, text: string, previousText?: string): State {
   const subscribe = useCallback(
     (onChange: () => void) => {

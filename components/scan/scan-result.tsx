@@ -30,6 +30,7 @@ export function ScanResult({
   createdAt,
   feedback,
   storedLevel,
+  verdictHint = null,
 }: {
   result: AnalysisResult;
   createdAt?: string;
@@ -37,9 +38,11 @@ export function ScanResult({
   storedLevel?: RiskLevel;
   /** Live scans only: the local model's written feedback, fetched as it arrives. */
   feedback?: { ticket: string; text: string; previousText?: string; scanId?: string | null } | null;
+  /** The reviewer's verdict when it is already known (the live scan waited for it), so the dial never changes after it appears. */
+  verdictHint?: Risk | null;
 }) {
   // The reviewer's overall verdict, shown next to the dial because the two can disagree.
-  const [verdict, setVerdict] = useState<Risk | null>(null);
+  const [verdict, setVerdict] = useState<Risk | null>(verdictHint);
   const reviewLevel = verdict ? verdictLevel[verdict] : undefined;
   // The dial shows the highest reading: statistics, the review, and what the history already holds.
   const dialLevel: RiskLevel = higherLevel(higherLevel(result.overallRisk, reviewLevel), storedLevel);

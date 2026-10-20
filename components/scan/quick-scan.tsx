@@ -62,14 +62,20 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
     const t = setInterval(() => {
       const e = performance.now() - start;
       setElapsed(e);
-      const at = scanPosition(plan, Math.min(1, e / duration)).index;
-      const frontierNow = e >= duration ? total : at;
+      const pos = scanPosition(plan, Math.min(1, e / duration));
+      const frontierNow = e >= duration ? total : pos.index;
       if (frontierNow >= 2) {
-        const read = sentences.slice(0, frontierNow);
-        const target = liveScore(standoutShare(read), frontierNow / Math.max(1, total), finalShare, finalRange);
-        // A touch of flutter while the scan is young; it fades as the text is read.
-        const flutter = Math.sin(e / 210) * 2.4 * (1 - frontierNow / Math.max(1, total));
-        shown.current = shown.current === null ? target : shown.current + (target + flutter - shown.current) * 0.16;
+        // The share of sentences read so far that stand out, counting the one being read part-way, as the paid scan does.
+        const k = Math.min(frontierNow, total - 1);
+        const frac = e >= duration ? 0 : pos.within;
+        const flagged = (i: number) => (isStandout(sentences[i].level) ? 1 : 0);
+        let hits = 0;
+        for (let i = 0; i < k; i++) hits += flagged(i);
+        const at = e >= duration ? total : k + frac;
+        const share = (e >= duration ? hits + flagged(total - 1) : hits + flagged(k) * frac) / Math.max(1, at);
+        const target = liveScore(share, at / Math.max(1, total), finalShare, finalRange);
+        // Eased a little so it glides; follows each sentence as it is read.
+        shown.current = shown.current === null ? target : shown.current + (target - shown.current) * 0.4;
         const v = Math.max(0, Math.min(100, shown.current));
         setLive((l) => ({ score: v, hist: [...l.hist, v] }));
       }

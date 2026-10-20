@@ -35,6 +35,7 @@ export function PasteDialog({
   allowFile = true,
   closeOnSuccess = false,
   initialText,
+  initialError,
 }: {
   open: boolean;
   onClose: () => void;
@@ -55,6 +56,8 @@ export function PasteDialog({
   closeOnSuccess?: boolean;
   /** Text to fill the box with when the dialog opens (e.g. from a dropped file). */
   initialText?: string;
+  /** A message to show when the dialog opens (for example, why the last submission did not go through). */
+  initialError?: string | null;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -80,11 +83,12 @@ export function PasteDialog({
     if (open && !d.open) {
       d.showModal();
       setPhase("edit");
-      setError(null);
+      setError(initialError ?? null);
       requestAnimationFrame(() => textRef.current?.focus());
     } else if (!open && d.open) {
       d.close();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const busy = phase !== "edit";

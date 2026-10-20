@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useCallback, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ClipboardPaste, CornerDownLeft, FileUp, History, LogIn, PencilLine, RotateCcw, Sparkles } from "lucide-react";
 import { runScan } from "@/app/actions/scan";
@@ -12,6 +12,9 @@ import { PasteDialog, type PasteResult } from "@/components/ui/paste-dialog";
 import { ScanResult } from "./scan-result";
 import { ScanVisual } from "./scan-visual";
 import { QuickScan } from "./quick-scan";
+import { QuickIntro } from "./quick-intro";
+import { prefetchFeedback, useFeedbackProgress } from "./model-feedback";
+import { higherLevel, verdictLevel } from "@/lib/report-format";
 import { freeScan, retention } from "@/config/app";
 import { countChars, cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -20,8 +23,6 @@ import { extractText, ExtractError } from "@/lib/extract-text";
 
 /** What the visitor can do on /scan, decided on the server. */
 export type ScanAccess = { mode: "account" | "guest"; remaining: number };
-
-const WAITING_STEPS = ["Receiving your text", "Reading it sentence by sentence", "Assessing each paragraph", "Preparing your quick scan"];
 
 function UsageMeter({ remaining }: { remaining: number }) {
   return (
@@ -72,10 +73,13 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
   const [run, setRun] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const revealPending = useRef(false);
-  // The quick live scan plays over the page after each scan; the result shows when it ends.
-  const [live, setLive] = useState(false);
-  const playLive = useRef(false);
+  // After Enter, a full-screen opening plays while the scan and the written review run behind it; then the quick
+  // live scan replays the finished result; the report shows when that ends. "intro" until the data is in, then "scan".
+  const [stage, setStage] = useState<"idle" | "intro" | "scan">("idle");
+  const [pending, setPending] = useState<{ text: string; dataReady: boolean } | null>(null);
+  const [retry, setRetry] = useState<{ text: string; message: string } | null>(null);
+  const progress = useFeedbackProgress(feedback?.ticket ?? null);
+  const live = stage !== "idle";
 
   const limitReached = remaining <= 0;
   const limitMessage = guest
@@ -95,20 +99,17 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     setOpen(false);
     setDropped(null);
     setRecheck(false);
-    if (!revealPending.current) return;
-    revealPending.current = false;
-    if (playLive.current) setLive(true);
-    else reveal();
+    setRetry(null);
   };
 
-  const reveal = () => {
+  const reveal = useCallback(() => {
     // After the dialog or the live scan has closed (and handed focus back), bring the report into view.
     setTimeout(() => {
       headingRef.current?.focus({ preventScroll: true });
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       resultRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     }, 80);
-  };
+  }, []);
 
   const validate = (text: string): string | null => {
     if (remaining <= 0) return limitMessage;
@@ -128,29 +129,50 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
     );
   };
 
+  // Enter: the dialog closes at once, the opening plays full screen, and the scan and the written review start
+  // behind it. A failure (limit, server) brings the dialog back with the text still in it.
   const onSubmit = async (text: string): Promise<PasteResult> => {
     const previousText = recheck && lastText ? lastText : undefined;
     track(previousText ? "recheck_started" : "scan_started", { chars: countChars(text), guest });
-    const res = await runScan(text);
-    if (!res.ok) {
-      if (res.code === "limit") {
-        setRemaining(0);
-        track("scan_limit_reached", { guest });
+    setRetry(null);
+    setResult(null);
+    setPending({ text, dataReady: false });
+    setStage("intro");
+    void (async () => {
+      const res = await runScan(text).catch(() => ({ ok: false as const, code: "failed" as const, message: "We couldn't reach the server. Check your connection and try again." }));
+      if (!res.ok) {
+        if (res.code === "limit") {
+          setRemaining(0);
+          track("scan_limit_reached", { guest });
+        }
+        setStage("idle");
+        setPending(null);
+        setRetry({ text, message: res.message });
+        setRecheck(Boolean(previousText));
+        setOpen(true);
+        return;
       }
-      return { ok: false, message: res.message };
-    }
-    // The session may have changed since the page loaded (expired, or signed in elsewhere).
-    setGuest(res.guest);
-    setRemaining(res.remaining);
-    setResult(res.result);
-    setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text, previousText, scanId: res.scanId } : null);
-    setLastText(text);
-    setRun((n) => n + 1);
-    revealPending.current = true;
-    playLive.current = Boolean(res.result.sentences?.length);
-    track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
+      // The session may have changed since the page loaded (expired, or signed in elsewhere).
+      setGuest(res.guest);
+      setRemaining(res.remaining);
+      setResult(res.result);
+      setFeedback(res.feedbackTicket ? { ticket: res.feedbackTicket, text, previousText, scanId: res.scanId } : null);
+      setLastText(text);
+      setRun((n) => n + 1);
+      if (res.feedbackTicket) prefetchFeedback(res.feedbackTicket, text, previousText);
+      setPending({ text, dataReady: true });
+      track("scan_completed", { risk: res.result.overallRisk, guest: res.guest });
+    })();
     return { ok: true };
   };
+
+  const startScan = useCallback(() => {
+    if (result?.sentences?.length) setStage("scan");
+    else {
+      setStage("idle");
+      reveal();
+    }
+  }, [result, reveal]);
 
   const textNote =
     retention.storeScanText && !guest
@@ -326,7 +348,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
                 </Button>
               </div>
             </div>
-            <ScanResult result={result} feedback={feedback} />
+            <ScanResult result={result} feedback={feedback} verdictHint={progress.verdict} />
           </motion.section>
         )}
       </div>
@@ -336,13 +358,21 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
         <Link href="/privacy" className={buttonClasses("ghost", "sm", "h-auto px-1 underline")}>Privacy</Link>
       </p>
 
-      {live && result?.sentences && (
+      {stage === "intro" && pending && (
+        <QuickIntro
+          text={pending.text}
+          dataReady={pending.dataReady}
+          ready={pending.dataReady && (!feedback?.ticket || progress.settled)}
+          onReady={startScan}
+        />
+      )}
+      {stage === "scan" && result?.sentences && (
         <QuickScan
           key={run}
           sentences={result.sentences}
-          level={result.overallRisk}
+          level={higherLevel(result.overallRisk, progress.verdict ? verdictLevel[progress.verdict] : undefined)}
           onDone={() => {
-            setLive(false);
+            setStage("idle");
             reveal();
           }}
         />
@@ -374,10 +404,8 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
           </>
         }
         onSubmit={onSubmit}
-        initialText={recheck ? (lastText ?? undefined) : dropped?.text}
-        waitingTitle="Scanning your writing…"
-        waitingSteps={WAITING_STEPS}
-        waitingNote="This usually takes a few seconds. Please keep this window open."
+        initialText={retry?.text ?? (recheck ? (lastText ?? undefined) : dropped?.text)}
+        initialError={retry?.message}
         closeOnSuccess
       />
     </div>
