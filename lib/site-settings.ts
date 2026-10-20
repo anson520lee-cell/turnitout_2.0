@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
-import { SCAN_REPORT_PROMPT } from "@/lib/local-model/prompts";
+import { STRUCT_1 } from "@/lib/chunk-prompts";
 import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort } from "@/lib/deepseek";
 
 /**
@@ -10,6 +10,14 @@ import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort }
  * site_setting_history (0010). Each server instance caches values briefly, so
  * a save shows up on the next scan within about 30 seconds.
  */
+
+/**
+ * The built-in report prompt: the struct1 candidate (essay structure weighs more, you/we and idioms are no longer
+ * safe signals). Jordan switched the site to it on 2026-10-20 after the 3,000-character backtest: AI essays reaching
+ * the red band rose from 14 to 20 of 21 while human essays in red stayed at 7 of 20. A prompt saved on
+ * /admin/prompt still takes precedence.
+ */
+const DEFAULT_REPORT_PROMPT = STRUCT_1;
 
 export const SETTING_KEYS = {
   reportPrompt: "scan_report_prompt",
@@ -69,7 +77,7 @@ export interface PromptVersion {
 
 /** The system prompt for the free-scan report. */
 export async function getScanReportPrompt(): Promise<string> {
-  return (await read(SETTING_KEYS.reportPrompt)) ?? SCAN_REPORT_PROMPT;
+  return (await read(SETTING_KEYS.reportPrompt)) ?? DEFAULT_REPORT_PROMPT;
 }
 
 /** For the admin page: current prompt and whether it's the owner's own. */
@@ -82,7 +90,7 @@ export async function getScanReportSetting(): Promise<PromptSetting> {
   const custom = data?.value?.trim();
   return custom
     ? { value: custom, custom: true, updatedAt: data!.updated_at }
-    : { value: SCAN_REPORT_PROMPT, custom: false, updatedAt: null };
+    : { value: DEFAULT_REPORT_PROMPT, custom: false, updatedAt: null };
 }
 
 /** The last saved versions of the report prompt, newest first. */

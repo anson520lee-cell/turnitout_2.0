@@ -2,9 +2,10 @@ import { SCAN_REPORT_PROMPT } from "@/lib/local-model/prompts";
 import type { CandidatePromptName } from "@/lib/chunk-candidate-names";
 
 /**
- * Candidate reviewer prompts for the piece-size / accuracy test. Each is the saved
- * built-in prompt with a few rules changed, so the test shows what the change does.
- * Used only by the test route; the saved prompt is never touched.
+ * Candidate reviewer prompts for the piece-size / accuracy test. Each is the first
+ * built-in prompt (SCAN_REPORT_PROMPT) with a few rules changed, so the test shows
+ * what the change does. struct1 became the site's built-in prompt on 2026-10-20
+ * (see DEFAULT_REPORT_PROMPT in site-settings.ts).
  */
 
 function swap(base: string, from: string, to: string): string {
