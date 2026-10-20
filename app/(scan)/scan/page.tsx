@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { getSessionUser } from "@/lib/auth/session";
-import { deepseekEnabled } from "@/lib/deepseek";
 import { DailyReportCard } from "@/components/orders/daily-report-card";
 import { getFreeReportStatus } from "@/lib/free-report";
 import { guestRemainingScans } from "@/lib/scanning/guest";
@@ -86,7 +85,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
         </div>
       )}
       <DailyReportCard status={await getFreeReportStatus()} paidHref="/services/screening" className="mb-6" />
-      <ScanWorkspace access={access} modelFeedback={deepseekEnabled()} />
+      <ScanWorkspace access={access} />
     </>
   );
 }

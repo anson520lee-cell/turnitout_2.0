@@ -58,7 +58,7 @@ function SignInLinks() {
   );
 }
 
-export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanAccess; modelFeedback?: boolean }) {
+export function ScanWorkspace({ access }: { access: ScanAccess }) {
   const [guest, setGuest] = useState(access.mode === "guest");
   const [remaining, setRemaining] = useState(access.remaining);
   const [open, setOpen] = useState(false);
@@ -173,13 +173,6 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
       reveal();
     }
   }, [result, reveal]);
-
-  const textNote =
-    retention.storeScanText && !guest
-      ? "Your text is saved with your scan history."
-      : modelFeedback
-        ? `Your text isn\u2019t stored. It is also sent to an outside AI provider (DeepSeek) to write you feedback, and isn\u2019t kept.`
-        : "Your text is analysed on our server and not stored.";
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
@@ -353,11 +346,6 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
         )}
       </div>
 
-      <p className="text-center text-[12.5px] text-fg-subtle print:hidden">
-        {textNote}{" "}
-        <Link href="/privacy" className={buttonClasses("ghost", "sm", "h-auto px-1 underline")}>Privacy</Link>
-      </p>
-
       {stage === "intro" && pending && (
         <QuickIntro
           text={pending.text}
@@ -397,7 +385,7 @@ export function ScanWorkspace({ access, modelFeedback = false }: { access: ScanA
         meta={meta}
         footnote={
           <>
-            {textNote} This is our own preliminary estimate, not a Turnitin result.{" "}
+            This is our own preliminary estimate, not a Turnitin result.{" "}
             <Link href="/services/screening" className="inline-flex items-center gap-0.5 text-accent hover:underline">
               Need the actual screening? <ArrowRight className="size-3" />
             </Link>
