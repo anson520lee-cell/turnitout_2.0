@@ -69,7 +69,11 @@ export interface PieceAnswer {
   truncated: boolean;
 }
 
-/** The size a text is cut into (characters). 3,000 to 4,000 separated AI text from human text best in testing. */
+/**
+ * The base size a text is cut into (characters). 3,000 to 4,000 separated AI text from human text best in
+ * testing, and Jordan fixed 3,500 as the standing setting (2026-10-20). A text only slightly over (for example
+ * 3,600) stays one piece: chunkText lets a piece grow to 1.25 times this size and joins a short tail.
+ */
 export const PIECE_SIZE = 3500;
 
 /**
