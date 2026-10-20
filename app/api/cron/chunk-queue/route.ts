@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
   const effort = REASONING_EFFORTS.includes(run.effort as ReasoningEffort) ? (run.effort as ReasoningEffort) : undefined;
 
-  const { data: samples } = await db.from("chunk_samples").select("id,body").order("created_at").limit(500).returns<{ id: string; body: string }[]>();
+  const { data: samples } = await db.from("chunk_samples").select("id,body").order("created_at").limit(1000).returns<{ id: string; body: string }[]>();
   const { data: doneRows } = await db.from("chunk_trials").select("sample_id,size,idx").eq("batch", run.batch).eq("ok", true).limit(10_000);
   const done = new Set((doneRows ?? []).map((r: { sample_id: string; size: number; idx: number }) => `${r.sample_id}|${r.size}|${r.idx}`));
   const todo: { sampleId: string; size: number; idx: number }[] = [];
