@@ -1,21 +1,22 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Info, ArrowRight, Download } from "lucide-react";
-import type { AnalysisResult, RiskLevel, Signal } from "@/lib/scanning/types";
+import { Info, ArrowRight, Download, Lock } from "lucide-react";
+import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
+import { freeRange } from "@/lib/scanning/free-range";
 import { Card } from "@/components/ui/card";
-import { HudCorners, HudLabel, SegmentBar, Tile } from "@/components/ui/hud";
+import { HudCorners, HudLabel, Tile } from "@/components/ui/hud";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { RiskGauge } from "./risk-gauge";
-import { SignalRadar } from "./signal-radar";
 import { SentenceHighlights } from "./sentence-highlights";
 import { ReadabilityCard } from "./readability-card";
 import { ModelFeedback } from "./model-feedback";
 import { riskStyle } from "./report-view";
 import { higherLevel, verdictLevel, type Risk } from "@/lib/report-format";
 import { raiseScanLevel } from "@/app/actions/scan-report";
-import { brand } from "@/config/app";
+import { brand, freeScan } from "@/config/app";
+import { reportPricing } from "@/config/pricing";
 import { disclaimers, reportFromLabel } from "@/config/services";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -23,40 +24,6 @@ import { track } from "@/lib/analytics";
 const levelTone: Record<RiskLevel, Tone> = { low: "success", moderate: "warn", elevated: "danger" };
 const levelLabel: Record<RiskLevel, string> = { low: "Low", moderate: "Moderate", elevated: "Elevated" };
 const levelRank: Record<RiskLevel, number> = { low: 0, moderate: 1, elevated: 2 };
-
-function SignalRow({ s, i }: { s: Signal; i: number }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <li className="border-b border-[var(--line)] last:border-0">
-      <button
-        type="button"
-        data-press
-        className="-mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 rounded-xl px-3 py-4 text-left hover:bg-white/[0.03]"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[14px] font-medium">{s.label}</span>
-            {s.level ? <Badge tone={levelTone[s.level]}>{levelLabel[s.level]}</Badge> : <Badge>Not measured</Badge>}
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <SegmentBar
-              className="flex-1"
-              value={s.score ?? 0}
-              tone={s.level === "elevated" ? "risk" : s.level === "moderate" ? "warn" : "ok"}
-              delay={150 + i * 70}
-            />
-            <span className="w-8 text-right font-mono text-[12px] tabular-nums text-fg-muted">{s.score === null ? "–" : Math.round(s.score)}</span>
-          </div>
-          <p className="mt-2 text-[12.5px] text-fg-subtle">{s.measurement}</p>
-        </div>
-        <ChevronDown className={cn("size-4 shrink-0 text-fg-subtle transition-transform", open && "rotate-180")} aria-hidden />
-      </button>
-      {open && <p className="pb-4 pr-8 text-[13px] leading-relaxed text-fg-muted">{s.explanation}</p>}
-    </li>
-  );
-}
 
 export function ScanResult({
   result,
@@ -85,6 +52,8 @@ export function ScanResult({
     synced.current = `${scanId}:${dialLevel}`;
     void raiseScanLevel(scanId, dialLevel);
   }, [scanId, reviewLevel, dialLevel, result.overallRisk]);
+  // The free scan shows a 20-point range, never the exact score (that is the paid report's).
+  const range = freeRange(result.standoutShare, dialLevel);
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
@@ -113,15 +82,12 @@ export function ScanResult({
       <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
         <Card strong tilt={5} className="flex flex-col items-center justify-center p-6">
           <HudCorners />
-          <HudLabel className="mb-3 self-start">Risk dial</HudLabel>
-          <RiskGauge level={dialLevel} />
+          <HudLabel className="mb-3 self-start">AI score range</HudLabel>
+          <RiskGauge level={dialLevel} range={range} />
           {verdict && (
             <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-center text-[12.5px] text-fg-muted">
               Detailed review:
               <Badge tone={riskStyle[verdict].tone}>{riskStyle[verdict].label} risk</Badge>
-              <span className="w-full text-[11.5px] text-fg-subtle">{dialLevel !== result.overallRisk
-                ? "The statistics alone read lower, so the dial follows the sentence-by-sentence review."
-                : "The dial is a quick statistical estimate; the review looks at each sentence."}</span>
             </p>
           )}
           <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
@@ -137,11 +103,7 @@ export function ScanResult({
             ))}
           </div>
         </Card>
-        <Card tilt={5} className="p-5">
-          <HudCorners />
-          <HudLabel className="mb-1">Signal map · 6 axes</HudLabel>
-          <SignalRadar signals={result.signals} />
-        </Card>
+        <LockedReport range={range} />
       </div>
 
       {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} previousText={feedback.previousText} scanId={feedback.scanId} onVerdict={setVerdict} />}
@@ -149,13 +111,6 @@ export function ScanResult({
       {result.readability && <ReadabilityCard r={result.readability} />}
 
       {result.sentences && result.sentences.length > 0 && <SentenceHighlights sentences={result.sentences} />}
-
-      <Card className="px-5 sm:px-6">
-        <HudCorners />
-        <HudLabel className="pt-5">Signal readout</HudLabel>
-        <h2 className="mt-1 text-[15px] font-semibold">Writing signals</h2>
-        <ul>{result.signals.map((s, i) => <SignalRow key={s.id} s={s} i={i} />)}</ul>
-      </Card>
 
       {result.paragraphs.length > 0 && (
         <Card className="p-5 sm:p-6">
@@ -176,13 +131,6 @@ export function ScanResult({
                     <Badge tone={levelTone[p.level]}>{levelLabel[p.level]}</Badge>
                   </div>
                   {p.excerpt && <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">{p.excerpt}</p>}
-                  {p.notes.length > 0 && (
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
-                      {p.notes.map((n) => (
-                        <li key={n} className="rounded-md bg-white/[0.05] px-2 py-0.5 text-[11.5px] text-fg-muted">{n}</li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               </li>
             ))}
@@ -190,21 +138,10 @@ export function ScanResult({
         </Card>
       )}
 
-      <Card className="p-5 sm:p-6">
-        <h2 className="text-[15px] font-semibold">Observations</h2>
-        <ul className="mt-3 space-y-2">
-          {result.recommendations.map((r) => (
-            <li key={r} className="flex gap-2.5 text-[13.5px] text-fg-muted">
-              <span className="mt-2 size-1 shrink-0 rounded-full bg-accent" />
-              {r}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-5 flex gap-2 border-t border-[var(--line)] pt-4 text-[12.5px] leading-relaxed text-fg-subtle">
-          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          {disclaimers.freeScan}
-        </p>
-      </Card>
+      <p className="flex gap-2 px-1 text-[12.5px] leading-relaxed text-fg-subtle">
+        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        {disclaimers.freeScan}
+      </p>
 
       <div className="print:hidden">
         <NextStep />
@@ -236,5 +173,46 @@ function NextStep() {
         </Link>
       </div>
     </div>
+  );
+}
+
+const LOCKED = [
+  ["Exact AI score", "the precise percentage, not a range"],
+  ["Every sentence rated", "High, Medium, Uncertain or Low, with the reason"],
+  ["Paragraph breakdown", "where in your text the risk sits"],
+  [`Up to ${reportPricing.maxChars.toLocaleString("en-US")} characters`, `the whole essay, not ${freeScan.maxChars.toLocaleString("en-US")}`],
+] as const;
+
+/** What the free scan leaves out, shown next to the range: the paid report's extras, locked. */
+function LockedReport({ range }: { range: { lo: number; hi: number } }) {
+  return (
+    <Card tilt={5} className="relative overflow-hidden p-5 sm:p-6 print:hidden">
+      <HudCorners />
+      <div aria-hidden className="absolute -right-20 -top-20 size-56 rounded-full bg-accent/15 blur-3xl" />
+      <HudLabel className="relative mb-1">Full report</HudLabel>
+      <h2 className="relative text-[17px] font-semibold tracking-tight">
+        Your score is somewhere between {range.lo}% and {range.hi}%.
+      </h2>
+      <p className="relative mt-1 text-[13px] text-fg-muted">The quick scan stops at a range. The full report reads every sentence and shows:</p>
+      <ul className="relative mt-4 space-y-2">
+        {LOCKED.map(([k, v]) => (
+          <li key={k} className="flex items-start gap-3 rounded-xl border border-[var(--line)] bg-ink-900/50 px-3.5 py-2.5">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden />
+            <span className="min-w-0 text-[13px]">
+              <span className="font-medium text-fg">{k}</span>
+              <span className="text-fg-subtle"> · {v}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Link
+        href="/services/screening"
+        onClick={() => track("screening_service_clicked", { from: "scan_locked" })}
+        className={buttonClasses("primary", "md", "relative mt-5 w-full justify-center")}
+      >
+        Unlock the exact score · {reportFromLabel}
+        <ArrowRight className="size-4" />
+      </Link>
+    </Card>
   );
 }

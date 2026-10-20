@@ -46,7 +46,7 @@ export function ScanIntro({ plan, text, feed, reference, startedAt, now }: { pla
   const inRange = plan.chars >= reportPricing.minChars && plan.chars <= reportPricing.maxChars;
   const steps: Step[] = [
     { at: 0, title: "Establishing secure session", lines: [`${reference} · encrypted connection`, "private workspace allocated"] },
-    { at: 2600, title: "Matching pattern engine", lines: [`0% Pattern Engine · ${checks.english ? "English prose profile" : "mixed-script profile"}`, "sentence and paragraph signals loaded"] },
+    { at: 2600, title: "Loading review engine", lines: [`0% Pattern Engine · ${checks.english ? "English text" : "mixed-script text"}`, "review model ready"] },
     { at: 6200, title: "Handing over your document", lines: [`${fmt(plan.chars)} characters · ${fmt(plan.words)} words`, `${plan.paragraphs.length} paragraphs · ${plan.sentences.length} sentences`] },
     { at: 10_000, title: "Segmenting into review sections", lines: [`${plan.pieces} section${plan.pieces === 1 ? "" : "s"} of up to about 3,500 characters`, "cut at paragraph and sentence boundaries"] },
     {
@@ -56,7 +56,7 @@ export function ScanIntro({ plan, text, feed, reference, startedAt, now }: { pla
         `length ${inRange ? "within" : "outside"} ${fmt(reportPricing.minChars)}–${fmt(reportPricing.maxChars)} characters`,
         `${plan.sentences.length} sentence boundaries found`,
         checks.readable ? "characters readable" : "some unusual characters skipped",
-        checks.dups ? `${checks.dups} repeated sentence${checks.dups === 1 ? "" : "s"} noted` : "no repeated sentences",
+        checks.dups ? `${checks.dups} duplicate sentence${checks.dups === 1 ? "" : "s"} noted` : "no duplicate passages",
       ],
     },
     {

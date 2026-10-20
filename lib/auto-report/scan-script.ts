@@ -59,6 +59,31 @@ export function scanPlan(text: string): ScanPlan {
   };
 }
 
+/** A plan from sentences already split elsewhere (the free scan's own), with 1-based paragraphs. */
+export function planFromSentences(list: { p: number; text: string }[]): ScanPlan {
+  let at = 0;
+  const inPara = new Map<number, number>();
+  const sentences: ScanSentence[] = list.map((x, i) => {
+    const start = at;
+    at += x.text.length + 1;
+    const s = (inPara.get(x.p) ?? 0) + 1;
+    inPara.set(x.p, s);
+    return { n: i + 1, p: x.p, s, text: x.text, start, end: start + x.text.length, words: x.text.split(/\s+/).filter(Boolean) };
+  });
+  const paragraphs: ScanPlan["paragraphs"] = [];
+  sentences.forEach((x, i) => {
+    const last = paragraphs[paragraphs.length - 1];
+    if (last && last.p === x.p) last.last = i;
+    else paragraphs.push({ p: x.p, first: i, last: i });
+  });
+  return { sentences, paragraphs, chars: list.reduce((n, x) => n + x.text.length, 0), words: sentences.reduce((n, x) => n + x.words.length, 0), pieces: 0 };
+}
+
+/** The free scan's lighter live view: about 20 seconds for 2,000 characters (Jordan, 2026-10-20), never under 8. */
+export function quickScanDurationMs(chars: number): number {
+  return Math.round(Math.min(25_000, Math.max(8_000, chars * 10)));
+}
+
 /**
  * How long the scan runs: about two minutes for 5,000 characters (Jordan,
  * 2026-10-20), in proportion to length, never under 40 seconds or over 5 minutes.
@@ -131,31 +156,6 @@ export function quote(text: string, max = 46): string {
   return t.length <= max ? `“${t}”` : `“${t.slice(0, max - 1).replace(/\s+\S*$/, "")}…”`;
 }
 
-const STOP = new Set(
-  "about above after again against also because been before being below between both could does doing down during each from further have having here into itself just more most only other over same should some such than that their them then there these they this those through under until very were what when where which while will with would your yours".split(" "),
-);
-const contentWords = (text: string) =>
-  new Set(
-    text
-      .toLowerCase()
-      .replace(/[^\p{L}\s]+/gu, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 4 && !STOP.has(w)),
-  );
-
-/** Words two sentences share (longer words, no stop words), for the "echo" lines. */
-export function sharedWords(a: string, b: string, max = 2): string[] {
-  const B = contentWords(b);
-  return [...contentWords(a)].filter((w) => B.has(w)).slice(0, max);
-}
-
-/** Facts counted from one sentence: its length, its first word and its commas. */
-export function sentenceFacts(x: ScanSentence): string {
-  const commas = (x.text.match(/,/g) ?? []).length;
-  const opener = x.words[0]?.replace(/[^\p{L}\p{N}'’-]/gu, "") ?? "";
-  return `${x.words.length} words · opens “${opener}” · ${commas} comma${commas === 1 ? "" : "s"}`;
-}
-
 export const levelLabel: Record<Level, string> = { high: "HIGH", medium: "MEDIUM", uncertain: "UNCERTAIN", low: "LOW" };
 
 export type LogTone = "dim" | "ok" | "warn" | "risk" | "info" | "violet";
@@ -166,15 +166,19 @@ export interface LogLine {
 
 const toneFor: Record<Level, LogTone> = { high: "risk", medium: "warn", uncertain: "violet", low: "ok" };
 
-/** What the reviewer log says when a sentence's rating is shown: the rating and, when it gave them, the reviewer's own reasons. */
+/**
+ * What the reviewer log says when a sentence's rating is shown: the real
+ * rating only. The reasons stay in the report itself; the log never says what
+ * the reviewer looks for (Jordan, 2026-10-20: the method stays private).
+ */
 export function reviewerLines(x: ScanSentence, rated: ReportSentence | undefined): LogLine[] {
   const risk = rated?.risk ?? "low";
   const head = `P${x.p} S${x.s} ${quote(x.text, 40)}`;
-  if (risk === "low") return [{ tone: "dim", text: `${head} → low · no signal noted` }];
-  const out: LogLine[] = [{ tone: toneFor[risk], text: `${head} → ${levelLabel[risk]}` }];
-  if (rated?.why) out.push({ tone: "info", text: `  reason: ${rated.why}` });
-  if (rated?.ask) out.push({ tone: "dim", text: `  ask yourself: ${rated.ask}` });
-  return out;
+  if (risk === "low") return [{ tone: "dim", text: `${head} → low` }];
+  return [
+    { tone: toneFor[risk], text: `${head} → ${levelLabel[risk]}` },
+    { tone: "dim", text: `  ${risk === "uncertain" ? "kept open · see your report" : "noted · details in your report"}` },
+  ];
 }
 
 /** The tally when the scan finishes a paragraph. */
@@ -185,68 +189,35 @@ export function paragraphLine(p: number, sentences: ReportSentence[], risk: Leve
 }
 
 /* ------------------------------------------------------------------
-   What the scan agents look at. All counted from the text itself.
-   A1 READ reads word by word; A2 X-RAY looks one line ahead at how the
-   next sentence is built; A3 PHRASE follows behind, marking wording the
-   text repeats; A4 RHYTHM measures sentence lengths per paragraph.
+   What the scan agents say. Their lines name the part of the text being
+   looked at (a sentence, a paragraph, a short quote) and never how it is
+   judged: no counts, word lists or signal names (Jordan, 2026-10-20). They
+   are a picture of the reviewer reading the text, which it does, in context.
    ------------------------------------------------------------------ */
 
-const TRANSITIONS = [
-  "however", "furthermore", "moreover", "additionally", "in addition", "consequently", "therefore", "thus", "hence",
-  "nevertheless", "nonetheless", "in conclusion", "to conclude", "in summary", "overall", "ultimately", "notably",
-  "importantly", "similarly", "likewise", "meanwhile", "firstly", "secondly", "thirdly", "finally", "on the other hand",
-  "as a result", "in contrast", "for example", "for instance", "it is important to note", "it is worth noting",
-];
-const TRANSITION_RE = new RegExp(`^(${[...TRANSITIONS].sort((a, b) => b.length - a.length).join("|")})\\b`, "i");
+const pick = <T,>(list: readonly T[], n: number) => list[((n % list.length) + list.length) % list.length];
 
-/** The linking phrase a sentence opens with ("However", "In addition", …), if any. */
-export function transitionOpener(text: string): string | null {
-  const m = text.trim().replace(/^[“"'‘(]+/, "").match(TRANSITION_RE);
-  return m ? m[1] : null;
+/** A2 LOOKAHEAD, on the sentence ahead of the reader. */
+export function lookaheadLine(x: ScanSentence): LogLine {
+  return { tone: "dim", text: `A2 LOOKAHEAD · queued P${x.p} S${x.s} ${quote(x.text, 30)}` };
 }
 
-export const normWord = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const VERIFY = ["re-reading P{p} S{s} in context", "second pass on P{p} S{s}", "P{p} S{s} · weighing it against the sentences around it", "assessing P{p} S{s}…"] as const;
 
-/** Longer content words the text uses at least `min` times, with their counts. */
-export function repeatedWords(plan: ScanPlan, min = 3): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const x of plan.sentences)
-    for (const w of x.words) {
-      const k = normWord(w);
-      if (k.length > 4 && !STOP.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
-    }
-  return new Map([...counts].filter(([, c]) => c >= min));
+/** A3 VERIFY, on a sentence behind the reader. */
+export function verifyLine(x: ScanSentence): LogLine {
+  return { tone: "info", text: `A3 VERIFY · ${pick(VERIFY, x.n).replace("{p}", String(x.p)).replace("{s}", String(x.s))}` };
 }
 
-const breaksIn = (text: string) => (text.match(/[,;:—–]/g) ?? []).length;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-/** Sentence lengths of a paragraph: average, spread, and how even they are. */
-export function rhythmOf(lengths: number[]): { avg: number; spread: number; label: string } {
-  const avg = lengths.reduce((a, b) => a + b, 0) / Math.max(1, lengths.length);
-  const spread = Math.sqrt(lengths.reduce((a, b) => a + (b - avg) ** 2, 0) / Math.max(1, lengths.length));
-  const cv = avg ? spread / avg : 0;
-  const label = lengths.length < 2 ? "single sentence" : cv < 0.2 ? "very even" : cv < 0.35 ? "even" : cv < 0.6 ? "mixed" : "varied";
-  return { avg, spread, label };
+/** A4 CONTEXT, when the reader starts a paragraph and when it finishes one. */
+export function contextLine(p: number, phase: "start" | "end", paragraphs: number): LogLine {
+  if (phase === "start") return { tone: "violet", text: `A4 CONTEXT · focusing on paragraph ${p} of ${paragraphs}` };
+  return { tone: "violet", text: p > 1 ? `A4 CONTEXT · cross-checking ¶${p} against ¶${pick([1, p - 1], p)}` : "A4 CONTEXT · ¶1 held in context" };
 }
 
-/** A2 X-RAY, on the sentence ahead of the reader: how it opens and how it is built. */
-export function xrayLine(x: ScanSentence, prev?: ScanSentence): LogLine {
-  const tr = transitionOpener(x.text);
-  const first = normWord(x.words[0] ?? "");
-  const opener = tr ? `opens with link “${tr}”` : prev && first && normWord(prev.words[0] ?? "") === first ? `same opener as S${prev.s} (“${x.words[0]}”)` : `opens “${x.words[0]?.replace(/[^\p{L}\p{N}'’-]/gu, "") ?? ""}”`;
-  return { tone: tr ? "violet" : "dim", text: `A2 X-RAY P${x.p} S${x.s} · ${opener} · ${plural(breaksIn(x.text), "break")} · ${x.words.length} words` };
-}
+const THINKING = ["thinking…", "assessing…", "considering the paragraph as a whole…", "comparing with earlier sections…"] as const;
 
-/** A3 PHRASE, on a sentence behind the reader: the wording it shares with the rest of the text. */
-export function phraseLine(x: ScanSentence, repeats: Map<string, number>): LogLine {
-  const hits = [...new Set(x.words.map(normWord))].filter((w) => repeats.has(w)).sort((a, b) => repeats.get(b)! - repeats.get(a)!);
-  if (!hits.length) return { tone: "dim", text: `A3 PHRASE P${x.p} S${x.s} · no repeated wording` };
-  return { tone: "info", text: `A3 PHRASE P${x.p} S${x.s} · ${hits.slice(0, 2).map((w) => `“${w}” ×${repeats.get(w)}`).join(", ")} in the text` };
-}
-
-/** A4 RHYTHM, when a paragraph is finished: its sentence lengths. */
-export function rhythmLine(p: number, lengths: number[]): LogLine {
-  const r = rhythmOf(lengths);
-  return { tone: "info", text: `A4 RHYTHM ¶${p} · ${lengths.join("·")} words · avg ${r.avg.toFixed(1)} · spread ±${r.spread.toFixed(1)} → ${r.label}` };
+/** A short, plain "working" line for the agents log, tied to the sentence being read. */
+export function thinkingLine(x: ScanSentence): LogLine {
+  return { tone: "dim", text: `${pick(THINKING, x.n)} P${x.p} S${x.s}` };
 }

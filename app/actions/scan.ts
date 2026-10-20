@@ -5,7 +5,8 @@ import { notifyOwner } from "@/lib/notify";
 import { issueFeedbackTicket } from "@/lib/deepseek";
 import { getAnalyzer } from "@/lib/scanning";
 import { consumeGuestScan, refundGuestScan } from "@/lib/scanning/guest";
-import { forStorage, type AnalysisResult } from "@/lib/scanning/types";
+import { forBrowser, forStorage, type AnalysisResult } from "@/lib/scanning/types";
+import { standoutShare } from "@/lib/scanning/free-range";
 import { incrementScanUsage, refundScanUsage } from "@/lib/scanning/usage";
 import { createClient } from "@/lib/supabase/server";
 import { scanInput } from "@/lib/validation/schemas";
@@ -72,7 +73,8 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
   let result: AnalysisResult;
   let scanId: string | null = null;
   try {
-    result = await getAnalyzer().analyze(text);
+    const analysed = await getAnalyzer().analyze(text);
+    result = { ...analysed, standoutShare: standoutShare(analysed.sentences) };
     if (user) {
       const supabase = await createClient();
       const { data, error } = await supabase
@@ -118,5 +120,5 @@ export async function runScan(rawText: string): Promise<ScanResponse> {
   // The browser fetches written feedback separately; the scan result never waits on it.
   const feedbackTicket = issueFeedbackTicket(text);
 
-  return { ok: true, result, remaining, guest: !user, scanId, feedbackTicket };
+  return { ok: true, result: forBrowser(result), remaining, guest: !user, scanId, feedbackTicket };
 }
