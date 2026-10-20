@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { OVERALL_BANDS, overallFor } from "@/lib/auto-report/stitch";
+import { OVERALL_BANDS, aiScore, overallFor } from "@/lib/auto-report/stitch";
 import type { RiskLevel } from "@/lib/scanning/types";
 
 const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
@@ -22,22 +22,24 @@ const arc = (from: number, to: number, r = R) => {
 
 /**
  * Three-band gauge. By default it shows a level only (the free scan). Given `share` (0 to 1, the share of sentences
- * flagged) it becomes a 0 to 100% dial: the needle sits at the real value and the band widths follow the thresholds
- * the report uses, so the needle is always inside the band whose name is shown.
+ * flagged) it becomes a 0 to 100 dial of the AI score (aiScore): the needle sits at the score and the band edges are
+ * the report's thresholds on the same scale, so the needle is always inside the band whose name is shown.
  */
 export function RiskGauge({ level, share }: { level: RiskLevel; share?: number }) {
   const measured = share !== undefined;
   const shown = measured ? overallFor(share) : level;
   const idx = LEVELS.findIndex((l) => l.id === shown);
-  const edges = measured ? [0, OVERALL_BANDS.moderate * 180, OVERALL_BANDS.elevated * 180, 180] : [0, 60, 120, 180];
-  const angle = measured ? -90 + Math.min(1, Math.max(0, share)) * 180 : -60 + idx * 60; // true value, or the centre of the band
+  const score = measured ? aiScore(share) : 0;
+  const marks = [0, aiScore(OVERALL_BANDS.moderate), aiScore(OVERALL_BANDS.elevated), 1];
+  const edges = measured ? marks.map((v) => v * 180) : [0, 60, 120, 180];
+  const angle = measured ? -90 + score * 180 : -60 + idx * 60; // true score, or the centre of the band
   const current = LEVELS[idx];
-  const percent = measured ? Math.round(share * 100) : null;
+  const percent = measured ? Math.round(score * 100) : null;
   const ticks = Array.from({ length: 37 }, (_, i) => i * 5);
   return (
     <div className="relative mx-auto w-full max-w-[300px]">
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-[48%] size-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl" style={{ background: `${current.color}26` }} />
-      <svg viewBox="0 0 200 118" className="relative overflow-visible" role="img" aria-label={percent === null ? `Preliminary risk level: ${current.label}` : `${percent}% of sentences flagged, ${current.label} band`}>
+      <svg viewBox="0 0 200 118" className="relative overflow-visible" role="img" aria-label={percent === null ? `Preliminary risk level: ${current.label}` : `AI score ${percent}%, ${current.label} band`}>
         <defs>
           <linearGradient id="gauge-shine" x1="0" x2="1">
             <stop offset="0" stopColor="#fff" stopOpacity="0" />
@@ -73,7 +75,7 @@ export function RiskGauge({ level, share }: { level: RiskLevel; share?: number }
             </g>
           );
         })}
-        {measured && [0, OVERALL_BANDS.moderate, OVERALL_BANDS.elevated, 1].map((v) => {
+        {measured && marks.map((v) => {
           const [x, y] = pt(v * 180, 108);
           return <text key={v} x={x} y={y + 2} textAnchor="middle" fontSize="6" fill="#9fb4ff" fillOpacity="0.75" fontFamily="var(--font-mono, monospace)">{Math.round(v * 100)}</text>;
         })}
@@ -96,7 +98,7 @@ export function RiskGauge({ level, share }: { level: RiskLevel; share?: number }
       ) : (
         <div className="relative mt-1 text-center">
           <p className="text-[44px] font-semibold leading-none tracking-tight" style={{ color: current.color, textShadow: `0 0 28px ${current.color}77` }}>{percent}%</p>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-fg-subtle">of sentences flagged</p>
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-fg-subtle">AI score</p>
           <p className="mt-1.5 text-[13px] font-medium" style={{ color: current.color }}>{current.label} band</p>
         </div>
       )}

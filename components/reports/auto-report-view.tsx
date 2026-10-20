@@ -7,7 +7,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
-import { overallFor, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
+import { aiScore, overallFor, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +97,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
+  const scorePct = Math.round(aiScore(summary.flaggedShare) * 100);
   const clear = Math.max(0, summary.sentences - flagged);
   const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
   const overall = overallFor(summary.flaggedShare);
@@ -139,7 +140,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           </div>
           <div>
             <p className="text-[15px] leading-relaxed text-fg">
-              <span className="font-semibold">{flaggedPct}% of sentences flagged</span> ({flagged} of {summary.sentences}), so the overall band is{" "}
+              <span className="font-semibold">AI score {scorePct}%</span>. {flaggedPct}% of sentences were flagged ({flagged} of {summary.sentences}), so the overall band is{" "}
               <span className="font-semibold">{text.title}</span>. {text.line}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -153,7 +154,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
               <Stat title="Sections read" value={String(pieces.reviewed)} of={`of ${pieces.total}`} sub={`${pct(pieces.reviewed, pieces.total)}% covered`} />
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">
-              The percentage is the share of sentences marked High or Medium. It is not the chance that AI wrote your text, and it is not a Turnitin score.
+              The AI score comes from the share of sentences marked High or Medium, on a curve: below half of the sentences flagged it leans toward 0%, above half toward 100%. It is not the chance that AI wrote your text, and it is not a Turnitin score.
             </p>
           </div>
         </div>
@@ -263,7 +264,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
       <p className="flex gap-2 rounded-2xl border border-[var(--line)] bg-ink-900/40 p-4 text-[12.5px] leading-relaxed text-fg-muted">
         <Info className="mt-0.5 size-4 shrink-0 text-accent" />
         <span>
-          {disclaimers.screeningResult} The percentage shows the share of sentences flagged, not the probability that AI wrote the text, and it is not a Turnitin result. {disclaimers.noGuarantee}
+          {disclaimers.screeningResult} The AI score is built from the share of sentences flagged; it is not the probability that AI wrote the text, and it is not a Turnitin result. {disclaimers.noGuarantee}
         </span>
       </p>
     </div>

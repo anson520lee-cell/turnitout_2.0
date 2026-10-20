@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { Minus, X } from "lucide-react";
+import { aiScore } from "@/lib/auto-report/stitch";
 import { OVERALL_BANDS, bandFor, type LogLine, type LogTone } from "@/lib/auto-report/scan-script";
 import type { Overall } from "@/lib/auto-report/stitch";
 import { METER_POINT_MS, type RateMeter } from "./rate-meter";
@@ -96,8 +97,8 @@ const bandText: Record<Overall, { label: string; cls: string }> = {
 
 /**
  * The live AI rate: a ticking number and a share-price style chart. The level
- * is the real running share of sentences flagged so far (see RateMeter); it
- * settles on the report's own figure at the end. Before the reviewer has
+ * is the AI score (aiScore) of the real running share of sentences flagged so
+ * far (see RateMeter); it settles on the report's own score at the end. Before the reviewer has
  * answered it shows that it is still waiting, not a number.
  */
 export function RatePanel({
@@ -155,7 +156,7 @@ export function RatePanel({
         </p>
         <Readout meter={meter} final={final} className="mt-2 text-[50px] tracking-tight" unit="ml-0.5 text-[22px]" deltaClass="text-[12px]" />
         <p className="mt-1 text-[11.5px] leading-snug text-fg-subtle">
-          {final ? "share of sentences flagged · the report's figure" : ready ? "live estimate · share of sentences flagged so far" : "waiting for the reviewer's first ratings"}
+          {final ? "AI score · the report's figure" : ready ? "live estimate · from the sentences flagged so far" : "waiting for the reviewer's first ratings"}
         </p>
       </div>
 
@@ -348,8 +349,8 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
         // The report's band lines, when in view.
         ctx.setLineDash([3, 4]);
         for (const [v, c, label] of [
-          [OVERALL_BANDS.moderate, C.warn, "moderate"],
-          [OVERALL_BANDS.elevated, C.risk, "elevated"],
+          [aiScore(OVERALL_BANDS.moderate), C.warn, "moderate"],
+          [aiScore(OVERALL_BANDS.elevated), C.risk, "elevated"],
         ] as const) {
           if (v < scale.lo || v > scale.hi) continue;
           const y = Math.round(yAt(v)) + 0.5;

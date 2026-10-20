@@ -6,6 +6,7 @@ import { ArrowRight, FileCheck2, Maximize2, Minimize2, ShieldCheck } from "lucid
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { disclaimers } from "@/config/services";
+import { aiScore } from "@/lib/auto-report/stitch";
 import { INTRO_MS, bandFor, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
 import { RateMeter, type MeterInput } from "./rate-meter";
@@ -102,12 +103,13 @@ export function ReportScan({
   if (done && doneAt === null) setDoneAt(now);
   const prefix = useMemo(() => (ratings ? flaggedPrefix(plan, ratings) : null), [plan, ratings]);
   const estimate = result && prefix ? liveEstimate(prefix, total, result.summary.flaggedShare, revealedAt) : null;
+  const score = estimate === null ? null : aiScore(estimate);
 
-  // The live rate ticks on its own clock, following the real estimate.
+  // The live rate ticks on its own clock, following the real estimate on the report's AI score scale.
   const [meter] = useState(() => new RateMeter());
   const input = useRef<MeterInput>({ ready: false, base: 0, progress: 0, done: false, final: 0, reduce });
   useLayoutEffect(() => {
-    input.current = { ready: estimate !== null && !inIntro, base: estimate ?? 0, progress: total ? revealedAt / total : 0, done, final: result?.summary.flaggedShare ?? 0, reduce };
+    input.current = { ready: estimate !== null && !inIntro, base: score ?? 0, progress: total ? revealedAt / total : 0, done, final: aiScore(result?.summary.flaggedShare ?? 0), reduce };
   });
   useEffect(() => {
     const t = setInterval(() => meter.step(input.current, performance.now()), 50);
@@ -256,10 +258,10 @@ export function ReportScan({
                   <ShieldCheck className="size-4" /> Scan complete
                 </p>
                 <p className="scan-rate-land relative mt-4 font-mono text-[64px] font-semibold leading-none tracking-tight">
-                  {Math.round(result.summary.flaggedShare * 100)}
+                  {Math.round(aiScore(result.summary.flaggedShare) * 100)}
                   <span className="text-[28px] text-fg-subtle">%</span>
                 </p>
-                <p className="relative mt-2 text-[13.5px] text-fg-muted">AI rate · share of sentences flagged</p>
+                <p className="relative mt-2 text-[13.5px] text-fg-muted">AI score · {Math.round(result.summary.flaggedShare * 100)}% of sentences flagged</p>
                 <p className="relative mt-1 text-[12.5px] text-fg-subtle">
                   {result.summary.high} high · {result.summary.medium} medium · {result.summary.sentences} sentences · overall{" "}
                   <span className="text-fg">{{ low: "Low", moderate: "Moderate", elevated: "Elevated" }[bandFor(result.summary.flaggedShare)]}</span>
