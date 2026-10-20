@@ -39,3 +39,26 @@ export function freeRange(share: number | undefined, level: RiskLevel): FreeRang
   const lo = idx * 20;
   return { lo, hi: lo + 20, level: rangeLevel(lo, lo + 20) };
 }
+
+/**
+ * What the free scan's range gauge shows while it is still reading (Jordan,
+ * 2026-10-20: it sat at 0-20 and jumped at the end). It starts from the AI
+ * score of the sentences read so far, so it rises and falls as the scan meets
+ * sentences that stand out, and is drawn towards the finished result's own
+ * range as more of the text has been read (a short sample says little, the
+ * whole text says it all). Once everything is read it is inside the final range.
+ */
+export function liveScore(runningShare: number | undefined, progress: number, finalShare: number | undefined, final: FreeRange): number {
+  const own = finalShare === undefined ? final.lo + 10 : aiScore(finalShare) * 100;
+  const end = Math.max(final.lo + 1, Math.min(final.hi - 1, own));
+  const p = Math.max(0, Math.min(1, progress));
+  if (runningShare === undefined) return end * p;
+  const w = Math.pow(p, 2.2);
+  return aiScore(runningShare) * 100 * (1 - w) + end * w;
+}
+
+/** The 20-point range a live score falls in. */
+export function rangeOf(score: number): FreeRange {
+  const idx = Math.max(0, Math.min(4, Math.floor(score / 20)));
+  return { lo: idx * 20, hi: idx * 20 + 20, level: rangeLevel(idx * 20, idx * 20 + 20) };
+}

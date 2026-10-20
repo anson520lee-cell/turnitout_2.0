@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Lock, ShieldCheck } from "lucide-react";
 import { contextLine, lookaheadLine, planFromSentences, quickScanDurationMs, quote, scanPosition, thinkingLine, type LogLine } from "@/lib/auto-report/scan-script";
-import { freeRange, isStandout, standoutShare, type FreeRange } from "@/lib/scanning/free-range";
+import { freeRange, isStandout, liveScore, rangeOf, standoutShare, type FreeRange } from "@/lib/scanning/free-range";
 import type { RiskLevel, SentenceSignal } from "@/lib/scanning/types";
 import { Terminal, type TermLine } from "@/components/reports/scan/scan-panels";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -27,22 +27,56 @@ const STATE: Record<RiskLevel, string> = { elevated: "high", moderate: "medium",
 const RANGE_COLOR: Record<RiskLevel, string> = { low: "#4fd1a5", moderate: "#f5c35b", elevated: "#ff7a8a" };
 const clock = (ms: number) => `${String(Math.floor(ms / 60_000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 
+/** The live score over the last few seconds: a small line that rises and falls as sentences are read. */
+function Sparkline({ hist, ticks, color, compact }: { hist: number[]; ticks: number; color: string; compact: boolean }) {
+  const h = compact ? 26 : 44;
+  const w = 220;
+  const y = (v: number) => h - 2 - (v / 100) * (h - 4);
+  const pts = hist.map((v, i) => `${((i / Math.max(1, ticks)) * w).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const last = hist.length ? hist[hist.length - 1] : null;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="mt-2.5 w-full" style={{ height: h }} aria-hidden>
+      {[20, 40, 60, 80].map((g) => (
+        <line key={g} x1="0" x2={w} y1={y(g)} y2={y(g)} stroke="rgb(148 163 255 / 0.14)" strokeDasharray="2 3" />
+      ))}
+      {hist.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${color})` }} />}
+      {last !== null && <circle cx={((hist.length - 1) / Math.max(1, ticks)) * w} cy={y(last)} r="2.6" fill={color} />}
+    </svg>
+  );
+}
+
 export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSignal[]; level: RiskLevel; onDone: () => void }) {
   const plan = useMemo(() => planFromSentences(sentences.map((s) => ({ p: s.paragraph + 1, text: s.text }))), [sentences]);
   const duration = quickScanDurationMs(plan.chars);
   const total = plan.sentences.length;
+  const finalRange = useMemo(() => freeRange(standoutShare(sentences), level), [sentences, level]);
+  const finalShare = useMemo(() => standoutShare(sentences), [sentences]);
   const [elapsed, setElapsed] = useState(0);
   const [finished, setFinished] = useState(false);
+  // The live score and its recent history: worked out every tick from the sentences read so far, eased so it glides.
+  const [live, setLive] = useState<{ score: number | null; hist: number[] }>({ score: null, hist: [] });
+  const shown = useRef<number | null>(null);
 
   useEffect(() => {
     const start = performance.now();
     const t = setInterval(() => {
       const e = performance.now() - start;
       setElapsed(e);
+      const at = scanPosition(plan, Math.min(1, e / duration)).index;
+      const frontierNow = e >= duration ? total : at;
+      if (frontierNow >= 2) {
+        const read = sentences.slice(0, frontierNow);
+        const target = liveScore(standoutShare(read), frontierNow / Math.max(1, total), finalShare, finalRange);
+        // A touch of flutter while the scan is young; it fades as the text is read.
+        const flutter = Math.sin(e / 210) * 2.4 * (1 - frontierNow / Math.max(1, total));
+        shown.current = shown.current === null ? target : shown.current + (target + flutter - shown.current) * 0.16;
+        const v = Math.max(0, Math.min(100, shown.current));
+        setLive((l) => ({ score: v, hist: [...l.hist, v] }));
+      }
       if (e >= duration) clearInterval(t);
     }, 80);
     return () => clearInterval(t);
-  }, [duration]);
+  }, [duration, plan, total, sentences, finalShare, finalRange]);
 
   // Lock the page behind the view while it is open.
   useEffect(() => {
@@ -54,9 +88,8 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
   const done = finished || elapsed >= duration;
   const pos = done ? { index: total, within: 0 } : scanPosition(plan, elapsed / duration);
   const frontier = pos.index;
-  const finalRange = freeRange(standoutShare(sentences), level);
   const readSoFar = sentences.slice(0, frontier);
-  const range: FreeRange | null = done ? finalRange : frontier >= 2 ? freeRange(standoutShare(readSoFar), "low") : null;
+  const range: FreeRange | null = done ? finalRange : live.score !== null ? rangeOf(live.score) : null;
   const standouts = readSoFar.filter((s) => isStandout(s.level)).length;
 
   // The log: worked out from how far the reader is, so it needs no state of its own.
@@ -88,6 +121,16 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
     if (top > sc.clientHeight * 0.6 || top < 0) sc.scrollTo({ top: Math.max(0, el.offsetTop - sc.offsetTop - sc.clientHeight * 0.3), behavior: "smooth" });
   }, [frontier]);
 
+  // The scan line sits under the line being read.
+  const content = useRef<HTMLDivElement>(null);
+  const beam = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = content.current?.querySelector<HTMLElement>("[data-aw]");
+    if (!el || !beam.current) return;
+    beam.current.style.transform = `translate3d(0, ${el.offsetTop + el.offsetHeight + 1}px, 0)`;
+    beam.current.style.opacity = "1";
+  });
+
   const lead = plan.sentences[frontier];
   const activeWord = lead ? Math.min(lead.words.length - 1, Math.floor(pos.within * lead.words.length)) : -1;
   const left = Math.max(0, Math.ceil((duration - elapsed) / 1000));
@@ -105,16 +148,18 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
       </p>
       <div className="mt-2.5 grid grid-cols-5 gap-1" aria-hidden>
         {[0, 20, 40, 60, 80].map((lo) => {
-          const on = range?.lo === lo;
           const c = RANGE_COLOR[lo >= 60 ? "elevated" : lo >= 20 ? "moderate" : "low"];
+          // While reading, the light slides between the segments with the live score; at the end it settles on the final range.
+          const on = done ? (range?.lo === lo ? 1 : 0) : live.score === null ? 0 : Math.max(0, 1 - Math.abs(live.score - (lo + 10)) / 24);
           return (
             <div key={lo}>
-              <div className="h-2 rounded-full transition-all duration-500" style={{ background: on ? c : `${c}26`, boxShadow: on ? `0 0 14px ${c}` : undefined }} />
-              {!compact && <p className={cn("mt-1 text-center font-mono text-[9.5px] tabular-nums", on ? "text-fg" : "text-fg-subtle/70")}>{lo}–{lo + 20}</p>}
+              <div className="h-2 rounded-full" style={{ background: `color-mix(in srgb, ${c} ${Math.round(15 + on * 85)}%, transparent)`, boxShadow: on > 0.15 ? `0 0 ${Math.round(on * 14)}px ${c}` : undefined, transition: done ? "all 0.5s ease" : "none" }} />
+              {!compact && <p className={cn("mt-1 text-center font-mono text-[9.5px] tabular-nums", on > 0.5 ? "text-fg" : "text-fg-subtle/70")}>{lo}–{lo + 20}</p>}
             </div>
           );
         })}
       </div>
+      <Sparkline hist={live.hist} ticks={Math.ceil(duration / 80)} color={range ? RANGE_COLOR[range.level] : RANGE_COLOR.low} compact={compact} />
       <p className="mt-2.5 flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
         <Lock className="size-3 text-accent" aria-hidden /> Exact score: full report only
       </p>
@@ -159,7 +204,8 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
           className="scan-doc relative overflow-y-auto overscroll-contain rounded-2xl border border-[var(--line-strong)] bg-ink-950/70 px-5 py-5 max-lg:h-[46dvh] sm:px-10 sm:py-7 lg:min-h-0"
         >
           <div aria-hidden className="scan-doc-grid pointer-events-none absolute inset-0" />
-          <div className="relative mx-auto max-w-[72ch]">
+          <div ref={content} className="relative mx-auto max-w-[72ch]">
+            {!done && <div ref={beam} aria-hidden className="scan-beam scan-text-beam pointer-events-none absolute -inset-x-3 top-0 opacity-0" />}
             {plan.paragraphs.map((para) => (
               <p key={para.p} className="mb-5 text-[15px] leading-[1.9] sm:text-[16px]">
                 {plan.sentences.slice(para.first, para.last + 1).map((x, k) => {
@@ -167,12 +213,12 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
                   const st = i < frontier ? STATE[sentences[i].level] : i === frontier ? "active" : "todo";
                   return (
                     <span key={x.n}>
-                      <span data-st={st} className="scan-sent">
+                      <span data-st={st} className={cn("scan-sent", i === frontier - 1 && "scan-swept")}>
                         {i === frontier
                           ? x.words.map((w, j) => (
                               <span key={j}>
                                 {j ? " " : null}
-                                <span className={cn(j === activeWord && "rounded-[4px] bg-cyan/15 shadow-[0_0_0_1px_rgb(95_216_245/0.85),0_0_14px_rgb(95_216_245/0.35)]")}>{w}</span>
+                                <span data-aw={j === activeWord ? "" : undefined} className={cn(j === activeWord && "rounded-[4px] bg-cyan/15 shadow-[0_0_0_1px_rgb(95_216_245/0.85),0_0_14px_rgb(95_216_245/0.35)]")}>{w}</span>
                               </span>
                             ))
                           : x.text}
