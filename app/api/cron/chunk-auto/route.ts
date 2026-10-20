@@ -9,7 +9,8 @@ import type { TruthSentence } from "@/lib/eval";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { runChunkPiece } from "@/lib/chunk-run";
 import { advanceAutoReport } from "@/lib/auto-report/run";
-import { CANDIDATE_PROMPTS, type CandidatePromptName } from "@/lib/chunk-prompts";
+import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
+import { CANDIDATE_PROMPT_NAMES } from "@/lib/chunk-candidate-names";
 
 /**
  * Runs the piece-size experiment without a signed-in browser: the owner (or
@@ -41,7 +42,7 @@ const body = z.object({
   minChars: z.number().int().min(0).max(30_000).default(3000),
   level: z.enum(["high", "highMedium"]).default("highMedium"),
   /** Candidate reviewer prompt to try instead of the saved one (the saved prompt is never changed). */
-  promptName: z.enum(Object.keys(CANDIDATE_PROMPTS) as [CandidatePromptName, ...CandidatePromptName[]]).optional(),
+  promptName: z.enum(CANDIDATE_PROMPT_NAMES).optional(),
 });
 
 const same = (a: string, b: string) => {

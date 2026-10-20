@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FlaskConical, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CANDIDATE_PROMPT_NAMES, type CandidatePromptName } from "@/lib/chunk-candidate-names";
 import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
 import {
   addChunkSample,
@@ -38,6 +39,7 @@ function RunBox({ samples, done, sizes, minChars }: { samples: SampleView[]; don
   const [picked, setPicked] = useState<number[]>([1000, 2000, 3000]);
   const [effort, setEffort] = useState<"saved" | "off" | "low">("saved");
   const [label, setLabel] = useState(() => `run-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}`);
+  const [promptName, setPromptName] = useState<"saved" | CandidatePromptName>("saved");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; failed: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -68,7 +70,7 @@ function RunBox({ samples, done, sizes, minChars }: { samples: SampleView[]; don
           const res = await fetch("/api/admin/chunk-run", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ ...job, batch: label, ...(effort === "saved" ? {} : { effort }) }),
+            body: JSON.stringify({ ...job, batch: label, ...(effort === "saved" ? {} : { effort }), ...(promptName === "saved" ? {} : { promptName }) }),
           });
           const data = (await res.json()) as { ok: boolean; message?: string };
           if (!data.ok) {
@@ -106,6 +108,23 @@ function RunBox({ samples, done, sizes, minChars }: { samples: SampleView[]; don
         <Field label="Run name" htmlFor="chunk-label" hint="Same name = continue; new name = a fresh repeat.">
           <Input id="chunk-label" value={label} onChange={(e) => setLabel(e.target.value.slice(0, 60))} disabled={running} className="w-44" />
         </Field>
+        <label className="flex items-center gap-2 pb-2 text-[12.5px] text-fg-muted">
+          Prompt
+          <select
+            value={promptName}
+            disabled={running}
+            onChange={(e) => {
+              const next = e.target.value as typeof promptName;
+              setPromptName(next);
+              // A candidate's results keep to a run named after it, so they are never mixed with the saved prompt's.
+              setLabel(next === "saved" ? `run-${new Date().toISOString().slice(5, 16).replace(/[-T:]/g, "")}` : next);
+            }}
+            className="h-9 rounded-lg border border-[var(--line)] bg-ink-900/70 px-2 text-[13px] text-fg"
+          >
+            <option value="saved">saved prompt</option>
+            {CANDIDATE_PROMPT_NAMES.map((n) => <option key={n} value={n}>candidate: {n}</option>)}
+          </select>
+        </label>
         <label className="flex items-center gap-2 pb-2 text-[12.5px] text-fg-muted">
           Reasoning
           <select value={effort} disabled={running} onChange={(e) => setEffort(e.target.value as typeof effort)} className="h-9 rounded-lg border border-[var(--line)] bg-ink-900/70 px-2 text-[13px] text-fg">

@@ -1,4 +1,5 @@
 import { SCAN_REPORT_PROMPT } from "@/lib/local-model/prompts";
+import type { CandidatePromptName } from "@/lib/chunk-candidate-names";
 
 /**
  * Candidate reviewer prompts for the piece-size / accuracy test. Each is the saved
@@ -28,5 +29,17 @@ export const STRICT_1 = swap(
   CALIBRATION + RATING_HEADING,
 );
 
-export const CANDIDATE_PROMPTS = { strict1: STRICT_1 } as const;
-export type CandidatePromptName = keyof typeof CANDIDATE_PROMPTS;
+const SAFE_LAST = "- we, he/she, contractions (doesn't), rhetorical questions.";
+const LOW_LINE = "- Low: clear safe signals. Do not list low-risk sentences in part A.";
+
+/**
+ * A visible slip is evidence of a person. Found on Jordan's own essay (Turnitin: 0% AI): all six sentences the
+ * saved prompt flagged were ready-made frames, and five of the six contained a plain grammar slip or an odd word.
+ * The examples in the prompt are made up, not taken from that essay, so testing on it stays fair.
+ */
+const SLIPS = `- Visible slips: a grammar mistake you can quote (missing verb, wrong plural, wrong word form, e.g. "many informations", "it more cheaper than", "the people is") or an odd, non-idiomatic word choice (e.g. "the project costs a lot of worth"). A model essay is almost never like this. A sentence with a quotable slip is Low even when it uses a standard frame (signal 2). This only lowers the rating; never tell the student to make mistakes on purpose.`;
+
+/** Quotable slips lower a sentence to Low, even inside a ready-made frame. */
+export const SLIP_1 = swap(swap(SCAN_REPORT_PROMPT, SAFE_LAST, `${SAFE_LAST}\n${SLIPS}`), LOW_LINE, "- Low: clear safe signals, or a quotable slip (see safe signals). Do not list low-risk sentences in part A.");
+
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1 };

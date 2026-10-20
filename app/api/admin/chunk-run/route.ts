@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { runChunkPiece } from "@/lib/chunk-run";
+import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
+import { CANDIDATE_PROMPT_NAMES } from "@/lib/chunk-candidate-names";
 import { uuid } from "@/lib/validation/schemas";
 
 /**
@@ -20,6 +22,8 @@ const body = z.object({
   idx: z.number().int().min(0).max(200),
   batch: z.string().min(1).max(60),
   effort: z.enum(REASONING_EFFORTS).optional(),
+  /** A candidate reviewer prompt to try instead of the saved one (the saved prompt is never changed). */
+  promptName: z.enum(CANDIDATE_PROMPT_NAMES).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -28,5 +32,6 @@ export async function POST(request: NextRequest) {
   if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." }, { headers: noStore });
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, message: "Bad request." }, { status: 400, headers: noStore });
-  return NextResponse.json(await runChunkPiece(parsed.data), { headers: noStore });
+  const { promptName, ...piece } = parsed.data;
+  return NextResponse.json(await runChunkPiece({ ...piece, ...(promptName ? { prompt: CANDIDATE_PROMPTS[promptName] } : {}) }), { headers: noStore });
 }
