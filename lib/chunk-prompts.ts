@@ -60,32 +60,26 @@ const STRUCTURE = `7. Template essay structure. Look across the whole piece, not
  * reads as signs of a person. This candidate weighs the skeleton and stops reader-address and idioms from
  * clearing a sentence on their own. Patterns come from published AI-writing tells; that essay is held out of the test design.
  */
+const STRUCT_SAFE_LAST =
+  "- Contractions and rhetorical questions, as weak signals only. Addressing the reader as you or we, idioms and everyday examples are NOT safe signals on their own: rewriting tools add them to model text. No safe signal cancels signal 7.";
+
 export const STRUCT_1 = [
   [SAFE_HEADING, STRUCTURE + SAFE_HEADING],
-  [SAFE_LAST, "- Contractions and rhetorical questions, as weak signals only. Addressing the reader as you or we, idioms and everyday examples are NOT safe signals on their own: rewriting tools add them to model text. No safe signal cancels signal 7."],
+  [SAFE_LAST, STRUCT_SAFE_LAST],
   [THREE_LISTS, "- A single three-item list (e.g. safe, practical and comfortable). Many of them in one piece are part of signal 7."],
   [MEDIUM_BEFORE, `${MEDIUM_BEFORE}\n- When signal 7 is present, every sentence that carries one of its patterns (a "not X, but Y" line, a sentence with a three-item list, a First/Second/Finally opener or a label-and-colon item) is at least Medium, even when it uses you, we, an idiom or a casual tone.`],
 ].reduce((text, [from, to]) => swap(text, from, to), SCAN_REPORT_PROMPT);
 
-const LONG_SAFE = "- Several ideas strung into one long sentence with commas, so, but, which.";
-const NUMBERS_LINE = "- How many examples, proper nouns or citations there are (flagged paragraphs actually had more citations).";
-
-const DENSE = `8. Dense abstract register. Long, formal sentences (often 25 words or more) packed with stacked abstract nouns and parallel noun lists ("X, Y, and Z"), all in one uniform, fully confident voice: no I or we, no hedging or doubt, no opinion, no named person, place or source, and no sentence that sounds like a person thinking. Typical build: "Urban resilience depends on the alignment of policy frameworks, institutional capacity, and infrastructure investment." Technical numbers and field vocabulary do not break this pattern when nothing says who measured them or where. Look across the whole piece: three or more such sentences in a piece means signal 8 is present; one or two alone do not.
-
-`;
-
 /**
- * Dense-register candidate (2026-10-20). A Gemini essay of long, noun-stacked, number-heavy academic prose scored about
- * 25% in the live report because the built-in prompt reads long comma-strung sentences as natural and says numbers and
- * proper nouns are not signals. dense1 is struct1 plus: a signal 8 for that register, long sentences count as natural
- * only when strung with clauses (not noun lists), and numbers with no source, place or person do not make a sentence
- * safe. Designed after seeing that essay, so it must be judged on the other samples, not on that one. Not live.
+ * mix1 (2026-10-20): struct1 plus the slip rule from slip1. A dense-register candidate (dense1) was tried and dropped:
+ * on the same 39 essays it ranked AI above human worse than struct1 (AUC 0.83 against 0.90). slip1 and struct1 were
+ * each designed after seeing particular essays (slip1 from Jordan's own, struct1 from a humanised Gemini essay), so
+ * mix1 only counts if it beats struct1 on essays neither was designed on. Not live.
  */
-export const DENSE_1 = [
-  [SAFE_HEADING, DENSE + SAFE_HEADING],
-  [LONG_SAFE, "- Several ideas strung into one long sentence with clauses (so, but, because, which) in a personal voice. A long sentence built from stacked noun phrases or a list of parallel nouns is not this."],
-  [NUMBERS_LINE, `${NUMBERS_LINE} Numbers and technical terms with no source, place or person attached do not make a sentence safe.`],
-  [MEDIUM_BEFORE, `${MEDIUM_BEFORE}\n- When signal 8 is present, every sentence that carries it is at least Medium, even when it contains numbers or technical terms.`],
-].reduce((text, [from, to]) => swap(text, from, to), STRUCT_1);
+export const MIX_1 = swap(
+  swap(STRUCT_1, STRUCT_SAFE_LAST, `${STRUCT_SAFE_LAST}\n${SLIPS}`),
+  LOW_LINE,
+  "- Low: clear safe signals, or a quotable slip (see safe signals). Do not list low-risk sentences in part A.",
+);
 
-export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, dense1: DENSE_1 };
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, mix1: MIX_1 };
