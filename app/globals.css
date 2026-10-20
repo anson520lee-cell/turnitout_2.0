@@ -1718,16 +1718,6 @@ html.ent-pre :is(.depth-title, h1, h2) {
 }
 .scan-ellipsis::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: scan-dots 1.2s steps(4) infinite; }
 @keyframes scan-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
-.scan-fragment {
-  translate: -50% -50%;
-  animation: scan-fragment 1.9s cubic-bezier(0.55, 0, 0.75, 0.4) both;
-  text-shadow: 0 0 10px rgb(95 216 245 / 0.8);
-}
-@keyframes scan-fragment {
-  from { transform: translate(var(--fx), var(--fy)) scale(1.25); opacity: 0; filter: blur(2px); }
-  25% { opacity: 1; filter: blur(0); }
-  to { transform: translate(0, 0) scale(0.2); opacity: 0; }
-}
 .scan-type { animation: scan-type 0.32s steps(24, end) both; }
 @keyframes scan-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .scan-caret { display: inline-block; width: 0.55em; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--color-cyan); animation: hud-blink 0.8s steps(2) infinite; }
@@ -1835,5 +1825,5 @@ html.ent-pre :is(.depth-title, h1, h2) {
 @keyframes scan-land { 0% { transform: scale(1.18); text-shadow: 0 0 40px rgb(255 255 255 / 0.8); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-live-dot, .scan-fragment, .scan-type, .scan-caret, .scan-term-activity, .scan-hit, .scan-rate-land, .scan-ellipsis::after, .scan-xray::before, .scan-chip-dot { animation: none; }
+  .scan-live-dot, .scan-type, .scan-caret, .scan-term-activity, .scan-hit, .scan-rate-land, .scan-ellipsis::after, .scan-xray::before, .scan-chip-dot { animation: none; }
 }
