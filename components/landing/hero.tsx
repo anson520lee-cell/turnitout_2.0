@@ -52,10 +52,10 @@ function Backdrop() {
     <div aria-hidden className="pointer-events-none absolute inset-0">
       <div data-depth="-3" className="absolute inset-x-0 top-0 h-[760px]">
         <div className="aurora left-[48%] top-[-18%] size-[760px] bg-[radial-gradient(closest-side,rgb(91_140_255/0.2),rgb(91_140_255/0.06)_55%,transparent)] [--drift:17s]" />
-        <div className="aurora left-[-12%] top-[-10%] size-[620px] bg-[radial-gradient(closest-side,rgb(154_123_255/0.15),transparent_70%)] [--drift:23s]" />
+        <div className="aurora left-[-12%] top-[-10%] size-[620px] bg-[radial-gradient(closest-side,rgb(141_150_172/0.15),transparent_70%)] [--drift:23s]" />
       </div>
       <div data-depth="-1" className="absolute inset-x-0 top-0 h-[760px]">
-        <div className="aurora left-[62%] top-[30%] size-[420px] bg-[radial-gradient(closest-side,rgb(95_216_245/0.1),transparent_70%)] [--drift:14s]" />
+        <div className="aurora left-[62%] top-[30%] size-[420px] bg-[radial-gradient(closest-side,rgb(141_179_255/0.1),transparent_70%)] [--drift:14s]" />
       </div>
       <div data-cursor className="hero-floor absolute inset-x-0 bottom-0 h-[31%] min-h-[220px]">
         <div className="hero-floor-plane">

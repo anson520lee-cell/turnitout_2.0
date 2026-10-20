@@ -88,7 +88,7 @@ function ClaimActions({ claim, orderPrice }: { claim: PaymentClaim; orderPrice: 
 export function PaymentClaims({ claims, orderPrice, reference }: { claims: PaymentClaim[]; orderPrice: number; reference: string }) {
   const pendingCount = claims.filter((c) => c.status === "pending").length;
   return (
-    <Card className={pendingCount ? "border-warn/40 p-5 shadow-[0_0_0_1px_rgb(245_195_91/0.2),0_20px_60px_-30px_rgb(245_195_91/0.45)]" : "p-5"}>
+    <Card className={pendingCount ? "border-warn/40 p-5 shadow-[0_0_0_1px_rgb(141_179_255/0.2),0_20px_60px_-30px_rgb(141_179_255/0.45)]" : "p-5"}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[14px] font-semibold">Payment claims</h2>
         {pendingCount > 0 && <Badge tone="warn" dot>Payment to verify</Badge>}

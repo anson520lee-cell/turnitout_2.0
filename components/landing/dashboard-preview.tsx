@@ -95,7 +95,7 @@ export function DashboardPreview() {
                 <span className="size-2.5 rounded-full bg-white/10" />
                 <span className="ml-3 rounded-full border border-[var(--line)] bg-ink-900/60 px-3 py-1 font-mono text-[11px] text-fg-subtle">0% / dashboard</span>
                 <span className="ml-auto flex items-center gap-2 text-[12px] text-fg-muted">
-                  <span className="size-1.5 rounded-full bg-ok shadow-[0_0_8px_rgb(79_209_165/0.9)]" />
+                  <span className="size-1.5 rounded-full bg-ok shadow-[0_0_8px_rgb(141_150_172/0.9)]" />
                   Live
                 </span>
               </div>
@@ -158,7 +158,7 @@ export function DashboardPreview() {
                     <div className="dash-card" style={z(12)}>
                       <p className="text-[12px] text-fg-muted">Reports ready</p>
                       <p className="mt-1.5 flex items-center gap-2 text-[26px] font-semibold leading-none tracking-tight">
-                        <motion.span key={ready ? "b" : "a"} initial={{ scale: 1.5, color: "#4fd1a5" }} animate={{ scale: 1, color: "#e9edf7" }} transition={{ duration: 0.6 }}>
+                        <motion.span key={ready ? "b" : "a"} initial={{ scale: 1.5, color: "#8d96ac" }} animate={{ scale: 1, color: "#e9edf7" }} transition={{ duration: 0.6 }}>
                           {ready ? 2 : 1}
                         </motion.span>
                         {ready && <Badge tone="success" dot>New</Badge>}
@@ -183,7 +183,7 @@ export function DashboardPreview() {
                             cy="24"
                             r="20"
                             fill="none"
-                            stroke={ready ? "#4fd1a5" : "#5b8cff"}
+                            stroke={ready ? "#8d96ac" : "#5b8cff"}
                             strokeWidth="4"
                             strokeLinecap="round"
                             strokeDasharray={C}
@@ -249,7 +249,7 @@ export function DashboardPreview() {
                     animate={{ opacity: 1, x: 0, scale: 1 }}
                     exit={{ opacity: 0, x: 30, scale: 0.94 }}
                     transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                    className="glass-strong flex items-center gap-3 rounded-2xl px-4 py-3 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9),0_0_40px_-10px_rgb(79_209_165/0.5)]"
+                    className="glass-strong flex items-center gap-3 rounded-2xl px-4 py-3 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9),0_0_40px_-10px_rgb(91_140_255/0.45)]"
                   >
                     <span className="grid size-8 place-items-center rounded-xl bg-ok/15 text-ok">
                       <Check className="size-4" strokeWidth={3} />

@@ -102,7 +102,7 @@ export function LossCurve({ className }: { className?: string }) {
       ))}
       <path d="M3 3 V37 H97" fill="none" stroke="rgb(170 176 196 / 0.3)" strokeWidth="0.4" />
       <path d={LOSS_D} pathLength={100} className="loss-draw" fill="none" stroke="#8db3ff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={f2(ex)} cy={f2(ey)} r="1.6" fill="#dff8ff" className="loss-dot" />
+      <circle cx={f2(ex)} cy={f2(ey)} r="1.6" fill="#eef4ff" className="loss-dot" />
     </svg>
   );
 }

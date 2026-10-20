@@ -15,7 +15,7 @@ export function LogoMark({ className }: { className?: string }) {
       <rect x="9" y="4" width="17" height="22" rx="3.5" fill="none" stroke="url(#lm-a)" strokeOpacity="0.45" strokeWidth="1.5" />
       <rect x="5" y="7" width="17" height="22" rx="3.5" fill="#0b1020" stroke="url(#lm-a)" strokeWidth="1.6" />
       <path d="M9 13h9M9 17h6M9 21h8" stroke="#c9d6ff" strokeOpacity="0.55" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M2.5 16.5h27" stroke="#5fd8f5" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M2.5 16.5h27" stroke="#8db3ff" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }

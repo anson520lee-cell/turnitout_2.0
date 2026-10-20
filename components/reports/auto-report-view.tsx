@@ -18,8 +18,8 @@ const overallText: Record<Overall, { title: string; line: string }> = {
 };
 
 const mark: Record<Level, string> = {
-  high: "bg-risk/20 decoration-risk/70 underline decoration-2 underline-offset-[3px] print:bg-[#ffd9de]",
-  medium: "bg-warn/20 decoration-warn/70 underline decoration-1 underline-offset-[3px] print:bg-[#ffecc0]",
+  high: "bg-risk/20 decoration-risk/70 underline decoration-2 underline-offset-[3px] print:bg-[#d6e3ff]",
+  medium: "bg-warn/20 decoration-warn/70 underline decoration-1 underline-offset-[3px] print:bg-[#e8f0ff]",
   uncertain: "decoration-fg-subtle underline decoration-dotted underline-offset-[3px]",
   low: "",
 };
@@ -118,7 +118,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok print:text-[#0d7a5a]">
+            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok print:text-[#4a5266]">
               <ShieldCheck className="size-4" /> Report complete
             </p>
             <p className="mt-3 text-2xl font-semibold tracking-tight print:text-[#10131c]">{title}</p>
@@ -247,7 +247,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
       )}
 
       <div className="space-y-3">
-        <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#c7b8ff] print:text-[#4b3a9a]">Paragraph by paragraph</h3>
+        <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>
         {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} />)}
       </div>
 

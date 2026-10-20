@@ -22,7 +22,7 @@ export function buttonClasses(variant: Variant = "primary", size: Size = "md", c
     variant === "secondary" && "btn-glass magnetic text-fg [--tint:205_218_255] [--fill:0.03]",
     variant === "outline" && "btn-glass magnetic text-fg [--tint:150_175_255] [--fill:0] [--edge-a:0.3]",
     variant === "ghost" && "text-fg-muted hover:bg-white/[0.07] hover:text-fg active:bg-white/[0.1]",
-    variant === "danger" && "btn-glass text-[#ffd9de] [--tint:255_110_128] [--fill:0.1]",
+    variant === "danger" && "btn-glass text-[#dbe6ff] [--tint:100_140_255] [--fill:0.1]",
     className,
   );
 }

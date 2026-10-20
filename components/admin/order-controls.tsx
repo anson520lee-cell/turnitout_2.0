@@ -78,7 +78,7 @@ export function ChecklistControls({ orderId, checklist }: { orderId: string; che
   return (
     <Card className="p-5">
       <h2 className="text-[14px] font-semibold">Processing checklist</h2>
-      <div className="mt-3 flex gap-2 rounded-xl border border-warn/25 bg-warn/[0.06] p-3 text-[12.5px] leading-relaxed text-[#f7d9a0]">
+      <div className="mt-3 flex gap-2 rounded-xl border border-warn/25 bg-warn/[0.06] p-3 text-[12.5px] leading-relaxed text-[#cfe0ff]">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
         Submit through an assignment set to <strong>&nbsp;no repository / do not store&nbsp;</strong>. A stored copy will match the customer&rsquo;s real submission later at close to 100%.
       </div>
@@ -217,7 +217,7 @@ export function RefinementResultForm({
       <p className="mt-1 text-[12.5px] text-fg-muted">Keep citations exactly as submitted unless the customer asked otherwise. Never add sources.</p>
       {draft && !closed && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet/30 bg-violet/10 px-3.5 py-3 text-[12.5px]">
-          <span className="text-[#c7b8ff]">
+          <span className="text-[#b4bccf]">
             {draftLoaded
               ? "Model draft loaded. Compare it with the submitted text and edit before saving."
               : "A model draft is ready. Nothing is sent to the customer until you save and complete the order."}

@@ -51,7 +51,7 @@ export function DepthStage({
   // two-thirds so the gradient fades out well before the layer's edges.
   const glareX = useTransform(x, [-0.5, 0.5], [30, 70]);
   const glareY = useTransform(y, [-0.5, 0.5], [28, 72]);
-  const glareBg = useMotionTemplate`radial-gradient(240px circle at ${glareX}% ${glareY}%, rgb(190 210 255 / 0.2), rgb(154 123 255 / 0.07) 40%, transparent 68%)`;
+  const glareBg = useMotionTemplate`radial-gradient(240px circle at ${glareX}% ${glareY}%, rgb(190 210 255 / 0.2), rgb(141 150 172 / 0.07) 40%, transparent 68%)`;
   const shadowX = useTransform(x, [-0.5, 0.5], [22, -22]);
   const shadowScale = useTransform(y, [-0.5, 0.5], [0.92, 1.06]);
 

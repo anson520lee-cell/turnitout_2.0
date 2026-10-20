@@ -66,14 +66,14 @@ const spring = { type: "spring", stiffness: 60, damping: 14, mass: 1 } as const;
 export function FeatureSpace({ elevated, className }: { elevated: boolean; className?: string }) {
   const at = elevated ? SAMPLE.elevated : SAMPLE.low;
   const near = elevated ? NEIGHBOURS.elevated : NEIGHBOURS.low;
-  const tone = elevated ? "#6b9bff" : "#aab2c6";
+  const tone = elevated ? "#6b9bff" : "#6fe3c1";
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className={className}>
       <defs>
         <linearGradient id="fs-left" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#aab2c6" stopOpacity="0.02" />
-          <stop offset="1" stopColor="#aab2c6" stopOpacity="0.11" />
+          <stop offset="0" stopColor="#6fe3c1" stopOpacity="0.02" />
+          <stop offset="1" stopColor="#6fe3c1" stopOpacity="0.11" />
         </linearGradient>
         <linearGradient id="fs-right" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#5b8cff" stopOpacity="0.14" />
@@ -101,13 +101,13 @@ export function FeatureSpace({ elevated, className }: { elevated: boolean; class
       {[1, 1.75, 2.5].map((k) => (
         <g key={k} fill="none" strokeWidth="0.3">
           <ellipse cx="146" cy="36" rx={15 * k} ry={8 * k} transform="rotate(-20 146 36)" stroke={`rgb(107 155 255 / ${0.26 / k})`} />
-          <ellipse cx="56" cy="66" rx={16 * k} ry={8.5 * k} transform="rotate(-17 56 66)" stroke={`rgb(170 178 198 / ${0.26 / k})`} />
+          <ellipse cx="56" cy="66" rx={16 * k} ry={8.5 * k} transform="rotate(-17 56 66)" stroke={`rgb(111 227 193 / ${0.26 / k})`} />
         </g>
       ))}
 
       {/* the texts */}
       {VARIED.map((d, i) => (
-        <circle key={`a${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#aab2c6" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
+        <circle key={`a${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#6fe3c1" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
       ))}
       {FORMULAIC.map((d, i) => (
         <circle key={`b${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#6b9bff" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
@@ -134,7 +134,7 @@ export function FeatureSpace({ elevated, className }: { elevated: boolean; class
       <motion.circle initial={false} animate={{ cx: at.x, cy: at.y }} transition={spring} r="2.6" fill="#fff" stroke={tone} strokeWidth="0.8" />
 
       {/* labels */}
-      <text x="6" y="98" className="fs-label" fill="rgb(170 178 198 / 0.85)">varied writing</text>
+      <text x="6" y="98" className="fs-label" fill="rgb(111 227 193 / 0.85)">varied writing</text>
       <text x={W - 6} y="9" textAnchor="end" className="fs-label" fill="rgb(130 170 255 / 0.9)">formulaic patterns</text>
       <text x="124" y="98" className="fs-label" fill="rgb(225 232 255 / 0.55)">boundary</text>
     </svg>

@@ -136,7 +136,7 @@ export function AnalysisPreview() {
           <Card tilt={4} className="p-6 sm:p-7">
             <div className="flex items-center justify-between">
               <p className="text-[13px] text-fg-muted">Preliminary risk estimate</p>
-              <Badge tone={s.level === "Elevated" ? "danger" : "success"} dot>
+              <Badge tone={s.level === "Elevated" ? "danger" : "success"} dot className={s.level === "Elevated" ? undefined : "border-[#4fd1a5]/30 bg-[#4fd1a5]/10 text-[#4fd1a5]"}>
                 {s.level}
               </Badge>
             </div>

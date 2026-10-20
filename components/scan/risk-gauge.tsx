@@ -5,9 +5,9 @@ import { rangeLevel } from "@/lib/scanning/free-range";
 import type { RiskLevel } from "@/lib/scanning/types";
 
 const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
-  { id: "low", label: "Low", color: "#4fd1a5" },
-  { id: "moderate", label: "Moderate", color: "#f5c35b" },
-  { id: "elevated", label: "Elevated", color: "#ff7a8a" },
+  { id: "low", label: "Low", color: "#8d96ac" },
+  { id: "moderate", label: "Moderate", color: "#8db3ff" },
+  { id: "elevated", label: "Elevated", color: "#4d83ff" },
 ];
 
 const R = 78;

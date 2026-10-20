@@ -47,7 +47,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
           />
           <span
             aria-hidden
-            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(95_216_245/0.9)] sm:left-[22px]"
+            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(141_179_255/0.9)] sm:left-[22px]"
           />
           <ol className="space-y-6">
             {steps.map((s, i) => (
