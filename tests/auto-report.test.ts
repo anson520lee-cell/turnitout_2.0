@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chunkText } from "../lib/chunking";
-import { overallFor, stitchReport } from "../lib/auto-report/stitch";
+import { aiScore, overallFor, stitchReport } from "../lib/auto-report/stitch";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -44,6 +44,20 @@ test("overall bands", () => {
   assert.equal(overallFor(0.49), "moderate");
   assert.equal(overallFor(0.5), "elevated");
   assert.equal(overallFor(0.8), "elevated");
+});
+
+test("the AI score leans to 0 below half flagged and to 100 above it", () => {
+  const pct = (share: number) => Math.round(aiScore(share) * 100);
+  assert.equal(pct(0), 0);
+  assert.equal(pct(1), 100);
+  assert.equal(pct(0.5), 50);
+  assert.equal(pct(0.3), 8);
+  assert.equal(pct(0.7), 92);
+  assert.equal(pct(-0.2), 0);
+  assert.equal(pct(1.3), 100);
+  for (let x = 0; x < 1; x += 0.05) assert.ok(aiScore(x + 0.05) > aiScore(x), "keeps the order of texts");
+  // The score crosses 50 where the report turns Elevated, so the number and the band agree.
+  assert.ok(aiScore(0.49) < 0.5 && Math.abs(aiScore(0.5) - 0.5) < 1e-9);
 });
 
 import { refinementPrice, reportPrice, reportPricing } from "../config/pricing";

@@ -92,6 +92,24 @@ export function overallFor(flaggedShare: number): Overall {
   return "low";
 }
 
+/**
+ * The headline AI score (0 to 1) from the share of sentences flagged. Jordan asked (2026-10-20) for a figure that
+ * leans to 0% or 100% instead of sitting in the middle: an S-curve centred on the Elevated line (half of the
+ * sentences flagged) pulls a share below it toward 0 and one above it toward 100, stretched so 0 stays 0 and 1
+ * stays 1. It keeps the order of texts, so it changes how decided the number looks, not which texts reach a band.
+ * On the backtest samples (pieces of 3,000) human texts at 13 to 48% flagged score 1 to 44, and AI texts at 55%
+ * and over score 65 and over. The centre sits on the Elevated line, not higher, because AI texts flagged at 55 to
+ * 68% would otherwise be pulled down.
+ */
+export const SCORE_CURVE = { centre: OVERALL_BANDS.elevated, steepness: 12 } as const;
+
+const curve = (x: number) => 1 / (1 + Math.exp(-SCORE_CURVE.steepness * (x - SCORE_CURVE.centre)));
+
+export function aiScore(flaggedShare: number): number {
+  const x = Math.min(1, Math.max(0, flaggedShare));
+  return (curve(x) - curve(0)) / (curve(1) - curve(0));
+}
+
 const toLevel = (r: Risk | undefined): Level => (r === "high" || r === "medium" || r === "uncertain" ? r : "low");
 const RANK: Record<Level, number> = { low: 0, uncertain: 1, medium: 2, high: 3 };
 
