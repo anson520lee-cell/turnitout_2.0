@@ -30,12 +30,12 @@ export function ProgressRing({
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label}>
         <defs>
           <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#5fd8f5" />
+            <stop offset="0" stopColor="#8db3ff" />
             <stop offset="0.5" stopColor="#5b8cff" />
-            <stop offset="1" stopColor="#9a7bff" />
+            <stop offset="1" stopColor="#3f7bff" />
           </linearGradient>
         </defs>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(148 163 255 / 0.1)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(170 176 196 / 0.12)" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}

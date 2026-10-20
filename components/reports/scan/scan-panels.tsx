@@ -139,7 +139,7 @@ export function RatePanel({
         <div className="flex shrink-0 flex-col items-end gap-1">
           {ready && <span className={cn("rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase", bandText[band].cls)}>{bandText[band].label}</span>}
           <p className="font-mono text-[10px] tabular-nums text-fg-subtle">
-            {scanned}/{total} · <span className="text-risk">{high}H</span> <span className="text-warn">{medium}M</span>
+            {scanned}/{total} · <span className="text-[#7ea4ff]">{high}H</span> <span className="text-chart-mid">{medium}M</span>
           </p>
         </div>
       </div>
@@ -167,10 +167,10 @@ export function RatePanel({
 
       <dl className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
         <Cell k="Scanned" v={`${scanned}/${total}`} />
-        <Cell k="High" v={String(high)} tone="text-risk" />
-        <Cell k="Medium" v={String(medium)} tone="text-warn" />
-        <Cell k="Uncertain" v={String(uncertain)} tone="text-violet" />
-        <Cell k="Clear" v={String(Math.max(0, scanned - high - medium - uncertain))} tone="text-ok" />
+        <Cell k="High" v={String(high)} tone="text-[#7ea4ff]" />
+        <Cell k="Medium" v={String(medium)} tone="text-chart-mid" />
+        <Cell k="Uncertain" v={String(uncertain)} tone="text-chart-low" />
+        <Cell k="Clear" v={String(Math.max(0, scanned - high - medium - uncertain))} tone="text-chart-low" />
         <Cell k="Progress" v={`${total ? Math.round((scanned / total) * 100) : 0}%`} />
       </dl>
     </div>
@@ -247,7 +247,8 @@ function Ohl({ meter }: { meter: RateMeter }) {
   return <p ref={el} className="-mt-1 font-mono text-[10px] tracking-wide text-fg-subtle tabular-nums" aria-hidden>O --  H --  L --</p>;
 }
 
-const C = { accent: "91,140,255", cyan: "95,216,245", ok: "79,209,165", warn: "245,195,91", risk: "255,122,138", label: "154,163,184" };
+// Charts use only blue and grey: ok = grey, warn = light blue, risk = strong blue.
+const C = { accent: "91,140,255", cyan: "143,179,255", ok: "141,150,172", warn: "141,179,255", risk: "63,123,255", label: "154,163,184", grid: "170,176,196" };
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 const STEPS = [0.0025, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2];
 
@@ -326,7 +327,7 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
       ctx.textBaseline = "middle";
       for (let v = Math.ceil(scale.lo / step) * step; v <= scale.hi; v += step) {
         const y = Math.round(yAt(v)) + 0.5;
-        ctx.strokeStyle = rgba(C.accent, compact ? 0.06 : 0.09);
+        ctx.strokeStyle = rgba(C.grid, compact ? 0.07 : 0.1);
         ctx.beginPath();
         ctx.moveTo(x0, y);
         ctx.lineTo(x1, y);
@@ -339,7 +340,7 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
       if (!compact) {
         for (let t = Math.floor(now / 5_000) * 5_000; xAt(t) > x0; t -= 5_000) {
           const x = Math.round(xAt(t)) + 0.5;
-          ctx.strokeStyle = rgba(C.accent, 0.05);
+          ctx.strokeStyle = rgba(C.grid, 0.06);
           ctx.beginPath();
           ctx.moveTo(x, y0 - 6);
           ctx.lineTo(x, h - 2);
@@ -375,7 +376,7 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
         return;
       }
 
-      // Volume: how much the rate moved in each tick, red when it went up, green when down.
+      // Volume: how much the rate moved in each tick, strong blue when it went up, grey when down.
       if (volH) {
         const maxVol = Math.max(0.002, ...pts.map((p) => p.vol));
         const bw = Math.max(1, dx - 1);
@@ -438,7 +439,7 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
       ctx.beginPath();
       ctx.arc(x1, hy, 3 + phase * 9, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#e9fbff";
+      ctx.fillStyle = "#f2f6ff";
       ctx.shadowColor = rgba(C.cyan, 1);
       ctx.shadowBlur = 10;
       ctx.beginPath();

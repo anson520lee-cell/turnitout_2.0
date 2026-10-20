@@ -37,7 +37,7 @@ function Sparkline({ hist, ticks, color, compact }: { hist: number[]; ticks: num
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="mt-2.5 w-full" style={{ height: h }} aria-hidden>
       {[20, 40, 60, 80].map((g) => (
-        <line key={g} x1="0" x2={w} y1={y(g)} y2={y(g)} stroke="rgb(148 163 255 / 0.14)" strokeDasharray="2 3" />
+        <line key={g} x1="0" x2={w} y1={y(g)} y2={y(g)} stroke="rgb(170 176 196 / 0.14)" strokeDasharray="2 3" />
       ))}
       {hist.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${color})` }} />}
       {last !== null && <circle cx={((hist.length - 1) / Math.max(1, ticks)) * w} cy={y(last)} r="2.6" fill={color} />}
@@ -165,7 +165,7 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
           );
         })}
       </div>
-      <Sparkline hist={live.hist} ticks={Math.ceil(duration / 80)} color={range ? RANGE_COLOR[range.level] : RANGE_COLOR.low} compact={compact} />
+      <Sparkline hist={live.hist} ticks={Math.ceil(duration / 80)} color="#5b8cff" compact={compact} />
       <p className="mt-2.5 flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
         <Lock className="size-3 text-accent" aria-hidden /> Exact score: full report only
       </p>

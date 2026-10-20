@@ -82,7 +82,7 @@ export function DashboardView({
 
       <Card strong className="noise mt-5 overflow-hidden p-5 sm:p-6">
         <HudCorners />
-        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-violet/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-chart-low/15 blur-3xl" />
         <div className="relative grid items-center gap-6 md:grid-cols-[1fr_minmax(0,360px)]">
           <div>
             <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-accent">

@@ -98,10 +98,10 @@ export function LossCurve({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 40" aria-hidden className={cn("h-auto w-full overflow-visible", className)}>
       {[10, 20, 30].map((y) => (
-        <line key={y} x1="3" x2="97" y1={y} y2={y} stroke="rgb(148 163 255 / 0.12)" strokeWidth="0.3" />
+        <line key={y} x1="3" x2="97" y1={y} y2={y} stroke="rgb(170 176 196 / 0.12)" strokeWidth="0.3" />
       ))}
-      <path d="M3 3 V37 H97" fill="none" stroke="rgb(148 163 255 / 0.3)" strokeWidth="0.4" />
-      <path d={LOSS_D} pathLength={100} className="loss-draw" fill="none" stroke="#7de3ff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 3 V37 H97" fill="none" stroke="rgb(170 176 196 / 0.3)" strokeWidth="0.4" />
+      <path d={LOSS_D} pathLength={100} className="loss-draw" fill="none" stroke="#8db3ff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={f2(ex)} cy={f2(ey)} r="1.6" fill="#dff8ff" className="loss-dot" />
     </svg>
   );
@@ -125,7 +125,7 @@ export function AttentionGrid({ n = 5, className }: { n?: number; className?: st
             height={cell - 4}
             rx="2.5"
             className="attn-cell"
-            fill={(i + j) % 3 === 0 ? "#b9a6ff" : "#7de3ff"}
+            fill={(i + j) % 3 === 0 ? "#aab2c6" : "#8db3ff"}
             style={{ ["--a" as string]: base, animationDelay: `${(((i * 3 + j * 5) % 7) * 0.22).toFixed(2)}s` }}
           />
         );
@@ -141,7 +141,7 @@ export function SoftmaxBars({ bars = 5, className }: { bars?: number; className?
       {Array.from({ length: bars }, (_, i) => (
         <span
           key={i}
-          className="act-bar flex-1 rounded-sm bg-gradient-to-t from-accent/25 to-cyan"
+          className="act-bar flex-1 rounded-sm bg-gradient-to-t from-accent/25 to-chart-mid"
           style={{ height: "100%", animationDelay: `${(-i * 0.37).toFixed(2)}s`, animationDuration: `${(1.3 + (i % 3) * 0.35).toFixed(2)}s` }}
         />
       ))}

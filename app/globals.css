@@ -25,6 +25,11 @@
   --color-warn: #f5c35b;
   --color-risk: #ff7a8a;
 
+  /* Charts use only blue and grey: Low = grey, Medium = light blue, High = strong blue. */
+  --color-chart-low: #8d96ac;
+  --color-chart-mid: #8db3ff;
+  --color-chart-high: #3f7bff;
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
@@ -819,12 +824,12 @@ html[data-interactive] [data-depth] {
   width: 7px;
   height: 7px;
   border-radius: 9999px;
-  background: #5fd8f5;
-  box-shadow: 0 0 calc(6px + var(--on, 0) * 14px) rgb(95 216 245 / 0.9);
+  background: #8db3ff;
+  box-shadow: 0 0 calc(6px + var(--on, 0) * 14px) rgb(91 140 255 / 0.9);
 }
 .engine-node-dot[data-tone="violet"] {
-  background: #b9a6ff;
-  box-shadow: 0 0 calc(6px + var(--on, 0) * 14px) rgb(154 123 255 / 0.9);
+  background: #aab2c6;
+  box-shadow: 0 0 calc(6px + var(--on, 0) * 14px) rgb(141 150 172 / 0.9);
 }
 /* Rings through the engine's lens. --gx/--gy set each ring's resting angle;
    --tx/--ty (from the engine, -1…1) lean them toward the cursor. */
@@ -1176,10 +1181,10 @@ html[data-interactive] [data-depth] {
   opacity: 0;
   animation: ne-flow 1.8s cubic-bezier(0.45, 0, 0.3, 1) infinite;
 }
-.ne-pulse[data-tone="violet"] { stroke: #efe9ff; }
+.ne-pulse[data-tone="violet"] { stroke: #e9ecf4; }
 /* the same point drawn wide and faint underneath: its glow */
-.ne-pulse-glow { stroke: #5fd8f5; stroke-width: 2; --peak: 0.32; }
-.ne-pulse-glow[data-tone="violet"] { stroke: #9a7bff; }
+.ne-pulse-glow { stroke: #8db3ff; stroke-width: 2; --peak: 0.32; }
+.ne-pulse-glow[data-tone="violet"] { stroke: #9aa3b8; }
 .ne-ring { fill: none; stroke: rgb(200 215 255 / 0.3); stroke-width: 0.1; }
 @keyframes ne-flow {
   0% { stroke-dashoffset: 0; opacity: 0; }
@@ -1187,8 +1192,8 @@ html[data-interactive] [data-depth] {
   20% { stroke-dashoffset: -99; opacity: var(--peak, 1); }
   23%, 100% { stroke-dashoffset: -99; opacity: 0; }
 }
-.ne-node { fill: #8feaff; animation: ne-fire 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-.ne-node[data-tone="violet"] { fill: #b9a6ff; }
+.ne-node { fill: #a9c4ff; animation: ne-fire 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ne-node[data-tone="violet"] { fill: #b4bccf; }
 /* glass beads: lit from the top left, they swell a touch as they fire */
 .ne-bead { stroke: rgb(255 255 255 / 0.45); stroke-width: 0.12; animation: ne-bead 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes ne-bead {

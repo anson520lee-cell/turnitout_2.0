@@ -25,6 +25,8 @@ const mark: Record<Level, string> = {
 };
 
 const rail: Record<Level, string> = { high: "bg-risk", medium: "bg-warn", uncertain: "bg-fg-subtle", low: "bg-ok" };
+// Charts use only blue and grey: high = strong blue, medium = light blue, the rest grey.
+const chartBar: Record<Level, string> = { high: "bg-chart-high", medium: "bg-chart-mid", uncertain: "bg-chart-low", low: "bg-chart-low/35" };
 const label: Record<Level, string> = { high: "High", medium: "Medium", uncertain: "Uncertain", low: "Low" };
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
@@ -172,7 +174,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
             {([["high", summary.high], ["medium", summary.medium], ["uncertain", summary.uncertain], ["low", lowOnly]] as const).map(([l, n]) => (
               <span key={l} className="inline-flex items-center gap-1.5">
-                <span className={cn("size-2.5 rounded-sm", rail[l])} />
+                <span className={cn("size-2.5 rounded-sm", chartBar[l])} />
                 {label[l]} <span className="font-mono text-fg-muted">{n} · {pct(n, summary.sentences)}%</span>
               </span>
             ))}
@@ -180,7 +182,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
         </div>
         <div className="mt-4 flex h-3.5 overflow-hidden rounded-full bg-ink-900/60" role="img" aria-label={`${flaggedPct}% of sentences flagged`}>
           {([["high", summary.high], ["medium", summary.medium], ["uncertain", summary.uncertain], ["low", lowOnly]] as const).map(([l, n]) =>
-            n > 0 ? <span key={l} className={cn("h-full", rail[l])} style={{ width: `${(n / Math.max(1, summary.sentences)) * 100}%` }} /> : null,
+            n > 0 ? <span key={l} className={cn("h-full", chartBar[l])} style={{ width: `${(n / Math.max(1, summary.sentences)) * 100}%` }} /> : null,
           )}
         </div>
       </Card>
@@ -190,7 +192,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
           <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
             {(["high", "medium", "low"] as const).map((l) => (
-              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", rail[l])} />{label[l]}</span>
+              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", chartBar[l])} />{label[l]}</span>
             ))}
           </div>
         </div>
@@ -212,7 +214,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
                   className="group relative flex h-full min-w-[6px] flex-1 items-end"
                 >
                   {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
-                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", rail[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
                 </a>
               );
             })}
@@ -224,7 +226,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           </div>
         )}
         <p className="mt-3 text-[12px] text-fg-subtle">
-          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall red bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
+          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall dark-blue bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
         </p>
       </Card>
 

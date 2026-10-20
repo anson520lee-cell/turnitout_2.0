@@ -73,8 +73,8 @@ export function DashboardPreview() {
           {/* light behind the frame */}
           <div aria-hidden data-depth="-1" className="pointer-events-none absolute -inset-x-[8%] -inset-y-[14%]">
             <div className="absolute left-[6%] top-[10%] size-[46%] rounded-full bg-accent/25 blur-[90px]" />
-            <div className="absolute right-[4%] top-[30%] size-[42%] rounded-full bg-violet/25 blur-[100px]" />
-            <div className="absolute bottom-0 left-[34%] size-[34%] rounded-full bg-cyan/15 blur-[90px]" />
+            <div className="absolute right-[4%] top-[30%] size-[42%] rounded-full bg-chart-low/20 blur-[100px]" />
+            <div className="absolute bottom-0 left-[34%] size-[34%] rounded-full bg-chart-mid/12 blur-[90px]" />
           </div>
 
           <div
@@ -122,7 +122,7 @@ export function DashboardPreview() {
                     <p className="text-[11px] text-fg-subtle">Credits</p>
                     <p className="mt-0.5 text-[20px] font-semibold tracking-tight">64</p>
                     <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full w-[64%] rounded-full bg-gradient-to-r from-cyan to-accent" />
+                      <div className="h-full w-[64%] rounded-full bg-gradient-to-r from-chart-mid to-accent" />
                     </div>
                   </div>
                 </div>
@@ -147,12 +147,12 @@ export function DashboardPreview() {
                       <svg viewBox="0 0 120 26" className="mt-2 h-[26px] w-full overflow-visible">
                         <defs>
                           <linearGradient id="dash-line" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0" stopColor="#5fd8f5" />
-                            <stop offset="1" stopColor="#9a7bff" />
+                            <stop offset="0" stopColor="#8db3ff" />
+                            <stop offset="1" stopColor="#3f7bff" />
                           </linearGradient>
                         </defs>
                         <path d="M0 21 L17 17 L34 19 L51 11 L68 14 L85 6 L102 9 L120 2" pathLength={100} fill="none" stroke="url(#dash-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="dash-draw" />
-                        <circle cx="120" cy="2" r="2.6" fill="#c9bcff" className="dash-dot" />
+                        <circle cx="120" cy="2" r="2.6" fill="#cfe0ff" className="dash-dot" />
                       </svg>
                     </div>
                     <div className="dash-card" style={z(12)}>
@@ -197,7 +197,7 @@ export function DashboardPreview() {
                       <div className="absolute inset-x-[10%] top-[7px] h-[2px] rounded-full bg-white/10" />
                       <div className="absolute left-[10%] top-[7px] h-[2px] w-[80%]">
                         <div
-                          className="dash-flow h-full rounded-full bg-gradient-to-r from-cyan via-accent to-violet shadow-[0_0_14px_rgb(91_140_255/0.9)] transition-[width] duration-700 ease-out"
+                          className="dash-flow h-full rounded-full bg-gradient-to-r from-chart-mid via-accent to-chart-high shadow-[0_0_14px_rgb(91_140_255/0.9)] transition-[width] duration-700 ease-out"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -273,7 +273,7 @@ export function DashboardPreview() {
                 <div className="mt-3 space-y-1.5">
                   {[34, 22, 46, 18].map((w, i) => (
                     <div key={i} className="h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-gradient-to-r from-cyan to-accent" style={{ width: `${w}%` }} />
+                      <div className="h-full rounded-full bg-gradient-to-r from-chart-mid to-accent" style={{ width: `${w}%` }} />
                     </div>
                   ))}
                 </div>

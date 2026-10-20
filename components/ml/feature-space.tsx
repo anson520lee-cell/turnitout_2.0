@@ -66,18 +66,18 @@ const spring = { type: "spring", stiffness: 60, damping: 14, mass: 1 } as const;
 export function FeatureSpace({ elevated, className }: { elevated: boolean; className?: string }) {
   const at = elevated ? SAMPLE.elevated : SAMPLE.low;
   const near = elevated ? NEIGHBOURS.elevated : NEIGHBOURS.low;
-  const tone = elevated ? "#ff8fa0" : "#6fe3c1";
+  const tone = elevated ? "#6b9bff" : "#aab2c6";
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} aria-hidden className={className}>
       <defs>
         <linearGradient id="fs-left" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#5fd8f5" stopOpacity="0.02" />
-          <stop offset="1" stopColor="#5fd8f5" stopOpacity="0.11" />
+          <stop offset="0" stopColor="#aab2c6" stopOpacity="0.02" />
+          <stop offset="1" stopColor="#aab2c6" stopOpacity="0.11" />
         </linearGradient>
         <linearGradient id="fs-right" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#b284ff" stopOpacity="0.13" />
-          <stop offset="1" stopColor="#b284ff" stopOpacity="0.02" />
+          <stop offset="0" stopColor="#5b8cff" stopOpacity="0.14" />
+          <stop offset="1" stopColor="#5b8cff" stopOpacity="0.02" />
         </linearGradient>
         <radialGradient id="fs-glow">
           <stop offset="0" stopColor={tone} stopOpacity="0.55" />
@@ -91,26 +91,26 @@ export function FeatureSpace({ elevated, className }: { elevated: boolean; class
 
       {/* a faint lattice and the axes */}
       {[26, 52, 78].map((y) => (
-        <line key={`h${y}`} x1="0" x2={W} y1={y} y2={y} stroke="rgb(148 163 255 / 0.07)" strokeWidth="0.3" />
+        <line key={`h${y}`} x1="0" x2={W} y1={y} y2={y} stroke="rgb(170 176 196 / 0.08)" strokeWidth="0.3" />
       ))}
       {[40, 80, 120, 160].map((x) => (
-        <line key={`v${x}`} x1={x} x2={x} y1="0" y2={H} stroke="rgb(148 163 255 / 0.07)" strokeWidth="0.3" />
+        <line key={`v${x}`} x1={x} x2={x} y1="0" y2={H} stroke="rgb(170 176 196 / 0.08)" strokeWidth="0.3" />
       ))}
 
       {/* density contours of each cloud */}
       {[1, 1.75, 2.5].map((k) => (
         <g key={k} fill="none" strokeWidth="0.3">
-          <ellipse cx="146" cy="36" rx={15 * k} ry={8 * k} transform="rotate(-20 146 36)" stroke={`rgb(178 132 255 / ${0.26 / k})`} />
-          <ellipse cx="56" cy="66" rx={16 * k} ry={8.5 * k} transform="rotate(-17 56 66)" stroke={`rgb(95 216 245 / ${0.26 / k})`} />
+          <ellipse cx="146" cy="36" rx={15 * k} ry={8 * k} transform="rotate(-20 146 36)" stroke={`rgb(107 155 255 / ${0.26 / k})`} />
+          <ellipse cx="56" cy="66" rx={16 * k} ry={8.5 * k} transform="rotate(-17 56 66)" stroke={`rgb(170 178 198 / ${0.26 / k})`} />
         </g>
       ))}
 
       {/* the texts */}
       {VARIED.map((d, i) => (
-        <circle key={`a${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#7de3ff" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
+        <circle key={`a${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#aab2c6" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
       ))}
       {FORMULAIC.map((d, i) => (
-        <circle key={`b${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#c3a8ff" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
+        <circle key={`b${i}`} cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r={d.r.toFixed(2)} fill="#6b9bff" className="fs-dot" style={{ animationDelay: `${d.delay.toFixed(2)}s` }} />
       ))}
 
       {/* the decision boundary, with a signal running along it */}
@@ -134,8 +134,8 @@ export function FeatureSpace({ elevated, className }: { elevated: boolean; class
       <motion.circle initial={false} animate={{ cx: at.x, cy: at.y }} transition={spring} r="2.6" fill="#fff" stroke={tone} strokeWidth="0.8" />
 
       {/* labels */}
-      <text x="6" y="98" className="fs-label" fill="rgb(125 227 255 / 0.8)">varied writing</text>
-      <text x={W - 6} y="9" textAnchor="end" className="fs-label" fill="rgb(195 168 255 / 0.85)">formulaic patterns</text>
+      <text x="6" y="98" className="fs-label" fill="rgb(170 178 198 / 0.85)">varied writing</text>
+      <text x={W - 6} y="9" textAnchor="end" className="fs-label" fill="rgb(130 170 255 / 0.9)">formulaic patterns</text>
       <text x="124" y="98" className="fs-label" fill="rgb(225 232 255 / 0.55)">boundary</text>
     </svg>
   );
