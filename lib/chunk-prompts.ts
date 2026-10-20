@@ -42,4 +42,28 @@ const SLIPS = `- Visible slips: a grammar mistake you can quote (missing verb, w
 /** Quotable slips lower a sentence to Low, even inside a ready-made frame. */
 export const SLIP_1 = swap(swap(SCAN_REPORT_PROMPT, SAFE_LAST, `${SAFE_LAST}\n${SLIPS}`), LOW_LINE, "- Low: clear safe signals, or a quotable slip (see safe signals). Do not list low-risk sentences in part A.");
 
-export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1 };
+const SAFE_HEADING = "SAFE SIGNALS (these lower the risk; they are natural mode)";
+const THREE_LISTS = "- Three-item lists (e.g. safe, practical and comfortable).";
+
+const STRUCTURE = `7. Template essay structure. Look across the whole piece, not at one sentence. Patterns:
+   a. "Not X, but Y" punchlines: "X is not A; it is B", "the real question is not whether..., but whether...", "this is not a flaw, it is the design".
+   b. Many three-item lists: three or more in one piece (three nouns, adjectives or verbs in a row).
+   c. Parallel, evenly sized parts: "First, ... Second, ... Finally, ..." paragraphs, or list items that each start with a short label and a colon, then an explanation.
+   Two or more of these patterns in one piece means signal 7 is present; one pattern alone does not. Ordinary topic sentences and a plain conclusion are not signal 7. Rewriting ("humanizer") tools change the words but keep this skeleton, so signal 7 still counts when the sentences sound casual.
+
+`;
+
+/**
+ * Structure over surface: a Gemini essay "humanized" by Gemini kept its whole skeleton (contrast punchlines,
+ * three-item lists, First/Second/Finally) but added you/we, idioms and everyday scenes, which the saved prompt
+ * reads as signs of a person. This candidate weighs the skeleton and stops reader-address and idioms from
+ * clearing a sentence on their own. Patterns come from published AI-writing tells; that essay is held out of the test design.
+ */
+export const STRUCT_1 = [
+  [SAFE_HEADING, STRUCTURE + SAFE_HEADING],
+  [SAFE_LAST, "- Contractions and rhetorical questions, as weak signals only. Addressing the reader as you or we, idioms and everyday examples are NOT safe signals on their own: rewriting tools add them to model text. No safe signal cancels signal 7."],
+  [THREE_LISTS, "- A single three-item list (e.g. safe, practical and comfortable). Many of them in one piece are part of signal 7."],
+  [MEDIUM_BEFORE, `${MEDIUM_BEFORE}\n- When signal 7 is present, every sentence that carries one of its patterns (a "not X, but Y" line, a sentence with a three-item list, a First/Second/Finally opener or a label-and-colon item) is at least Medium, even when it uses you, we, an idiom or a casual tone.`],
+].reduce((text, [from, to]) => swap(text, from, to), SCAN_REPORT_PROMPT);
+
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1 };
