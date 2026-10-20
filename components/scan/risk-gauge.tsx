@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { OVERALL_BANDS, aiScore, overallFor } from "@/lib/auto-report/stitch";
+import { SCORE_BANDS, aiScore, overallFor } from "@/lib/auto-report/stitch";
 import type { RiskLevel } from "@/lib/scanning/types";
 
 const LEVELS: { id: RiskLevel; label: string; color: string }[] = [
@@ -30,7 +30,7 @@ export function RiskGauge({ level, share }: { level: RiskLevel; share?: number }
   const shown = measured ? overallFor(share) : level;
   const idx = LEVELS.findIndex((l) => l.id === shown);
   const score = measured ? aiScore(share) : 0;
-  const marks = [0, aiScore(OVERALL_BANDS.moderate), aiScore(OVERALL_BANDS.elevated), 1];
+  const marks = [0, SCORE_BANDS.moderate, SCORE_BANDS.elevated, 1];
   const edges = measured ? marks.map((v) => v * 180) : [0, 60, 120, 180];
   const angle = measured ? -90 + score * 180 : -60 + idx * 60; // true score, or the centre of the band
   const current = LEVELS[idx];

@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { Minus, X } from "lucide-react";
-import { aiScore } from "@/lib/auto-report/stitch";
-import { OVERALL_BANDS, bandFor, type LogLine, type LogTone } from "@/lib/auto-report/scan-script";
+import { SCORE_BANDS, bandFor, type LogLine, type LogTone } from "@/lib/auto-report/scan-script";
 import type { Overall } from "@/lib/auto-report/stitch";
 import { METER_POINT_MS, type RateMeter } from "./rate-meter";
 import { cn } from "@/lib/utils";
@@ -349,8 +348,8 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
         // The report's band lines, when in view.
         ctx.setLineDash([3, 4]);
         for (const [v, c, label] of [
-          [aiScore(OVERALL_BANDS.moderate), C.warn, "moderate"],
-          [aiScore(OVERALL_BANDS.elevated), C.risk, "elevated"],
+          [SCORE_BANDS.moderate, C.warn, "moderate"],
+          [SCORE_BANDS.elevated, C.risk, "elevated"],
         ] as const) {
           if (v < scale.lo || v > scale.hi) continue;
           const y = Math.round(yAt(v)) + 0.5;
