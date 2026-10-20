@@ -52,8 +52,10 @@ export async function POST(request: NextRequest) {
   if (!claimed?.length) return NextResponse.json({ ok: true, busy: true }, { headers: noStore });
 
   const since = new Date(now.getTime() - 24 * 3600_000).toISOString();
-  const { count: used } = await db.from("chunk_trials").select("id", { count: "exact", head: true }).gte("created_at", since);
-  const budget = pieceBudget({ maxPieces: run.max_pieces, attempted: run.attempted, usedLast24h: used ?? 0 });
+  // The daily cap is for this runner only (runs started by hand on /admin/chunking are not counted).
+  const { data: recent } = await db.from("chunk_queue").select("attempted").gte("created_at", since).returns<{ attempted: number }[]>();
+  const used = (recent ?? []).reduce((sum, r) => sum + r.attempted, 0);
+  const budget = pieceBudget({ maxPieces: run.max_pieces, attempted: run.attempted, usedLast24h: used });
   const release = (patch: Record<string, unknown>) => db.from("chunk_queue").update({ lease_until: null, updated_at: new Date().toISOString(), ...patch }).eq("id", run.id);
 
   if (budget === 0) {
