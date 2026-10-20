@@ -63,3 +63,39 @@ test("recheckInput lists the changed sentences and embeds both drafts", () => {
 test("an identical draft says so", () => {
   assert.match(recheckInput(before, before).message, /identical to the previous one/);
 });
+
+test("headings and divider lines are not sentences", () => {
+  const text = `# The Physicality of Virtual Intelligence: A Long Title That Has More Than Fourteen Words In It For Sure
+
+## Abstract
+
+The first idea is plain. The second one follows it.
+
+---
+
+## 1.
+
+Introduction: Demystifying the Cloud
+
+### 2.1 Direct-to-Chip Cooling
+
+Water carries heat far better than air does. Racks now need liquid.`;
+  const s = splitSentences(text);
+  assert.deepEqual(s.map((x) => `P${x.p}S${x.s}`), ["P1S1", "P1S2", "P2S1", "P2S2"]);
+  assert.equal(s[0].text, "The first idea is plain.");
+});
+
+test("a heading line directly above its text is dropped, the text stays", () => {
+  const s = splitSentences("## Method\nWe asked ten people. They agreed.");
+  assert.deepEqual(s.map((x) => x.text), ["We asked ten people.", "They agreed."]);
+});
+
+test("a short unpunctuated line is kept when it is the only text, and Chinese lines are never dropped as headings", () => {
+  assert.equal(splitSentences("Abstract").length, 1);
+  assert.equal(splitSentences("---").length, 1);
+  assert.equal(splitSentences("香港的街道設計很重要\n\n另一段中文").length, 2);
+});
+
+test("short paragraphs with closing punctuation stay", () => {
+  assert.equal(splitSentences("Yes.\n\nIt works. Really!").length, 3);
+});
