@@ -344,14 +344,14 @@ export function ScanStage({
 const AGENTS = [
   { c: "cyan", name: "A1 READ", job: "Reads your text word by word" },
   { c: "violet", name: "A2 LOOKAHEAD", job: "Looks one line ahead" },
-  { c: "silver", name: "A3 VERIFY", job: "Follows behind, re-reading each sentence" },
+  { c: "warn", name: "A3 VERIFY", job: "Follows behind, re-reading each sentence" },
   { c: "accent", name: "A4 CONTEXT", job: "Keeps the whole paragraph in view" },
 ] as const;
 
 /**
  * The text itself, with the four scan agents working through it in order:
- * A1 reads the current word, A2's lens sweeps the line ahead, A3's lens
- * follows two sentences behind, and A4 brackets the paragraph being read.
+ * A1 reads the current word, A2's lens sweeps the line ahead, A3's yellow
+ * bar flickers between words behind the reader, and A4 brackets the paragraph being read.
  * States are written straight onto the spans and the agents are moved with
  * transforms, so the text is rendered by React only once.
  */
@@ -381,7 +381,8 @@ const Document = memo(function Document({
   const words = useRef<(HTMLSpanElement | null)[][]>([]);
   const read = useRef<HTMLDivElement>(null);
   const xray = useRef<HTMLDivElement>(null);
-  const pen = useRef<HTMLDivElement>(null);
+  const flick = useRef<HTMLDivElement>(null);
+  const ghost = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const rulerN = useRef<HTMLSpanElement>(null);
   const live = useRef({ frontier, within, done });
@@ -428,7 +429,7 @@ const Document = memo(function Document({
     const tick = () => {
       const { frontier: f, within: wn, done: finished } = live.current;
       if (finished || f >= total) {
-        hide(read.current, xray.current, pen.current, ruler.current);
+        hide(read.current, xray.current, ruler.current);
         return;
       }
       const now = performance.now();
@@ -461,20 +462,6 @@ const Document = memo(function Document({
           xray.current.style.opacity = "1";
         } else xray.current.style.opacity = "0";
       }
-      // A3 VERIFY: a glass lens two sentences behind, word by word.
-      const b = f - 2;
-      if (b >= 0 && pen.current) {
-        const ws = words.current[b] ?? [];
-        const j = Math.min(ws.length - 1, Math.floor(wn * ws.length));
-        const el = ws[j];
-        if (el) {
-          const p = at(el);
-          pen.current.style.transform = `translate3d(${p.x - 5}px, ${p.y - 1}px, 0)`;
-          pen.current.style.width = `${Math.max(14, p.w + 10)}px`;
-          pen.current.style.height = `${p.h + 2}px`;
-          pen.current.style.opacity = "1";
-        }
-      } else hide(pen.current);
       // A4 CONTEXT: a bracket down the margin over the paragraph being read.
       const para = paraOf[f];
       const first = para && words.current[para.first]?.[0];
@@ -497,11 +484,77 @@ const Document = memo(function Document({
         }
       }
     };
+    // A3 VERIFY: a flickering yellow bar. It jumps at random between a few words behind the reader, fast and
+    // never in the same rhythm twice, while its home drifts slowly after the blue cell. It stays clear of the blue cell.
+    const flat: HTMLElement[] = [];
+    const firstOf: number[] = [];
+    words.current.forEach((ws, i) => {
+      firstOf[i] = flat.length;
+      ws.forEach((el) => el && flat.push(el));
+    });
+    let home = 0;
+    let nextJump = 0;
+    let lastEl: HTMLElement | null = null;
+    let lastSpan = 0;
+    const flickTick = () => {
+      const bar = flick.current;
+      const echo = ghost.current;
+      if (!bar || !echo) return;
+      const { frontier: f, within: wn, done: finished } = live.current;
+      if (finished || f >= total) {
+        bar.style.opacity = "0";
+        echo.style.opacity = "0";
+        return;
+      }
+      const now = performance.now();
+      const ws = words.current[f] ?? [];
+      const reader = (firstOf[f] ?? 0) + Math.min(Math.max(0, ws.length - 1), Math.floor(wn * ws.length));
+      // Home follows the reader slowly, always a few words back; the bar never lands on the blue cell.
+      home += (Math.max(0, reader - 9) - home) * 0.035;
+      if (reader < 3) {
+        bar.style.opacity = "0";
+        echo.style.opacity = "0";
+        return;
+      }
+      if (now < nextJump) {
+        // Between jumps the bar shimmers.
+        bar.style.opacity = String(0.55 + Math.random() * 0.45);
+        return;
+      }
+      nextJump = now + 55 + Math.random() * Math.random() * 330;
+      const target = Math.round(home + (Math.random() - 0.5) * 9);
+      const idx = Math.max(0, Math.min(reader - 2, target));
+      const el = flat[idx];
+      if (!el || el === lastEl) return;
+      // One to three words wide, kept on the line of the first.
+      let end = el;
+      for (let k = 1, more = Math.floor(Math.random() * 3); k <= more; k++) {
+        const w = flat[idx + k];
+        if (w && idx + k <= reader - 2 && w.offsetTop === el.offsetTop) end = w;
+      }
+      const span = end.offsetLeft + end.offsetWidth - el.offsetLeft;
+      if (lastEl) {
+        echo.style.transform = `translate3d(${lastEl.offsetLeft - 2}px, ${lastEl.offsetTop + lastEl.offsetHeight - 3}px, 0)`;
+        echo.style.width = `${lastSpan + 4}px`;
+        echo.style.transition = "none";
+        echo.style.opacity = "0.7";
+        void echo.offsetWidth;
+        echo.style.transition = "opacity 0.28s ease-out";
+        echo.style.opacity = "0";
+      }
+      lastEl = el;
+      lastSpan = span;
+      bar.style.transform = `translate3d(${el.offsetLeft - 2}px, ${el.offsetTop + el.offsetHeight - 3}px, 0)`;
+      bar.style.width = `${span + 4}px`;
+      bar.style.opacity = "1";
+    };
+    const tf = setInterval(flickTick, 45);
     const t = setInterval(tick, 60);
     const ro = new ResizeObserver(tick);
     if (content.current) ro.observe(content.current);
     return () => {
       clearInterval(t);
+      clearInterval(tf);
       ro.disconnect();
     };
   }, [total, reduce, plan]);
@@ -522,7 +575,8 @@ const Document = memo(function Document({
           <div ref={ruler} aria-hidden className="scan-ruler pointer-events-none absolute top-0 opacity-0">
             <span ref={rulerN} className="scan-ruler-n" />
           </div>
-          <div ref={pen} aria-hidden className="scan-pen pointer-events-none absolute left-0 top-0 opacity-0" />
+          <div ref={ghost} aria-hidden className="scan-flick scan-flick-ghost pointer-events-none absolute left-0 top-0 opacity-0" />
+          <div ref={flick} aria-hidden className="scan-flick pointer-events-none absolute left-0 top-0 opacity-0" />
           <div ref={read} aria-hidden className="scan-agent pointer-events-none absolute left-0 top-0 opacity-0" data-c="cyan" />
         </div>
       </div>

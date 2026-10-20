@@ -1736,6 +1736,11 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-sent[data-st="uncertain"] { color: var(--color-fg-muted); text-decoration: underline dotted var(--color-fg-subtle); }
 .scan-sent[data-st="medium"] { color: var(--color-fg); text-decoration: underline 1px rgb(245 195 91 / 0.6); }
 .scan-sent[data-st="high"] { color: var(--color-fg); background: rgb(255 122 138 / 0.13); text-decoration: underline 1.5px rgb(255 122 138 / 0.7); }
+/* Free scan: the scan line under the line being read, and a quick sweep over the sentence just finished. */
+.scan-text-beam { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease; }
+.scan-text-beam::before { content: ""; position: absolute; inset: -22px 0 1px; background: linear-gradient(180deg, transparent, rgb(95 216 245 / 0.09)); pointer-events: none; }
+.scan-swept { background-image: linear-gradient(90deg, transparent 35%, rgb(95 216 245 / 0.42) 50%, transparent 65%); background-size: 300% 100%; background-repeat: no-repeat; animation: scan-swept 0.9s ease-out both; }
+@keyframes scan-swept { from { background-position: 100% 0; } to { background-position: 0 0; } }
 .scan-hit { animation: scan-hit 0.9s ease-out; }
 @keyframes scan-hit { from { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5), 0 0 30px rgb(255 122 138 / 0.7); } to { box-shadow: 0 0 0 0 transparent; } }
 
@@ -1779,16 +1784,15 @@ html.ent-pre :is(.depth-title, h1, h2) {
 }
 @keyframes scan-xray-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-/* A3 VERIFY: a small glass lens gliding over the words two sentences behind. */
-.scan-pen {
-  border-radius: 999px;
-  border: 1px solid rgb(226 232 255 / 0.3);
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.02));
-  box-shadow: 0 0 0 3px rgb(226 232 255 / 0.04), 0 6px 18px -6px rgb(200 210 255 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.18);
-  -webkit-backdrop-filter: brightness(1.35);
-  backdrop-filter: brightness(1.35);
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.2s ease, opacity 0.4s ease;
+/* A3 VERIFY: a thin yellow bar that flickers between words behind the reader. It jumps with no easing, so it reads as fast. */
+.scan-flick {
+  height: 5px; border-radius: 3px;
+  background: var(--color-warn);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--color-warn) 80%, transparent), 0 -10px 14px -6px color-mix(in srgb, var(--color-warn) 45%, transparent);
+  transition: opacity 0.05s linear;
+  will-change: transform, opacity;
 }
+.scan-flick-ghost { background: color-mix(in srgb, var(--color-warn) 70%, transparent); box-shadow: 0 0 6px color-mix(in srgb, var(--color-warn) 60%, transparent); }
 .scan-sent[data-gr] { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-color: rgb(154 123 255 / 0.85); text-decoration-thickness: 1px; }
 
 /* A4 CONTEXT: a bracket in the margin over the paragraph being read. */
@@ -1809,6 +1813,7 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-chip { --c: var(--color-cyan); border-color: color-mix(in srgb, var(--c) 35%, transparent); background: color-mix(in srgb, var(--c) 7%, transparent); }
 .scan-chip[data-c="violet"] { --c: var(--color-violet); }
 .scan-chip[data-c="silver"] { --c: #cfd7ee; }
+.scan-chip[data-c="warn"] { --c: var(--color-warn); }
 .scan-chip[data-c="accent"] { --c: var(--color-accent); }
 .scan-chip-dot { width: 6px; height: 6px; border-radius: 2px; background: var(--c); box-shadow: 0 0 8px var(--c); animation: hud-blink 1.6s ease-in-out infinite; }
 
@@ -1821,5 +1826,5 @@ html.ent-pre :is(.depth-title, h1, h2) {
 @keyframes scan-land { 0% { transform: scale(1.18); text-shadow: 0 0 40px rgb(255 255 255 / 0.8); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-live-dot, .scan-type, .scan-caret, .scan-term-activity, .scan-hit, .scan-rate-land, .scan-ellipsis::after, .scan-xray::before, .scan-chip-dot { animation: none; }
+  .scan-live-dot, .scan-type, .scan-caret, .scan-term-activity, .scan-hit, .scan-rate-land, .scan-ellipsis::after, .scan-xray::before, .scan-chip-dot, .scan-swept { animation: none; }
 }
