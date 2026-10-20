@@ -67,4 +67,25 @@ export const STRUCT_1 = [
   [MEDIUM_BEFORE, `${MEDIUM_BEFORE}\n- When signal 7 is present, every sentence that carries one of its patterns (a "not X, but Y" line, a sentence with a three-item list, a First/Second/Finally opener or a label-and-colon item) is at least Medium, even when it uses you, we, an idiom or a casual tone.`],
 ].reduce((text, [from, to]) => swap(text, from, to), SCAN_REPORT_PROMPT);
 
-export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1 };
+const LONG_SAFE = "- Several ideas strung into one long sentence with commas, so, but, which.";
+const NUMBERS_LINE = "- How many examples, proper nouns or citations there are (flagged paragraphs actually had more citations).";
+
+const DENSE = `8. Dense abstract register. Long, formal sentences (often 25 words or more) packed with stacked abstract nouns and parallel noun lists ("X, Y, and Z"), all in one uniform, fully confident voice: no I or we, no hedging or doubt, no opinion, no named person, place or source, and no sentence that sounds like a person thinking. Typical build: "Urban resilience depends on the alignment of policy frameworks, institutional capacity, and infrastructure investment." Technical numbers and field vocabulary do not break this pattern when nothing says who measured them or where. Look across the whole piece: three or more such sentences in a piece means signal 8 is present; one or two alone do not.
+
+`;
+
+/**
+ * Dense-register candidate (2026-10-20). A Gemini essay of long, noun-stacked, number-heavy academic prose scored about
+ * 25% in the live report because the built-in prompt reads long comma-strung sentences as natural and says numbers and
+ * proper nouns are not signals. dense1 is struct1 plus: a signal 8 for that register, long sentences count as natural
+ * only when strung with clauses (not noun lists), and numbers with no source, place or person do not make a sentence
+ * safe. Designed after seeing that essay, so it must be judged on the other samples, not on that one. Not live.
+ */
+export const DENSE_1 = [
+  [SAFE_HEADING, DENSE + SAFE_HEADING],
+  [LONG_SAFE, "- Several ideas strung into one long sentence with clauses (so, but, because, which) in a personal voice. A long sentence built from stacked noun phrases or a list of parallel nouns is not this."],
+  [NUMBERS_LINE, `${NUMBERS_LINE} Numbers and technical terms with no source, place or person attached do not make a sentence safe.`],
+  [MEDIUM_BEFORE, `${MEDIUM_BEFORE}\n- When signal 8 is present, every sentence that carries it is at least Medium, even when it contains numbers or technical terms.`],
+].reduce((text, [from, to]) => swap(text, from, to), STRUCT_1);
+
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, dense1: DENSE_1 };

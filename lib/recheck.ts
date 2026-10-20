@@ -11,14 +11,38 @@ export interface Sentence {
   text: string;
 }
 
+const RULE_LINE = /^\s*([-*_=])(\s*\1){2,}\s*$/;
+const MARKDOWN_HEADING = /^\s{0,3}#{1,6}(\s|$)/;
+const CJK = /[㐀-鿿]/;
+const SHORT_HEADING_WORDS = 14;
+
+/**
+ * Headings and divider lines are not sentences: a "---" line or "## 2. Method" would otherwise be counted, sent to
+ * the reviewer and flagged like prose (2026-10-20: 11 of the 15 such lines in a pasted essay were flagged, which
+ * inflated the flagged share and filled "Rewrite these first" with headings). Dropped: markdown heading and divider
+ * lines, and a paragraph that is one short line of Latin text with no closing punctuation ("Abstract",
+ * "2.1 Direct-to-Chip Cooling Systems"). CJK text is never dropped this way, since it carries no spaces to count.
+ */
+function proseOnly(paragraph: string): string {
+  const lines = paragraph.split("\n").filter((l) => !RULE_LINE.test(l) && !MARKDOWN_HEADING.test(l));
+  const kept = lines.join("\n").trim();
+  if (!kept || lines.length > 1) return kept;
+  const words = kept.split(/\s+/).length;
+  if (words <= SHORT_HEADING_WORDS && !CJK.test(kept) && !/[.!?…:;,"”'’)\]]$/.test(kept)) return "";
+  return kept;
+}
+
 /** Paragraphs are separated by blank lines; sentences end at . ! ? followed by a capital letter, quote or bracket. */
 export function splitSentences(text: string): Sentence[] {
   const out: Sentence[] = [];
-  const paragraphs = text
+  const all = text
     .replace(/\r\n/g, "\n")
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean);
+  // If nothing but headings is left (a one-line input), keep the text as it was.
+  const prose = all.map(proseOnly).filter(Boolean);
+  const paragraphs = prose.length > 0 ? prose : all;
   paragraphs.forEach((para, pi) => {
     const parts = para.split(/(?<=[.!?])\s+(?=[A-Z(“"'])/).map((x) => x.trim()).filter(Boolean);
     parts.forEach((sentence, si) => out.push({ p: pi + 1, s: si + 1, text: sentence }));
