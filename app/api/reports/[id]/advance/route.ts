@@ -7,7 +7,8 @@ import { uuid } from "@/lib/validation/schemas";
 /**
  * Moves an automatic report forward. The order page calls this again and again
  * while the report is being made; each call reviews some more pieces and says how
- * far it got. Only the order's owner (or an admin) can call it.
+ * far it got. Only the order's owner (or an admin) can call it. Once the report
+ * is done the answer carries it, so the page can replay it in the live scan.
  */
 export const maxDuration = 120;
 
@@ -22,5 +23,8 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/report
   if (!order || (order.user_id !== user.id && user.profile.role !== "admin")) {
     return NextResponse.json({ error: "Not found." }, { status: 404, headers: noStore });
   }
-  return NextResponse.json(await advanceAutoReport(id), { headers: noStore });
+  const progress = await advanceAutoReport(id);
+  if (progress.state !== "done") return NextResponse.json(progress, { headers: noStore });
+  const { data: report } = await createAdminClient().from("auto_reports").select("result").eq("order_id", id).maybeSingle<{ result: unknown }>();
+  return NextResponse.json({ ...progress, result: report?.result ?? null }, { headers: noStore });
 }
