@@ -39,10 +39,12 @@ test("a paragraph is never rated safer than its sentences", () => {
 });
 
 test("overall bands", () => {
+  // Bands follow the AI score: under 30 Low, 30 to 69 Moderate, 70 and over Elevated.
   assert.equal(overallFor(0.1), "low");
-  assert.equal(overallFor(0.4), "moderate");
-  assert.equal(overallFor(0.49), "moderate");
-  assert.equal(overallFor(0.5), "elevated");
+  assert.equal(overallFor(0.42), "low");
+  assert.equal(overallFor(0.44), "moderate");
+  assert.equal(overallFor(0.56), "moderate");
+  assert.equal(overallFor(0.58), "elevated");
   assert.equal(overallFor(0.8), "elevated");
 });
 
@@ -56,8 +58,7 @@ test("the AI score leans to 0 below half flagged and to 100 above it", () => {
   assert.equal(pct(-0.2), 0);
   assert.equal(pct(1.3), 100);
   for (let x = 0; x < 1; x += 0.05) assert.ok(aiScore(x + 0.05) > aiScore(x), "keeps the order of texts");
-  // The score crosses 50 where the report turns Elevated, so the number and the band agree.
-  assert.ok(aiScore(0.49) < 0.5 && Math.abs(aiScore(0.5) - 0.5) < 1e-9);
+  assert.ok(Math.abs(aiScore(0.5) - 0.5) < 1e-9);
 });
 
 import { refinementPrice, reportPrice, reportPricing } from "../config/pricing";

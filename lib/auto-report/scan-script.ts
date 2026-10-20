@@ -11,7 +11,7 @@
 
 import { chunkText } from "@/lib/chunking";
 import { splitSentences } from "@/lib/recheck";
-import { OVERALL_BANDS, PIECE_SIZE, overallFor, type AutoReportResult, type Level, type Overall, type ReportSentence } from "./stitch";
+import { PIECE_SIZE, SCORE_BANDS, overallFor, type AutoReportResult, type Level, type Overall, type ReportSentence } from "./stitch";
 
 export interface ScanSentence {
   /** 1-based place in the whole text, as in the report. */
@@ -123,7 +123,7 @@ export function bandFor(rate: number): Overall {
   return overallFor(rate);
 }
 
-export { OVERALL_BANDS };
+export { SCORE_BANDS };
 
 /** A short quote of a sentence for the log. */
 export function quote(text: string, max = 46): string {
