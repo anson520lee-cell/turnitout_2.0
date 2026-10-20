@@ -242,7 +242,7 @@ export function xrayLine(x: ScanSentence, prev?: ScanSentence): LogLine {
 export function phraseLine(x: ScanSentence, repeats: Map<string, number>): LogLine {
   const hits = [...new Set(x.words.map(normWord))].filter((w) => repeats.has(w)).sort((a, b) => repeats.get(b)! - repeats.get(a)!);
   if (!hits.length) return { tone: "dim", text: `A3 PHRASE P${x.p} S${x.s} · no repeated wording` };
-  return { tone: "warn", text: `A3 PHRASE P${x.p} S${x.s} · ${hits.slice(0, 2).map((w) => `“${w}” ×${repeats.get(w)}`).join(", ")} in the text` };
+  return { tone: "info", text: `A3 PHRASE P${x.p} S${x.s} · ${hits.slice(0, 2).map((w) => `“${w}” ×${repeats.get(w)}`).join(", ")} in the text` };
 }
 
 /** A4 RHYTHM, when a paragraph is finished: its sentence lengths. */

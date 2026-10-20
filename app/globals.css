@@ -1740,12 +1740,12 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-doc { scrollbar-width: thin; scrollbar-color: rgb(148 163 255 / 0.25) transparent; }
 .scan-sent { border-radius: 3px; padding: 1px 1px; transition: color 0.35s ease, background-color 0.45s ease, text-decoration-color 0.45s ease, box-shadow 0.35s ease; text-decoration: underline transparent; text-underline-offset: 4px; }
 .scan-sent[data-st="todo"] { color: rgb(154 163 184 / 0.34); }
-.scan-sent[data-st="active"] { color: var(--color-fg); background: rgb(95 216 245 / 0.1); box-shadow: 0 0 0 1px rgb(95 216 245 / 0.22), 0 0 24px -6px rgb(95 216 245 / 0.5); }
+.scan-sent[data-st="active"] { color: var(--color-fg); text-shadow: 0 0 14px rgb(95 216 245 / 0.35); }
 .scan-sent[data-st="read"] { color: rgb(201 209 228 / 0.82); text-decoration: underline dashed rgb(148 163 255 / 0.35); }
 .scan-sent[data-st="low"] { color: var(--color-fg-muted); }
 .scan-sent[data-st="uncertain"] { color: var(--color-fg-muted); text-decoration: underline dotted var(--color-fg-subtle); }
-.scan-sent[data-st="medium"] { color: var(--color-fg); background: rgb(245 195 91 / 0.15); text-decoration: underline 1.5px rgb(245 195 91 / 0.75); }
-.scan-sent[data-st="high"] { color: var(--color-fg); background: rgb(255 122 138 / 0.17); text-decoration: underline 2px rgb(255 122 138 / 0.8); }
+.scan-sent[data-st="medium"] { color: var(--color-fg); text-decoration: underline 1px rgb(245 195 91 / 0.6); }
+.scan-sent[data-st="high"] { color: var(--color-fg); background: rgb(255 122 138 / 0.13); text-decoration: underline 1.5px rgb(255 122 138 / 0.7); }
 .scan-hit { animation: scan-hit 0.9s ease-out; }
 @keyframes scan-hit { from { box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5), 0 0 30px rgb(255 122 138 / 0.7); } to { box-shadow: 0 0 0 0 transparent; } }
 
@@ -1773,34 +1773,36 @@ html.ent-pre :is(.depth-title, h1, h2) {
 /* A2 X-RAY: a lens over the line ahead, with a sweep and a ruler, that lights up the text under it. */
 .scan-xray {
   border-radius: 6px;
-  border-block: 1px solid rgb(154 123 255 / 0.4);
-  background:
-    repeating-linear-gradient(90deg, rgb(154 123 255 / 0.5) 0 1px, transparent 1px 10px) 0 100% / 100% 3px no-repeat,
-    linear-gradient(90deg, rgb(154 123 255 / 0.04), rgb(154 123 255 / 0.13) 50%, rgb(154 123 255 / 0.04));
+  border-block: 1px solid rgb(154 123 255 / 0.22);
+  background: linear-gradient(90deg, transparent, rgb(154 123 255 / 0.1) 20% 80%, transparent);
   -webkit-backdrop-filter: brightness(2.1) contrast(1.15) saturate(0.4);
   backdrop-filter: brightness(2.1) contrast(1.15) saturate(0.4);
-  box-shadow: 0 0 22px -4px rgb(154 123 255 / 0.55), inset 0 0 12px rgb(154 123 255 / 0.12);
+  box-shadow: 0 0 26px -10px rgb(154 123 255 / 0.6);
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.3s ease, opacity 0.4s ease;
   overflow: hidden;
 }
 .scan-xray::before {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent 0 42%, rgb(205 189 255 / 0.5) 49.5%, rgb(255 255 255 / 0.8) 50%, rgb(205 189 255 / 0.5) 50.5%, transparent 58% 100%) 0 0 / 260% 100%;
+  background: linear-gradient(90deg, transparent 0 40%, rgb(205 189 255 / 0.22) 49.6%, rgb(240 235 255 / 0.55) 50%, rgb(205 189 255 / 0.22) 50.4%, transparent 60% 100%) 0 0 / 260% 100%;
   mix-blend-mode: screen;
-  animation: scan-xray-sweep 1.5s linear infinite;
+  animation: scan-xray-sweep 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 @keyframes scan-xray-sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
 .scan-w[data-tr] { color: #d9ccff; border-radius: 3px; background: rgb(154 123 255 / 0.16); box-shadow: 0 0 0 1px rgb(154 123 255 / 0.4); }
 
-/* A3 PHRASE: a pen under the word, two sentences behind, marking repeated wording. */
+/* A3 PHRASE: a small glass lens gliding over the words two sentences behind; repeated wording gets a fine dotted line. */
 .scan-pen {
-  height: 2px; border-radius: 2px;
-  background: linear-gradient(90deg, rgb(245 195 91 / 0.3), var(--color-warn));
-  box-shadow: 0 0 8px rgb(245 195 91 / 0.8);
-  transition: transform 0.14s ease-out, width 0.14s ease-out, opacity 0.4s ease;
+  border-radius: 999px;
+  border: 1px solid rgb(226 232 255 / 0.3);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.02));
+  box-shadow: 0 0 0 3px rgb(226 232 255 / 0.04), 0 6px 18px -6px rgb(200 210 255 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  -webkit-backdrop-filter: brightness(1.35);
+  backdrop-filter: brightness(1.35);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.2s ease, opacity 0.4s ease;
 }
-.scan-pen::after { content: ""; position: absolute; right: -3px; top: -2px; width: 6px; height: 6px; border-radius: 99px; background: #fff3d6; box-shadow: 0 0 10px 1px var(--color-warn); }
-.scan-w[data-rep][data-ph] { background: linear-gradient(rgb(245 195 91 / 0.75), rgb(245 195 91 / 0.75)) 0 100% / 100% 1.5px no-repeat; }
+.scan-w[data-rep][data-ph] {
+  background: radial-gradient(circle, rgb(206 216 255 / 0.75) 0 0.7px, transparent 1.1px) 0 calc(100% - 1px) / 4px 3px repeat-x;
+}
 .scan-sent[data-gr] { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-color: rgb(154 123 255 / 0.85); text-decoration-thickness: 1px; }
 
 /* A4 RHYTHM: a ruler in the margin over the sentence being read. */
@@ -1820,7 +1822,7 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-agentbar::-webkit-scrollbar { display: none; }
 .scan-chip { --c: var(--color-cyan); border-color: color-mix(in srgb, var(--c) 35%, transparent); background: color-mix(in srgb, var(--c) 7%, transparent); }
 .scan-chip[data-c="violet"] { --c: var(--color-violet); }
-.scan-chip[data-c="warn"] { --c: var(--color-warn); }
+.scan-chip[data-c="silver"] { --c: #cfd7ee; }
 .scan-chip[data-c="accent"] { --c: var(--color-accent); }
 .scan-chip-dot { width: 6px; height: 6px; border-radius: 2px; background: var(--c); box-shadow: 0 0 8px var(--c); animation: hud-blink 1.6s ease-in-out infinite; }
 
