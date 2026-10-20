@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { NeuralWaitVisual } from "@/components/ui/neural-wait-visual";
@@ -83,7 +83,6 @@ export function ScanIntro({ plan, text, feed, reference, startedAt, now }: { pla
           <div aria-hidden className="absolute inset-0 bg-[radial-gradient(45%_60%_at_50%_45%,rgb(91_140_255/0.22),transparent_70%)]" />
           <div aria-hidden className="scan-intro-grid absolute inset-0 opacity-60" />
           <NeuralWaitVisual className="relative h-[34vh] min-h-[200px] w-full sm:h-[40vh]" />
-          <Fragments plan={plan} on={active >= 2 && active <= 3} />
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 py-3 font-mono text-[10.5px] uppercase tracking-[0.2em] text-fg-subtle">
             <span className="flex items-center gap-2 text-accent">
               <span className="scan-live-dot" aria-hidden /> 0% Pattern Engine
@@ -153,34 +152,6 @@ export function ScanIntro({ plan, text, feed, reference, startedAt, now }: { pla
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Words from the customer's own first sentences drifting into the tunnel while the document is handed over. */
-function Fragments({ plan, on }: { plan: ScanPlan; on: boolean }) {
-  const words = useMemo(() => plan.sentences.slice(0, 6).flatMap((s) => s.words).filter((w) => w.length > 3).slice(0, 14), [plan]);
-  const [seed, setSeed] = useState(0);
-  useEffect(() => {
-    if (!on) return;
-    const t = setInterval(() => setSeed((x) => x + 1), 1900);
-    return () => clearInterval(t);
-  }, [on]);
-  if (!on || !words.length) return null;
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {words.map((w, i) => {
-        const angle = ((i * 137.5 + seed * 23) % 360) * (Math.PI / 180);
-        return (
-          <span
-            key={`${seed}-${i}`}
-            className="scan-fragment absolute left-1/2 top-[42%] whitespace-nowrap font-mono text-[12px] text-cyan/90"
-            style={{ ["--fx" as string]: `${Math.cos(angle) * 46}vw`, ["--fy" as string]: `${Math.sin(angle) * 22}vh`, animationDelay: `${(i % 7) * 160}ms` }}
-          >
-            {w}
-          </span>
-        );
-      })}
     </div>
   );
 }
