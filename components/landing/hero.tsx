@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
-import { Container, Eyebrow } from "@/components/ui/section";
+import { Container } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { HeroVisual } from "./hero-visual";
 import { freeScan } from "@/config/app";
@@ -25,7 +25,7 @@ function Headline() {
   return (
     // The extruded copies sit beside the <h1>, not in it, so the heading's
     // text (what search engines and screen readers read) appears once.
-    <div data-cursor className="depth-title relative mt-5 text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
+    <div data-cursor className="depth-title relative text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
       <span aria-hidden className="depth-title-layer depth-title-shadow">
         {text(false)}
       </span>
@@ -76,9 +76,6 @@ export function Hero() {
       <Backdrop />
       <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
         <div>
-          <Reveal aboveFold>
-            <Eyebrow>Academic writing screening</Eyebrow>
-          </Reveal>
           <Reveal aboveFold delay={0.08} flip={24}>
             <Headline />
           </Reveal>
