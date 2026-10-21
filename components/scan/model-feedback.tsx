@@ -227,7 +227,7 @@ export function ModelFeedback({
 
       {blocks.length > 0 ? (
         <>
-          <ReportView blocks={blocks} />
+          <ReportView blocks={blocks} source={text} />
           {state.status === "done" && state.cut && (
             <p className="relative mt-3 rounded-xl border border-warn/25 bg-warn/[0.06] px-3.5 py-2.5 text-[12.5px] text-[#cfe0ff]">
               This report was cut short because it ran long. Scan again to get the full review.
