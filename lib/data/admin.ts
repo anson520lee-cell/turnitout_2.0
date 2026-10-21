@@ -1,7 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/auth/session";
-import type { AutoReportResult } from "@/lib/auto-report/stitch";
+import { aiScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+import { freeRange } from "@/lib/scanning/free-range";
 import type {
   AdminNote,
   Order,
@@ -97,4 +98,126 @@ export async function adminOrderBundle(id: string) {
     claims: (claims.data ?? []) as PaymentClaim[],
     events: (events.data ?? []) as { id: number; event: string; detail: Record<string, unknown>; created_at: string }[],
   };
+}
+
+export type ActivityKind = "free_scan" | "free_report" | "paid_report" | "refinement";
+
+export interface ActivityRow {
+  key: string;
+  at: string;
+  kind: ActivityKind;
+  email: string | null;
+  words: number | null;
+  /** Exact AI score (0 to 100) for reports; a free scan only has a range, kept as a label. */
+  score: number | null;
+  range: string | null;
+  level: "low" | "moderate" | "elevated" | null;
+  /** Everything else worth reading, as short "name: value" parts. */
+  detail: string[];
+  /** Set for orders: their id (opens the order, and the text can be fetched while it is still kept). */
+  orderId: string | null;
+  /** True while the submitted text is still stored (orders only; free-scan text is never stored). */
+  hasText: boolean;
+  status: string | null;
+}
+
+type ActivityOrder = {
+  id: string;
+  service_type: string;
+  price: number;
+  status: string;
+  word_count: number | null;
+  created_at: string;
+  source_text: string | null;
+  profiles: { email: string } | null;
+  auto_reports: { status: string; summary: AutoReportResult["summary"] | null } | { status: string; summary: AutoReportResult["summary"] | null }[] | null;
+};
+
+type ActivityScan = {
+  id: string;
+  word_count: number;
+  overall_risk: "low" | "moderate" | "elevated";
+  analyzer: string;
+  created_at: string;
+  report_saved_at: string | null;
+  result_json: { standoutShare?: number; signals?: { id: string; score: number | null }[] } | null;
+  profiles: { email: string } | null;
+};
+
+/**
+ * Every free scan, free report, paid report and refinement in one list, newest first. Metadata only:
+ * no text and no report content leave this function (the text is fetched one order at a time, by
+ * viewOrderText, and each view is logged). Scans made without an account are never stored, so they
+ * are not here.
+ */
+export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
+  await assertAdmin();
+  const db = createAdminClient();
+  const [{ data: scans }, { data: orders }] = await Promise.all([
+    db
+      .from("scan_results")
+      .select("id,word_count,overall_risk,analyzer,created_at,report_saved_at,result_json,profiles(email)")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    db
+      .from("orders")
+      // `summary` is only the counts; the report body (which quotes the text) is never selected.
+      .select("id,service_type,price,status,word_count,created_at,source_text,profiles(email),auto_reports(status,summary:result->summary)")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+  const rows: ActivityRow[] = [];
+  for (const s of (scans ?? []) as unknown as ActivityScan[]) {
+    const share = s.result_json?.standoutShare;
+    const range = freeRange(share, s.overall_risk);
+    const signals = (s.result_json?.signals ?? []).filter((x) => x.score !== null).map((x) => `${x.id.replace(/_/g, " ")} ${x.score}`);
+    rows.push({
+      key: `scan-${s.id}`,
+      at: s.created_at,
+      kind: "free_scan",
+      email: s.profiles?.email ?? null,
+      words: s.word_count,
+      score: null,
+      range: `${range.lo}–${range.hi}`,
+      level: s.overall_risk,
+      detail: [
+        ...(share === undefined ? [] : [`stand-out sentences ${Math.round(share * 100)}%`]),
+        ...(signals.length ? [`signals: ${signals.join(", ")}`] : []),
+        s.analyzer,
+        ...(s.report_saved_at ? ["written report saved by the user"] : []),
+      ],
+      orderId: null,
+      hasText: false,
+      status: null,
+    });
+  }
+  for (const o of (orders ?? []) as unknown as ActivityOrder[]) {
+    const auto = Array.isArray(o.auto_reports) ? o.auto_reports[0] : o.auto_reports;
+    const sum = auto?.summary ?? null;
+    const kind: ActivityKind = o.service_type === "refinement" ? "refinement" : o.price === 0 ? "free_report" : "paid_report";
+    rows.push({
+      key: `order-${o.id}`,
+      at: o.created_at,
+      kind,
+      email: o.profiles?.email ?? null,
+      words: sum?.words ?? o.word_count,
+      score: sum ? Math.round(aiScore(sum.flaggedShare) * 100) : null,
+      range: null,
+      level: sum?.overall ?? null,
+      detail: sum
+        ? [
+            `${sum.high} high, ${sum.medium} medium, ${sum.uncertain} uncertain of ${sum.sentences} sentences`,
+            `flagged ${Math.round(sum.flaggedShare * 100)}%`,
+            `${sum.riskyParagraphs} of ${sum.paragraphs} paragraphs risky`,
+            ...(auto && auto.status !== "done" ? [`report ${auto.status}`] : []),
+          ]
+        : auto
+          ? [`report ${auto.status}`]
+          : [],
+      orderId: o.id,
+      hasText: Boolean(o.source_text),
+      status: o.status,
+    });
+  }
+  return rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
 }
