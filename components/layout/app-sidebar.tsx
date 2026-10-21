@@ -78,7 +78,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
       <header className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
-          className="glass-item grid size-9 place-items-center rounded-xl text-fg-muted hover:text-fg"
+          className="glass-item grid size-11 place-items-center rounded-xl text-fg-muted hover:text-fg"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}

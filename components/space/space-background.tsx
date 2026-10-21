@@ -594,9 +594,13 @@ export function SpaceBackground() {
       const X = 6;
       const Z0 = 1.3;
       const Z1 = 8.2;
-      const hor = h * 0.6;
-      const f = h * 0.85;
       const camY = 0.74;
+      // On a wide screen the surface fills the lower part of the viewport. On a
+      // phone the viewport is tall and narrow: scaling by height would zoom the
+      // surface in until only its middle strip showed and park it halfway up the
+      // page, so scale by width and sit the nearest edge on the bottom instead.
+      const f = Math.min(h * 0.85, w * 0.95);
+      const hor = small ? h - f * (camY / Z0 + 0.04) : h * 0.6;
       const flow = time * 0.22 + scrollY * 0.0042;
       const A = inApp.current ? 0.3 : 0.26;
 
@@ -660,7 +664,7 @@ export function SpaceBackground() {
         if (raceAge > 14 || raceQuiet > 1.4 || opts.every((o) => !o.alive)) {
           raceAge = 0;
           raceQuiet = 0;
-          const sx = rand(-2.7, 2.8);
+          const sx = small ? rand(-1.8, 2) : rand(-2.7, 2.8);
           const sz = rand(5.6, 7.1);
           for (const o of opts) {
             o.x = sx;
@@ -743,7 +747,15 @@ export function SpaceBackground() {
         c.arc(ox, oy, 2.4, 0, Math.PI * 2);
         c.fill();
         c.fillStyle = `rgba(${o.rgb},0.75)`;
-        c.fillText(`∇L ${o.name}`, ox + 10, oy - 26 + oi * 11);
+        // On a phone the five labels would sit on top of the page's own text; the dots and trails are enough.
+        if (small) continue;
+        const label = `∇L ${o.name}`;
+        // keep the label on screen: flip it to the left of the dot near the right edge
+        if (ox + 10 + c.measureText(label).width > w - 6) {
+          c.textAlign = "right";
+          c.fillText(label, ox - 10, oy - 26 + oi * 11);
+          c.textAlign = "left";
+        } else c.fillText(label, ox + 10, oy - 26 + oi * 11);
       }
     }
 
