@@ -23,8 +23,7 @@ import type { ReportFeed } from "./use-report-feed";
  * The real report is made in the background meanwhile (see `feed`). The scan
  * only shows ratings from it: a sentence is marked, and the AI rate moves,
  * only once the reviewer's answer is in. If the answer is late the scan waits
- * near the end; if it comes early the scan still runs at its own pace, and a
- * "Skip to report" link appears.
+ * near the end; if it comes early the scan still runs at its own pace.
  */
 
 const FINALE_MS = 7_000;
@@ -195,11 +194,6 @@ export function ReportScan({
             {String(Math.floor(secs / 60)).padStart(2, "0")}:{String(secs % 60).padStart(2, "0")}
             {left !== null && <> · ~{left}s left</>}
           </span>
-          {result && !done && !inIntro && (
-            <button type="button" onClick={end} className="whitespace-nowrap rounded-full px-2 py-1 text-[11.5px] text-fg-subtle underline-offset-2 hover:text-fg hover:underline">
-              Skip to report
-            </button>
-          )}
           <button
             type="button"
             onClick={() => setOverlay(false)}
