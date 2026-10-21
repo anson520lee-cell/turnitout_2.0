@@ -110,7 +110,7 @@ export default async function AdminHome() {
       )}
       <div className="mt-10 flex items-center justify-between">
         <h2 className="text-[16px] font-semibold">Work queue <span className="text-fg-subtle">· oldest first</span></h2>
-        <Link href="/admin/orders" className="text-[13px] text-accent hover:underline">All orders</Link>
+        <Link href="/admin/activity?kind=orders" className="text-[13px] text-accent hover:underline">All orders</Link>
       </div>
       <div className="mt-4"><OrdersTable orders={queue} /></div>
     </>
