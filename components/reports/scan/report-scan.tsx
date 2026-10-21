@@ -269,10 +269,6 @@ export function ReportScan({
           )}
         </AnimatePresence>
       </div>
-
-      <footer className="relative shrink-0 px-4 pb-3 text-center text-[10.5px] text-fg-subtle sm:px-6">
-        The scan replays this website&rsquo;s automated reviewer&rsquo;s findings on your text; it is not a Turnitin result. {disclaimers.noGuarantee}
-      </footer>
     </motion.div>
   );
 
