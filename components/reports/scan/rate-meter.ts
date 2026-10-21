@@ -1,9 +1,10 @@
 /**
  * The live AI rate as a ticking series, like a share price. Its level always
  * follows the real estimate (the share of the sentences shown so far that the
- * report flags, see `liveEstimate`); on top of that it carries a small jitter
- * that fades to nothing by the end, so it never looks frozen. When the scan
- * is done it settles exactly on the report's own figure and stops.
+ * report flags, see `liveEstimate`); on top of that it carries a lively jitter
+ * (a quick tremor plus a slower swell) that stays strong to the end of the scan,
+ * so it never looks frozen or flat, even late on. When the scan is done it
+ * settles exactly on the report's own figure and stops.
  *
  * Kept outside React: it ticks 20 times a second and its readers (the number
  * and the charts) draw themselves when it changes.
@@ -51,6 +52,7 @@ export class RateMeter {
   settledAt: number | null = null;
   private x = 0;
   private noise = 0;
+  private swell = 0;
   private moved = 0;
   private lastPoint = 0;
   private listeners = new Set<() => void>();
@@ -78,18 +80,24 @@ export class RateMeter {
     if (input.done) {
       this.x += (input.final - this.x) * 0.3;
       this.noise *= 0.5;
-      if (Math.abs(this.x - input.final) < 0.0004 && Math.abs(this.noise) < 0.0004) {
+      this.swell *= 0.5;
+      if (Math.abs(this.x - input.final) < 0.0004 && Math.abs(this.noise + this.swell) < 0.0004) {
         this.x = input.final;
         this.noise = 0;
+        this.swell = 0;
         this.settled = true;
         this.settledAt = now;
       }
     } else {
       this.x += (input.base - this.x) * 0.2;
-      const sigma = input.reduce ? 0 : 0.004 * Math.pow(1 - Math.min(1, input.progress), 1.4) + 0.0003;
+      // Stays strong right up to the end (only a little calmer then), so the line is never a flat wiggle.
+      const calm = 1 - 0.2 * Math.min(1, input.progress);
+      const sigma = input.reduce ? 0 : 0.011 * calm;
       this.noise = this.noise * 0.86 + sigma * gauss();
+      // a slower swell on top, so the line makes runs up and down like a price, not just a tremor
+      this.swell = this.swell * 0.985 + (input.reduce ? 0 : 0.0045 * calm) * gauss();
     }
-    const v = Math.max(0, Math.min(1, this.x + this.noise));
+    const v = Math.max(0, Math.min(1, this.x + this.noise + this.swell));
     if (this.cur !== null) this.moved += Math.abs(v - this.cur);
     this.cur = v;
     if (now - this.lastPoint >= POINT_MS || this.settled) {

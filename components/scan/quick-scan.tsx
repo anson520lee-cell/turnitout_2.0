@@ -29,14 +29,26 @@ const clock = (ms: number) => `${String(Math.floor(ms / 60_000)).padStart(2, "0"
 
 /** The live score over the last few seconds: a small line that rises and falls as sentences are read. */
 function Sparkline({ hist, ticks, color, compact }: { hist: number[]; ticks: number; color: string; compact: boolean }) {
-  const h = compact ? 26 : 44;
+  const h = compact ? 30 : 56;
   const w = 220;
-  const y = (v: number) => h - 2 - (v / 100) * (h - 4);
+  // Zoomed to the line, like a price chart, so its swings read clearly instead of hugging one level of a 0–100 scale.
+  let lo0 = 100;
+  let hi0 = 0;
+  for (const v of hist) {
+    lo0 = Math.min(lo0, v);
+    hi0 = Math.max(hi0, v);
+  }
+  const span = Math.min(100, Math.max(26, hi0 - lo0 + 10));
+  const lo = hist.length ? Math.max(0, Math.min(100 - span, (lo0 + hi0) / 2 - span / 2)) : 0;
+  const y = (v: number) => h - 3 - ((v - lo) / span) * (h - 6);
+  const gridStep = span > 50 ? 20 : 10;
+  const grid: number[] = [];
+  for (let g = Math.ceil(lo / gridStep) * gridStep; g < lo + span; g += gridStep) grid.push(g);
   const pts = hist.map((v, i) => `${((i / Math.max(1, ticks)) * w).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const last = hist.length ? hist[hist.length - 1] : null;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="mt-2.5 w-full" style={{ height: h }} aria-hidden>
-      {[20, 40, 60, 80].map((g) => (
+      {grid.map((g) => (
         <line key={g} x1="0" x2={w} y1={y(g)} y2={y(g)} stroke="rgb(170 176 196 / 0.14)" strokeDasharray="2 3" />
       ))}
       {hist.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${color})` }} />}
@@ -56,6 +68,8 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
   // The live score and its recent history: worked out every tick from the sentences read so far, eased so it glides.
   const [live, setLive] = useState<{ score: number | null; hist: number[] }>({ score: null, hist: [] });
   const shown = useRef<number | null>(null);
+  // The drawn line carries a live tremor and swell on top of the score (see below); the score and the range label do not.
+  const wobble = useRef({ fast: 0, slow: 0 });
 
   useEffect(() => {
     const start = performance.now();
@@ -77,7 +91,14 @@ export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSig
         // Eased a little so it glides; follows each sentence as it is read.
         shown.current = shown.current === null ? target : shown.current + (target - shown.current) * 0.4;
         const v = Math.max(0, Math.min(100, shown.current));
-        setLive((l) => ({ score: v, hist: [...l.hist, v] }));
+        // Lively to the end, calming only over the last second so the line lands smoothly on the real score.
+        const w = wobble.current;
+        const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+        w.fast = w.fast * 0.8 + 1.5 * gauss();
+        w.slow = w.slow * 0.97 + 0.55 * gauss();
+        const calm = e >= duration ? 0 : Math.min(1, (duration - e) / 1000);
+        const drawn = Math.max(0, Math.min(100, v + (w.fast + w.slow) * calm));
+        setLive((l) => ({ score: v, hist: [...l.hist, drawn] }));
       }
       if (e >= duration) clearInterval(t);
     }, 80);

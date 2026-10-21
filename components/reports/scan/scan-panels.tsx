@@ -303,7 +303,7 @@ export function TickChart({ meter, compact, className }: { meter: RateMeter; com
         lo = Math.min(lo, p.v);
         hi = Math.max(hi, p.v);
       }
-      const minRange = compact ? 0.06 : 0.04;
+      const minRange = compact ? 0.14 : 0.12;
       if (hi - lo < minRange) {
         const mid = (hi + lo) / 2;
         lo = mid - minRange / 2;
