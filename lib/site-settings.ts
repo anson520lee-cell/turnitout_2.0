@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
-import { STRUCT_1 } from "@/lib/chunk-prompts";
+import { MIX_1 } from "@/lib/chunk-prompts";
 import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort } from "@/lib/deepseek";
 
 /**
@@ -12,12 +12,14 @@ import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort }
  */
 
 /**
- * The built-in report prompt: the struct1 candidate (essay structure weighs more, you/we and idioms are no longer
- * safe signals). Jordan switched the site to it on 2026-10-20 after the 3,000-character backtest: AI essays reaching
- * the red band rose from 14 to 20 of 21 while human essays in red stayed at 7 of 20. A prompt saved on
- * /admin/prompt still takes precedence.
+ * The built-in report prompt: the mix1 candidate (struct1 plus the slip rule: a quotable grammar slip lowers a
+ * sentence to Low). Jordan switched the site to it on 2026-10-21 after the 3,000-character backtest on 600 essays:
+ * human essays in red fell from 9-13% to 1% (ELLIPSE) and from 21-27% to 6% (PELIC), with the held-out halves
+ * the same, while the share of AI essays in red stayed close (about 5 points fewer on external AI essays). AUC
+ * on human against AI rose from 0.88-0.90 to 0.95-0.96. Before that the site used struct1 (since 2026-10-20).
+ * A prompt saved on /admin/prompt still takes precedence.
  */
-const DEFAULT_REPORT_PROMPT = STRUCT_1;
+const DEFAULT_REPORT_PROMPT = MIX_1;
 
 export const SETTING_KEYS = {
   reportPrompt: "scan_report_prompt",
