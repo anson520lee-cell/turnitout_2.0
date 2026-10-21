@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Info, ArrowRight, Download, Lock } from "lucide-react";
 import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
 import { freeRange } from "@/lib/scanning/free-range";
@@ -31,6 +31,7 @@ export function ScanResult({
   feedback,
   storedLevel,
   verdictHint = null,
+  shareHint = null,
 }: {
   result: AnalysisResult;
   createdAt?: string;
@@ -40,9 +41,17 @@ export function ScanResult({
   feedback?: { ticket: string; text: string; previousText?: string; scanId?: string | null } | null;
   /** The reviewer's verdict when it is already known (the live scan waited for it), so the dial never changes after it appears. */
   verdictHint?: Risk | null;
+  /** The share of sentences the reviewer marked, when already known (same reason as `verdictHint`). */
+  shareHint?: number | null;
 }) {
   // The reviewer's overall verdict, shown next to the dial because the two can disagree.
   const [verdict, setVerdict] = useState<Risk | null>(verdictHint);
+  // The share of sentences the reviewer marked: the range follows it, like the paid report's score does.
+  const [reviewShare, setReviewShare] = useState<number | null>(shareHint);
+  const onVerdict = useCallback((risk: Risk | null, share: number | null) => {
+    setVerdict(risk);
+    setReviewShare(share);
+  }, []);
   const reviewLevel = verdict ? verdictLevel[verdict] : undefined;
   // The dial shows the highest reading: statistics, the review, and what the history already holds.
   const dialLevel: RiskLevel = higherLevel(higherLevel(result.overallRisk, reviewLevel), storedLevel);
@@ -56,7 +65,7 @@ export function ScanResult({
     void raiseScanLevel(scanId, dialLevel);
   }, [scanId, reviewLevel, dialLevel, result.overallRisk]);
   // The free scan shows a 20-point range, never the exact score (that is the paid report's).
-  const range = freeRange(result.standoutShare, dialLevel);
+  const range = freeRange(reviewShare ?? result.standoutShare, dialLevel);
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
@@ -109,7 +118,7 @@ export function ScanResult({
         <LockedReport range={range} />
       </div>
 
-      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} previousText={feedback.previousText} scanId={feedback.scanId} onVerdict={setVerdict} />}
+      {feedback && <ModelFeedback ticket={feedback.ticket} text={feedback.text} previousText={feedback.previousText} scanId={feedback.scanId} sentences={result.metadata.sentences} onVerdict={onVerdict} />}
 
       {result.readability && <ReadabilityCard r={result.readability} />}
 

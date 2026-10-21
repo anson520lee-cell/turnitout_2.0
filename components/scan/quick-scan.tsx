@@ -57,12 +57,12 @@ function Sparkline({ hist, ticks, color, compact }: { hist: number[]; ticks: num
   );
 }
 
-export function QuickScan({ sentences, level, onDone }: { sentences: SentenceSignal[]; level: RiskLevel; onDone: () => void }) {
+export function QuickScan({ sentences, level, reviewShare = null, onDone }: { sentences: SentenceSignal[]; level: RiskLevel; /** The share of sentences the reviewer marked, when known: the range ends where the result will put it. */ reviewShare?: number | null; onDone: () => void }) {
   const plan = useMemo(() => planFromSentences(sentences.map((s) => ({ p: s.paragraph + 1, text: s.text }))), [sentences]);
   const duration = quickScanDurationMs(plan.chars);
   const total = plan.sentences.length;
-  const finalRange = useMemo(() => freeRange(standoutShare(sentences), level), [sentences, level]);
-  const finalShare = useMemo(() => standoutShare(sentences), [sentences]);
+  const finalShare = useMemo(() => reviewShare ?? standoutShare(sentences), [reviewShare, sentences]);
+  const finalRange = useMemo(() => freeRange(finalShare, level), [finalShare, level]);
   const [elapsed, setElapsed] = useState(0);
   const [finished, setFinished] = useState(false);
   // The live score and its recent history: worked out every tick from the sentences read so far, eased so it glides.
