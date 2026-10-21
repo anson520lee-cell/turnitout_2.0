@@ -40,22 +40,23 @@ export const refinementPricing = {
 /**
  * The automatic AI-writing risk report is priced per 200 characters (spaces
  * included): 1 credit per 200 characters, minimum 10 credits (2,000
- * characters), for texts of 500 to 20,000 characters. A report never costs more
- * than 40 credits (reached at 8,000 characters).
- * price = min(maximum, max(minimum, ceil(chars / blockChars) * perBlock))
+ * characters), for texts of 500 to 50,000 characters. The price grows with the
+ * length with no ceiling, because the text is reviewed in pieces of about 3,500
+ * characters and every piece is a model call: a full 50,000-character report is
+ * 250 credits.
+ * price = max(minimum, ceil(chars / blockChars) * perBlock)
  */
 export const reportPricing = {
   minimum: 1000,
-  maximum: 4000,
   blockChars: 200,
   perBlock: 100,
   minChars: 500,
-  maxChars: 20_000,
+  maxChars: 50_000,
 } as const;
 
 export function reportPrice(chars: number): number {
   const blocks = Math.max(1, Math.ceil(chars / reportPricing.blockChars));
-  return Math.min(reportPricing.maximum, Math.max(reportPricing.minimum, blocks * reportPricing.perBlock));
+  return Math.max(reportPricing.minimum, blocks * reportPricing.perBlock);
 }
 
 export function screeningPrice(type: ScreeningServiceType): number {

@@ -7,7 +7,7 @@ import { createFreeReportOrder } from "@/app/actions/orders";
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { billableChars } from "@/config/pricing";
+import { billableChars, reportPricing } from "@/config/pricing";
 import { freeReport } from "@/config/app";
 import { freeReportCharError } from "@/lib/orders/limits";
 import { nextHkMidnight } from "@/lib/free-report-time";
@@ -148,7 +148,7 @@ export function DailyReportCard({
                 <Link href={paidHref} className={buttonClasses("primary", "lg", "h-12 px-6")}>
                   <FileCheck2 className="size-4" /> Get a full report
                 </Link>
-                <p className="text-[12px] text-fg-subtle sm:text-right">Pay with credits, any length up to 20,000 characters</p>
+                <p className="text-[12px] text-fg-subtle sm:text-right">Pay with credits, any length up to {reportPricing.maxChars.toLocaleString("en-HK")} characters</p>
               </>
             ) : (
               <>

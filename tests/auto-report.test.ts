@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chunkText } from "../lib/chunking";
-import { aiScore, overallFor, stitchReport } from "../lib/auto-report/stitch";
+import { PIECE_SIZE, aiScore, overallFor, stitchReport } from "../lib/auto-report/stitch";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -61,17 +61,18 @@ test("the AI score leans to 0 below half flagged and to 100 above it", () => {
   assert.ok(Math.abs(aiScore(0.5) - 0.5) < 1e-9);
 });
 
-import { refinementPrice, reportPrice, reportPricing } from "../config/pricing";
+import { billableChars, refinementPrice, reportPrice, reportPricing, toCredits } from "../config/pricing";
 import { reportCharError } from "../lib/orders/limits";
 
-test("report price: 1 credit per 200 characters, rounded up, minimum 10 credits, at most 40 credits", () => {
+test("report price: 1 credit per 200 characters, rounded up, minimum 10 credits, no ceiling", () => {
   assert.equal(reportPrice(500), 1000);
   assert.equal(reportPrice(2000), 1000);
   assert.equal(reportPrice(2001), 1100);
-  assert.equal(reportPrice(7999), 4000);
   assert.equal(reportPrice(6000), 3000);
-  assert.equal(reportPrice(12345), 4000);
-  assert.equal(reportPrice(20000), 4000);
+  assert.equal(reportPrice(7999), 4000);
+  assert.equal(reportPrice(12345), 6200);
+  assert.equal(reportPrice(20000), 10_000);
+  assert.equal(reportPrice(50000), 25_000);
 });
 
 test("refinement price: 1 credit per 200 characters, rounded up, minimum 15 credits", () => {
@@ -86,6 +87,25 @@ test("report length limits are in characters", () => {
   assert.equal(reportCharError(reportPricing.maxChars), null);
   assert.ok(reportCharError(reportPricing.minChars - 1));
   assert.ok(reportCharError(reportPricing.maxChars + 1));
+  assert.equal(reportPricing.maxChars, 50_000);
+  assert.match(reportCharError(reportPricing.maxChars + 1) ?? "", /up to 50,000/);
+});
+
+test("a 50,000-character report is about 15 pieces, priced up front and stitched from mocked answers", () => {
+  const paragraphs = Array.from({ length: 140 }, (_, i) => paragraph(i * 5 + 1, 5));
+  const text = paragraphs.join("\n\n").slice(0, reportPricing.maxChars);
+  const chars = billableChars(text);
+  assert.equal(reportCharError(chars), null);
+  const pieces = chunkText(text, PIECE_SIZE);
+  assert.ok(pieces.length >= 13 && pieces.length <= 17, `${pieces.length} pieces`);
+  assert.ok(pieces.every((c) => c.text.length <= PIECE_SIZE * 1.25), "no piece is over 1.25 times the base size");
+  assert.equal(toCredits(reportPrice(chars)), Math.ceil(chars / reportPricing.blockChars));
+  const flag = `- P1 S1 "This is sentence..." | Risk: High | Signals 3, 4: tidy | Ask: How would you say it?`;
+  const answers = pieces.map((_, idx) => ({ idx, ok: true, truncated: false, report: answer([flag]) }));
+  const result = stitchReport(text, answers, PIECE_SIZE);
+  assert.equal(result.pieces.total, pieces.length);
+  assert.equal(result.pieces.reviewed, pieces.length);
+  assert.equal(result.summary.high, pieces.length);
 });
 
 import { topUpBonusPercent, usdToCredits } from "../config/pricing";
