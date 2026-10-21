@@ -76,7 +76,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <Card className="p-5 sm:p-6">
             <h2 className="text-[15px] font-semibold">What credits buy</h2>
             <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-fg-muted">
-              <li>AI-writing risk report: 1 credit per 200 characters, minimum 10 and never more than 40 credits. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
+              <li>AI-writing risk report: 1 credit per 200 characters, minimum 10 credits; in every 20,000 characters the first 8,000 are charged and the next 12,000 are free, up to 100,000 characters. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
               <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
               <li>Rate: {formatUSD(1)} = {CREDITS_PER_USD} credits. Credits don&rsquo;t expire.</li>
               <li>Bonus credits on larger top-ups: {topUpBonusTiers.slice().reverse().map((t) => `${formatUSD(t.minUsd)}+ → +${t.percent}%`).join(", ")}. Bonus credits are not refundable as money.</li>

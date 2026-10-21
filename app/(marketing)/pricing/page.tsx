@@ -6,7 +6,7 @@ import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeReport, freeScan } from "@/config/app";
 import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing, topUpBonusTiers } from "@/config/pricing";
-import { refinementMinimumLabel, refinementRateLabel, reportMaximumLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
+import { refinementMinimumLabel, refinementRateLabel, reportCycleLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 const examples = [1800, 3000, 4250, 12000].map((chars) => ({ chars, price: refinementPrice(chars) }));
-const reportExamples = [1500, 3000, 6000, 20000].map((chars) => ({ chars, price: reportPrice(chars) }));
+const reportExamples = [1500, 3000, 8000, 20000, 28000, 50000, 100000].map((chars) => ({ chars, price: reportPrice(chars) }));
 
 export default function PricingPage() {
   return (
@@ -32,7 +32,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
-              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. {reportMaximumLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
+              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
               spaces and line breaks count once. You see the exact price before you pay. A new report after you revise is a new order.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
