@@ -14,7 +14,7 @@ type Size = "sm" | "md" | "lg";
 export function buttonClasses(variant: Variant = "primary", size: Size = "md", className?: string) {
   return cn(
     "btn-fx group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium disabled:pointer-events-none disabled:opacity-50",
-    size === "sm" && "h-8 px-3.5 text-[13px]",
+    size === "sm" && "h-10 px-4 text-[13px] sm:h-8 sm:px-3.5",
     size === "md" && "h-10 px-5 text-sm",
     size === "lg" && "h-12 px-7 text-[15px]",
     // Liquid glass: every filled variant is the same pane of glass, tinted (see .btn-glass in globals.css).

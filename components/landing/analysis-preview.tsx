@@ -96,7 +96,7 @@ export function AnalysisPreview() {
                     aria-selected={k === key}
                     onClick={() => setKey(k)}
                     className={cn(
-                      "rounded-lg px-3 py-1.5 text-[13px] transition",
+                      "rounded-lg px-3 py-2.5 text-[13px] transition sm:py-1.5",
                       k === key ? "bg-white/[0.08] text-fg" : "text-fg-muted hover:text-fg",
                     )}
                   >

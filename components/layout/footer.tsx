@@ -38,8 +38,8 @@ export function Footer() {
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)] bg-ink-950/70">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-      <Container className="grid gap-12 py-14 md:grid-cols-[1.4fr_repeat(3,1fr)]">
-        <div className="max-w-xs">
+      <Container className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:py-14 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-12">
+        <div className="col-span-2 max-w-xs md:col-span-1">
           <Logo />
           <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">{brand.description}</p>
         </div>
@@ -49,7 +49,7 @@ export function Footer() {
             <ul className="mt-3 space-y-0.5">
               {c.links.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="inline-block py-1.5 text-[13.5px] text-fg-muted transition hover:text-fg">
+                  <Link href={l.href} className="inline-block py-2 text-[13.5px] md:py-1.5 text-fg-muted transition hover:text-fg">
                     {l.label}
                   </Link>
                 </li>
