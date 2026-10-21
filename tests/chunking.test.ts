@@ -87,7 +87,7 @@ test("queued backtest runs stay under their own cap and the daily cap", async ()
   const { pieceBudget } = await import("../lib/chunk-queue");
   assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 0 }), 150);
   assert.equal(pieceBudget({ maxPieces: 150, attempted: 140, usedLast24h: 0 }), 10);
-  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 980 }), 20);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 1980 }), 20);
   assert.equal(pieceBudget({ maxPieces: 150, attempted: 150, usedLast24h: 0 }), 0);
-  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 1100 }), 0);
+  assert.equal(pieceBudget({ maxPieces: 150, attempted: 0, usedLast24h: 2100 }), 0);
 });
