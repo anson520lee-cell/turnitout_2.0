@@ -1,4 +1,5 @@
-import { brand, freeReport, freeScan, retention } from "./app";
+import { brand, freeReport, freeScan } from "./app";
+import { retentionSentence } from "./privacy-copy";
 import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel } from "./services";
 
 export interface FaqItem {
@@ -49,11 +50,11 @@ export const faq: FaqItem[] = [
   },
   {
     q: "What happens to my text after the report?",
-    a: `Your text is kept in our database where only you and authorised staff can see it. It is deleted ${retention.sourceDocumentDays} days after your order completes, and report files after ${retention.reportDays} days. Unpaid orders are cancelled and their text deleted after ${retention.unpaidOrderDays} days. You can ask us to delete them sooner at ${brand.supportEmail}.`,
+    a: `Your text is kept in our database where only you and authorised staff can see it. ${retentionSentence.source} ${retentionSentence.reports} ${retentionSentence.unpaid} You can ask us to delete them sooner at ${brand.supportEmail}.`,
   },
   {
     q: "How long is my text stored?",
-    a: `Submitted text: ${retention.sourceDocumentDays} days after the order completes (or is cancelled). Report files: ${retention.reportDays} days. Free-scan text is not stored by default; only the signal scores are kept so you can see your scan history.`,
+    a: `${retentionSentence.source} ${retentionSentence.reports} ${retentionSentence.freeScan}`,
   },
   {
     q: "How long does a report take?",

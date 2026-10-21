@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { saveScanReport } from "@/app/actions/scan-report";
-import { retention } from "@/config/app";
+import { savedReportNote } from "@/config/privacy-copy";
 import { track } from "@/lib/analytics";
 import { overallRisk, parseReport, type Risk } from "@/lib/report-format";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
@@ -285,7 +285,7 @@ export function ModelFeedback({
                 {save.status === "saving" ? "Saving…" : "Save this report to my history"}
               </Button>
               <span className="text-[12px] text-fg-subtle">
-                Only you and authorised staff can see it. Deleted {retention.savedReportDays} days after saving, or sooner if you delete it.
+                {savedReportNote}
               </span>
               {save.status === "error" && <span className="text-[12px] text-risk">{save.message}</span>}
             </>

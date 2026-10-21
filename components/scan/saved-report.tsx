@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
 import { deleteScanReport } from "@/app/actions/scan-report";
-import { retention } from "@/config/app";
+import { savedReportNote } from "@/config/privacy-copy";
 import { overallRisk, parseReport } from "@/lib/report-format";
 import { formatDateTime } from "@/lib/utils";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
@@ -41,7 +41,7 @@ export function SavedReport({ scanId, report, savedAt }: { scanId: string; repor
       <ReportView blocks={blocks} />
       <div className="relative mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-3 print:hidden">
         <p className="text-[12px] leading-relaxed text-fg-subtle">
-          {savedAt ? `Saved ${formatDateTime(savedAt)}. ` : ""}Only you and authorised staff can see it. It is deleted {retention.savedReportDays} days after saving, or sooner if you delete it.
+          {savedAt ? `Saved ${formatDateTime(savedAt)}. ` : ""}{savedReportNote}
         </p>
         <Button
           type="button"
