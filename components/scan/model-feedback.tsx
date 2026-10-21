@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { saveScanReport } from "@/app/actions/scan-report";
 import { retention } from "@/config/app";
 import { track } from "@/lib/analytics";
-import { overallRisk, parseReport, type Risk } from "@/lib/report-format";
+import { parseReport, type Risk } from "@/lib/report-format";
+import { reviewVerdict, type ReviewVerdict } from "@/lib/review-verdict";
 import { ReportView, riskPrintClass, riskStyle } from "./report-view";
 
 type State =
@@ -114,19 +115,20 @@ export function prefetchFeedback(ticket: string, text: string, previousText?: st
   startRequest(getStore(ticket), ticket, text, previousText);
 }
 
-/** The reviewer's overall verdict from a finished (or part-written) report, or null while there is none. */
-function verdictOf(state: State): Risk | null {
-  const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
-  return overallRisk(parseReport(shown)) ?? null;
+/** The reviewer's verdict from a finished report (never a part-written one, which would read lower and then jump), or null while there is none. */
+function verdictOf(state: State, sentences: number | undefined): ReviewVerdict | null {
+  if (state.status !== "done") return null;
+  return reviewVerdict(parseReport(state.feedback), sentences) ?? null;
 }
 
-const NOT_STARTED = { settled: false, verdict: null } as const;
+const NOT_STARTED = { settled: false, verdict: null, share: null } as const;
 
 /**
  * Where the written feedback stands, without starting it: `settled` once it has finished (or failed), and the
- * reviewer's verdict once it is known. Lets the free scan's live view wait for the same report the result shows.
+ * reviewer's verdict once it is known (with the share of sentences it marked, when the text's sentence count is
+ * given). Lets the free scan's live view wait for the same report the result shows.
  */
-export function useFeedbackProgress(ticket: string | null): { settled: boolean; verdict: Risk | null } {
+export function useFeedbackProgress(ticket: string | null, sentences?: number): { settled: boolean; verdict: Risk | null; share: number | null } {
   const subscribe = useCallback(
     (onChange: () => void) => {
       if (!ticket) return () => {};
@@ -144,7 +146,8 @@ export function useFeedbackProgress(ticket: string | null): { settled: boolean; 
     () => WAITING,
   );
   if (!ticket) return NOT_STARTED;
-  return { settled: state.status === "done" || state.status === "unavailable", verdict: state.status === "done" ? verdictOf(state) : null };
+  const v = verdictOf(state, sentences);
+  return { settled: state.status === "done" || state.status === "unavailable", verdict: v?.risk ?? null, share: v && Number.isFinite(v.share) ? v.share : null };
 }
 
 function useFeedback(ticket: string, text: string, previousText?: string): State {
@@ -175,6 +178,7 @@ export function ModelFeedback({
   text,
   previousText,
   scanId,
+  sentences,
   onVerdict,
 }: {
   ticket: string;
@@ -182,8 +186,10 @@ export function ModelFeedback({
   previousText?: string;
   /** Set for signed-in scans: lets the student keep the report in their history. */
   scanId?: string | null;
-  /** Told the reviewer's overall risk once the report has one, so the dial above can show it too. */
-  onVerdict?: (risk: Risk | null) => void;
+  /** How many sentences the scanned text has, so the verdict can come from the share the reviewer marked. */
+  sentences?: number;
+  /** Told the reviewer's verdict (and share of sentences marked) once the report is finished, so the dial above can show it too. */
+  onVerdict?: (risk: Risk | null, share: number | null) => void;
 }) {
   const state = useFeedback(ticket, text, previousText);
   const [save, setSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message?: string }>({ status: "idle" });
@@ -191,10 +197,12 @@ export function ModelFeedback({
   // While the report is still being written, show only the lines that are complete.
   const shown = state.status === "done" ? state.feedback : state.status === "streaming" ? state.text.slice(0, state.text.lastIndexOf("\n") + 1) : "";
   const blocks = parseReport(shown);
-  const overall = overallRisk(blocks);
+  const verdictNow = state.status === "done" ? reviewVerdict(blocks, sentences) : undefined;
+  const overall = verdictNow?.risk;
+  const share = verdictNow && Number.isFinite(verdictNow.share) ? verdictNow.share : null;
   useEffect(() => {
-    onVerdict?.(overall ?? null);
-  }, [overall, onVerdict]);
+    onVerdict?.(overall ?? null, share);
+  }, [overall, share, onVerdict]);
 
   if (state.status === "unavailable") {
     return (

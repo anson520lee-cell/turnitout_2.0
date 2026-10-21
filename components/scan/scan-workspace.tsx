@@ -78,7 +78,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
   const [stage, setStage] = useState<"idle" | "intro" | "scan">("idle");
   const [pending, setPending] = useState<{ text: string; dataReady: boolean } | null>(null);
   const [retry, setRetry] = useState<{ text: string; message: string } | null>(null);
-  const progress = useFeedbackProgress(feedback?.ticket ?? null);
+  const progress = useFeedbackProgress(feedback?.ticket ?? null, result?.metadata.sentences);
   const live = stage !== "idle";
 
   const limitReached = remaining <= 0;
@@ -341,7 +341,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
                 </Button>
               </div>
             </div>
-            <ScanResult result={result} feedback={feedback} verdictHint={progress.verdict} />
+            <ScanResult result={result} feedback={feedback} verdictHint={progress.verdict} shareHint={progress.share} />
           </motion.section>
         )}
       </div>
@@ -359,6 +359,7 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
           key={run}
           sentences={result.sentences}
           level={higherLevel(result.overallRisk, progress.verdict ? verdictLevel[progress.verdict] : undefined)}
+          reviewShare={progress.share}
           onDone={() => {
             setStage("idle");
             reveal();
