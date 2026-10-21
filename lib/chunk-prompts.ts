@@ -82,4 +82,27 @@ export const MIX_1 = swap(
   "- Low: clear safe signals, or a quotable slip (see safe signals). Do not list low-risk sentences in part A.",
 );
 
-export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, mix1: MIX_1 };
+/**
+ * Formal-register candidates (2026-10-21). Found on an HKEAA DSE 5** exemplar (human, Turnitin 0% AI) that mix1 scored
+ * 77 to 98, and on 1961 Brown prose (human): mix1 flagged 58% of their sentences and scored 69% of the pieces red,
+ * while ELLIPSE and PELIC (looser student writing) stayed at 1% and 6%. The cause is the Medium line "a tidy sentence
+ * with no visible personal features", plus signals 3, 4 and 6, which describe any formal, impersonal prose.
+ * strict1 (a hard cap of 1 in 5) fixed the human side but cut AI to about a third, so these two sit in between.
+ * reg1 keeps the signal list and only asks for a quotable signal before a sentence is Medium; reg2 also stops the
+ * three register-wide signals (3, 4, 6) from counting alone. Neither is live; they only count if they keep AI catch.
+ */
+const REGISTER_NOTE = `REGISTER (read before rating)
+- Formal, impersonal, abstract writing is the normal register of school exam essays and of academic prose. Topic sentences, transition words (Firstly, Furthermore, Therefore, In conclusion, Last but not least) and general statements that name nobody are taught on purpose. They are not a signal by themselves.
+- Only list a sentence in part A when you can name the signal and quote the exact words that show it. A tidy, formal or impersonal sentence with no quotable signal is Low and is not listed.
+
+`;
+
+const MEDIUM_QUOTABLE = "- Medium: one clear model-essay signal, with the exact words quoted. A tidy, formal or impersonal sentence with no quotable signal is Low.";
+
+export const REG_1 = swap(swap(MIX_1, MEDIUM_BEFORE, MEDIUM_QUOTABLE), RATING_HEADING, REGISTER_NOTE + RATING_HEADING);
+
+const WEAK_SIGNALS = `- Signals 3, 4 and 6 describe formal writing in general. They never make a sentence Medium on their own; they only add weight to a sentence that already has signal 1, 2, 5 or 7 with quoted words.\n`;
+
+export const REG_2 = swap(REG_1, MEDIUM_QUOTABLE, WEAK_SIGNALS + MEDIUM_QUOTABLE);
+
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, mix1: MIX_1, reg1: REG_1, reg2: REG_2 };
