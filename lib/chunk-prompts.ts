@@ -4,7 +4,7 @@ import type { CandidatePromptName } from "@/lib/chunk-candidate-names";
 /**
  * Candidate reviewer prompts for the piece-size / accuracy test. Each is the first
  * built-in prompt (SCAN_REPORT_PROMPT) with a few rules changed, so the test shows
- * what the change does. struct1 became the site's built-in prompt on 2026-10-20
+ * what the change does. struct1 became the site's built-in prompt on 2026-10-20 and mix1 on 2026-10-21
  * (see DEFAULT_REPORT_PROMPT in site-settings.ts).
  */
 
@@ -74,7 +74,7 @@ export const STRUCT_1 = [
  * mix1 (2026-10-20): struct1 plus the slip rule from slip1. A dense-register candidate (dense1) was tried and dropped:
  * on the same 39 essays it ranked AI above human worse than struct1 (AUC 0.83 against 0.90). slip1 and struct1 were
  * each designed after seeing particular essays (slip1 from Jordan's own, struct1 from a humanised Gemini essay), so
- * mix1 only counts if it beats struct1 on essays neither was designed on. Not live.
+ * mix1 only counts if it beats struct1 on essays neither was designed on. It did (ELLIPSE, PELIC, 2026-10-21), so it is now live.
  */
 export const MIX_1 = swap(
   swap(STRUCT_1, STRUCT_SAFE_LAST, `${STRUCT_SAFE_LAST}\n${SLIPS}`),
