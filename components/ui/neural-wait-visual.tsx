@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils";
  * The waiting visual: a small network turning slowly in 3D. Each layer is a
  * ring of neurons joined to the next by curved weights. Training steps run
  * as waves: a forward pass (cyan) flows from input to output, then the
- * gradient (violet) flows back. A loss curve settles on the left and the
- * output layer's softmax sits on the right.
+ * gradient (violet) flows back.
  * Illustrative only; it doesn't show anything about the user's text.
  */
 
@@ -20,7 +19,6 @@ const WHITE = [233, 237, 247];
 const ACCENT = [91, 140, 255];
 const CYAN = [95, 216, 245];
 const VIOLET = [154, 123, 255];
-const MUTED = [138, 146, 174];
 
 type RGB = number[];
 interface Node { l: number; x: number; y: number; z: number; act: number; grad: number; out: number[]; inn: number[] }
@@ -84,8 +82,6 @@ export function NeuralWaitVisual({ className }: { className?: string }) {
     const glowViolet = sprite(VIOLET);
     const glowWhite = sprite(WHITE);
     const pulses: Pulse[] = [];
-    const bars = new Array(nOut).fill(1 / nOut);
-    let target = 0;
     let w = 0, h = 0, raf = 0, visible = true;
     let last = performance.now();
     const t0 = last;
@@ -146,7 +142,6 @@ export function NeuralWaitVisual({ className }: { className?: string }) {
       if (!reduce && s !== step) {
         step = s;
         backSent = false;
-        target = Math.floor(Math.random() * nOut);
         for (let i = 0; i < LAYERS[0]; i++) { send(i, false, Math.random() * 0.15); if (Math.random() < 0.5) send(i, false, 0.1 + Math.random() * 0.2); }
       }
       if (!reduce && !backSent && phase > 0.6) {
@@ -244,55 +239,6 @@ export function NeuralWaitVisual({ className }: { className?: string }) {
         ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalCompositeOperation = "source-over";
-
-      // training loss: a smooth curve with a soft fill, settling over 12 steps
-      const lx = 12, lh = 22, ly = h - 16 - lh, lw = Math.min(92, w * 0.27);
-      const span = 12;
-      const prog = reduce ? 1 : ((time / CYCLE) % span) / span;
-      const loss = (u: number) => 0.86 * Math.exp(-u * 3.6) + 0.1 + 0.035 * Math.sin(u * 37) * Math.exp(-u * 2.2);
-      const pts: { x: number; y: number }[] = [];
-      for (let k = 0; k <= 48 * prog; k++) { const u = k / 48; pts.push({ x: lx + u * lw, y: ly + lh - loss(u) * lh }); }
-      if (pts.length > 1) {
-        const fill = ctx.createLinearGradient(0, ly, 0, ly + lh);
-        fill.addColorStop(0, rgba(CYAN, 0.22)); fill.addColorStop(1, rgba(CYAN, 0));
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, ly + lh);
-        pts.forEach((q) => ctx.lineTo(q.x, q.y));
-        ctx.lineTo(pts[pts.length - 1].x, ly + lh);
-        ctx.fillStyle = fill; ctx.fill();
-        ctx.beginPath();
-        pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
-        ctx.strokeStyle = rgba(CYAN, 0.9); ctx.lineWidth = 1.2; ctx.stroke();
-        const hd = pts[pts.length - 1];
-        ctx.globalCompositeOperation = "lighter";
-        ctx.drawImage(glowCyan, hd.x - 6, hd.y - 6, 12, 12);
-        ctx.globalCompositeOperation = "source-over";
-      }
-      ctx.strokeStyle = rgba(MUTED, 0.22); ctx.lineWidth = 0.6;
-      ctx.beginPath(); ctx.moveTo(lx, ly + lh + 0.5); ctx.lineTo(lx + lw, ly + lh + 0.5); ctx.stroke();
-      ctx.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace";
-      ctx.fillStyle = rgba(MUTED, 0.85);
-      ctx.fillText(`loss · step ${reduce ? 12 : Math.floor((time / CYCLE) % span) + 1}`, lx, h - 4);
-
-      // softmax: the output layer leans towards this step's target class
-      const sharp = 1.2 + 3.8 * ease(Math.min(1, prog * 1.2));
-      const raw = bars.map((_, k) => Math.exp((k === target ? sharp : 0) + nodes[outStart + k].act));
-      const sum = raw.reduce((a, b) => a + b, 0);
-      const bw = 8, gap = 5, bx = w - 12 - nOut * (bw + gap) + gap;
-      bars.forEach((v, k) => {
-        bars[k] = v + (raw[k] / sum - v) * Math.min(1, dt * 3);
-        const H = Math.max(2, bars[k] * lh);
-        const g = ctx.createLinearGradient(0, ly + lh - H, 0, ly + lh);
-        g.addColorStop(0, rgba(k === target ? CYAN : ACCENT, 0.95)); g.addColorStop(1, rgba(VIOLET, 0.35));
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.roundRect(bx + k * (bw + gap), ly + lh - H, bw, H, [2, 2, 0, 0]);
-        ctx.fill();
-      });
-      ctx.strokeStyle = rgba(MUTED, 0.22);
-      ctx.beginPath(); ctx.moveTo(bx - 2, ly + lh + 0.5); ctx.lineTo(w - 12, ly + lh + 0.5); ctx.stroke();
-      ctx.fillStyle = rgba(MUTED, 0.85);
-      ctx.fillText("softmax", bx - 2, h - 4);
 
       if (reduce) cancelAnimationFrame(raf);
     };
