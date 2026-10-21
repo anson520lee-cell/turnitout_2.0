@@ -40,22 +40,36 @@ export const refinementPricing = {
 /**
  * The automatic AI-writing risk report is priced per 200 characters (spaces
  * included): 1 credit per 200 characters, minimum 10 credits (2,000
- * characters), for texts of 500 to 50,000 characters. The price grows with the
- * length with no ceiling, because the text is reviewed in pieces of about 3,500
- * characters and every piece is a model call: a full 50,000-character report is
- * 250 credits.
- * price = max(minimum, ceil(chars / blockChars) * perBlock)
+ * characters), for texts of 500 to 100,000 characters.
+ *
+ * Charging repeats in cycles of `cycleChars` (20,000) characters: the first
+ * `chargedChars` (8,000) of each cycle are charged, and the rest of the cycle
+ * (12,000) is free. The next cycle starts charging again, up to `maxChars`. So
+ * one cycle costs at most 40 credits and a 100,000-character text (5 cycles) 200
+ * credits. Pricing counts characters, not pieces: the text is reviewed in pieces
+ * of about 3,500 characters, and a piece that straddles a cycle edge is neither
+ * split nor priced differently.
+ * price = max(minimum, ceil(chargedChars(chars) / blockChars) * perBlock)
  */
 export const reportPricing = {
   minimum: 1000,
   blockChars: 200,
   perBlock: 100,
   minChars: 500,
-  maxChars: 50_000,
+  maxChars: 100_000,
+  cycleChars: 20_000,
+  chargedChars: 8_000,
 } as const;
 
+/** The characters of a text that are charged for: the first `chargedChars` of every `cycleChars`. */
+export function reportChargedChars(chars: number): number {
+  const { cycleChars, chargedChars } = reportPricing;
+  const whole = Math.floor(chars / cycleChars);
+  return whole * chargedChars + Math.min(chargedChars, chars - whole * cycleChars);
+}
+
 export function reportPrice(chars: number): number {
-  const blocks = Math.max(1, Math.ceil(chars / reportPricing.blockChars));
+  const blocks = Math.max(1, Math.ceil(reportChargedChars(chars) / reportPricing.blockChars));
   return Math.max(reportPricing.minimum, blocks * reportPricing.perBlock);
 }
 

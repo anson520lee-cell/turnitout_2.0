@@ -5,7 +5,7 @@ A pre-submission service for students checking their own academic writing. It of
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **AI-Writing Risk Report** (automatic, 1 credit per 200 characters, minimum 10 credits, 500–50,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
+| **AI-Writing Risk Report** (automatic, 1 credit per 200 characters, minimum 10 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
 | **Writing Refinement** (1 credit per 200 characters, minimum 15 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; the paid report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
@@ -122,7 +122,7 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 
 | Product | Price | Limits |
 | --- | --- | --- |
-| AI-Writing Risk Report (`combined_screening`) | 1 credit per 200 characters, minimum 10 credits (`reportPricing`) | 500–50,000 characters, checked in the browser and again in `screeningTextOrderInput` |
+| AI-Writing Risk Report (`combined_screening`) | 1 credit per 200 characters, minimum 10 credits; first 8,000 of every 20,000 characters charged, the rest free (`reportPricing`) | 500–100,000 characters, checked in the browser and again in `screeningTextOrderInput` |
 | Writing Refinement (`refinement`) | 1 credit per 200 characters, rounded up, minimum 15 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
 | Preliminary scan | Free, 3 a day | — |
 

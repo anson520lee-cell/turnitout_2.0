@@ -45,8 +45,13 @@ export const reportMinimumLabel = `Minimum ${formatCredits(reportPricing.minimum
   reportPricing.blockChars
 ).toLocaleString("en-HK")} characters)`;
 
-/** "Minimum 10 credits (2,000 characters)", the whole of the price rule beyond the rate. */
-export const reportLimitsLabel = reportMinimumLabel;
+/** "In every 20,000 characters, the first 8,000 are charged and the next 12,000 are free". */
+export const reportCycleLabel = `In every ${reportPricing.cycleChars.toLocaleString("en-HK")} characters, the first ${reportPricing.chargedChars.toLocaleString("en-HK")} are charged and the next ${(
+  reportPricing.cycleChars - reportPricing.chargedChars
+).toLocaleString("en-HK")} are free`;
+
+/** "Minimum 10 credits (2,000 characters); in every 20,000 characters, the first 8,000 are charged and the next 12,000 are free". */
+export const reportLimitsLabel = `${reportMinimumLabel}; ${reportCycleLabel.charAt(0).toLowerCase()}${reportCycleLabel.slice(1)}`;
 
 /** "From 10 credits". */
 export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
