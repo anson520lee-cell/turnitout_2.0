@@ -13,7 +13,7 @@ export const steps = [
   {
     n: "03",
     title: "Get a report if you need one",
-    body: "Press Get report, paste your text into the dialog and press Enter. Only you can see your text and your report.",
+    body: "Press Get report, paste your text into the dialog and press Enter. Only you and authorised staff can see your text and your report.",
   },
   {
     n: "04",

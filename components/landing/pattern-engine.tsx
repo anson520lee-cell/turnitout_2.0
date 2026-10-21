@@ -38,7 +38,7 @@ const FACTS = [
   { icon: Server, title: "On our own server", body: "The six signals are worked out on our own server, in seconds. Written feedback, when shown, comes from an outside AI provider (see Privacy)." },
   { icon: ListChecks, title: "Explainable", body: "Each signal shows what it measured, with sentence-level highlights." },
   { icon: BookOpenText, title: "Readability built in", body: "Flesch reading ease and Flesch–Kincaid grade on every scan." },
-  { icon: EyeOff, title: "Not stored", body: "Scanned text is analysed in memory and not kept." },
+  { icon: EyeOff, title: "Not stored", body: "Scanned text is analysed in memory and not saved to your history." },
 ];
 
 export function PatternEngine() {

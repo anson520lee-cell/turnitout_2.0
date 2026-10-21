@@ -285,7 +285,7 @@ export function ModelFeedback({
                 {save.status === "saving" ? "Saving…" : "Save this report to my history"}
               </Button>
               <span className="text-[12px] text-fg-subtle">
-                Only you can see it. Deleted {retention.savedReportDays} days after saving, or sooner if you delete it.
+                Only you and authorised staff can see it. Deleted {retention.savedReportDays} days after saving, or sooner if you delete it.
               </span>
               {save.status === "error" && <span className="text-[12px] text-risk">{save.message}</span>}
             </>
