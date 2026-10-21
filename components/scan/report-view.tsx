@@ -1,6 +1,8 @@
 "use client";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { splitSentences, type Sentence } from "@/lib/recheck";
 import type { ReportBlock, Risk } from "@/lib/report-format";
 import { cn } from "@/lib/utils";
 
@@ -21,8 +23,24 @@ export const riskStyle: Record<Risk, { label: string; tone: RiskTone; rail: stri
   uncertain: { label: "Uncertain", tone: "neutral", rail: "bg-fg-subtle" },
 };
 
-/** The report as sections and cards: location and risk on top, notes, then the question to ask yourself. */
-export function ReportView({ blocks }: { blocks: ReportBlock[] }) {
+const SENTENCE_LOCATION = /^P(\d+)\s*S(\d+)\b/i;
+
+/**
+ * The reviewer's location for a flagged sentence ("P1 S5 "first few words...""), with the whole sentence looked up
+ * in the scanned text. Null when there is no text to look in or the label doesn't match a sentence.
+ */
+function fullSentence(location: string | undefined, sentences: Sentence[]): { label: string; text: string } | null {
+  const m = location ? SENTENCE_LOCATION.exec(location) : null;
+  const hit = m && sentences.find((s) => s.p === Number(m[1]) && s.s === Number(m[2]));
+  return hit ? { label: `P${hit.p} S${hit.s}`, text: hit.text } : null;
+}
+
+/**
+ * The report as sections and cards: location and risk on top, the flagged sentence, notes, then the question to ask
+ * yourself. Pass the scanned text as `source` to show each flagged sentence in full instead of the reviewer's short quote.
+ */
+export function ReportView({ blocks, source }: { blocks: ReportBlock[]; source?: string }) {
+  const sentences = useMemo(() => (source ? splitSentences(source) : []), [source]);
   // Item numbers skip section headings: 01, 02 … across the whole report.
   const numbers = blocks.map((_, i) => blocks.slice(0, i + 1).filter((x) => x.kind === "item").length);
   return (
@@ -43,6 +61,7 @@ export function ReportView({ blocks }: { blocks: ReportBlock[] }) {
           );
         }
         const risk = b.risk ? riskStyle[b.risk] : null;
+        const full = fullSentence(b.location, sentences);
         return (
           <motion.div
             key={i}
@@ -54,10 +73,11 @@ export function ReportView({ blocks }: { blocks: ReportBlock[] }) {
             <div className="min-w-0 flex-1 space-y-1.5 break-words">
               {(b.location || risk) && (
                 <div className="flex flex-wrap items-center gap-2">
-                  {b.location && <span className="font-medium text-fg">{b.location}</span>}
+                  {b.location && <span className="font-medium text-fg">{full?.label ?? b.location}</span>}
                   {risk && <Badge tone={risk.tone} className={riskPrintClass[risk.tone]}>{risk.label}</Badge>}
                 </div>
               )}
+              {full && <p className="border-l-2 border-[var(--line)] pl-3 text-fg">{full.text}</p>}
               {b.location || b.question || (b.notes && b.notes.length)
                 ? b.notes?.map((note, j) => <p key={j}>{note}</p>)
                 : <p className="whitespace-pre-wrap">{b.text}</p>}

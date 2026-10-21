@@ -79,7 +79,8 @@ function ParagraphCard({ para }: { para: ReportParagraph }) {
                 <span className="font-mono text-[11px] text-fg-subtle">Sentence {s.n}</span>
                 <Badge tone={riskStyle[s.risk].tone} className={riskPrintClass[riskStyle[s.risk].tone]}>{label[s.risk]}</Badge>
               </div>
-              {s.why && <p className="mt-1 text-fg-muted">{s.why}</p>}
+              <p className="mt-1.5 border-l-2 border-[var(--line)] pl-3 text-fg">{s.text}</p>
+              {s.why && <p className="mt-1.5 text-fg-muted">{s.why}</p>}
               {s.ask && (
                 <p className="mt-1 text-[#a9c1ff] print:text-[#2b3a8f]">
                   <span className="mr-1.5 font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Ask yourself</span>
