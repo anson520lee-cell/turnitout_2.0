@@ -1,8 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatBytes } from "@/lib/utils";
 import { assertAdmin } from "@/lib/auth/session";
 import { aiScore, type AutoReportResult } from "@/lib/auto-report/stitch";
 import { freeRange } from "@/lib/scanning/free-range";
+import type { OrderStatus } from "@/lib/orders/status";
 import type {
   AdminNote,
   Order,
@@ -118,18 +120,25 @@ export interface ActivityRow {
   orderId: string | null;
   /** True while the submitted text is still stored (orders only; free-scan text is never stored). */
   hasText: boolean;
-  status: string | null;
+  status: OrderStatus | null;
+  title: string | null;
+  /** Credits charged (orders only). */
+  price: number | null;
+  /** A reported payment nobody has checked yet. */
+  paymentToVerify: boolean;
 }
 
 type ActivityOrder = {
   id: string;
   service_type: string;
   price: number;
-  status: string;
+  status: OrderStatus;
+  title: string;
   word_count: number | null;
   created_at: string;
   source_text: string | null;
   profiles: { email: string } | null;
+  order_files: { file_name: string; file_size: number; verified: boolean }[] | null;
   auto_reports: { status: string; summary: AutoReportResult["summary"] | null } | { status: string; summary: AutoReportResult["summary"] | null }[] | null;
 };
 
@@ -153,7 +162,7 @@ type ActivityScan = {
 export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
   await assertAdmin();
   const db = createAdminClient();
-  const [{ data: scans }, { data: orders }] = await Promise.all([
+  const [{ data: scans }, { data: orders }, { data: claims }] = await Promise.all([
     db
       .from("scan_results")
       .select("id,word_count,overall_risk,analyzer,created_at,report_saved_at,result_json,profiles(email)")
@@ -162,10 +171,12 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
     db
       .from("orders")
       // `summary` is only the counts; the report body (which quotes the text) is never selected.
-      .select("id,service_type,price,status,word_count,created_at,source_text,profiles(email),auto_reports(status,summary:result->summary)")
+      .select("id,service_type,price,status,title,word_count,created_at,source_text,profiles(email),order_files(file_name,file_size,verified),auto_reports(status,summary:result->summary)")
       .order("created_at", { ascending: false })
       .limit(limit),
+    db.from("payment_claims").select("order_id").eq("status", "pending"),
   ]);
+  const toVerify = new Set(((claims ?? []) as { order_id: string }[]).map((c) => c.order_id));
   const rows: ActivityRow[] = [];
   for (const s of (scans ?? []) as unknown as ActivityScan[]) {
     const share = s.result_json?.standoutShare;
@@ -189,6 +200,9 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
       orderId: null,
       hasText: false,
       status: null,
+      title: null,
+      price: null,
+      paymentToVerify: false,
     });
   }
   for (const o of (orders ?? []) as unknown as ActivityOrder[]) {
@@ -217,7 +231,13 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
       orderId: o.id,
       hasText: Boolean(o.source_text),
       status: o.status,
+      title: o.title,
+      price: o.price,
+      paymentToVerify: toVerify.has(o.id) && o.status === "awaiting_payment",
     });
+    for (const f of o.order_files ?? []) {
+      rows[rows.length - 1].detail.push(`file: ${f.file_name} (${formatBytes(f.file_size)}, ${f.verified ? "verified" : "unverified"})`);
+    }
   }
   return rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
 }

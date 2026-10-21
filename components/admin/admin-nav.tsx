@@ -6,10 +6,8 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/admin", label: "Overview" },
-  { href: "/admin/orders", label: "Orders" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/activity", label: "Activity" },
-  { href: "/admin/submissions", label: "Submissions" },
   { href: "/admin/prompt", label: "AI prompt" },
   { href: "/admin/eval", label: "Accuracy" },
   { href: "/admin/chunking", label: "Piece size" },
@@ -28,7 +26,8 @@ export function AdminNav({ email }: { email: string }) {
         </Link>
         <nav aria-label="Admin" className="flex flex-1 gap-1 overflow-x-auto">
           {tabs.map((t) => {
-            const active = t.href === "/admin" ? path === "/admin" : path.startsWith(t.href);
+            // Order detail pages belong to Activity (the old Orders tab).
+            const active = t.href === "/admin" ? path === "/admin" : path.startsWith(t.href) || (t.href === "/admin/activity" && path.startsWith("/admin/orders"));
             return (
               <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined}
                 className={cn("whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px]", active ? "bg-white/[0.07] text-fg" : "text-fg-muted hover:text-fg")}>
