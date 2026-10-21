@@ -719,7 +719,7 @@ export function SpaceBackground() {
         }
         raceQuiet = moved < 0.0012 * sc ? raceQuiet + dt : 0;
       }
-      c.font = `9px ${MONO}`;
+      c.font = `${small ? 8 : 9}px ${MONO}`;
       c.textAlign = "left";
       for (let oi = 0; oi < opts.length; oi++) {
         const o = opts[oi];
@@ -747,15 +747,12 @@ export function SpaceBackground() {
         c.arc(ox, oy, 2.4, 0, Math.PI * 2);
         c.fill();
         c.fillStyle = `rgba(${o.rgb},0.75)`;
-        // On a phone the five labels would sit on top of the page's own text; the dots and trails are enough.
-        if (small) continue;
         const label = `∇L ${o.name}`;
-        // keep the label on screen: flip it to the left of the dot near the right edge
-        if (ox + 10 + c.measureText(label).width > w - 6) {
-          c.textAlign = "right";
-          c.fillText(label, ox - 10, oy - 26 + oi * 11);
-          c.textAlign = "left";
-        } else c.fillText(label, ox + 10, oy - 26 + oi * 11);
+        const tw = c.measureText(label).width;
+        // keep the label on screen: flip it to the left of the dot near the right edge, and never past either side
+        let lxPos = ox + 10;
+        if (lxPos + tw > w - 6) lxPos = ox - 10 - tw;
+        c.fillText(label, clamp(lxPos, 6, Math.max(6, w - 6 - tw)), oy - (small ? 20 : 26) + oi * (small ? 9 : 11));
       }
     }
 
