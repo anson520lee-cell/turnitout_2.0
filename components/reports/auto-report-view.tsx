@@ -157,7 +157,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
               <Stat title="Sections read" value={String(pieces.reviewed)} of={`of ${pieces.total}`} sub={`${pct(pieces.reviewed, pieces.total)}% covered`} />
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">
-              The AI score comes from the share of sentences marked High or Medium, on a curve: below half of the sentences flagged it leans toward 0%, above half toward 100%. It is not the chance that AI wrote your text, and it is not a Turnitin score.
+              The AI score comes from the share of sentences marked High or Medium, on a curve: below half of the sentences flagged it leans toward 0%, above half toward 100%. It is not the chance that AI wrote your text, and it is not a Turnitin score. Formal, tidy writing such as exam essays and academic prose can score high even when a person wrote every word, so a high score is a reason to check your own sentences, not proof that AI was used.
             </p>
           </div>
         </div>

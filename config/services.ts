@@ -122,7 +122,7 @@ export const disclaimers = {
   turnitin:
     "This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin or any AI-detection provider. Nothing here is a Turnitin result.",
   freeScan:
-    "This preliminary assessment identifies writing patterns that may contribute to automated detector risk. It does not determine authorship and is not a Turnitin result.",
+    "This preliminary assessment identifies writing patterns that may contribute to automated detector risk. It does not determine authorship and is not a Turnitin result. Formal, tidy writing such as exam essays can also score high when a person wrote it.",
   screeningResult:
     "This report is written by an automated reviewer from the text you submitted. Its ratings are guidance, can be wrong in both directions, and are not, on their own, proof of authorship.",
   noGuarantee:
