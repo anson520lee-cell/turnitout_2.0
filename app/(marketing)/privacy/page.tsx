@@ -38,6 +38,7 @@ export default function PrivacyPage() {
             <li>For writing refinement, an AI model (DeepSeek, an outside provider) may prepare a first draft from your text, so the text is sent to that provider. A staff member reviews and edits every draft, and nothing the model writes reaches you without that review. Drafts are deleted together with your text.</li>
           )}
           <li>We do not put document contents in analytics or logs.</li>
+          <li>We may use text submitted from now on, with personal details removed, to maintain and improve the service.</li>
           <li>Every status change and file access is recorded in an audit log.</li>
         </ul>
         <h2>Retention</h2>
