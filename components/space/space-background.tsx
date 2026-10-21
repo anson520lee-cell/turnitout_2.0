@@ -658,13 +658,14 @@ export function SpaceBackground() {
 
       // ── the race: five optimisers start from the same point and each follows
       // its own update rule down the surface's real slope
-      if (!still) {
+      // The race is left out on phones: the dots and labels read as clutter on a narrow screen.
+      if (!still && !small) {
         raceAge += dt;
         // a new race once this one has gone quiet (everyone has settled), or has run long
         if (raceAge > 14 || raceQuiet > 1.4 || opts.every((o) => !o.alive)) {
           raceAge = 0;
           raceQuiet = 0;
-          const sx = small ? rand(-1.8, 2) : rand(-2.7, 2.8);
+          const sx = rand(-2.7, 2.8);
           const sz = rand(5.6, 7.1);
           for (const o of opts) {
             o.x = sx;
@@ -719,11 +720,11 @@ export function SpaceBackground() {
         }
         raceQuiet = moved < 0.0012 * sc ? raceQuiet + dt : 0;
       }
-      c.font = `${small ? 8 : 9}px ${MONO}`;
+      c.font = `9px ${MONO}`;
       c.textAlign = "left";
       for (let oi = 0; oi < opts.length; oi++) {
         const o = opts[oi];
-        if (!o.alive) continue;
+        if (small || !o.alive) continue;
         const ok = f / o.z;
         const ox = w / 2 + o.x * ok;
         const oy = hor + (camY - landscape(o.x, o.z, time, flow)) * ok;
@@ -752,7 +753,7 @@ export function SpaceBackground() {
         // keep the label on screen: flip it to the left of the dot near the right edge, and never past either side
         let lxPos = ox + 10;
         if (lxPos + tw > w - 6) lxPos = ox - 10 - tw;
-        c.fillText(label, clamp(lxPos, 6, Math.max(6, w - 6 - tw)), oy - (small ? 20 : 26) + oi * (small ? 9 : 11));
+        c.fillText(label, clamp(lxPos, 6, Math.max(6, w - 6 - tw)), oy - 26 + oi * 11);
       }
     }
 
