@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 import { brand, localModel, retention, uploads } from "@/config/app";
+import { retentionSentence } from "@/config/privacy-copy";
 import { deepseekEnabled } from "@/lib/deepseek";
 
 export const metadata: Metadata = {
@@ -43,7 +44,7 @@ export default function PrivacyPage() {
         </ul>
         <h2>Retention</h2>
         <ul>
-          <li>Source documents and refinement text are deleted {retention.sourceDocumentDays} days after the order is completed or cancelled, by a scheduled deletion job.</li>
+          <li>{retentionSentence.source} A scheduled job does the deleting.</li>
           <li>Orders left unpaid for {retention.unpaidOrderDays} days, with no payment reported, are cancelled and their text and files deleted straight away. Cancelling an unpaid order yourself deletes them at once.</li>
           <li>Reports (including paid AI-writing risk reports, which quote the sentences they mark) are deleted {retention.reportDays} days after completion. The order itself, with its date and price, remains in your history until you ask us to delete it.</li>
           <li>You can delete your scan history from Settings, or ask us to delete your account and all associated data at any time.</li>
