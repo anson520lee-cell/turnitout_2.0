@@ -153,3 +153,18 @@ test("the headline score is the sentence-share score without the classifier, and
   assert.equal(headlineScore({ flaggedShare: 0.4, detector: Number.NaN }), aiScore(0.4));
   assert.equal(overallForScore(aiScore(0.3)), overallFor(0.3));
 });
+
+test("a classifier-only piece report is read back by the stitcher: only sentences at 0.9 or more are High", async () => {
+  const { classifierReport, CLASSIFIER_FLAG } = await import("../lib/auto-report/classifier-report");
+  const text = paragraph(1, 5);
+  const scores = [0.1, 0.95, CLASSIFIER_FLAG, 0.89, 0];
+  const report = classifierReport(text, scores);
+  assert.match(report, /^A\. Sentence flags/);
+  assert.equal((report.match(/Risk: High/g) ?? []).length, 2);
+  const result = stitchReport(text, [{ idx: 0, ok: true, truncated: false, report }], 5000);
+  assert.deepEqual(result.paragraphs[0].sentences.map((s) => s.risk), ["low", "high", "high", "low", "low"]);
+  assert.equal(result.summary.flaggedShare, 0.4);
+  const none = stitchReport(text, [{ idx: 0, ok: true, truncated: false, report: classifierReport(text, [0, 0, 0, 0, 0]) }], 5000);
+  assert.equal(none.summary.high, 0);
+  assert.equal(none.pieces.reviewed, 1);
+});

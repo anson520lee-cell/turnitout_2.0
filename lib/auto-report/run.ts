@@ -9,7 +9,9 @@ import { audit } from "@/lib/audit";
 import { refundFreeReport } from "@/lib/free-report";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
-import { detectAi, warmDetector } from "@/lib/detector";
+import { classifierPrimary, detectAi, detectSentences, warmDetector } from "@/lib/detector";
+import { splitSentences } from "@/lib/recheck";
+import { classifierReport } from "./classifier-report";
 import { PIECE_SIZE, headlineScore, overallForScore, stitchReport, type PieceAnswer } from "./stitch";
 
 /**
@@ -82,7 +84,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   }
   if (!report) {
     await db.from("auto_reports").upsert({ order_id: orderId, piece_size: PIECE_SIZE, total_pieces: total }, { onConflict: "order_id", ignoreDuplicates: true });
-    warmDetector();
+    if (!(order.price === 0 && classifierPrimary())) warmDetector();
   }
 
   // One worker per report: take the lease or leave it to whoever has it.
@@ -106,6 +108,22 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   const { data: have } = await db.from("auto_report_pieces").select("idx,ok,attempts").eq("order_id", orderId);
   const rows = new Map((have ?? []).map((r: { idx: number; ok: boolean; attempts: number }) => [r.idx, r]));
   const todo = chunks.map((_, idx) => idx).filter((idx) => !rows.get(idx)?.ok && (rows.get(idx)?.attempts ?? 0) < MAX_ATTEMPTS);
+
+  // Free reports can be scored by the classifier alone (DETECTOR_MODE=primary): no DeepSeek call. If the service
+  // does not answer, they fall back to the reviewer below as before. Paid reports always use the reviewer.
+  let viaClassifier = false;
+  if (todo.length && order.price === 0 && classifierPrimary()) {
+    const scores = await detectSentences(splitSentences(text).map((s) => s.text));
+    if (scores) {
+      for (const idx of todo) {
+        const c = chunks[idx];
+        const row = { order_id: orderId, idx, attempts: (rows.get(idx)?.attempts ?? 0) + 1, updated_at: new Date().toISOString() };
+        await db.from("auto_report_pieces").upsert({ ...row, report: classifierReport(c.text, scores.slice(c.first, c.first + c.count)), ok: true, truncated: false, ms: 0 }, { onConflict: "order_id,idx" });
+      }
+      todo.length = 0;
+      viaClassifier = true;
+    }
+  }
 
   let paused = false;
   if (todo.length) {
@@ -154,7 +172,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   if (reviewed >= total) {
     const result = stitchReport(text, answers, PIECE_SIZE);
     // Optional second opinion from the classifier service; without it the report scores on the sentence share alone.
-    const detector = await detectAi(text);
+    const detector = viaClassifier ? null : await detectAi(text);
     if (detector !== null) {
       result.summary.detector = detector;
       result.summary.overall = overallForScore(headlineScore(result.summary));

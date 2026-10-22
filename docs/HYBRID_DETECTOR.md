@@ -38,3 +38,22 @@ The mean puts about half of the formal human texts in the yellow band (30 to 59)
 - Only one Turnitin-labelled AI-positive sample exists; more Turnitin reports are needed to validate.
 - The service scores up to 12 windows of about 250 words; the replay used overlapping windows, so expect small differences.
 - Text is sent only to the service you host and is not logged. Check the privacy text names processors correctly before switching it on.
+
+## Classifier-only mode (DETECTOR_MODE=primary)
+
+Jordan's goal (2026-10-22) is also to cut the DeepSeek bill. With `DETECTOR_ENABLED=true` and `DETECTOR_MODE=primary`:
+
+- **Free daily reports** (orders with price 0) are scored by the classifier alone: `POST /sentences` returns a score per
+  sentence (the highest score of the half-overlapping 250-word windows that cover it), a sentence at 0.9 or more is
+  marked High, and the existing stitcher builds the report from that (`lib/auto-report/classifier-report.ts`). No DeepSeek call.
+  The report has the marks and the score but no reasons or questions.
+- **Free scan written feedback** (`/api/scan-feedback`) is built the same way for a fresh scan. A re-check of a revised draft still uses DeepSeek.
+- **Paid reports** keep DeepSeek (reasons and questions) with the classifier mixed into the score as above.
+- If the service does not answer, free reports and feedback fall back to DeepSeek, so nothing breaks.
+
+Offline replay of the marking rule (share of sentences covered by a window at 0.9 or more, same S-curve, red = 60):
+formal human 0% red, ESL human 0%, polished AI 92%, ESL-voice AI 100%, humanised AI 65%.
+
+Limits: no explanations; a short text (one window) gets one score for all its sentences; on the AFIC essay Turnitin
+rated 59% (22 flagged sentences) the classifier scored every window 0.03 to 0.13, so nothing is marked there; and a
+950-word text took about 8 s on 4 CPU threads once warm.
