@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chunkText } from "../lib/chunking";
-import { PIECE_SIZE, aiScore, overallFor, stitchReport } from "../lib/auto-report/stitch";
+import { PIECE_SIZE, aiScore, headlineScore, overallFor, overallForScore, stitchReport } from "../lib/auto-report/stitch";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -138,4 +138,18 @@ test("top-up bonus: larger top-ups add bonus credits", () => {
   assert.equal(usdToCredits(500), 5200);
   assert.equal(topUpBonusPercent(19), 0);
   assert.equal(topUpBonusPercent(20), 5);
+});
+
+test("the headline score is the sentence-share score without the classifier, and the mean of both with it", () => {
+  assert.equal(headlineScore({ flaggedShare: 0.5 }), aiScore(0.5));
+  assert.equal(headlineScore({ flaggedShare: 0.5, detector: undefined }), aiScore(0.5));
+  assert.ok(Math.abs(headlineScore({ flaggedShare: 0.5, detector: 0.02 }) - (0.02 + aiScore(0.5)) / 2) < 1e-12);
+  // A formal human text the reviewer flags at 70% (red on its own) stays out of red when the classifier says human.
+  assert.equal(overallForScore(headlineScore({ flaggedShare: 0.7 })), "elevated");
+  assert.notEqual(overallForScore(headlineScore({ flaggedShare: 0.7, detector: 0.02 })), "elevated");
+  // Both agree it is AI: still red.
+  assert.equal(overallForScore(headlineScore({ flaggedShare: 0.8, detector: 0.99 })), "elevated");
+  // A bad value never breaks the score.
+  assert.equal(headlineScore({ flaggedShare: 0.4, detector: Number.NaN }), aiScore(0.4));
+  assert.equal(overallForScore(aiScore(0.3)), overallFor(0.3));
 });
