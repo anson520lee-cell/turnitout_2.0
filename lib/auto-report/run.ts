@@ -9,7 +9,7 @@ import { audit } from "@/lib/audit";
 import { refundFreeReport } from "@/lib/free-report";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
-import { detectAi } from "@/lib/detector";
+import { detectAi, warmDetector } from "@/lib/detector";
 import { PIECE_SIZE, headlineScore, overallForScore, stitchReport, type PieceAnswer } from "./stitch";
 
 /**
@@ -82,6 +82,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   }
   if (!report) {
     await db.from("auto_reports").upsert({ order_id: orderId, piece_size: PIECE_SIZE, total_pieces: total }, { onConflict: "order_id", ignoreDuplicates: true });
+    warmDetector();
   }
 
   // One worker per report: take the lease or leave it to whoever has it.

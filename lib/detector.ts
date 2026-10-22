@@ -6,7 +6,8 @@ import "server-only";
  * service only, never to a third party, and neither the text nor the raw error is logged.
  */
 
-const TIMEOUT_MS = 20_000;
+// A cold container can take 30 to 40 s to load the model; warmDetector() starts it when a report begins.
+const TIMEOUT_MS = 45_000;
 
 export function detectorEnabled(): boolean {
   return process.env.DETECTOR_ENABLED === "true" && Boolean(process.env.DETECTOR_URL?.trim());
@@ -30,4 +31,10 @@ export async function detectAi(text: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+/** Wakes a scaled-to-zero service at the start of a report so it is ready when the last piece finishes. Never throws. */
+export function warmDetector(): void {
+  if (!detectorEnabled()) return;
+  fetch(`${process.env.DETECTOR_URL!.trim().replace(/\/+$/, "")}/health`, { signal: AbortSignal.timeout(60_000), cache: "no-store" }).catch(() => {});
 }
