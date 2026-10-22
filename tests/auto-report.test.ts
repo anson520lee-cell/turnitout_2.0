@@ -41,24 +41,23 @@ test("a paragraph is never rated safer than its sentences", () => {
 test("overall bands", () => {
   // Bands follow the AI score: under 30 Low, 30 to 59 Moderate, 60 and over Elevated.
   assert.equal(overallFor(0.1), "low");
-  assert.equal(overallFor(0.42), "low");
-  assert.equal(overallFor(0.44), "moderate");
+  assert.equal(overallFor(0.52), "low");
   assert.equal(overallFor(0.53), "moderate");
-  assert.equal(overallFor(0.54), "elevated");
+  assert.equal(overallFor(0.63), "moderate");
+  assert.equal(overallFor(0.64), "elevated");
   assert.equal(overallFor(0.8), "elevated");
 });
 
-test("the AI score leans to 0 below half flagged and to 100 above it", () => {
+test("the AI score leans to 0 below 60% flagged and to 100 above it", () => {
   const pct = (share: number) => Math.round(aiScore(share) * 100);
   assert.equal(pct(0), 0);
   assert.equal(pct(1), 100);
-  assert.equal(pct(0.5), 50);
-  assert.equal(pct(0.3), 8);
-  assert.equal(pct(0.7), 92);
+  assert.equal(pct(0.6), 50);
+  assert.equal(pct(0.5), 23);
+  assert.equal(pct(0.7), 77);
   assert.equal(pct(-0.2), 0);
   assert.equal(pct(1.3), 100);
   for (let x = 0; x < 1; x += 0.05) assert.ok(aiScore(x + 0.05) > aiScore(x), "keeps the order of texts");
-  assert.ok(Math.abs(aiScore(0.5) - 0.5) < 1e-9);
 });
 
 import { billableChars, refinementPrice, reportChargedChars, reportPrice, reportPricing, toCredits } from "../config/pricing";

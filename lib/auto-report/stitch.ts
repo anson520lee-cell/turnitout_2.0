@@ -78,13 +78,14 @@ export const PIECE_SIZE = 3500;
 
 /**
  * The headline AI score (0 to 1) from the share of sentences flagged. Jordan asked (2026-10-20) for a figure that
- * leans to 0% or 100% instead of sitting in the middle: an S-curve centred on half of the sentences flagged pulls a
- * share below it toward 0 and one above it toward 100, stretched so 0 stays 0 and 1 stays 1. It keeps the order of
- * texts. On the backtest samples (pieces of 3,000) human texts at 13 to 48% flagged score 1 to 44, and AI texts at
- * 55% and over score 65 and over. The centre is half, not higher, because AI texts flagged at 55 to 68% would
- * otherwise be pulled down.
+ * leans to 0% or 100% instead of sitting in the middle: an S-curve pulls a share below its centre toward 0 and one
+ * above it toward 100, stretched so 0 stays 0 and 1 stays 1. It keeps the order of texts. The centre was half until
+ * 2026-10-22; Jordan moved it to 60% flagged because the rater also flags tidy formal human prose. Recomputed on the
+ * backtest samples (pieces of 3,000, live prompt): 36 BAWE university essays written by people go from 36% to 14%
+ * red; his 12 ChatGPT/Gemini essays stay 100% red; the Turnitin-labelled pair scores 70 (Turnitin 59%) and 40
+ * (Turnitin 0%) instead of 88 and 68. The cost is AI written in an ESL student voice: 80% to 65% red.
  */
-export const SCORE_CURVE = { centre: 0.5, steepness: 12 } as const;
+export const SCORE_CURVE = { centre: 0.6, steepness: 12 } as const;
 
 const curve = (x: number) => 1 / (1 + Math.exp(-SCORE_CURVE.steepness * (x - SCORE_CURVE.centre)));
 
@@ -95,9 +96,8 @@ export function aiScore(flaggedShare: number): number {
 
 /**
  * Overall bands on the AI score scale, so the colour always matches the number shown: under 30 Low (green), 30 to
- * 59 Moderate (yellow), 60 and over Elevated (red) (Jordan, 2026-10-20). In flagged-sentence terms that is about
- * 43% and 53%. On the backtest samples 20 of 21 AI texts are Elevated (as with the old 35% / 50% lines) and 10 of
- * 20 human texts are Low (was 7). Guidance only; never a percentage chance.
+ * 59 Moderate (yellow), 60 and over Elevated (red) (Jordan, 2026-10-20). With the curve centred on 60% flagged that
+ * is about 53% and 63.4% of sentences flagged. Guidance only; never a percentage chance.
  */
 export const SCORE_BANDS = { moderate: 0.3, elevated: 0.6 } as const;
 
