@@ -11,7 +11,7 @@ import { RefinementVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
 import { billableChars, formatCredits, refinementPrice, refinementPricing } from "@/config/pricing";
 import { refinement } from "@/config/app";
-import { disclaimers, refinementMinimumLabel, refinementRateLabel } from "@/config/services";
+import { refinementMinimumLabel, refinementRateLabel } from "@/config/services";
 import { refinementCharError } from "@/lib/orders/limits";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -103,8 +103,6 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
           </Card>
         </div>
       </div>
-
-      <p className="mt-6 px-1 text-[11.5px] leading-relaxed text-fg-subtle">{disclaimers.refinement}</p>
 
       <PasteDialog
         open={open}

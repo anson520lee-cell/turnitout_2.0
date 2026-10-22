@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, FileCheck2, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
-import { disclaimers } from "@/config/services";
 import { aiScore } from "@/lib/auto-report/stitch";
 import { INTRO_MS, bandFor, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
@@ -263,7 +262,7 @@ export function ReportScan({
                 <Button className="relative mt-6 w-full" size="lg" onClick={end}>
                   <FileCheck2 className="size-4" /> Open full report <ArrowRight className="size-4" />
                 </Button>
-                <p className="relative mt-3 text-[11px] text-fg-subtle">Opening automatically… {disclaimers.noGuarantee}</p>
+                <p className="relative mt-3 text-[11px] text-fg-subtle">Opening automatically…</p>
               </motion.div>
             </motion.div>
           )}

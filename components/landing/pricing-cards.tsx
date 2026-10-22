@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Check, FileCheck2, Gauge, PenLine } from "lucide-react";
-import { services, disclaimers, type ServiceKind } from "@/config/services";
+import { services, type ServiceKind } from "@/config/services";
 import { buttonClasses } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { PaymentMethodStrip } from "@/components/orders/payment-methods";
@@ -96,7 +96,7 @@ export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" |
       </Stagger>
       <PaymentMethodStrip className="mt-8 justify-center" />
       <p className="mt-4 text-center text-[12px] text-fg-subtle">
-        Prices in Hong Kong dollars. {disclaimers.noGuarantee} {disclaimers.turnitin}
+        Prices in Hong Kong dollars.
       </p>
     </>
   );

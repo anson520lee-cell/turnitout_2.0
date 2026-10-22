@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
-import { disclaimers } from "@/config/services";
 
 const cols = [
   {
@@ -62,10 +61,7 @@ export function Footer() {
         {brand.name}
       </div>
       <Container className="relative border-t border-[var(--line)] py-6">
-        <p className="text-[12px] leading-relaxed text-fg-subtle">{disclaimers.turnitin}</p>
-        <p className="mt-2 text-[12px] text-fg-subtle">
-          © {new Date().getFullYear()} {brand.operator}. {disclaimers.noGuarantee}
-        </p>
+        <p className="text-[12px] text-fg-subtle">© {new Date().getFullYear()} {brand.operator}.</p>
       </Container>
     </footer>
   );

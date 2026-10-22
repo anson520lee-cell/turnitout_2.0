@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { CoreServices } from "@/components/landing/core-services";
 import { Comparison } from "@/components/landing/comparison";
-import { Container } from "@/components/ui/section";
-import { disclaimers } from "@/config/services";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -21,9 +19,6 @@ export default function ServicesPage() {
       />
       <CoreServices />
       <Comparison />
-      <Container>
-        <p className="text-center text-[12.5px] text-fg-subtle">{disclaimers.turnitin}</p>
-      </Container>
     </>
   );
 }
