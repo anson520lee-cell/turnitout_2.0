@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Download, ExternalLink, FileText, Info, ShieldCheck } from "lucide-react";
+import { Download, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import type { Order, OrderFile, ScreeningResultRow } from "@/types/domain";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
-import { disclaimers, serviceLabels } from "@/config/services";
+import { serviceLabels } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -123,13 +123,6 @@ export function ScreeningReport({
           </div>
         )}
       </div>
-
-      <p className="flex gap-2 rounded-2xl border border-[var(--line)] bg-ink-900/40 p-4 text-[12.5px] leading-relaxed text-fg-muted">
-        <Info className="mt-0.5 size-4 shrink-0 text-accent" />
-        <span>
-          {disclaimers.screeningResult} {disclaimers.turnitin}
-        </span>
-      </p>
 
       <div className="flex flex-wrap gap-2">
         <Link href="/services/screening" className={buttonClasses("secondary", "md")}>Get another report</Link>

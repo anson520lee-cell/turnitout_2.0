@@ -386,7 +386,6 @@ export function ScanWorkspace({ access }: { access: ScanAccess }) {
         meta={meta}
         footnote={
           <>
-            This is our own preliminary estimate, not a Turnitin result.{" "}
             <Link href="/services/screening" className="inline-flex items-center gap-0.5 text-accent hover:underline">
               Need the actual screening? <ArrowRight className="size-3" />
             </Link>

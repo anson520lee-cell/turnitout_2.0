@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
 import { billableChars, formatCredits, reportPrice, reportPricing } from "@/config/pricing";
-import { disclaimers, reportFromLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
+import { reportFromLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
 import { reportCharError } from "@/lib/orders/limits";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -76,7 +76,6 @@ export function ReportRequest() {
                 "The sentences that read most like AI writing, with a question to ask yourself about each",
                 "Grammar spots: where and what kind, never a rewrite",
                 "A PDF you can download",
-                "Made by this website's own reviewer: not a Turnitin result, and not a promise of any detector's score",
               ].map((t) => (
                 <li key={t} className="flex gap-2.5">
                   <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_rgb(91_140_255/0.6)]" />
@@ -110,10 +109,6 @@ export function ReportRequest() {
         </div>
       </div>
 
-      <p className="mt-6 px-1 text-[11.5px] leading-relaxed text-fg-subtle">
-        {disclaimers.screeningResult} {disclaimers.noGuarantee} {disclaimers.turnitin}
-      </p>
-
       <PasteDialog
         open={open}
         onClose={() => setOpen(false)}
@@ -137,11 +132,7 @@ export function ReportRequest() {
             </span>
           );
         }}
-        footnote={
-          <>
-            By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. {disclaimers.screeningResult}
-          </>
-        }
+        footnote={<>By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it.</>}
         onSubmit={async (text) => {
           const res = await createScreeningTextOrder({ text });
           if (!res.ok) return res;

@@ -196,7 +196,7 @@ export function DailyReportCard({
             </span>
           );
         }}
-        footnote={<>By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it. The report is our own estimate, not a Turnitin result, and no result is guaranteed.</>}
+        footnote={<>By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it.</>}
         onSubmit={async (text) => {
           const res = await createFreeReportOrder({ text });
           if (!res.ok) return res;

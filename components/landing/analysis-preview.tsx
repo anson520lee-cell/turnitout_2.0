@@ -162,9 +162,6 @@ export function AnalysisPreview() {
                 </li>
               ))}
             </ul>
-            <p className="mt-6 border-t border-[var(--line)] pt-4 text-[12px] leading-relaxed text-fg-subtle">
-              Illustration only. A preliminary scan describes patterns in the text. It does not determine authorship and is not a Turnitin result.
-            </p>
           </Card>
         </div>
       </Container>

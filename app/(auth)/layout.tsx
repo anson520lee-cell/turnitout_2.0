@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { LiveStage } from "@/components/visuals/live-ticker";
-import { disclaimers } from "@/config/services";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -27,7 +26,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
         <div className="absolute inset-x-12 bottom-12">
           <p className="text-xl font-semibold tracking-tight">Designed for genuine student writing.</p>
-          <p className="mt-2 max-w-md text-[13px] text-fg-muted">{disclaimers.turnitin}</p>
         </div>
       </aside>
     </main>

@@ -58,7 +58,7 @@ export function OrderDetails({ order, file, payments }: { order: Order; file: Or
 
       {screeningOrder && order.status !== "cancelled" && (
         <p className="mt-5 rounded-xl border border-[var(--line)] bg-ink-900/40 p-3.5 text-[12.5px] leading-relaxed text-fg-muted">
-          What you&rsquo;ll receive: an AI-writing risk report on this text, made by this website&rsquo;s own reviewer, with a PDF to download. It is guidance, not a Turnitin result and not a prediction of any detector&rsquo;s score.
+          What you&rsquo;ll receive: an AI-writing risk report on this text, made by this website&rsquo;s own reviewer, with a PDF to download.
         </p>
       )}
     </Card>

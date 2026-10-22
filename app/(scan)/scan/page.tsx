@@ -72,7 +72,7 @@ export default async function ScanPage({ searchParams }: PageProps<"/scan">) {
       <AppHeader
         eyebrow={<Badge tone="accent" dot>Free · website-generated</Badge>}
         title="Preliminary writing scan"
-        body="Instant analysis of writing patterns that may contribute to automated detector risk. This is our own estimate, not a Turnitin result."
+        body="Instant analysis of writing patterns that may contribute to automated detector risk."
         actions={
           user ? (
             <Link href="/scan/history" className={buttonClasses("ghost", "md")}>Scan history</Link>

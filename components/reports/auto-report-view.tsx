@@ -1,12 +1,11 @@
 "use client";
-import { Download, Info, ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
-import { disclaimers } from "@/config/services";
 import { aiScore, overallFor, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
@@ -263,13 +262,6 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           </ul>
         </Card>
       )}
-
-      <p className="flex gap-2 rounded-2xl border border-[var(--line)] bg-ink-900/40 p-4 text-[12.5px] leading-relaxed text-fg-muted">
-        <Info className="mt-0.5 size-4 shrink-0 text-accent" />
-        <span>
-          {disclaimers.screeningResult} The AI score is built from the share of sentences flagged; it is not the probability that AI wrote the text, and it is not a Turnitin result. {disclaimers.noGuarantee}
-        </span>
-      </p>
     </div>
   );
 }

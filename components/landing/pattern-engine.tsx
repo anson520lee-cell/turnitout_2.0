@@ -140,12 +140,6 @@ export function PatternEngine() {
             </StaggerItem>
           ))}
         </Stagger>
-        <Reveal>
-          <p className="mt-8 max-w-3xl text-[12px] leading-relaxed text-fg-subtle">
-            The Pattern Engine gives a preliminary estimate of patterns in your writing. It is not a Turnitin result,
-            does not determine who wrote a text, and no score is a guarantee of any outcome.
-          </p>
-        </Reveal>
       </Container>
     </section>
   );

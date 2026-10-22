@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Info, ArrowRight, Download, Lock } from "lucide-react";
+import { ArrowRight, Download, Lock } from "lucide-react";
 import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
 import { freeRange } from "@/lib/scanning/free-range";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { higherLevel, verdictLevel, type Risk } from "@/lib/report-format";
 import { raiseScanLevel } from "@/app/actions/scan-report";
 import { brand, freeScan } from "@/config/app";
 import { reportPricing } from "@/config/pricing";
-import { disclaimers, reportFromLabel } from "@/config/services";
+import { reportFromLabel } from "@/config/services";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
@@ -77,7 +77,6 @@ export function ScanResult({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="accent" dot>Preliminary risk estimate</Badge>
-        <Badge>Website-generated · not a Turnitin result</Badge>
         {createdAt && <span className="text-[12px] text-fg-subtle print:hidden">{createdAt}</span>}
         <button
           type="button"
@@ -149,11 +148,6 @@ export function ScanResult({
           </ol>
         </Card>
       )}
-
-      <p className="flex gap-2 px-1 text-[12.5px] leading-relaxed text-fg-subtle">
-        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        {disclaimers.freeScan}
-      </p>
 
       <div className="print:hidden">
         <NextStep />

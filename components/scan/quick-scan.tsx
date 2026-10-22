@@ -304,9 +304,6 @@ export function QuickScan({ sentences, level, reviewShare = null, onDone }: { se
           )}
         </AnimatePresence>
       </div>
-      <footer className="relative shrink-0 px-4 pb-3 text-center text-[10.5px] text-fg-subtle sm:px-6">
-        A quick preliminary estimate by this website, not a Turnitin result. No result is guaranteed.
-      </footer>
     </motion.div>
   );
 
