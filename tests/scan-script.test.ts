@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { stitchReport } from "../lib/auto-report/stitch";
-import { contextLine, flaggedPrefix, liveEstimate, lookaheadLine, ratingsBySentence, reviewerLines, scanDurationMs, scanPlan, scanPosition, thinkingLine, verifyLine } from "../lib/auto-report/scan-script";
+import { contextLine, flaggedPrefix, liveEstimate, lookaheadLine, ratingsBySentence, reviewerLines, quickScanDurationMs, scanDurationMs, scanPlan, scanPosition, thinkingLine, verifyLine } from "../lib/auto-report/scan-script";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -58,10 +58,12 @@ test("scan logs point at the text but never say how it is judged", () => {
   assert.ok(lines.some((t) => /paragraph 2 of 3/.test(t)));
 });
 
-test("scan length: about two minutes for 5,000 characters, within 40 s to 5 min", () => {
-  assert.equal(scanDurationMs(5_000), 120_000);
-  assert.equal(scanDurationMs(500), 40_000);
-  assert.equal(scanDurationMs(20_000), 300_000);
+test("scan length: a fixed rate per character, no floor or cap", () => {
+  assert.equal(scanDurationMs(5_000), 70_000);
+  assert.equal(scanDurationMs(500), 7_000);
+  assert.equal(scanDurationMs(20_000), 280_000);
+  assert.equal(quickScanDurationMs(2_000), 8_000);
+  assert.equal(quickScanDurationMs(200), 800);
 });
 
 test("scan position walks through the sentences in order", () => {
