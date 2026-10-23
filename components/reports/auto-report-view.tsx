@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
-import { aiScore, overallFor, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
+import { headlineScore, overallForScore, type AutoReportResult, type Level, type Overall, type ReportParagraph } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -99,10 +99,11 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
-  const scorePct = Math.round(aiScore(summary.flaggedShare) * 100);
+  const score = headlineScore(summary);
+  const scorePct = Math.round(score * 100);
   const clear = Math.max(0, summary.sentences - flagged);
   const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
-  const overall = overallFor(summary.flaggedShare);
+  const overall = overallForScore(score);
   const dense = paragraphs.length > 14;
   const first = paragraphs.filter((p) => p.risk === "high").slice(0, 5);
   const text = overallText[overall];
@@ -138,7 +139,7 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
 
         <div className="relative mt-6 grid items-center gap-6 border-t border-[var(--line)] pt-6 lg:grid-cols-[minmax(0,260px)_1fr]">
           <div>
-            <RiskGauge level={overall} share={summary.flaggedShare} />
+            <RiskGauge level={overall} score={score} />
           </div>
           <div>
             <p className="text-[15px] leading-relaxed text-fg">

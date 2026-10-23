@@ -9,7 +9,8 @@ import { audit } from "@/lib/audit";
 import { refundFreeReport } from "@/lib/free-report";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
-import { PIECE_SIZE, stitchReport, type PieceAnswer } from "./stitch";
+import { detectAi, warmDetector } from "@/lib/detector";
+import { PIECE_SIZE, headlineScore, overallForScore, stitchReport, type PieceAnswer } from "./stitch";
 
 /**
  * Works on an automatic report: reviews the pieces that have no answer yet (a few
@@ -81,6 +82,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   }
   if (!report) {
     await db.from("auto_reports").upsert({ order_id: orderId, piece_size: PIECE_SIZE, total_pieces: total }, { onConflict: "order_id", ignoreDuplicates: true });
+    warmDetector();
   }
 
   // One worker per report: take the lease or leave it to whoever has it.
@@ -151,6 +153,12 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   const reviewed = answers.length;
   if (reviewed >= total) {
     const result = stitchReport(text, answers, PIECE_SIZE);
+    // Optional second opinion from the classifier service; without it the report scores on the sentence share alone.
+    const detector = await detectAi(text);
+    if (detector !== null) {
+      result.summary.detector = detector;
+      result.summary.overall = overallForScore(headlineScore(result.summary));
+    }
     const at = new Date().toISOString();
     await db.from("auto_reports").update({ status: "done", result, lease_until: null, updated_at: at }).eq("order_id", orderId);
     await db.from("orders").update({ status: "completed", completed_at: at, updated_at: at }).eq("id", orderId).eq("status", "screening");

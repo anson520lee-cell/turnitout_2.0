@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { SCORE_BANDS, aiScore, overallFor } from "@/lib/auto-report/stitch";
+import { SCORE_BANDS, aiScore, overallForScore } from "@/lib/auto-report/stitch";
 import { rangeLevel } from "@/lib/scanning/free-range";
 import type { RiskLevel } from "@/lib/scanning/types";
 
@@ -28,16 +28,17 @@ const arc = (from: number, to: number, r = R) => {
  * Given `range` (the free scan: lo and hi on the 0 to 100 AI score) there is no needle: the range itself lights up
  * on the dial and its label is the range, never an exact number.
  */
-export function RiskGauge({ level, share, range }: { level: RiskLevel; share?: number; range?: { lo: number; hi: number } }) {
-  const measured = share !== undefined || range !== undefined;
-  const shown = share !== undefined ? overallFor(share) : range ? rangeLevel(range.lo, range.hi) : level;
+export function RiskGauge({ level, share, score: given, range }: { level: RiskLevel; share?: number; /** The AI score (0 to 1) when it is not simply aiScore(share), for example the report's headline score. */ score?: number; range?: { lo: number; hi: number } }) {
+  const hasScore = given !== undefined || share !== undefined;
+  const measured = hasScore || range !== undefined;
+  const score = given ?? (share !== undefined ? aiScore(share) : 0);
+  const shown = hasScore ? overallForScore(score) : range ? rangeLevel(range.lo, range.hi) : level;
   const idx = LEVELS.findIndex((l) => l.id === shown);
-  const score = share !== undefined ? aiScore(share) : 0;
   const marks = [0, SCORE_BANDS.moderate, SCORE_BANDS.elevated, 1];
   const edges = measured ? marks.map((v) => v * 180) : [0, 60, 120, 180];
   const angle = measured ? -90 + score * 180 : -60 + idx * 60; // true score, or the centre of the band
   const current = LEVELS[idx];
-  const percent = share !== undefined ? Math.round(score * 100) : null;
+  const percent = hasScore ? Math.round(score * 100) : null;
   const ticks = Array.from({ length: 37 }, (_, i) => i * 5);
   return (
     <div className="relative mx-auto w-full max-w-[300px]">

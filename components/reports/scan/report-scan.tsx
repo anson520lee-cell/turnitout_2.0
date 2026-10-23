@@ -5,8 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, FileCheck2, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
-import { aiScore } from "@/lib/auto-report/stitch";
-import { INTRO_MS, bandFor, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
+import { aiScore, headlineScore, overallForScore } from "@/lib/auto-report/stitch";
+import { INTRO_MS, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
 import { RateMeter, type MeterInput } from "./rate-meter";
 import { RatePanel } from "./scan-panels";
@@ -107,7 +107,7 @@ export function ReportScan({
   const [meter] = useState(() => new RateMeter());
   const input = useRef<MeterInput>({ ready: false, base: 0, progress: 0, done: false, final: 0, reduce });
   useLayoutEffect(() => {
-    input.current = { ready: estimate !== null && !inIntro, base: score ?? 0, progress: total ? revealedAt / total : 0, done, final: aiScore(result?.summary.flaggedShare ?? 0), reduce };
+    input.current = { ready: estimate !== null && !inIntro, base: score ?? 0, progress: total ? revealedAt / total : 0, done, final: result ? headlineScore(result.summary) : 0, reduce };
   });
   useEffect(() => {
     const t = setInterval(() => meter.step(input.current, performance.now()), 50);
@@ -251,13 +251,13 @@ export function ReportScan({
                   <ShieldCheck className="size-4" /> Scan complete
                 </p>
                 <p className="scan-rate-land relative mt-4 font-mono text-[64px] font-semibold leading-none tracking-tight">
-                  {Math.round(aiScore(result.summary.flaggedShare) * 100)}
+                  {Math.round(headlineScore(result.summary) * 100)}
                   <span className="text-[28px] text-fg-subtle">%</span>
                 </p>
                 <p className="relative mt-2 text-[13.5px] text-fg-muted">AI score · {Math.round(result.summary.flaggedShare * 100)}% of sentences flagged</p>
                 <p className="relative mt-1 text-[12.5px] text-fg-subtle">
                   {result.summary.high} high · {result.summary.medium} medium · {result.summary.sentences} sentences · overall{" "}
-                  <span className="text-fg">{{ low: "Low", moderate: "Moderate", elevated: "Elevated" }[bandFor(result.summary.flaggedShare)]}</span>
+                  <span className="text-fg">{{ low: "Low", moderate: "Moderate", elevated: "Elevated" }[overallForScore(headlineScore(result.summary))]}</span>
                 </p>
                 <Button className="relative mt-6 w-full" size="lg" onClick={end}>
                   <FileCheck2 className="size-4" /> Open full report <ArrowRight className="size-4" />

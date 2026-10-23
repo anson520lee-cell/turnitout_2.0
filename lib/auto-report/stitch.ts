@@ -52,6 +52,11 @@ export interface AutoReportSummary {
   /** Paragraphs rated High or Medium. */
   riskyParagraphs: number;
   overall: Overall;
+  /**
+   * Probability (0 to 1) that the text is AI from the separate classifier service, when it was switched on and
+   * answered. Reports made without it have no value here and score on the sentence share alone.
+   */
+  detector?: number;
 }
 
 export interface AutoReportResult {
@@ -102,10 +107,23 @@ export function aiScore(flaggedShare: number): number {
 export const SCORE_BANDS = { moderate: 0.3, elevated: 0.6 } as const;
 
 export function overallFor(flaggedShare: number): Overall {
-  const score = aiScore(flaggedShare);
-  if (score >= SCORE_BANDS.elevated) return "elevated";
-  if (score >= SCORE_BANDS.moderate) return "moderate";
-  return "low";
+  return overallForScore(aiScore(flaggedShare));
+}
+
+/**
+ * The headline AI score (0 to 1) of a finished report. With the classifier's probability it is the mean of that and
+ * the sentence-share score, without it the sentence-share score alone. In an offline replay on 567 texts the mean
+ * cut formal human writing in red from 49% to 5% and kept AI in red at 85% to 93% (docs/HYBRID_DETECTOR.md).
+ */
+export function headlineScore(summary: Pick<AutoReportSummary, "flaggedShare" | "detector">): number {
+  const own = aiScore(summary.flaggedShare);
+  const d = summary.detector;
+  return typeof d === "number" && Number.isFinite(d) ? (Math.min(1, Math.max(0, d)) + own) / 2 : own;
+}
+
+/** The band of a headline score, on the same lines as overallFor. */
+export function overallForScore(score: number): Overall {
+  return score >= SCORE_BANDS.elevated ? "elevated" : score >= SCORE_BANDS.moderate ? "moderate" : "low";
 }
 
 const toLevel = (r: Risk | undefined): Level => (r === "high" || r === "medium" || r === "uncertain" ? r : "low");
