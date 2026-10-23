@@ -48,7 +48,7 @@ Jordan's goal (2026-10-22) is also to cut the DeepSeek bill. With `DETECTOR_ENAB
   marked High, and the existing stitcher builds the report from that (`lib/auto-report/classifier-report.ts`). No DeepSeek call.
   The report has the marks and the score but no reasons or questions.
 - **Free scan written feedback** (`/api/scan-feedback`) is built the same way for a fresh scan. A re-check of a revised draft still uses DeepSeek.
-- **Paid reports** keep DeepSeek (reasons and questions) with the classifier mixed into the score as above.
+- **Paid reports** use the same marks and score as free ones (Jordan, 2026-10-22: free and paid differ only in effects and length). DeepSeek still reads each piece, but only to add reasons, questions and grammar notes to the sentences the classifier marked (`withReasons`); its own flags and share no longer move the score. If the service does not answer at the end, a paid report is stitched from DeepSeek as before.
 - If the service does not answer, free reports and feedback fall back to DeepSeek, so nothing breaks.
 
 Offline replay of the marking rule (share of sentences covered by a window at 0.9 or more, same S-curve, red = 60):

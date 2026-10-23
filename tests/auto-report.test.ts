@@ -168,3 +168,22 @@ test("a classifier-only piece report is read back by the stitcher: only sentence
   assert.equal(none.summary.high, 0);
   assert.equal(none.pieces.reviewed, 1);
 });
+
+test("a paid report keeps the classifier's marks and takes only the reviewer's reasons, questions and grammar notes", async () => {
+  const { classifierReport, withReasons } = await import("../lib/auto-report/classifier-report");
+  const text = paragraph(1, 5);
+  const classifier = classifierReport(text, [0, 0.95, 0, 0.97, 0]);
+  const reviewer = answer([
+    `- P1 S2 "This is..." | Risk: Medium | Signals 1, 4: stock frame | Ask: How would you say it aloud?`,
+    `- P1 S3 "This is..." | Risk: High | Signals 3: tidy | Ask: Which example?`,
+  ]);
+  const merged = withReasons(classifier, reviewer);
+  const result = stitchReport(text, [{ idx: 0, ok: true, truncated: false, report: merged }], 5000);
+  const risks = result.paragraphs[0].sentences.map((s) => s.risk);
+  assert.deepEqual(risks, ["low", "high", "low", "high", "low"]);
+  assert.equal(result.paragraphs[0].sentences[1].ask, "How would you say it aloud?");
+  assert.match(result.paragraphs[0].sentences[1].why ?? "", /stock frame/);
+  assert.equal(result.paragraphs[0].sentences[3].ask, undefined);
+  assert.equal(result.grammar.length, 1);
+  assert.equal(withReasons(classifier, null), classifier);
+});

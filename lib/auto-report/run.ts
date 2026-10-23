@@ -11,7 +11,7 @@ import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
 import { classifierPrimary, detectAi, detectSentences, warmDetector } from "@/lib/detector";
 import { splitSentences } from "@/lib/recheck";
-import { classifierReport } from "./classifier-report";
+import { classifierReport, withReasons } from "./classifier-report";
 import { PIECE_SIZE, headlineScore, overallForScore, stitchReport, type PieceAnswer } from "./stitch";
 
 /**
@@ -167,9 +167,18 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   }
 
   const { data: done } = await db.from("auto_report_pieces").select("idx,report,ok,truncated,attempts").eq("order_id", orderId);
-  const answers: PieceAnswer[] = (done ?? []).filter((r: { ok: boolean }) => r.ok);
+  let answers: PieceAnswer[] = (done ?? []).filter((r: { ok: boolean }) => r.ok);
   const reviewed = answers.length;
   if (reviewed >= total) {
+    // Paid reports in classifier mode: the same marks and score as a free report; the reviewer's text only adds reasons.
+    if (!viaClassifier && classifierPrimary()) {
+      const scores = await detectSentences(splitSentences(text).map((s) => s.text));
+      if (scores) {
+        const said = new Map(answers.map((a) => [a.idx, a.report]));
+        answers = chunks.map((c, idx) => ({ idx, ok: true, truncated: false, report: withReasons(classifierReport(c.text, scores.slice(c.first, c.first + c.count)), said.get(idx)) }));
+        viaClassifier = true;
+      }
+    }
     const result = stitchReport(text, answers, PIECE_SIZE);
     // Optional second opinion from the classifier service; without it the report scores on the sentence share alone.
     const detector = viaClassifier ? null : await detectAi(text);
