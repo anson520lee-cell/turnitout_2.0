@@ -57,3 +57,10 @@ formal human 0% red, ESL human 0%, polished AI 92%, ESL-voice AI 100%, humanised
 Limits: no explanations; a short text (one window) gets one score for all its sentences; on the AFIC essay Turnitin
 rated 59% (22 flagged sentences) the classifier scored every window 0.03 to 0.13, so nothing is marked there; and a
 950-word text took about 8 s on 4 CPU threads once warm.
+
+## Parameter sweep (all 567 texts, classifier-only marks)
+
+Flag threshold 0.5 to 0.95 against curve centre 0.3 to 0.6, red = score >= 60. The shipped setting (0.9, centre 0.6) gives
+formal human 1% red, ESL human 0%, polished AI 93%, ESL-voice AI 100%, humanised AI 65%. Lowering the threshold to 0.5
+lifts humanised AI to 82% but puts 10% of formal human texts in red (7% of ESL human); 0.8 gives 2% / 2% / 93% / 100% / 71%.
+No setting fixes the AFIC 59% case, so the gap is in the classifier, not in these parameters.
