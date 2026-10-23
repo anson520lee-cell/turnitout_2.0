@@ -105,4 +105,44 @@ const WEAK_SIGNALS = `- Signals 3, 4 and 6 describe formal writing in general. T
 
 export const REG_2 = swap(REG_1, MEDIUM_QUOTABLE, WEAK_SIGNALS + MEDIUM_QUOTABLE);
 
-export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, mix1: MIX_1, reg1: REG_1, reg2: REG_2 };
+/**
+ * Content-blind candidate (2026-10-23). A reflective journal Jordan had Claude write (CCHU 9078 J1) got 96% AI on
+ * Turnitin but 1% here: mix1 marked 9 of 52 sentences, because first person, feelings, times, lecturers and anecdotes
+ * read to it as natural mode ("The student wrote the text themselves", "Naming specific people and motives",
+ * "no visible personal features"). Turnitin only scores wording and structure, so word1 drops every content-based
+ * reason for Low, says the author is unknown, and adds predictable wording (the plain-language form of low
+ * perplexity) and the rhetorical moves of plain-style model text. The slip rule stays: a quotable slip is wording.
+ * The examples are written fresh, not taken from J1, but J1 motivated the rules, so it is not a fair held-out test.
+ * Not live; it only counts if human samples (ELLIPSE, PELIC, BAWE, Brown, DSE) do not go red much more than with mix1.
+ */
+const UNKNOWN_AUTHOR = "You do not know who wrote the text. It may be the student's own work, or it may have been produced or polished by a language model. Judge only the wording and structure, never the content.";
+
+const CONTENT_BLIND = `- It ignores content. First person, personal experience, feelings, specific times, places and people, lecture or class references, quotes and anecdotes do not make text look human to it: language models write personal reflections just as fluently. Only the choice of words and the shape of the sentences count.
+`;
+
+const PREDICTABLE = `8. Predictable wording (what detectors measure as low perplexity): every word is the one most writers would pick next, every phrase is the obvious idiomatic one, nothing is awkward, surprising or slightly off. This counts just as much for plain, short, simple sentences in the first person as for academic ones. E.g. "The more I planned, the less I actually did." "I was tired, but in a good way." "It was not easy, but it taught me something."
+9. Plain-style rhetorical moves. Look across the piece: colon reveals ("the answer was simple: ..."), callback lines that tie two parts together ("Both experiences point to the same lesson."), pairs of short parallel sentences ("At home I rush. At school I wait."), a tidy closing line that names what was learned. Two or more of these in one piece means signal 9 is present; then every sentence carrying one is at least Medium.
+
+`;
+
+const CONTENT_SAFE = `SAFE SIGNALS (these lower the risk; they are about wording only)
+- Several ideas strung loosely into one long sentence with commas, so, but, which, in a run-on way rather than a balanced clause.
+- Clumsy, unusual or non-standard word choices a language model would not pick (e.g. "decision right", "tailor-made" used for a policy).`;
+
+const NOT_SAFE_CONTENT = `- First person, personal experience, emotions, specific times, places, people, lecturers, course names, quotes from class and anecdotes are NOT safe signals. They say nothing about who chose the words.
+`;
+
+export const WORD_1 = [
+  ["The student wrote the text themselves.", UNKNOWN_AUTHOR],
+  ["- Text under about 300 words is not scored at all.\n", "- Text under about 300 words is not scored at all.\n" + CONTENT_BLIND],
+  [SAFE_HEADING, PREDICTABLE + SAFE_HEADING],
+  [`${SAFE_HEADING}
+- Several ideas strung into one long sentence with commas, so, but, which.
+- Starting with So, Indeed, But; comments or tone mixed in (e.g. "sounds counterintuitive", "having income is great").
+- The student's own word choices (e.g. tailor-made, capital, sovereignty, decision right, keep an eye on).
+- Naming specific people and motives (e.g. government, investors, to maximize their profits).`, CONTENT_SAFE],
+  ["NOT RISK SIGNALS.", "NOT SAFE SIGNALS\n" + NOT_SAFE_CONTENT + "\nNOT RISK SIGNALS."],
+  [MEDIUM_BEFORE, "- Medium: one model-essay signal, or a fluent, error-free sentence whose wording is entirely predictable (signal 8), whatever its content."],
+].reduce((text, [from, to]) => swap(text, from, to), MIX_1);
+
+export const CANDIDATE_PROMPTS: Record<CandidatePromptName, string> = { strict1: STRICT_1, slip1: SLIP_1, struct1: STRUCT_1, mix1: MIX_1, reg1: REG_1, reg2: REG_2, word1: WORD_1 };
