@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
-import { MIX_1 } from "@/lib/chunk-prompts";
+import { WORD_1 } from "@/lib/chunk-prompts";
 import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort } from "@/lib/deepseek";
 
 /**
@@ -17,9 +17,14 @@ import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort }
  * human essays in red fell from 9-13% to 1% (ELLIPSE) and from 21-27% to 6% (PELIC), with the held-out halves
  * the same, while the share of AI essays in red stayed close (about 5 points fewer on external AI essays). AUC
  * on human against AI rose from 0.88-0.90 to 0.95-0.96. Before that the site used struct1 (since 2026-10-20).
- * A prompt saved on /admin/prompt still takes precedence.
+ *
+ * Since 2026-10-23 it is word1 (mix1 without content-based safe signals: first person, anecdotes and named people no
+ * longer lower the risk; predictable wording and plain-style moves count). A Claude-written reflective journal got
+ * 96% on Turnitin and 1% here. On the same 134 samples, casual first-person AI in red rose from 0-33% to 61-83%, ESL
+ * human stayed at 0%, formal human in red went from 8 to 11 of 32, and the DSE exemplar went from red to 20.
+ * Revert = MIX_1. A prompt saved on /admin/prompt still takes precedence.
  */
-const DEFAULT_REPORT_PROMPT = MIX_1;
+const DEFAULT_REPORT_PROMPT = WORD_1;
 
 export const SETTING_KEYS = {
   reportPrompt: "scan_report_prompt",
