@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { classifierReport } from "@/lib/auto-report/classifier-report";
+import { classifierPrimary, detectSentences } from "@/lib/detector";
+import { splitSentences } from "@/lib/recheck";
 import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekStream, redeemFeedbackTicket } from "@/lib/deepseek";
 import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
@@ -23,13 +26,21 @@ const body = z.object({ text: z.string().max(20_000), ticket: z.string().max(200
 const noStore = { "cache-control": "no-store" };
 
 export async function POST(request: NextRequest) {
-  if (!deepseekEnabled()) return NextResponse.json({ error: "Feedback isn't available right now." }, { status: 503, headers: noStore });
   const parsed = body.safeParse(await request.json().catch(() => null));
   const text = parsed.success ? scanInput.safeParse(parsed.data.text) : null;
   if (!parsed.success || !text?.success) return NextResponse.json({ error: "Bad request." }, { status: 400, headers: noStore });
   if (!redeemFeedbackTicket(parsed.data.ticket, text.data)) {
     return NextResponse.json({ error: "This feedback request has expired." }, { status: 403, headers: noStore });
   }
+  // With DETECTOR_MODE=primary a fresh scan is marked by the classifier alone: no DeepSeek call, the same line format.
+  if (classifierPrimary() && !parsed.data.previous?.trim()) {
+    const scores = await detectSentences(splitSentences(text.data).map((s) => s.text));
+    if (scores) {
+      const body = JSON.stringify({ t: "d", v: `${classifierReport(text.data, scores)}\n` }) + "\n" + JSON.stringify({ t: "done", cut: false }) + "\n";
+      return new Response(body, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store", "x-accel-buffering": "no" } });
+    }
+  }
+  if (!deepseekEnabled()) return NextResponse.json({ error: "Feedback isn't available right now." }, { status: 503, headers: noStore });
   if (await reportLimitReached()) {
     return NextResponse.json({ error: "Written reports are paused for today. The rest of your scan is complete.", reason: "daily_limit" }, { status: 503, headers: noStore });
   }

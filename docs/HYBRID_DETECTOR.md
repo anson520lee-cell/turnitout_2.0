@@ -38,3 +38,29 @@ The mean puts about half of the formal human texts in the yellow band (30 to 59)
 - Only one Turnitin-labelled AI-positive sample exists; more Turnitin reports are needed to validate.
 - The service scores up to 12 windows of about 250 words; the replay used overlapping windows, so expect small differences.
 - Text is sent only to the service you host and is not logged. Check the privacy text names processors correctly before switching it on.
+
+## Classifier-only mode (DETECTOR_MODE=primary)
+
+Jordan's goal (2026-10-22) is also to cut the DeepSeek bill. With `DETECTOR_ENABLED=true` and `DETECTOR_MODE=primary`:
+
+- **Free daily reports** (orders with price 0) are scored by the classifier alone: `POST /sentences` returns a score per
+  sentence (the highest score of the half-overlapping 250-word windows that cover it), a sentence at 0.9 or more is
+  marked High, and the existing stitcher builds the report from that (`lib/auto-report/classifier-report.ts`). No DeepSeek call.
+  The report has the marks and the score but no reasons or questions.
+- **Free scan written feedback** (`/api/scan-feedback`) is built the same way for a fresh scan. A re-check of a revised draft still uses DeepSeek.
+- **Paid reports** use the same marks and score as free ones (Jordan, 2026-10-22: free and paid differ only in effects and length). DeepSeek still reads each piece, but only to add reasons, questions and grammar notes to the sentences the classifier marked (`withReasons`); its own flags and share no longer move the score. If the service does not answer at the end, a paid report is stitched from DeepSeek as before.
+- If the service does not answer, free reports and feedback fall back to DeepSeek, so nothing breaks.
+
+Offline replay of the marking rule (share of sentences covered by a window at 0.9 or more, same S-curve, red = 60):
+formal human 0% red, ESL human 0%, polished AI 92%, ESL-voice AI 100%, humanised AI 65%.
+
+Limits: no explanations; a short text (one window) gets one score for all its sentences; on the AFIC essay Turnitin
+rated 59% (22 flagged sentences) the classifier scored every window 0.03 to 0.13, so nothing is marked there; and a
+950-word text took about 8 s on 4 CPU threads once warm.
+
+## Parameter sweep (all 567 texts, classifier-only marks)
+
+Flag threshold 0.5 to 0.95 against curve centre 0.3 to 0.6, red = score >= 60. The shipped setting (0.9, centre 0.6) gives
+formal human 1% red, ESL human 0%, polished AI 93%, ESL-voice AI 100%, humanised AI 65%. Lowering the threshold to 0.5
+lifts humanised AI to 82% but puts 10% of formal human texts in red (7% of ESL human); 0.8 gives 2% / 2% / 93% / 100% / 71%.
+No setting fixes the AFIC 59% case, so the gap is in the classifier, not in these parameters.

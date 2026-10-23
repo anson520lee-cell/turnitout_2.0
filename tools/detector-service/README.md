@@ -5,6 +5,7 @@ site calls it once when a report finishes (`lib/detector.ts`) and mixes its answ
 (`headlineScore` in `lib/auto-report/stitch.ts`). Design, numbers and caveats: `docs/HYBRID_DETECTOR.md`.
 
 - `POST /score` with `{"text": "..."}` and `Authorization: Bearer $DETECTOR_TOKEN` returns `{"score": 0..1, "windows": n}`.
+- `POST /sentences` with `{"sentences": [...]}` returns `{"scores": [...], "windows": n}`, one score per sentence (used by `DETECTOR_MODE=primary`).
 - `GET /health` for the host's health check.
 - CPU only. The image downloads the model (about 1.7 GB) at build time; give the container at least 4 GB of RAM
   and 2 to 4 vCPUs.

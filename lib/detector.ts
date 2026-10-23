@@ -13,6 +13,11 @@ export function detectorEnabled(): boolean {
   return process.env.DETECTOR_ENABLED === "true" && Boolean(process.env.DETECTOR_URL?.trim());
 }
 
+/** Classifier-only scoring for free reports and free-scan feedback (DETECTOR_MODE=primary), instead of DeepSeek. */
+export function classifierPrimary(): boolean {
+  return detectorEnabled() && process.env.DETECTOR_MODE === "primary";
+}
+
 /** Probability (0 to 1) that `text` is AI-written, or null when the service is off, slow or answers badly. */
 export async function detectAi(text: string): Promise<number | null> {
   if (!detectorEnabled() || !text.trim()) return null;
@@ -37,4 +42,24 @@ export async function detectAi(text: string): Promise<number | null> {
 export function warmDetector(): void {
   if (!detectorEnabled()) return;
   fetch(`${process.env.DETECTOR_URL!.trim().replace(/\/+$/, "")}/health`, { signal: AbortSignal.timeout(60_000), cache: "no-store" }).catch(() => {});
+}
+
+/** One score (0 to 1) per sentence, in order, or null when the service is off, slow or answers badly. */
+export async function detectSentences(sentences: string[]): Promise<number[] | null> {
+  if (!detectorEnabled() || sentences.length === 0) return null;
+  try {
+    const res = await fetch(`${process.env.DETECTOR_URL!.trim().replace(/\/+$/, "")}/sentences`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${process.env.DETECTOR_TOKEN ?? ""}` },
+      body: JSON.stringify({ sentences }),
+      signal: AbortSignal.timeout(75_000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { scores?: unknown };
+    const s = body.scores;
+    return Array.isArray(s) && s.length === sentences.length && s.every((x) => typeof x === "number" && x >= 0 && x <= 1) ? (s as number[]) : null;
+  } catch {
+    return null;
+  }
 }
