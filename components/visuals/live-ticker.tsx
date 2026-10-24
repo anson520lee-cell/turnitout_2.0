@@ -243,13 +243,6 @@ function Live({ reduce, clock, title = "AI-Writing Risk Report", tiles = ["Sente
         </span>
         <span className="truncate text-[12.5px] font-medium">{title}</span>
         {note}
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-          <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/70" />
-            <span className="relative inline-flex size-1.5 rounded-full bg-accent" />
-          </span>
-          Live
-        </span>
       </div>
 
       <div className={cn("relative grid gap-4 p-4 sm:gap-5 sm:p-5", feed && "sm:grid-cols-[1fr_228px] sm:pb-12")}>
