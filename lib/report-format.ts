@@ -14,11 +14,13 @@ export type Risk = "high" | "medium" | "low" | "uncertain";
 
 export type ReportBlock =
   | { kind: "section"; title: string; text?: string }
-  | { kind: "item"; text: string; location?: string; risk?: Risk; question?: string; notes?: string[] };
+  | { kind: "item"; text: string; location?: string; risk?: Risk; question?: string; notes?: string[]; counted?: true };
 
 const SECTION = /^([A-H])[.)]\s+(.+)$/;
 const SUMMARY = /^(summary|總結)\s*[:：]\s*(.*)$/i;
 const BULLET = /^(?:[-*•]|\d+[.)])\s+/;
+/** Field the free scan adds to a flagged sentence that counts toward the AI score; it carries no reason. */
+export const COUNTED_MARK = "Counted";
 
 export function parseRisk(value: string): Risk | undefined {
   const v = value.toLowerCase();
@@ -44,6 +46,7 @@ function toItem(raw: string): ReportBlock {
     const label = labelled?.[1].toLowerCase().trim();
     if (label === "risk") item.risk = parseRisk(labelled![2]) ?? item.risk;
     else if (label === "ask" || label === "question" || label === "questions") item.question = labelled![2];
+    else if (i > 0 && !labelled && field.toLowerCase() === COUNTED_MARK.toLowerCase()) item.counted = true;
     else if (i === 0 && !labelled) item.location = field;
     else item.notes!.push(field);
   });
@@ -114,6 +117,11 @@ export function higherLevel(a: DialLevel, b: DialLevel | undefined): DialLevel {
  * Returns null when nothing is left of the line.
  */
 export function stripReasons(line: string): string | null {
+  return stripReasonsMarked(line, false);
+}
+
+/** stripReasons, adding the bare "Counted" mark when the line counts toward the AI score (a separate function so `lines.map(stripReasons)` stays safe). */
+export function stripReasonsMarked(line: string, counted: boolean): string | null {
   const text = line.replace(/\*\*/g, "").replace(/^#+\s*/, "").trim();
   if (!text) return null;
   if (SUMMARY.test(text)) return null;
@@ -130,5 +138,5 @@ export function stripReasons(line: string): string | null {
     const label = /^([A-Za-z][A-Za-z ]{0,20})\s*:\s*/.exec(field)?.[1].toLowerCase().trim();
     return label === "risk" || (i === 0 && !label);
   });
-  return kept.length ? `${marker}${kept.join(" | ")}` : null;
+  return kept.length ? `${marker}${[...kept, ...(counted ? [COUNTED_MARK] : [])].join(" | ")}` : null;
 }

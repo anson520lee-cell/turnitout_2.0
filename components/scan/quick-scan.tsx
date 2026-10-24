@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Lock, ShieldCheck } from "lucide-react";
 import { contextLine, lookaheadLine, planFromSentences, quickScanDurationMs, quote, scanPosition, thinkingLine, type LogLine } from "@/lib/auto-report/scan-script";
+import { COUNTED_CURVE, SCORE_CURVE } from "@/lib/auto-report/stitch";
 import { freeRange, isStandout, liveScore, rangeOf, standoutShare, type FreeRange } from "@/lib/scanning/free-range";
 import type { RiskLevel, SentenceSignal } from "@/lib/scanning/types";
 import { Terminal, type TermLine } from "@/components/reports/scan/scan-panels";
@@ -62,7 +63,9 @@ export function QuickScan({ sentences, level, reviewShare = null, onDone }: { se
   const duration = quickScanDurationMs(plan.chars);
   const total = plan.sentences.length;
   const finalShare = useMemo(() => reviewShare ?? standoutShare(sentences), [reviewShare, sentences]);
-  const finalRange = useMemo(() => freeRange(finalShare, level), [finalShare, level]);
+  // The written review's share is read on the counted curve; the stand-out share on the older one.
+  const finalCurve = reviewShare !== null ? COUNTED_CURVE : SCORE_CURVE;
+  const finalRange = useMemo(() => freeRange(finalShare, level, finalCurve), [finalShare, level, finalCurve]);
   const [elapsed, setElapsed] = useState(0);
   const [finished, setFinished] = useState(false);
   // The live score and its recent history: worked out every tick from the sentences read so far, eased so it glides.
@@ -87,7 +90,7 @@ export function QuickScan({ sentences, level, reviewShare = null, onDone }: { se
         for (let i = 0; i < k; i++) hits += flagged(i);
         const at = e >= duration ? total : k + frac;
         const share = (e >= duration ? hits + flagged(total - 1) : hits + flagged(k) * frac) / Math.max(1, at);
-        const target = liveScore(share, at / Math.max(1, total), finalShare, finalRange);
+        const target = liveScore(share, at / Math.max(1, total), finalShare, finalRange, finalCurve);
         // Eased a little so it glides; follows each sentence as it is read.
         shown.current = shown.current === null ? target : shown.current + (target - shown.current) * 0.4;
         const v = Math.max(0, Math.min(100, shown.current));
@@ -103,7 +106,7 @@ export function QuickScan({ sentences, level, reviewShare = null, onDone }: { se
       if (e >= duration) clearInterval(t);
     }, 80);
     return () => clearInterval(t);
-  }, [duration, plan, total, sentences, finalShare, finalRange]);
+  }, [duration, plan, total, sentences, finalShare, finalRange, finalCurve]);
 
   // Lock the page behind the view while it is open.
   useEffect(() => {

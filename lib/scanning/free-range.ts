@@ -6,7 +6,7 @@
  * uses, never lower than the scan's overall level allows.
  */
 
-import { SCORE_BANDS, aiScore } from "@/lib/auto-report/stitch";
+import { SCORE_BANDS, SCORE_CURVE, aiScore, type ScoreCurve } from "@/lib/auto-report/stitch";
 import type { RiskLevel, SentenceSignal } from "./types";
 
 export interface FreeRange {
@@ -34,8 +34,9 @@ export function rangeLevel(lo: number, hi: number): RiskLevel {
   return mid >= SCORE_BANDS.elevated ? "elevated" : mid >= SCORE_BANDS.moderate ? "moderate" : "low";
 }
 
-export function freeRange(share: number | undefined, level: RiskLevel): FreeRange {
-  const idx = share === undefined ? FROM_LEVEL[level] : Math.max(FLOOR[level], Math.min(4, Math.floor(aiScore(share) * 5)));
+/** `curve` is the one the share is read on: COUNTED_CURVE for the written review's counted share, SCORE_CURVE for the stand-out share. */
+export function freeRange(share: number | undefined, level: RiskLevel, curve: ScoreCurve = SCORE_CURVE): FreeRange {
+  const idx = share === undefined ? FROM_LEVEL[level] : Math.max(FLOOR[level], Math.min(4, Math.floor(aiScore(share, curve) * 5)));
   const lo = idx * 20;
   return { lo, hi: lo + 20, level: rangeLevel(lo, lo + 20) };
 }
@@ -49,8 +50,8 @@ export function freeRange(share: number | undefined, level: RiskLevel): FreeRang
  * the finished result's own range, which can sit higher than the sentences
  * alone when the written review raised it.
  */
-export function liveScore(runningShare: number, progress: number, finalShare: number | undefined, final: FreeRange): number {
-  const own = finalShare === undefined ? final.lo + 10 : aiScore(finalShare) * 100;
+export function liveScore(runningShare: number, progress: number, finalShare: number | undefined, final: FreeRange, finalCurve: ScoreCurve = SCORE_CURVE): number {
+  const own = finalShare === undefined ? final.lo + 10 : aiScore(finalShare, finalCurve) * 100;
   const end = Math.max(final.lo + 1, Math.min(final.hi - 1, own));
   const w = Math.pow(Math.max(0, Math.min(1, (progress - 0.5) / 0.5)), 1.5);
   return aiScore(runningShare) * 100 * (1 - w) + end * w;

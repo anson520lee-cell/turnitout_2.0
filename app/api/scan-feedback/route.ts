@@ -5,7 +5,7 @@ import { logModelCall, reportLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { DRAFT_GUARD, SCAN_RECHECK_ADDENDUM } from "@/lib/local-model/prompts";
 import { recheckInput } from "@/lib/recheck";
-import { stripReasons } from "@/lib/report-format";
+import { freeScanLine } from "@/lib/scanning/counted-line";
 import { scanInput } from "@/lib/validation/schemas";
 
 /**
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       const send = (obj: Record<string, unknown>) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       let pending = "";
       const sendLine = (line: string) => {
-        const kept = stripReasons(line);
+        const kept = freeScanLine(line);
         if (kept) send({ t: "d", v: `${kept}\n` });
       };
       try {

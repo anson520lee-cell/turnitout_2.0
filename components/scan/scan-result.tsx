@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Download, Lock } from "lucide-react";
 import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
+import { COUNTED_CURVE } from "@/lib/auto-report/stitch";
 import { freeRange } from "@/lib/scanning/free-range";
 import { Card } from "@/components/ui/card";
 import { HudCorners, HudLabel, Tile } from "@/components/ui/hud";
@@ -65,7 +66,7 @@ export function ScanResult({
     void raiseScanLevel(scanId, dialLevel);
   }, [scanId, reviewLevel, dialLevel, result.overallRisk]);
   // The free scan shows a 20-point range, never the exact score (that is the paid report's).
-  const range = freeRange(reviewShare ?? result.standoutShare, dialLevel);
+  const range = reviewShare !== null ? freeRange(reviewShare, dialLevel, COUNTED_CURVE) : freeRange(result.standoutShare, dialLevel);
   if (result.metadata.isMock) {
     return <p className="text-risk">Development mock output is not shown as analysis.</p>;
   }
