@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The free scan's live view: a lighter, faster cousin of the paid report's
- * scan (about 20 seconds for 2,000 characters). It reads the customer's own
+ * scan (about 8 seconds for 2,000 characters, at a fixed rate per character). It reads the customer's own
  * text word by word, marks the sentences the scan found standing out as it
  * passes them, and shows the AI score only as a 20-point range, as the free
  * result does. The result is already in when this starts; it is replayed, and

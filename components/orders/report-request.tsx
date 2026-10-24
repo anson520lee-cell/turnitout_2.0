@@ -17,7 +17,7 @@ import { track } from "@/lib/analytics";
 const STEPS = [
   { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${reportRangeLabel}, press Enter.` },
   { icon: ShieldCheck, t: "Pay", d: "Pay with credits, topped up with crypto (USDT, USDC or BTC) or PayPal." },
-  { icon: FileCheck2, t: "Get your report here", d: "Watch a live scan of your text (about 2 minutes for 5,000 characters), then read the report on your order page, with a PDF download." },
+  { icon: FileCheck2, t: "Get your report here", d: "Watch a live scan of your text (about a minute for 5,000 characters), then read the report on your order page, with a PDF download." },
 ];
 
 /**

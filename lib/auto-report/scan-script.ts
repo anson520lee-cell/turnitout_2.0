@@ -79,17 +79,21 @@ export function planFromSentences(list: { p: number; text: string }[]): ScanPlan
   return { sentences, paragraphs, chars: list.reduce((n, x) => n + x.text.length, 0), words: sentences.reduce((n, x) => n + x.words.length, 0), pieces: 0 };
 }
 
-/** The free scan's lighter live view: about 14 seconds for 2,000 characters (it replays a finished result, after its own opening), never under 8. */
+/** Milliseconds of scan per character: a fixed rate, so the run grows with the length of the text (no set total, no cap). */
+export const QUICK_SCAN_MS_PER_CHAR = 4;
+export const SCAN_MS_PER_CHAR = 14;
+
+/** The free scan's lighter live view: about 8 seconds for 2,000 characters (it replays a finished result, after its own opening). */
 export function quickScanDurationMs(chars: number): number {
-  return Math.round(Math.min(18_000, Math.max(8_000, chars * 7)));
+  return Math.max(1, Math.round(chars * QUICK_SCAN_MS_PER_CHAR));
 }
 
 /**
- * How long the scan runs: about two minutes for 5,000 characters (Jordan,
- * 2026-10-20), in proportion to length, never under 40 seconds or over 5 minutes.
+ * How long the scan runs: about 70 seconds for 5,000 characters (1.75 times
+ * faster than the earlier two minutes), at a fixed rate per character.
  */
 export function scanDurationMs(chars: number): number {
-  return Math.round(Math.min(300_000, Math.max(40_000, chars * 24)));
+  return Math.max(1, Math.round(chars * SCAN_MS_PER_CHAR));
 }
 
 /** How long the opening sequence runs before the scan starts. */

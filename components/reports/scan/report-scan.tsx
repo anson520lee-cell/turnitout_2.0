@@ -17,7 +17,7 @@ import type { ReportFeed } from "./use-report-feed";
 /**
  * What a customer watches after paying for a report. Two parts, full screen:
  * 1. an opening sequence (about 24 seconds) with the network "tunnel";
- * 2. the live scan of their own text, about two minutes for 5,000 characters.
+ * 2. the live scan of their own text, about 70 seconds for 5,000 characters, at a fixed rate per character.
  *
  * The real report is made in the background meanwhile (see `feed`). The scan
  * only shows ratings from it: a sentence is marked, and the AI rate moves,
