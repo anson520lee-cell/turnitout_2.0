@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Minus, X } from "lucide-react";
 import { SCORE_BANDS, bandFor, type LogLine, type LogTone } from "@/lib/auto-report/scan-script";
+import type { ScoreCurve } from "@/lib/auto-report/stitch";
 import type { Overall } from "@/lib/auto-report/stitch";
 import { METER_POINT_MS, type RateMeter } from "./rate-meter";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,7 @@ export function RatePanel({
   medium,
   uncertain,
   compact,
+  curve,
 }: {
   meter: RateMeter;
   ready: boolean;
@@ -123,8 +125,10 @@ export function RatePanel({
   medium: number;
   uncertain: number;
   compact?: boolean;
+  /** The curve the report's score is read on, for the band label (see scoreBasis). */
+  curve?: ScoreCurve;
 }) {
-  const band = bandFor(estimate);
+  const band = bandFor(estimate, curve);
 
   if (compact) {
     return (

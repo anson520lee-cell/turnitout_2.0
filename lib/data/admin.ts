@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBytes } from "@/lib/utils";
 import { assertAdmin } from "@/lib/auth/session";
-import { aiScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
 import { freeRange } from "@/lib/scanning/free-range";
 import type { OrderStatus } from "@/lib/orders/status";
 import type {
@@ -215,7 +215,7 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
       kind,
       email: o.profiles?.email ?? null,
       words: sum?.words ?? o.word_count,
-      score: sum ? Math.round(aiScore(sum.flaggedShare) * 100) : null,
+      score: sum ? Math.round(reportScore(sum) * 100) : null,
       range: null,
       level: sum?.overall ?? null,
       detail: sum

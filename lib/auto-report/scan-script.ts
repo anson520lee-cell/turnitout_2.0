@@ -11,7 +11,7 @@
 
 import { chunkText } from "@/lib/chunking";
 import { splitSentences } from "@/lib/recheck";
-import { PIECE_SIZE, SCORE_BANDS, overallFor, type AutoReportResult, type Level, type Overall, type ReportSentence } from "./stitch";
+import { PIECE_SIZE, SCORE_BANDS, overallFor, type AutoReportResult, type Level, type Overall, type ReportSentence, type ScoreCurve } from "./stitch";
 
 export interface ScanSentence {
   /** 1-based place in the whole text, as in the report. */
@@ -120,10 +120,16 @@ export function ratingsBySentence(result: AutoReportResult): Map<number, ReportS
 
 export const isFlagged = (r: Level | undefined) => r === "high" || r === "medium";
 
-/** prefix[k] = flagged sentences among the first k, from the report's ratings. */
-export function flaggedPrefix(plan: ScanPlan, ratings: Map<number, ReportSentence>): number[] {
+/**
+ * prefix[k] = flagged sentences among the first k, from the report's ratings. With `countedOnly` (reports that mark
+ * which sentences count toward the AI score) only those are counted, so the live rate ends on the report's own basis.
+ */
+export function flaggedPrefix(plan: ScanPlan, ratings: Map<number, ReportSentence>, countedOnly = false): number[] {
   const out = [0];
-  plan.sentences.forEach((x, i) => out.push(out[i] + (isFlagged(ratings.get(x.n)?.risk) ? 1 : 0)));
+  plan.sentences.forEach((x, i) => {
+    const r = ratings.get(x.n);
+    out.push(out[i] + ((countedOnly ? r?.counts : isFlagged(r?.risk)) ? 1 : 0));
+  });
   return out;
 }
 
@@ -144,8 +150,8 @@ export function liveEstimate(prefix: number[], total: number, finalShare: number
   return at > total - 1 ? raw + (finalShare - raw) * (at - (total - 1)) : raw;
 }
 
-export function bandFor(rate: number): Overall {
-  return overallFor(rate);
+export function bandFor(rate: number, curve?: ScoreCurve): Overall {
+  return overallFor(rate, curve);
 }
 
 export { SCORE_BANDS };

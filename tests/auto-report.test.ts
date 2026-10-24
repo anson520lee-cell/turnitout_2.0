@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chunkText } from "../lib/chunking";
-import { PIECE_SIZE, aiScore, overallFor, stitchReport } from "../lib/auto-report/stitch";
+import { COUNTED_CURVE, PIECE_SIZE, aiScore, countsTowardScore, overallFor, reportOverall, reportScore, stitchReport } from "../lib/auto-report/stitch";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
 const paragraph = (start: number, count: number) => Array.from({ length: count }, (_, i) => sentence(start + i)).join(" ");
@@ -58,6 +58,53 @@ test("the AI score leans to 0 below 60% flagged and to 100 above it", () => {
   assert.equal(pct(-0.2), 0);
   assert.equal(pct(1.3), 100);
   for (let x = 0; x < 1; x += 0.05) assert.ok(aiScore(x + 0.05) > aiScore(x), "keeps the order of texts");
+});
+
+test("a sentence counts toward the score when High, or Medium citing signal 7, 8 or 9", () => {
+  assert.equal(countsTowardScore("high"), true);
+  assert.equal(countsTowardScore("high", "Signals 1, 5: formal synonym"), true);
+  assert.equal(countsTowardScore("medium", "Signals 7b, 1: carries a three-item list"), true);
+  assert.equal(countsTowardScore("medium", "Signal 8: every word is the obvious one"), true);
+  assert.equal(countsTowardScore("medium", "Signals 4, 9: tidy closing line"), true);
+  assert.equal(countsTowardScore("medium", "Signals 1, 3: ready-made phrase; run of short sentences"), false);
+  assert.equal(countsTowardScore("medium", "Signal 6: flawless, though it mentions 7 days"), false);
+  assert.equal(countsTowardScore("medium", "Signal: passive, agentless description"), false);
+  assert.equal(countsTowardScore("medium"), false);
+  assert.equal(countsTowardScore("uncertain", "Signal 8: obvious wording"), false);
+  assert.equal(countsTowardScore("low", "Signal 7"), false);
+});
+
+test("the report scores only the counted sentences, on the counted curve", () => {
+  const flags = [
+    `- P1 S1 "This is..." | Risk: High | Signals 1, 2: stock frame`,
+    `- P1 S2 "This is..." | Risk: Medium | Signals 7a, 1: template opening`,
+    `- P1 S3 "This is..." | Risk: Medium | Signals 1, 5: formal synonym`,
+    `- P1 S4 "This is..." | Risk: Medium | Signal 3: run of short sentences`,
+  ];
+  const result = stitchReport(paragraph(1, 5), [{ idx: 0, ok: true, truncated: false, report: answer(flags) }], 5000);
+  const sentences = result.paragraphs[0].sentences;
+  assert.deepEqual(sentences.map((x) => Boolean(x.counts)), [true, true, false, false, false]);
+  assert.equal(result.summary.flaggedShare, 0.8);
+  assert.equal(result.summary.counted, 2);
+  assert.equal(result.summary.countedShare, 0.4);
+  assert.equal(Math.round(reportScore(result.summary) * 100), 50, "40% counted sits at the middle of the counted curve");
+  assert.equal(result.summary.overall, "moderate");
+  assert.equal(reportOverall(result.summary), "moderate");
+});
+
+test("reports made before counted sentences keep the old score", () => {
+  const old = { flaggedShare: 0.7 };
+  assert.equal(reportScore(old), aiScore(0.7));
+  assert.equal(reportOverall(old), overallFor(0.7));
+});
+
+test("counted curve bands: red from about 43.5% of sentences counted, yellow from about 33%", () => {
+  assert.equal(overallFor(0.33, COUNTED_CURVE), "low");
+  assert.equal(overallFor(0.34, COUNTED_CURVE), "moderate");
+  assert.equal(overallFor(0.43, COUNTED_CURVE), "moderate");
+  assert.equal(overallFor(0.44, COUNTED_CURVE), "elevated");
+  assert.equal(Math.round(aiScore(0, COUNTED_CURVE) * 100), 0);
+  assert.equal(Math.round(aiScore(1, COUNTED_CURVE) * 100), 100);
 });
 
 import { billableChars, refinementPrice, reportChargedChars, reportPrice, reportPricing, toCredits } from "../config/pricing";

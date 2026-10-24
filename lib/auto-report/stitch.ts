@@ -23,6 +23,8 @@ export interface ReportSentence {
   why?: string;
   /** The question to ask yourself, when the reviewer gave one. */
   ask?: string;
+  /** Counts toward the AI score (see countsTowardScore). Reports made before 2026-10-24 never set it. */
+  counts?: true;
 }
 
 export interface ReportParagraph {
@@ -51,6 +53,10 @@ export interface AutoReportSummary {
   flaggedShare: number;
   /** Paragraphs rated High or Medium. */
   riskyParagraphs: number;
+  /** Sentences that count toward the AI score (see countsTowardScore); absent on reports made before 2026-10-24. */
+  counted?: number;
+  /** counted as a share of the reviewed sentences, 0 to 1; what the AI score is read from when present. */
+  countedShare?: number;
   overall: Overall;
 }
 
@@ -76,6 +82,11 @@ export interface PieceAnswer {
  */
 export const PIECE_SIZE = 3500;
 
+export interface ScoreCurve {
+  centre: number;
+  steepness: number;
+}
+
 /**
  * The headline AI score (0 to 1) from the share of sentences flagged. Jordan asked (2026-10-20) for a figure that
  * leans to 0% or 100% instead of sitting in the middle: an S-curve pulls a share below its centre toward 0 and one
@@ -84,28 +95,70 @@ export const PIECE_SIZE = 3500;
  * backtest samples (pieces of 3,000, live prompt): 36 BAWE university essays written by people go from 36% to 14%
  * red; his 12 ChatGPT/Gemini essays stay 100% red; the Turnitin-labelled pair scores 70 (Turnitin 59%) and 40
  * (Turnitin 0%) instead of 88 and 68. The cost is AI written in an ESL student voice: 80% to 65% red.
+ *
+ * This curve now reads the share of ALL High and Medium sentences only for reports made before 2026-10-24 and for
+ * the free scan. Newer reports are read from the counted sentences on COUNTED_CURVE.
  */
-export const SCORE_CURVE = { centre: 0.6, steepness: 12 } as const;
+export const SCORE_CURVE: ScoreCurve = { centre: 0.6, steepness: 12 };
 
-const curve = (x: number) => 1 / (1 + Math.exp(-SCORE_CURVE.steepness * (x - SCORE_CURVE.centre)));
+/**
+ * The curve for the share of counted sentences (countsTowardScore), live since 2026-10-24 (Jordan: catching AI
+ * matters more than a few more human texts marked). Recomputed on the word1 backtests (231 samples, 3,000-character
+ * pieces): AI caught 101 -> 111 of 125, casual and reflective AI 43 -> 55 of 64, CCHU 9078 J1 (Turnitin 96%) red in
+ * 3 of 3 runs instead of 0; formal human writing marked red 17 -> 13 of 54, ESL student essays 0 -> 1 of 48.
+ */
+export const COUNTED_CURVE: ScoreCurve = { centre: 0.4, steepness: 12 };
 
-export function aiScore(flaggedShare: number): number {
-  const x = Math.min(1, Math.max(0, flaggedShare));
+export function aiScore(share: number, c: ScoreCurve = SCORE_CURVE): number {
+  const curve = (v: number) => 1 / (1 + Math.exp(-c.steepness * (v - c.centre)));
+  const x = Math.min(1, Math.max(0, share));
   return (curve(x) - curve(0)) / (curve(1) - curve(0));
 }
 
 /**
  * Overall bands on the AI score scale, so the colour always matches the number shown: under 30 Low (green), 30 to
  * 59 Moderate (yellow), 60 and over Elevated (red) (Jordan, 2026-10-20). With the curve centred on 60% flagged that
- * is about 53% and 63.4% of sentences flagged. Guidance only; never a percentage chance.
+ * is about 53% and 63.4% of sentences flagged; centred on 40% counted, about 33% and 43.5%. Guidance only; never a
+ * percentage chance.
  */
 export const SCORE_BANDS = { moderate: 0.3, elevated: 0.6 } as const;
 
-export function overallFor(flaggedShare: number): Overall {
-  const score = aiScore(flaggedShare);
+export function overallFor(share: number, c: ScoreCurve = SCORE_CURVE): Overall {
+  const score = aiScore(share, c);
   if (score >= SCORE_BANDS.elevated) return "elevated";
   if (score >= SCORE_BANDS.moderate) return "moderate";
   return "low";
+}
+
+/**
+ * Whether a sentence counts toward the AI score: every High sentence, and a Medium one whose reasons cite signal 7
+ * (template structure), 8 (predictable wording) or 9 (plain-style moves) of the word1 prompt. On the backtests the
+ * other signals (ready-made academic phrases, runs of short tidy sentences, formal synonyms, flawless prose) fired
+ * more on formal human writing than on AI, so a Medium sentence that only cites those is still shown but not
+ * counted. A prompt saved on /admin/prompt that numbers its signals differently changes what this picks up.
+ */
+export function countsTowardScore(risk: Level, why?: string): boolean {
+  if (risk === "high") return true;
+  if (risk !== "medium" || !why) return false;
+  const cited = /^\s*signals?\b([^:|]*)/i.exec(why);
+  return Boolean(cited && /\b[789][a-z]?\b/i.test(cited[1]));
+}
+
+/** The share and curve a report's AI score is read from: counted sentences when the report has them, else all flagged ones. */
+export function scoreBasis(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): { share: number; curve: ScoreCurve } {
+  return summary.countedShare === undefined ? { share: summary.flaggedShare, curve: SCORE_CURVE } : { share: summary.countedShare, curve: COUNTED_CURVE };
+}
+
+/** A report's AI score, 0 to 1. */
+export function reportScore(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): number {
+  const { share, curve } = scoreBasis(summary);
+  return aiScore(share, curve);
+}
+
+/** A report's overall band, on the same basis as its score. */
+export function reportOverall(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): Overall {
+  const { share, curve } = scoreBasis(summary);
+  return overallFor(share, curve);
 }
 
 const toLevel = (r: Risk | undefined): Level => (r === "high" || r === "medium" || r === "uncertain" ? r : "low");
@@ -207,7 +260,8 @@ export function stitchReport(text: string, answers: PieceAnswer[], size = PIECE_
       paragraphs.push(para);
     }
     const hit = bySentence.get(n);
-    para.sentences.push({ n, text: s.text, risk: hit?.risk ?? "low", ...(hit?.why ? { why: hit.why } : {}), ...(hit?.ask ? { ask: hit.ask } : {}) });
+    const counts = hit && covered.has(n) && countsTowardScore(hit.risk, hit.why);
+    para.sentences.push({ n, text: s.text, risk: hit?.risk ?? "low", ...(hit?.why ? { why: hit.why } : {}), ...(hit?.ask ? { ask: hit.ask } : {}), ...(counts ? { counts: true as const } : {}) });
   }
   for (const para of paragraphs) {
     const given = paraNote.get(para.p);
@@ -223,6 +277,8 @@ export function stitchReport(text: string, answers: PieceAnswer[], size = PIECE_
   const medium = count("medium");
   const reviewedSentences = covered.size;
   const flaggedShare = reviewedSentences ? (high + medium) / reviewedSentences : 0;
+  const counted = paragraphs.reduce((sum, p) => sum + p.sentences.filter((x) => x.counts).length, 0);
+  const countedShare = reviewedSentences ? counted / reviewedSentences : 0;
   return {
     version: 1,
     pieces: { total: chunks.length, reviewed },
@@ -235,7 +291,9 @@ export function stitchReport(text: string, answers: PieceAnswer[], size = PIECE_
       uncertain: count("uncertain"),
       flaggedShare,
       riskyParagraphs: paragraphs.filter((p) => p.risk === "high" || p.risk === "medium").length,
-      overall: overallFor(flaggedShare),
+      counted,
+      countedShare,
+      overall: overallFor(countedShare, COUNTED_CURVE),
     },
     paragraphs,
     grammar: grammar.sort((a, b) => a.n - b.n),

@@ -5,8 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, FileCheck2, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
-import { aiScore } from "@/lib/auto-report/stitch";
-import { INTRO_MS, bandFor, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
+import { aiScore, reportOverall, reportScore, scoreBasis } from "@/lib/auto-report/stitch";
+import { INTRO_MS, flaggedPrefix, liveEstimate, ratingsBySentence, scanDurationMs, scanPlan, scanPosition } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
 import { RateMeter, type MeterInput } from "./rate-meter";
 import { RatePanel } from "./scan-panels";
@@ -99,15 +99,17 @@ export function ReportScan({
 
   const done = Boolean(result) && fraction >= 1 && revealed >= total;
   if (done && doneAt === null) setDoneAt(now);
-  const prefix = useMemo(() => (ratings ? flaggedPrefix(plan, ratings) : null), [plan, ratings]);
-  const estimate = result && prefix ? liveEstimate(prefix, total, result.summary.flaggedShare, revealedAt) : null;
-  const score = estimate === null ? null : aiScore(estimate);
+  const basis = result ? scoreBasis(result.summary) : null;
+  const countedOnly = result?.summary.countedShare !== undefined;
+  const prefix = useMemo(() => (ratings ? flaggedPrefix(plan, ratings, countedOnly) : null), [plan, ratings, countedOnly]);
+  const estimate = basis && prefix ? liveEstimate(prefix, total, basis.share, revealedAt) : null;
+  const score = estimate === null || !basis ? null : aiScore(estimate, basis.curve);
 
   // The live rate ticks on its own clock, following the real estimate on the report's AI score scale.
   const [meter] = useState(() => new RateMeter());
   const input = useRef<MeterInput>({ ready: false, base: 0, progress: 0, done: false, final: 0, reduce });
   useLayoutEffect(() => {
-    input.current = { ready: estimate !== null && !inIntro, base: score ?? 0, progress: total ? revealedAt / total : 0, done, final: aiScore(result?.summary.flaggedShare ?? 0), reduce };
+    input.current = { ready: estimate !== null && !inIntro, base: score ?? 0, progress: total ? revealedAt / total : 0, done, final: result ? reportScore(result.summary) : 0, reduce };
   });
   useEffect(() => {
     const t = setInterval(() => meter.step(input.current, performance.now()), 50);
@@ -156,7 +158,7 @@ export function ReportScan({
         </Button>
       </div>
       <div className="mt-4">
-        <RatePanel compact meter={meter} ready={estimate !== null && !inIntro} estimate={estimate ?? 0} final={done} scanned={scanned} total={total} high={counts.high} medium={counts.medium} uncertain={counts.uncertain} />
+        <RatePanel compact meter={meter} ready={estimate !== null && !inIntro} estimate={estimate ?? 0} final={done} scanned={scanned} total={total} high={counts.high} medium={counts.medium} uncertain={counts.uncertain} curve={basis?.curve} />
       </div>
       <p className="mt-3 text-[12px] text-fg-subtle">You can close this page: your report is saved and carries on when you come back.</p>
     </div>
@@ -251,13 +253,13 @@ export function ReportScan({
                   <ShieldCheck className="size-4" /> Scan complete
                 </p>
                 <p className="scan-rate-land relative mt-4 font-mono text-[64px] font-semibold leading-none tracking-tight">
-                  {Math.round(aiScore(result.summary.flaggedShare) * 100)}
+                  {Math.round(reportScore(result.summary) * 100)}
                   <span className="text-[28px] text-fg-subtle">%</span>
                 </p>
                 <p className="relative mt-2 text-[13.5px] text-fg-muted">AI score · {Math.round(result.summary.flaggedShare * 100)}% of sentences flagged</p>
                 <p className="relative mt-1 text-[12.5px] text-fg-subtle">
                   {result.summary.high} high · {result.summary.medium} medium · {result.summary.sentences} sentences · overall{" "}
-                  <span className="text-fg">{{ low: "Low", moderate: "Moderate", elevated: "Elevated" }[bandFor(result.summary.flaggedShare)]}</span>
+                  <span className="text-fg">{{ low: "Low", moderate: "Moderate", elevated: "Elevated" }[reportOverall(result.summary)]}</span>
                 </p>
                 <Button className="relative mt-6 w-full" size="lg" onClick={end}>
                   <FileCheck2 className="size-4" /> Open full report <ArrowRight className="size-4" />
