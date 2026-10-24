@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties } from "react";
-import { SCORE_BANDS, aiScore, overallFor } from "@/lib/auto-report/stitch";
+import { SCORE_BANDS, aiScore, overallFor, type ScoreCurve } from "@/lib/auto-report/stitch";
 import { rangeLevel } from "@/lib/scanning/free-range";
 import type { RiskLevel } from "@/lib/scanning/types";
 
@@ -24,15 +24,16 @@ const arc = (from: number, to: number, r = R) => {
 /**
  * Three-band gauge. By default it shows a level only (the free scan). Given `share` (0 to 1, the share of sentences
  * flagged) it becomes a 0 to 100 dial of the AI score (aiScore): the needle sits at the score and the band edges are
- * the report's thresholds on the same scale, so the needle is always inside the band whose name is shown.
+ * the report's thresholds on the same scale, so the needle is always inside the band whose name is shown. `curve` is
+ * the curve that share is read on (see scoreBasis); without it, the curve for all flagged sentences.
  * Given `range` (the free scan: lo and hi on the 0 to 100 AI score) there is no needle: the range itself lights up
  * on the dial and its label is the range, never an exact number.
  */
-export function RiskGauge({ level, share, range }: { level: RiskLevel; share?: number; range?: { lo: number; hi: number } }) {
+export function RiskGauge({ level, share, curve, range }: { level: RiskLevel; share?: number; curve?: ScoreCurve; range?: { lo: number; hi: number } }) {
   const measured = share !== undefined || range !== undefined;
-  const shown = share !== undefined ? overallFor(share) : range ? rangeLevel(range.lo, range.hi) : level;
+  const shown = share !== undefined ? overallFor(share, curve) : range ? rangeLevel(range.lo, range.hi) : level;
   const idx = LEVELS.findIndex((l) => l.id === shown);
-  const score = share !== undefined ? aiScore(share) : 0;
+  const score = share !== undefined ? aiScore(share, curve) : 0;
   const marks = [0, SCORE_BANDS.moderate, SCORE_BANDS.elevated, 1];
   const edges = measured ? marks.map((v) => v * 180) : [0, 60, 120, 180];
   const angle = measured ? -90 + score * 180 : -60 + idx * 60; // true score, or the centre of the band

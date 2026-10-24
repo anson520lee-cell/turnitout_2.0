@@ -44,6 +44,17 @@ test("the live rate moves up and down with each sentence and lands exactly on th
   assert.equal(Math.round(final * 100), 20);
 });
 
+test("with counted sentences the live rate counts only those and lands on the counted share", () => {
+  const flags = ["- P1 S2 \"x\" | Risk: High | Signals 1: tidy", "- P2 S1 \"x\" | Risk: Medium | Signals 2: stock", "- P3 S6 \"x\" | Risk: Medium | Signals 8: predictable"];
+  const result = stitchReport(essay, [{ idx: 0, ok: true, truncated: false, report: answer(flags) }]);
+  const plan = scanPlan(essay);
+  const total = plan.sentences.length;
+  const prefix = flaggedPrefix(plan, ratingsBySentence(result), true);
+  assert.equal(prefix[total], 2, "the Medium sentence citing only signal 2 is not counted");
+  assert.equal(liveEstimate(prefix, total, result.summary.countedShare!, total), result.summary.countedShare);
+  assert.equal(result.summary.countedShare, 2 / total);
+});
+
 test("scan logs point at the text but never say how it is judged", () => {
   const flags = ["- P1 S2 \"x\" | Risk: High | Signals 1, 4: repeated wording and even sentence lengths"];
   const result = stitchReport(essay, [{ idx: 0, ok: true, truncated: false, report: answer(flags) }]);

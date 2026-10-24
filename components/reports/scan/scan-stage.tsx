@@ -12,7 +12,7 @@ import {
   type LogLine,
   type ScanPlan,
 } from "@/lib/auto-report/scan-script";
-import type { AutoReportResult, Level, ReportSentence } from "@/lib/auto-report/stitch";
+import { scoreBasis, type AutoReportResult, type Level, type ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RatePanel, TERMS, Terminal, type TermId, type TermLine } from "./scan-panels";
 import type { RateMeter } from "./rate-meter";
@@ -235,6 +235,7 @@ export function ScanStage({
     high: counts.high,
     medium: counts.medium,
     uncertain: counts.uncertain,
+    curve: result ? scoreBasis(result.summary).curve : undefined,
   };
 
   const terminalFor = (id: TermId, mobile = false) => {
