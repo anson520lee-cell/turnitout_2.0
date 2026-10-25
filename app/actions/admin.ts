@@ -16,6 +16,7 @@ import { uploads } from "@/config/app";
 import { manualPayments, orderAmountText } from "@/config/payments";
 import { serviceLabels } from "@/config/services";
 import { shortId } from "@/lib/utils";
+import { creditsHeldFor, releaseHeldCredits } from "@/lib/orders/held-credits";
 import type { AdminChecklist, Order, PaymentClaim } from "@/types/domain";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -67,8 +68,10 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
       message: `This order is ${order.status.replace(/_/g, " ")}, not awaiting payment. Reject the claim instead and refund the customer if they paid twice.`,
     };
   }
-  if (claim.amount !== order.price) {
-    return { ok: false, message: `The claim is for ${orderAmountText(claim.method, claim.amount)} but the order costs ${orderAmountText(claim.method, order.price)}. Reject it and ask the customer to resubmit.` };
+  // Credits the customer already had were taken when they sent the claim; the claim covers the rest.
+  const held = await creditsHeldFor(order.id);
+  if (claim.amount + held * 100 !== order.price) {
+    return { ok: false, message: `The claim is for ${orderAmountText(claim.method, claim.amount)}${held ? ` plus ${held} credits` : ""} but the order costs ${orderAmountText(claim.method, order.price)}. Reject it and ask the customer to resubmit.` };
   }
 
   const db = createAdminClient();
@@ -104,6 +107,7 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
       .from("payment_claims")
       .update({ status: "rejected", admin_note: "Order was already paid by another method" })
       .eq("id", claim.id);
+    await releaseHeldCredits(order.id, order.user_id, "was paid another way");
     await audit("payment_claim_rejected", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, reason: "already_paid" } });
     refresh(order.id);
     const label = manualPayments[claim.method]?.label ?? claim.method;
@@ -152,8 +156,10 @@ export async function rejectPaymentClaim(input: unknown): Promise<Result> {
     .eq("status", "pending")
     .select("id");
   if (!done?.length) return { ok: false, message: "This claim has already been reviewed." };
+  // Any credits taken from the customer's balance for this order go back to them.
+  const returned = await releaseHeldCredits(claim.order_id, claim.user_id, "Alipay payment not confirmed");
 
-  await audit("payment_claim_rejected", { actorId: admin.id, orderId: claim.order_id, detail: { claim: claim.id, method: claim.method } });
+  await audit("payment_claim_rejected", { actorId: admin.id, orderId: claim.order_id, detail: { claim: claim.id, method: claim.method, creditsReturned: returned } });
   notifyOwner("payment_rejected", {
     order: shortId(claim.order_id),
     method: manualPayments[claim.method]?.label ?? claim.method,

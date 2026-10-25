@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { adminOrderBundle } from "@/lib/data/admin";
+import { creditsHeldFor } from "@/lib/orders/held-credits";
 import { uuid } from "@/lib/validation/schemas";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,8 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
   const b = await adminOrderBundle(id);
   if (!b) notFound();
   const { order, file, screening, refinement, payments, notes, events, claims, auto } = b;
+  // Credits taken from the customer's balance before Alipay, for a payment still being checked.
+  const held = claims.some((c) => c.status === "pending") ? await creditsHeldFor(order.id) : 0;
   const screeningOrder = isScreening(order.service_type);
   const closed = order.status === "completed" || order.status === "cancelled";
   const succeeded = payments.filter((p) => p.status === "succeeded");
@@ -119,7 +122,7 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
           </Card>
 
           {(claims.length > 0 || order.status === "awaiting_payment") && (
-            <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} />
+            <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} held={held} />
           )}
 
           <StatusControls orderId={order.id} type={order.service_type} status={order.status} cancelOnly={Boolean(auto)} />

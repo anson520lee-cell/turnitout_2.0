@@ -3,11 +3,16 @@ import Link from "next/link";
 import { adminMetrics, adminOrders } from "@/lib/data/admin";
 import { OrdersTable } from "@/components/admin/orders-table";
 import { TopupReview, type PendingTopup } from "@/components/admin/topup-review";
+import { ClaimQuickReview } from "@/components/admin/payment-claims";
+import { PaymentAlert } from "@/components/admin/payment-alert";
+import { AutoRefresh } from "@/components/orders/auto-refresh";
+import { creditsHeldForMany } from "@/lib/orders/held-credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatHKD } from "@/config/pricing";
-import { hkdAmount, isManualPaymentMethod, manualPayments, orderAmountParts, paymentMethodLabel } from "@/config/payments";
+import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
-import { formatDateTime, shortId } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
+import type { PaymentClaim } from "@/types/domain";
 import { recheckStableTopups } from "@/lib/payments/stable-topups";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -47,6 +52,13 @@ export default async function AdminHome() {
   const toVerify = orders
     .filter((o) => o.pending_claim && o.status === "awaiting_payment")
     .sort((a, b) => a.pending_claim!.created_at.localeCompare(b.pending_claim!.created_at));
+  const [claimRows, held] = toVerify.length
+    ? await Promise.all([
+        createAdminClient().from("payment_claims").select("*").in("id", toVerify.map((o) => o.pending_claim!.id)).then((r) => (r.data ?? []) as PaymentClaim[]),
+        creditsHeldForMany(toVerify.map((o) => o.id)),
+      ])
+    : [[] as PaymentClaim[], new Map<string, number>()];
+  const claimById = new Map(claimRows.map((c) => [c.id, c]));
   const stats: [string, string | number, boolean?][] = [
     ["Payments to verify", m.claimsPending, m.claimsPending > 0],
     ["Waiting in queue", m.queued],
@@ -59,7 +71,11 @@ export default async function AdminHome() {
   ];
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+        {/* one fixed place, so it notices when a new payment arrives on a refresh */}
+        <PaymentAlert count={toVerify.length} />
+      </div>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
         {stats.map(([k, v, alert]) => (
           <div key={k} className={alert ? "glass rounded-2xl border-warn/40 p-4 shadow-[0_0_0_1px_rgb(141_179_255/0.2)]" : "glass rounded-2xl p-4"}>
@@ -68,6 +84,26 @@ export default async function AdminHome() {
           </div>
         ))}
       </div>
+      {toVerify.length > 0 && (
+        <>
+          <h2 className="mt-10 text-[16px] font-semibold">
+            Payments to verify <span className="text-fg-subtle">· oldest first</span>
+          </h2>
+          <p className="mt-1 text-[12.5px] text-fg-muted">
+            Customers who paid one order by Alipay. Open your AlipayHK transaction records, find the transaction number, and check the amount is exactly what is shown here. Nothing is made for the customer until you press Confirm; if the money is missing or less, press Reject.
+          </p>
+          <ul className="mt-4 grid gap-3 md:grid-cols-2">
+            {toVerify.map((o) => {
+              const c = claimById.get(o.pending_claim!.id);
+              return c ? (
+                <li key={o.id}>
+                  <ClaimQuickReview claim={c} orderId={o.id} orderPrice={o.price} email={o.profiles?.email ?? null} held={held.get(o.id) ?? 0} />
+                </li>
+              ) : null;
+            })}
+          </ul>
+        </>
+      )}
       {topupRows.length > 0 && (
         <>
           <h2 className="mt-10 text-[16px] font-semibold">
@@ -79,44 +115,12 @@ export default async function AdminHome() {
           </div>
         </>
       )}
-      {toVerify.length > 0 && (
-        <>
-          <h2 className="mt-10 text-[16px] font-semibold">
-            Payments to verify <span className="text-fg-subtle">· oldest first</span>
-          </h2>
-          <p className="mt-1 text-[12.5px] text-fg-muted">Customers who paid one order directly (Alipay). Check the account for the transaction number and amount, then open the order to confirm or reject.</p>
-          <ul className="mt-4 grid gap-3 md:grid-cols-2">
-            {toVerify.map((o) => (
-              <li key={o.id}>
-                <Link
-                  href={`/admin/orders/${o.id}`}
-                  data-tilt="5"
-                  data-press
-                  className="glass flex items-center justify-between gap-4 rounded-2xl border-warn/30 p-4 transition hover:border-warn/60"
-                >
-                  <div className="min-w-0">
-                    <p className="font-mono text-[13px] text-accent">#{shortId(o.id)}</p>
-                    <p className="mt-0.5 truncate text-[12.5px] text-fg-muted">
-                      {paymentMethodLabel(o.pending_claim!.method)} · {o.profiles?.email ?? "—"}
-                    </p>
-                    <p className="text-[11.5px] text-fg-subtle">Reported {formatDateTime(o.pending_claim!.created_at)}</p>
-                  </div>
-                  <span className="text-right text-[12px] font-medium text-warn">
-                    Check you received
-                    <span className="block text-[18px] font-semibold text-fg">{orderAmountParts(o.pending_claim!.method, o.pending_claim!.amount).main}</span>
-                    <span className="block font-normal text-fg-subtle">{orderAmountParts(o.pending_claim!.method, o.pending_claim!.amount).sub}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
       <div className="mt-10 flex items-center justify-between">
         <h2 className="text-[16px] font-semibold">Work queue <span className="text-fg-subtle">· oldest first</span></h2>
         <Link href="/admin/activity?kind=orders" className="text-[13px] text-accent hover:underline">All orders</Link>
       </div>
       <div className="mt-4"><OrdersTable orders={queue} /></div>
+      <AutoRefresh every={20_000} className="mt-6" />
     </>
   );
 }

@@ -26,10 +26,11 @@ export function DirectPay({
   report,
   primary,
   autoOpen,
+  useCredits = 0,
 }: {
   orderId: string;
   methodId: ManualPaymentMethod;
-  /** the order's price in cents (100 = 1 credit), as stored on the server */
+  /** the part of the order's price paid with Alipay, in cents (100 = 1 credit): the price minus useCredits */
   price: number;
   reference: string;
   report: boolean;
@@ -37,6 +38,8 @@ export function DirectPay({
   primary: boolean;
   /** open the popup as soon as the page loads (straight after Get report) */
   autoOpen: boolean;
+  /** credits on the customer's account, used first (fewer than the price) */
+  useCredits?: number;
 }) {
   const router = useRouter();
   const method = manualPayments[methodId];
@@ -46,6 +49,11 @@ export function DirectPay({
   const titleId = useId();
   const usdText = formatMoney("US$", usd);
   const mainText = hkd !== null ? formatMoney("HK$", hkd) : usdText;
+  const creditsText = `${useCredits} credit${useCredits === 1 ? "" : "s"}`;
+  const isAre = useCredits === 1 ? "is" : "are";
+  const priceNote = useCredits > 0
+    ? `Your ${creditsText} ${isAre} used first, so you pay only the rest.`
+    : "The exact price for your text. No top-up and no minimum.";
 
   useEffect(() => {
     const d = dialogRef.current;
@@ -73,11 +81,12 @@ export function DirectPay({
             <p className="flex items-center gap-2 text-[14px] font-semibold">
               <Wallet className="size-4 text-accent" aria-hidden /> Pay just this {report ? "report" : "order"} with {method.label}
             </p>
-            <p className="mt-1 text-[12.5px] text-fg-muted">The exact price for your text. No top-up and no minimum.</p>
+            <p className="mt-1 text-[12.5px] text-fg-muted">{priceNote}</p>
           </div>
           <p className="text-right">
             <span className="text-2xl font-semibold tracking-tight">{mainText}</span>
             {hkd !== null && <span className="block font-mono text-[11.5px] text-fg-subtle">= {usdText}</span>}
+            {useCredits > 0 && <span className="block font-mono text-[11.5px] text-fg-subtle">+ {creditsText} from your balance</span>}
           </p>
         </div>
         <Button
@@ -125,7 +134,10 @@ export function DirectPay({
                     Pay {mainText} with {method.label}
                   </h2>
                   <p className="mt-1 text-[13px] text-fg-muted">
-                    {hkd !== null ? `${mainText} = ${usdText}, ` : ""}the exact price of this {report ? "report" : "order"}. {report ? "Your report starts as soon as we confirm the payment." : "Your order joins the queue as soon as we confirm the payment."}
+                    {useCredits > 0
+                      ? `Your ${creditsText} ${isAre} used first; ${mainText}${hkd !== null ? ` (${usdText})` : ""} is the rest of this ${report ? "report" : "order"}'s price. `
+                      : `${hkd !== null ? `${mainText} = ${usdText}, ` : ""}the exact price of this ${report ? "report" : "order"}. `}
+                    {report ? "Your report starts as soon as we confirm the payment." : "Your order joins the queue as soon as we confirm the payment."}
                   </p>
                 </div>
                 <button
@@ -145,7 +157,7 @@ export function DirectPay({
                   amountSub={hkd !== null ? `= ${usdText}` : undefined}
                   reference={reference}
                   disabled={false}
-                  submit={(m, ref) => submitPaymentClaim(orderId, m, ref)}
+                  submit={(m, ref) => submitPaymentClaim(orderId, m, ref, useCredits)}
                   onSubmitted={() => {
                     track("direct_pay_submitted", { method: method.id });
                     close();

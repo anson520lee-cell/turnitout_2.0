@@ -27,6 +27,7 @@ import { directPayMethods, manualPayments, orderAmountParts, paymentReference } 
 import { devPaymentsEnabled } from "@/lib/env";
 import { getCreditBalance } from "@/lib/credits";
 import { repriceUnpaid } from "@/lib/orders/reprice";
+import { creditsHeldFor } from "@/lib/orders/held-credits";
 import { formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order" };
@@ -57,10 +58,12 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   const balance = unpaid ? await getCreditBalance() : 0;
   const shortfall = Math.max(0, toCredits(order.price) - balance);
   const suggestedUsd = Math.min(topUp.maxUsd, Math.max(topUp.minUsd, Math.ceil(shortfall / CREDITS_PER_USD)));
-  // Pay just this order (Alipay): the exact price, no top-up. It is the main option when credits don't cover the order,
-  // and pops up by itself straight after Get report.
-  const direct = unpaid && order.price > 0 ? directPayMethods()[0] ?? null : null;
+  // Pay just this order (Alipay): the exact price, no top-up, when credits don't cover the order. Credits on the account
+  // are used first and Alipay pays only the rest. It pops up by itself straight after Get report.
   const enoughCredits = shortfall === 0;
+  const direct = unpaid && order.price > 0 && !enoughCredits ? directPayMethods()[0] ?? null : null;
+  // Credits already taken for a payment that is being checked.
+  const held = pendingClaim ? await creditsHeldFor(order.id) : 0;
   const autoOpenDirect = sp.created === "1" && !enoughCredits && !rejectedClaim;
 
   return (
@@ -149,6 +152,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   <dd className="mt-0.5">
                     {orderAmountParts(pendingClaim.method, pendingClaim.amount).main}
                     <span className="block text-[12px] text-fg-subtle">{orderAmountParts(pendingClaim.method, pendingClaim.amount).sub}</span>
+                    {held > 0 && <span className="block text-[12px] text-fg-subtle">+ {held} credit{held === 1 ? "" : "s"} from your balance</span>}
                   </dd>
                 </div>
                 <div className="min-w-0"><dt className="text-fg-subtle">Your reference</dt><dd className="mt-0.5 truncate">{pendingClaim.payer_reference}</dd></div>
@@ -177,9 +181,18 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   </FormMessage>
                 </div>
               )}
-              {direct && !enoughCredits && (
+              {direct && (
                 <div className="mt-6">
-                  <DirectPay orderId={order.id} methodId={direct.id} price={order.price} reference={reference} report={screeningOrder} primary autoOpen={autoOpenDirect} />
+                  <DirectPay
+                    orderId={order.id}
+                    methodId={direct.id}
+                    price={order.price - balance * 100}
+                    useCredits={balance}
+                    reference={reference}
+                    report={screeningOrder}
+                    primary
+                    autoOpen={autoOpenDirect}
+                  />
                   <p className="mt-6 flex items-center gap-3 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
                     <span aria-hidden className="h-px flex-1 bg-[var(--line)]" /> or pay with credits <span aria-hidden className="h-px flex-1 bg-[var(--line)]" />
                   </p>
@@ -195,14 +208,6 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   report={screeningOrder}
                 />
               </div>
-              {direct && enoughCredits && (
-                <div className="mt-6">
-                  <p className="mb-4 flex items-center gap-3 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
-                    <span aria-hidden className="h-px flex-1 bg-[var(--line)]" /> or <span aria-hidden className="h-px flex-1 bg-[var(--line)]" />
-                  </p>
-                  <DirectPay orderId={order.id} methodId={direct.id} price={order.price} reference={reference} report={screeningOrder} primary={false} autoOpen={false} />
-                </div>
-              )}
             </Card>
           )}
           <div className="space-y-5">
@@ -211,8 +216,12 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               <p className="flex gap-2 px-1 text-[12px] leading-relaxed text-fg-subtle">
                 <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 {direct
-                  ? `Pay just this order with ${direct.label}, or with credits from the Billing & Credits page.`
-                  : "Orders are paid with credits. Top up on the Billing & Credits page, then come back to pay."}
+                  ? balance > 0
+                    ? `Your credits are used first and ${direct.label} pays the rest. Or top up on the Billing & Credits page and pay with credits.`
+                    : `Pay just this order with ${direct.label}, or with credits from the Billing & Credits page.`
+                  : enoughCredits
+                    ? "You have enough credits for this order: press Pay to start."
+                    : "Orders are paid with credits. Top up on the Billing & Credits page, then come back to pay."}
               </p>
             )}
           </div>
