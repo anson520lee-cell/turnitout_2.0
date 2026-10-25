@@ -9,6 +9,8 @@
  * Nothing here is secret: all of it is shown to paying customers.
  */
 
+import { CREDITS_PER_USD, priceUsd, toCredits } from "./pricing";
+
 export const MANUAL_PAYMENT_METHODS = ["alipay", "payme", "paypal", "bank_transfer", "usdt", "usdc", "bitcoin"] as const;
 export type ManualPaymentMethod = (typeof MANUAL_PAYMENT_METHODS)[number];
 
@@ -222,6 +224,56 @@ export function manualAmountText(methodId: string, usd: number): string {
   if (!isManualPaymentMethod(methodId)) return usdText;
   const hkd = hkdAmount(manualPayments[methodId], usd);
   return hkd === null ? usdText : `${usdText} (HK$${hkd.toLocaleString("en-HK")})`;
+}
+
+/**
+ * Paying one order straight away, without buying credits first. Only methods
+ * that cost us no fee (Alipay) are offered, so there is no minimum: the
+ * customer pays exactly that order's price, to the cent (e.g. US$0.38 for a
+ * 3,000-character report), and an admin confirms it like a top-up.
+ */
+export const DIRECT_PAY_METHODS = ["alipay"] as const satisfies readonly ManualPaymentMethod[];
+
+export function isDirectPayMethod(v: string): boolean {
+  return (DIRECT_PAY_METHODS as readonly string[]).includes(v);
+}
+
+/** The direct-pay methods customers can use right now. */
+export function directPayMethods(): ManualPaymentConfig[] {
+  return DIRECT_PAY_METHODS.map((m) => manualPayments[m]).filter(acceptsClaims);
+}
+
+/**
+ * What one order costs when paid directly: its credit price at the top-up rate
+ * (US$1 = CREDITS_PER_USD credits), in US$ to the cent, and in HK$ to the cent
+ * for a method paid in Hong Kong dollars (HK$ worked out from the exact US$, so
+ * 3 credits = US$0.375 is HK$2.93, shown as US$0.38).
+ */
+export function orderPayAmount(method: ManualPaymentConfig, priceCents: number): { usd: number; hkd: number | null } {
+  const credits = toCredits(priceCents);
+  const usd = priceUsd(priceCents);
+  const hkd = method.hkdPerUsd ? Math.round((credits * method.hkdPerUsd * 100) / CREDITS_PER_USD) / 100 : null;
+  return { usd, hkd };
+}
+
+/** "US$0.38", "HK$2.93", "HK$78": whole amounts without decimals, others to the cent. */
+export function formatMoney(prefix: "US$" | "HK$", v: number): string {
+  return `${prefix}${v.toLocaleString("en-US", { minimumFractionDigits: v % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+/** An order's price as paid by this method: { main: "HK$2.93", sub: "US$0.38 · 3 credits" } for Alipay, { main: "US$0.38", sub: "3 credits" } otherwise. */
+export function orderAmountParts(methodId: string, priceCents: number): { main: string; sub: string } {
+  const credits = toCredits(priceCents);
+  const creditText = `${credits.toLocaleString("en-US")} ${credits === 1 ? "credit" : "credits"}`;
+  const usd = formatMoney("US$", priceUsd(priceCents));
+  const hkd = isManualPaymentMethod(methodId) ? orderPayAmount(manualPayments[methodId], priceCents).hkd : null;
+  return hkd !== null ? { main: formatMoney("HK$", hkd), sub: `${usd} · ${creditText}` } : { main: usd, sub: creditText };
+}
+
+/** "HK$2.93 (US$0.38 · 3 credits)": owner alerts, admin lists and checks. */
+export function orderAmountText(methodId: string, priceCents: number): string {
+  const { main, sub } = orderAmountParts(methodId, priceCents);
+  return `${main} (${sub})`;
 }
 
 /** Methods where the customer may pick any amount (min US$10): the crypto ones. */

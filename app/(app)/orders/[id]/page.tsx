@@ -13,6 +13,7 @@ import { OrderTimeline } from "@/components/orders/order-timeline";
 import { OrderDetails } from "@/components/orders/order-details";
 import { CreditPayPanel } from "@/components/billing/credit-pay-panel";
 import { AutoRefresh } from "@/components/orders/auto-refresh";
+import { DirectPay } from "@/components/orders/direct-pay";
 import { ScreeningReport } from "@/components/reports/screening-report";
 import { AutoReportView } from "@/components/reports/auto-report-view";
 import { AutoReportRunner } from "@/components/reports/auto-report-runner";
@@ -22,7 +23,7 @@ import { ACTIVE_STATUSES, isScreening, statusMeta } from "@/lib/orders/status";
 import { uuid } from "@/lib/validation/schemas";
 import { serviceLabels } from "@/config/services";
 import { CREDITS_PER_USD, formatCredits, toCredits, topUp } from "@/config/pricing";
-import { manualPayments, paymentReference } from "@/config/payments";
+import { directPayMethods, manualPayments, orderAmountParts, paymentReference } from "@/config/payments";
 import { devPaymentsEnabled } from "@/lib/env";
 import { getCreditBalance } from "@/lib/credits";
 import { repriceUnpaid } from "@/lib/orders/reprice";
@@ -56,6 +57,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   const balance = unpaid ? await getCreditBalance() : 0;
   const shortfall = Math.max(0, toCredits(order.price) - balance);
   const suggestedUsd = Math.min(topUp.maxUsd, Math.max(topUp.minUsd, Math.ceil(shortfall / CREDITS_PER_USD)));
+  // Pay just this order (Alipay): the exact price, no top-up. It is the main option when credits don't cover the order,
+  // and pops up by itself straight after Get report.
+  const direct = unpaid && order.price > 0 ? directPayMethods()[0] ?? null : null;
+  const enoughCredits = shortfall === 0;
+  const autoOpenDirect = sp.created === "1" && !enoughCredits && !rejectedClaim;
 
   return (
     <>
@@ -92,7 +98,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         </Card>
       )}
       {auto?.status === "failed" && (
-        <div className="mb-5"><FormMessage>We couldn&rsquo;t finish this report. Any credits you paid have been returned. Please try again in a little while.</FormMessage></div>
+        <div className="mb-5"><FormMessage>We couldn&rsquo;t finish this report. What you paid has been returned to your account as credits. Please try again in a little while.</FormMessage></div>
       )}
       {order.status === "completed" && auto?.result && (
         <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} />
@@ -138,11 +144,17 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               />
               <dl className="relative mx-auto mt-2 grid max-w-md gap-x-6 gap-y-3 rounded-xl border border-[var(--line)] bg-ink-900/40 p-4 text-[13px] sm:grid-cols-2">
                 <div><dt className="text-fg-subtle">Method</dt><dd className="mt-0.5">{manualPayments[pendingClaim.method].label}</dd></div>
-                <div><dt className="text-fg-subtle">Amount</dt><dd className="mt-0.5">{formatCredits(pendingClaim.amount)}</dd></div>
+                <div>
+                  <dt className="text-fg-subtle">Amount</dt>
+                  <dd className="mt-0.5">
+                    {orderAmountParts(pendingClaim.method, pendingClaim.amount).main}
+                    <span className="block text-[12px] text-fg-subtle">{orderAmountParts(pendingClaim.method, pendingClaim.amount).sub}</span>
+                  </dd>
+                </div>
                 <div className="min-w-0"><dt className="text-fg-subtle">Your reference</dt><dd className="mt-0.5 truncate">{pendingClaim.payer_reference}</dd></div>
                 <div><dt className="text-fg-subtle">Submitted</dt><dd className="mt-0.5">{formatDateTime(pendingClaim.created_at)}</dd></div>
               </dl>
-              <AutoRefresh every={20_000} className="relative mt-5" />
+              <AutoRefresh every={10_000} className="relative mt-5" />
             </Card>
           ) : (
             <Card strong className="p-5 sm:p-7">
@@ -165,6 +177,14 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   </FormMessage>
                 </div>
               )}
+              {direct && !enoughCredits && (
+                <div className="mt-6">
+                  <DirectPay orderId={order.id} methodId={direct.id} price={order.price} reference={reference} report={screeningOrder} primary autoOpen={autoOpenDirect} />
+                  <p className="mt-6 flex items-center gap-3 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
+                    <span aria-hidden className="h-px flex-1 bg-[var(--line)]" /> or pay with credits <span aria-hidden className="h-px flex-1 bg-[var(--line)]" />
+                  </p>
+                </div>
+              )}
               <div className="mt-6">
                 <CreditPayPanel
                   orderId={order.id}
@@ -175,14 +195,26 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   report={screeningOrder}
                 />
               </div>
+              {direct && enoughCredits && (
+                <div className="mt-6">
+                  <p className="mb-4 flex items-center gap-3 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
+                    <span aria-hidden className="h-px flex-1 bg-[var(--line)]" /> or <span aria-hidden className="h-px flex-1 bg-[var(--line)]" />
+                  </p>
+                  <DirectPay orderId={order.id} methodId={direct.id} price={order.price} reference={reference} report={screeningOrder} primary={false} autoOpen={false} />
+                </div>
+              )}
             </Card>
           )}
           <div className="space-y-5">
             <OrderDetails order={order} file={file} payments={payments} />
-            <p className="flex gap-2 px-1 text-[12px] leading-relaxed text-fg-subtle">
-              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              Orders are paid with credits. Top up on the Billing &amp; Credits page, then come back to pay.
-            </p>
+            {!pendingClaim && !confirmingCard && (
+              <p className="flex gap-2 px-1 text-[12px] leading-relaxed text-fg-subtle">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                {direct
+                  ? `Pay just this order with ${direct.label}, or with credits from the Billing & Credits page.`
+                  : "Orders are paid with credits. Top up on the Billing & Credits page, then come back to pay."}
+              </p>
+            )}
           </div>
         </div>
       )}

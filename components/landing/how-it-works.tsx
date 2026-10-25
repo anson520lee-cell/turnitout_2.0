@@ -14,12 +14,12 @@ export const steps = [
   {
     n: "03",
     title: "Free or paid",
-    body: `Your daily free report covers up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. Longer texts, or more reports in a day, are paid with credits.`,
+    body: `Your daily free report covers up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. Longer texts, or more reports in a day, are paid with credits, or by Alipay for just that one report.`,
   },
   {
     n: "04",
-    title: "Pay with credits (if paid)",
-    body: `${reportRateLabel}. ${reportLimitsLabel}. Top up credits by ${methods}.`,
+    title: "Pay (if paid)",
+    body: `${reportRateLabel}. ${reportLimitsLabel}. Pay just that report by Alipay at its exact price, or top up credits by ${methods}.`,
   },
   { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];

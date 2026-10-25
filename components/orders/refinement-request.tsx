@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
 import { RefinementVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
-import { billableChars, formatCredits, refinementPrice, refinementPricing } from "@/config/pricing";
+import { billableChars, formatCredits, priceUsd, refinementPrice, refinementPricing } from "@/config/pricing";
+import { formatMoney } from "@/config/payments";
 import { refinement } from "@/config/app";
 import { refinementMinimumLabel, refinementRateLabel } from "@/config/services";
 import { refinementCharError } from "@/lib/orders/limits";
@@ -108,7 +109,7 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
         open={open}
         onClose={() => setOpen(false)}
         title="Paste the text you want refined"
-        description={`${refinementRateLabel} · ${refinementMinimumLabel}. You'll choose how to pay on the next page.`}
+        description={`${refinementRateLabel} · ${refinementMinimumLabel}. Next, pay this order's exact price with Alipay, or use credits.`}
         placeholder="Paste your own writing here. Press Enter when you're done."
         submitLabel="Create refinement order"
         validate={(text) => refinementCharError(billableChars(text))}
@@ -121,7 +122,7 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
                 {chars.toLocaleString("en-HK")} characters
               </span>
               <span>·</span>
-              <span className="text-fg">{formatCredits(refinementPrice(chars))}</span>
+              <span className="text-fg">{formatCredits(refinementPrice(chars))} ({formatMoney("US$", priceUsd(refinementPrice(chars)))})</span>
               {chars < minimumChars && <span>(minimum {formatCredits(refinementPricing.minimum)} applies)</span>}
             </span>
           );

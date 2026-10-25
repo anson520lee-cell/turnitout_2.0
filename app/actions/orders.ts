@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { billableChars, currency, formatHKD, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
+import { billableChars, currency, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
-import { acceptsClaims, manualPayments } from "@/config/payments";
+import { acceptsClaims, isDirectPayMethod, manualPayments, orderAmountText } from "@/config/payments";
 import { uploads } from "@/config/app";
 import {
   freeReportOrderInput,
@@ -26,6 +26,7 @@ import { devPaymentsEnabled, isStripeConfigured, isSupabaseConfigured } from "@/
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
 import { repriceUnpaid } from "@/lib/orders/reprice";
+import { referenceTaken } from "@/lib/payments/reference-check";
 import type { Order } from "@/types/domain";
 
 type Fail = { ok: false; message: string };
@@ -492,10 +493,14 @@ async function hasPendingClaim(orderId: string): Promise<boolean> {
   return (count ?? 0) > 0;
 }
 
+const DUPLICATE_REFERENCE = "This transaction number has already been submitted. If it was for this order, we're confirming it now; there's no need to send it again.";
+
 /**
- * The customer says they have paid by Alipay, PayMe or bank transfer. This
- * only records the claim; the order stays awaiting_payment until an admin
- * finds the money and confirms it (confirmPaymentClaim in actions/admin.ts).
+ * Pays one order directly (Alipay): the customer has paid exactly this order's
+ * price outside the site and tells us the transaction number. This only records
+ * the claim; the order stays awaiting_payment until an admin finds the money
+ * and confirms it (confirmPaymentClaim in actions/admin.ts), and then the report
+ * starts. No credits are bought, so there is no top-up minimum.
  */
 export async function submitPaymentClaim(orderId: string, method: string, reference: string): Promise<{ ok: true } | Fail> {
   const user = await getSessionUser();
@@ -503,14 +508,20 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
   const parsed = paymentClaimInput.safeParse({ orderId, method, reference });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the payment details." };
   const v = parsed.data;
-  if (!acceptsClaims(manualPayments[v.method])) return { ok: false, message: "That payment method isn't available right now." };
+  if (!isDirectPayMethod(v.method) || !acceptsClaims(manualPayments[v.method])) {
+    return { ok: false, message: "That payment method isn't available for single orders. Please pay with credits." };
+  }
 
-  const order = await ownOrder(v.orderId, user.id);
-  if (!order) return { ok: false, message: "Order not found." };
-  if (order.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
-  if (await hasPendingClaim(order.id)) {
+  const found = await ownOrder(v.orderId, user.id);
+  if (!found) return { ok: false, message: "Order not found." };
+  if (found.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (await hasPendingClaim(found.id)) {
     return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
   }
+  // The claim is for the price shown in the popup: the current one, never an older stored price.
+  const order = await repriceUnpaid(found);
+  // One transfer can't pay for two things (another order, a top-up, or this order twice).
+  if (await referenceTaken(v.method, v.reference)) return { ok: false, message: DUPLICATE_REFERENCE };
 
   const db = createAdminClient();
   const { data: claim, error } = await db
@@ -526,8 +537,12 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
     .select("id")
     .single();
   if (error || !claim) {
-    // 23505: the one-pending-claim-per-order index caught a double submit.
-    if (error?.code === "23505") return { ok: false, message: "You've already reported a payment for this order." };
+    if (error?.code === "23505") {
+      // payment_claims_reference (migration 0021): the same number arrived twice at once.
+      if (error.message?.includes("reference")) return { ok: false, message: DUPLICATE_REFERENCE };
+      // payment_claims_one_pending: a double submit on this order.
+      return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
+    }
     return { ok: false, message: "We couldn't record your payment details. Please try again." };
   }
 
@@ -536,7 +551,7 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
     order: shortId(order.id),
     service: serviceLabels[order.service_type],
     method: manualPayments[v.method].label,
-    amount: formatHKD(order.price),
+    amount: orderAmountText(v.method, order.price),
     email: user.email,
   });
   revalidatePath(`/orders/${order.id}`);

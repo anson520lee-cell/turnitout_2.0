@@ -8,8 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FormMessage, Input } from "@/components/ui/field";
 import { CopyValue } from "@/components/orders/copy-value";
-import { paymentMethodLabel } from "@/config/payments";
-import { formatHKD } from "@/config/pricing";
+import { orderAmountText, paymentMethodLabel } from "@/config/payments";
 import { formatDateTime } from "@/lib/utils";
 import type { PaymentClaim } from "@/types/domain";
 
@@ -29,7 +28,7 @@ function ClaimActions({ claim, orderPrice }: { claim: PaymentClaim; orderPrice: 
       try {
         const fn = kind === "confirm" ? confirmPaymentClaim : rejectPaymentClaim;
         const r = await fn({ claimId: claim.id, note });
-        setMsg(r.ok ? { ok: true, message: kind === "confirm" ? "Confirmed. The order is paid and queued." : "Rejected. The customer can submit again." } : { ok: false, message: r.message });
+        setMsg(r.ok ? { ok: true, message: kind === "confirm" ? "Confirmed. The order is paid; the customer\u2019s report starts on their order page." : "Rejected. The customer can submit again." } : { ok: false, message: r.message });
         if (r.ok) router.refresh();
       } catch (e) {
         setMsg({ ok: false, message: e instanceof Error ? e.message : "Request failed." });
@@ -39,7 +38,7 @@ function ClaimActions({ claim, orderPrice }: { claim: PaymentClaim; orderPrice: 
   return (
     <div className="mt-3 border-t border-[var(--line)] pt-3">
       {claim.amount !== orderPrice && (
-        <p className="mb-2 text-[12px] text-warn">Claim amount differs from the order price ({formatHKD(orderPrice)}).</p>
+        <p className="mb-2 text-[12px] text-warn">Claim amount differs from the order price ({orderAmountText(claim.method, orderPrice)}).</p>
       )}
       <label htmlFor={`note-${claim.id}`} className="sr-only">Note to customer</label>
       <Input
@@ -57,7 +56,7 @@ function ClaimActions({ claim, orderPrice }: { claim: PaymentClaim; orderPrice: 
           loading={pending && which === "confirm"}
           disabled={pending}
           onClick={() => {
-            if (!confirm(`Confirm you received ${formatHKD(claim.amount)} by ${paymentMethodLabel(claim.method)}? The order will be marked paid and queued.`)) return;
+            if (!confirm(`Confirm you received ${orderAmountText(claim.method, claim.amount)} by ${paymentMethodLabel(claim.method)}? The order will be marked paid and the report starts.`)) return;
             run("confirm");
           }}
         >
@@ -94,7 +93,7 @@ export function PaymentClaims({ claims, orderPrice, reference }: { claims: Payme
         {pendingCount > 0 && <Badge tone="warn" dot>Payment to verify</Badge>}
       </div>
       <p className="mt-1 text-[12.5px] text-fg-muted">
-        Look for reference <span className="font-mono text-fg">{reference}</span> and the exact amount in the account before confirming.
+        Look for the customer&rsquo;s transaction number (and reference <span className="font-mono text-fg">{reference}</span> if they added it) and the exact amount in the account before confirming.
       </p>
       {claims.length ? (
         <ul className="mt-4 space-y-3">
@@ -102,7 +101,7 @@ export function PaymentClaims({ claims, orderPrice, reference }: { claims: Payme
             <li key={c.id} className="rounded-xl border border-[var(--line)] bg-white/[0.02] p-3.5 text-[13px]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">
-                  {paymentMethodLabel(c.method)} · {formatHKD(c.amount)}
+                  {paymentMethodLabel(c.method)} · {orderAmountText(c.method, c.amount)}
                 </p>
                 <Badge tone={tone[c.status]} dot>{c.status[0].toUpperCase() + c.status.slice(1)}</Badge>
               </div>

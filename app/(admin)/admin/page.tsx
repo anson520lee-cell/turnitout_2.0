@@ -5,7 +5,7 @@ import { OrdersTable } from "@/components/admin/orders-table";
 import { TopupReview, type PendingTopup } from "@/components/admin/topup-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatHKD } from "@/config/pricing";
-import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel } from "@/config/payments";
+import { hkdAmount, isManualPaymentMethod, manualPayments, orderAmountParts, paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { formatDateTime, shortId } from "@/lib/utils";
 import { recheckStableTopups } from "@/lib/payments/stable-topups";
@@ -84,7 +84,7 @@ export default async function AdminHome() {
           <h2 className="mt-10 text-[16px] font-semibold">
             Payments to verify <span className="text-fg-subtle">· oldest first</span>
           </h2>
-          <p className="mt-1 text-[12.5px] text-fg-muted">Check the account for the reference and amount, then confirm or reject on the order page.</p>
+          <p className="mt-1 text-[12.5px] text-fg-muted">Customers who paid one order directly (Alipay). Check the account for the transaction number and amount, then open the order to confirm or reject.</p>
           <ul className="mt-4 grid gap-3 md:grid-cols-2">
             {toVerify.map((o) => (
               <li key={o.id}>
@@ -101,7 +101,11 @@ export default async function AdminHome() {
                     </p>
                     <p className="text-[11.5px] text-fg-subtle">Reported {formatDateTime(o.pending_claim!.created_at)}</p>
                   </div>
-                  <span className="text-[18px] font-semibold">{formatHKD(o.pending_claim!.amount)}</span>
+                  <span className="text-right text-[12px] font-medium text-warn">
+                    Check you received
+                    <span className="block text-[18px] font-semibold text-fg">{orderAmountParts(o.pending_claim!.method, o.pending_claim!.amount).main}</span>
+                    <span className="block font-normal text-fg-subtle">{orderAmountParts(o.pending_claim!.method, o.pending_claim!.amount).sub}</span>
+                  </span>
                 </Link>
               </li>
             ))}

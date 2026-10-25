@@ -10,7 +10,7 @@ export interface FaqItem {
 export const faq: FaqItem[] = [
   {
     q: "What is the report?",
-    a: `You paste your text, and an automated reviewer reads every sentence and paragraph of it and writes a full AI-writing risk report, ready in a few minutes, with a PDF to download. Every account gets one report a day free (see below); more are paid with credits.`,
+    a: `You paste your text, and an automated reviewer reads every sentence and paragraph of it and writes a full AI-writing risk report, ready in a few minutes, with a PDF to download. Every account gets one report a day free (see below); more are paid with credits, or by Alipay for just that one report at its exact price.`,
   },
   {
     q: "Is the report Turnitin?",

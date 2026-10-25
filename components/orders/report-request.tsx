@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
-import { billableChars, formatCredits, reportPrice, reportPricing } from "@/config/pricing";
+import { billableChars, formatCredits, priceUsd, reportPrice, reportPricing } from "@/config/pricing";
+import { formatMoney } from "@/config/payments";
 import { reportFromLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService } from "@/config/services";
 import { reportCharError } from "@/lib/orders/limits";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ import { track } from "@/lib/analytics";
 
 const STEPS = [
   { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${reportRangeLabel}, press Enter.` },
-  { icon: ShieldCheck, t: "Pay", d: "Pay with credits, topped up with crypto (USDT, USDC or BTC), PayPal or Alipay." },
+  { icon: ShieldCheck, t: "Pay", d: "Pay just this report's exact price with Alipay, or use credits topped up with crypto (USDT, USDC or BTC), PayPal or Alipay." },
   { icon: FileCheck2, t: "Get your report here", d: "Watch a live scan of your text (about a minute for 5,000 characters), then read the report on your order page, with a PDF download." },
 ];
 
@@ -113,7 +114,7 @@ export function ReportRequest() {
         open={open}
         onClose={() => setOpen(false)}
         title="Paste your text for the report"
-        description={`${reportRateLabel} · ${reportLimitsLabel.toLowerCase()} · ${reportRangeLabel}. You'll choose how to pay on the next page.`}
+        description={`${reportRateLabel} · ${reportLimitsLabel.toLowerCase()} · ${reportRangeLabel}. Next, pay this report's exact price with Alipay, or use credits.`}
         placeholder="Paste the full text you want a report on. Press Enter when you're done."
         submitLabel="Create report request"
         validate={(text) => reportCharError(billableChars(text))}
@@ -126,7 +127,9 @@ export function ReportRequest() {
                 {chars.toLocaleString("en-HK")} characters
               </span>
               <span>·</span>
-              <span className="text-fg">{chars > 0 ? formatCredits(reportPrice(chars)) : reportFromLabel}</span>
+              <span className="text-fg">
+                {chars > 0 ? `${formatCredits(reportPrice(chars))} (${formatMoney("US$", priceUsd(reportPrice(chars)))})` : reportFromLabel}
+              </span>
               <span>·</span>
               <span>{reportRangeLabel}</span>
             </span>

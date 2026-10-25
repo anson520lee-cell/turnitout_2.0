@@ -13,8 +13,7 @@ import { markOrderPaid } from "@/lib/payments/fulfil";
 import { enqueueRefinementDraft } from "@/lib/local-model/jobs";
 import { notifyOwner } from "@/lib/notify";
 import { uploads } from "@/config/app";
-import { formatHKD } from "@/config/pricing";
-import { manualPayments } from "@/config/payments";
+import { manualPayments, orderAmountText } from "@/config/payments";
 import { serviceLabels } from "@/config/services";
 import { shortId } from "@/lib/utils";
 import type { AdminChecklist, Order, PaymentClaim } from "@/types/domain";
@@ -69,7 +68,7 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
     };
   }
   if (claim.amount !== order.price) {
-    return { ok: false, message: `The claim is for ${formatHKD(claim.amount)} but the order costs ${formatHKD(order.price)}. Reject it and ask the customer to resubmit.` };
+    return { ok: false, message: `The claim is for ${orderAmountText(claim.method, claim.amount)} but the order costs ${orderAmountText(claim.method, order.price)}. Reject it and ask the customer to resubmit.` };
   }
 
   const db = createAdminClient();
@@ -119,7 +118,7 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
     order: shortId(order.id),
     service: serviceLabels[order.service_type],
     method: manualPayments[claim.method]?.label ?? claim.method,
-    amount: formatHKD(order.price),
+    amount: orderAmountText(claim.method, order.price),
     email: await customerEmail(order.user_id),
   });
   notifyCustomer(order.user_id, "order_paid", { order: shortId(order.id), id: order.id, service: serviceLabels[order.service_type] });
@@ -158,7 +157,7 @@ export async function rejectPaymentClaim(input: unknown): Promise<Result> {
   notifyOwner("payment_rejected", {
     order: shortId(claim.order_id),
     method: manualPayments[claim.method]?.label ?? claim.method,
-    amount: formatHKD(claim.amount),
+    amount: orderAmountText(claim.method, claim.amount),
     email: await customerEmail(claim.user_id),
   });
   refresh(claim.order_id);

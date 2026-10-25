@@ -17,6 +17,8 @@ export type AnalyticsEvent =
   | "topup_checkout_started"
   | "crypto_payment_started"
   | "payment_claim_submitted"
+  | "direct_pay_opened"
+  | "direct_pay_submitted"
   | "payment_completed"
   | "report_opened"
   | "report_downloaded";
