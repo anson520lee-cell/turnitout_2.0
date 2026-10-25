@@ -1,7 +1,6 @@
 import type { ServiceType } from "@/config/pricing";
 import type { ManualPaymentMethod } from "@/config/payments";
 import type { OrderStatus } from "@/lib/orders/status";
-import type { AnalysisResult, RiskLevel } from "@/lib/scanning/types";
 
 export type UserRole = "user" | "admin";
 
@@ -71,19 +70,6 @@ export interface RefinementResultRow {
   order_id: string;
   revised_text: string;
   reviewer_notes: string | null;
-}
-
-export interface ScanResultRow {
-  id: string;
-  user_id: string;
-  word_count: number;
-  overall_risk: RiskLevel;
-  result_json: AnalysisResult;
-  analyzer: string;
-  created_at: string;
-  /** A written report the user chose to keep (opt-in); null otherwise. */
-  report_text?: string | null;
-  report_saved_at?: string | null;
 }
 
 export interface PaymentRow {

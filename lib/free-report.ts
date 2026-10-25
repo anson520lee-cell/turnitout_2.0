@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/session";
-import { ipHash } from "@/lib/scanning/guest";
+import { ipHash } from "@/lib/network";
 import { freeReport } from "@/config/app";
 
 /**

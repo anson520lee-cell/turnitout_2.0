@@ -1,9 +1,3 @@
-/** What /api/scan-feedback/[id] answers while the scan page polls it. */
-export type ScanFeedbackStatus =
-  | { status: "queued" | "running" }
-  | { status: "done"; feedback: string }
-  | { status: "unavailable" };
-
 /** Whether the worker on the owner's computer has checked in recently. */
 export type WorkerStatus = { online: boolean; lastSeenAt: string | null; model: string | null };
 

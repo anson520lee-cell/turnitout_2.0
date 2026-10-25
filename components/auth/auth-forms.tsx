@@ -82,7 +82,7 @@ export function LoginForm({ google }: { google: boolean }) {
 export function SignupForm({ google }: { google: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = safeNext(params.get("next"), "/scan");
+  const next = safeNext(params.get("next"), "/dashboard");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,7 +91,7 @@ export function SignupForm({ google }: { google: boolean }) {
 
   return (
     <>
-      <Heading title="Create your account" body={<>Three free preliminary scans every day. Already have an account? <Link href="/login" className="text-accent hover:underline">Log in</Link></>} />
+      <Heading title="Create your account" body={<>One free full report every day. Already have an account? <Link href="/login" className="text-accent hover:underline">Log in</Link></>} />
       {google && (
         <>
           <GoogleButton next={next} />

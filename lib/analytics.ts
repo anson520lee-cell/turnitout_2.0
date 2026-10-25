@@ -7,13 +7,6 @@ import { track as send } from "@vercel/analytics";
 export type AnalyticsEvent =
   | "signup_completed"
   | "login_completed"
-  | "scan_dialog_opened"
-  | "scan_started"
-  | "recheck_started"
-  | "scan_completed"
-  | "scan_limit_reached"
-  | "scan_report_downloaded"
-  | "scan_feedback_shown"
   | "daily_report_clicked"
   | "screening_service_clicked"
   | "refinement_service_clicked"

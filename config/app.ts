@@ -6,31 +6,22 @@ export const brand = {
   name: "0%",
   tagline: "Know before you submit.",
   description:
-    "Free writing scans, automatic AI-writing risk reports on your own text, and writing refinement of your own work.",
+    "Automatic AI-writing risk reports on your own text (one free every day), and writing refinement of your own work.",
   supportEmail: "support@getzeropercent.com",
   // Operator name shown in the footer, terms and privacy.
   operator: "Zero Percent Labs",
   jurisdiction: "Hong Kong SAR",
 } as const;
 
-export const freeScan = {
-  /** Must match `v_limit` in supabase/migrations/0001_init.sql (consume_scan). */
-  dailyLimit: 3,
-  /** Calendar day boundary for the daily reset. Must match the SQL function. */
-  timezone: "Asia/Hong_Kong",
-  /** Character count, not word count: CJK text has no spaces to split words on. */
-  minChars: 500,
-  maxChars: 2000,
-} as const;
-
 /**
- * The daily free full report: every account gets this many a day on top of the
- * free scans, with every effect and the whole report, for texts up to maxChars.
- * Hong Kong calendar day, like the free scan. The account limit must match
- * `consume_free_report` in supabase/migrations/0015_daily_free_report.sql.
+ * The daily free full report: every account gets this many a day, with every
+ * effect and the whole report, for texts up to maxChars. The account limit
+ * must match `consume_free_report` in supabase/migrations/0015_daily_free_report.sql.
  */
 export const freeReport = {
   dailyLimit: 1,
+  /** Calendar day boundary for the daily reset. Must match the SQL function. */
+  timezone: "Asia/Hong_Kong",
   minChars: 500,
   maxChars: 4000,
   /** Free reports one network address may hand out a day (accounts made on the fly share it). */
@@ -52,11 +43,6 @@ export const uploads = {
 } as const;
 
 export const retention = {
-  /**
-   * Store the full text of free scans? Off by default: only the analysis
-   * result (signal scores) is stored.
-   */
-  storeScanText: false,
   /**
    * Source documents for completed/cancelled orders are deleted this many days
    * after completion by /api/cron/retention (see README > Retention).
@@ -85,16 +71,10 @@ export const refinement = {
  * MODEL_WORKER_SECRET is set; see README > Local writing model.
  */
 export const localModel = {
-  /** Written feedback under a free scan, while the worker is online. */
-  scanFeedback: true,
   /** A first draft for each paid refinement order, for an admin to review and edit. */
   refinementDrafts: true,
   /** The worker counts as online if it checked in within this many seconds. */
   onlineWindowSeconds: 45,
-  /** Scan feedback not ready and shown within this is dropped, text and all. */
-  scanFeedbackMinutes: 10,
-  /** Skip scan feedback while this many are already waiting: they wouldn't be ready in time. */
-  maxQueuedFeedback: 5,
   /** A draft the worker hasn't picked up by then is marked failed; request another from the order page. */
   draftDays: 14,
   /** Longest output accepted from the worker, in characters. */

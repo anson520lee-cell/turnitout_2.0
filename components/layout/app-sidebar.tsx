@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, ScanText, History, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,6 @@ import { NeuralMark } from "@/components/ui/neural-mark";
 
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
-  { href: "/scan", label: "Free Scan", icon: ScanText },
-  { href: "/scan/history", label: "Scan History", icon: History },
   { href: "/orders", label: "Orders", icon: FileStack },
   { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
   { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
@@ -28,7 +26,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
     <nav aria-label="App" className="flex flex-1 flex-col">
       <ul className="space-y-1">
         {items.map(({ href, label, icon: Icon }) => {
-          // The longest matching item wins, so /scan/history doesn't also light up /scan.
+          // The longest matching item wins.
           const matches = (h: string) => path === h || (h !== "/dashboard" && path.startsWith(`${h}/`));
           const active = matches(href) && !items.some((o) => o.href.length > href.length && matches(o.href));
           return (

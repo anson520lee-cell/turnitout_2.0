@@ -1,4 +1,4 @@
-import { freeReport, freeScan, refinement } from "@/config/app";
+import { freeReport, refinement } from "@/config/app";
 import { reportPricing } from "@/config/pricing";
 
 /**
@@ -16,17 +16,6 @@ export function reportCharError(chars: number): string | null {
   }
   if (chars > reportPricing.maxChars) {
     return `A report covers up to ${n(reportPricing.maxChars)} characters. This text has ${n(chars)}; split it into separate reports.`;
-  }
-  return null;
-}
-
-/** Null when `chars` is inside the free-scan range. */
-export function freeScanCharError(chars: number): string | null {
-  if (chars < freeScan.minChars) {
-    return `Add a little more text. The scan needs at least ${n(freeScan.minChars)} characters.`;
-  }
-  if (chars > freeScan.maxChars) {
-    return `The free scan handles up to ${n(freeScan.maxChars)} characters at a time.`;
   }
   return null;
 }

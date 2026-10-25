@@ -2,14 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
-import { higherLevel, overallRisk, parseReport, verdictLevel } from "@/lib/report-format";
 import type {
   Order,
   OrderFile,
   PaymentClaim,
   PaymentRow,
   RefinementResultRow,
-  ScanResultRow,
   ScreeningResultRow,
 } from "@/types/domain";
 
@@ -23,28 +21,6 @@ export async function listOrders(limit = 50): Promise<Order[]> {
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as Order[];
-}
-
-export async function listScans(limit = 5): Promise<ScanResultRow[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("scan_results")
-    .select("id,user_id,word_count,overall_risk,result_json,analyzer,created_at,report_saved_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  const rows = (data ?? []) as ScanResultRow[];
-  // Scans saved before the history followed the dial: a kept report still carries the review's verdict.
-  const withReport = rows.filter((r) => r.report_saved_at).map((r) => r.id);
-  if (withReport.length) {
-    const { data: reports } = await supabase.from("scan_results").select("id,report_text").in("id", withReport);
-    const verdicts = new Map<string, ScanResultRow["overall_risk"]>();
-    for (const r of (reports ?? []) as { id: string; report_text: string | null }[]) {
-      const level = r.report_text ? verdictLevel[overallRisk(parseReport(r.report_text)) ?? "uncertain"] : undefined;
-      if (level) verdicts.set(r.id, level);
-    }
-    for (const r of rows) r.overall_risk = higherLevel(r.overall_risk, verdicts.get(r.id));
-  }
-  return rows;
 }
 
 /** Order ids that have a payment claim waiting for the admin to check. */

@@ -1,5 +1,4 @@
 import "server-only";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { sseEvents } from "@/lib/sse";
 
 /**
@@ -244,47 +243,4 @@ export async function* deepseekStream(opts: {
     throw fail(new DeepSeekError(undefined, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network"));
   }
   throw fail(new DeepSeekError());
-}
-
-/** One chat completion → the reply text. Throws DeepSeekError (generic message) on any failure. */
-export async function deepseekChat(opts: { system: string; user: string; maxTokens: number }): Promise<string> {
-  return (await deepseekRun(opts)).text;
-}
-
-/* ---------- scan-feedback tickets ----------
- * A scan that was counted returns a short-lived signed ticket for that exact
- * text, so /api/scan-feedback can't be used as a free general-purpose model. */
-
-const TICKET_MINUTES = 10;
-const usedTickets = new Map<string, number>();
-
-function ticketKey(): Buffer {
-  return createHash("sha256").update(`scan-feedback:${process.env.DEEPSEEK_API_KEY ?? ""}`).digest();
-}
-
-function sign(textHash: string, exp: number): string {
-  return createHmac("sha256", ticketKey()).update(`${exp}.${textHash}`).digest("base64url");
-}
-
-const hashText = (text: string) => createHash("sha256").update(text).digest("hex");
-
-export function issueFeedbackTicket(text: string): string | null {
-  if (!deepseekEnabled()) return null;
-  const exp = Date.now() + TICKET_MINUTES * 60_000;
-  return `${exp}.${sign(hashText(text), exp)}`;
-}
-
-/** Valid, unexpired and not used before (single use per server instance). */
-export function redeemFeedbackTicket(ticket: string, text: string): boolean {
-  const [expRaw, mac] = ticket.split(".");
-  const exp = Number(expRaw);
-  if (!mac || !Number.isFinite(exp) || exp < Date.now()) return false;
-  const want = Buffer.from(sign(hashText(text), exp));
-  const got = Buffer.from(mac);
-  if (want.length !== got.length || !timingSafeEqual(want, got)) return false;
-  const now = Date.now();
-  for (const [k, e] of usedTickets) if (e < now) usedTickets.delete(k);
-  if (usedTickets.has(mac)) return false;
-  usedTickets.set(mac, exp);
-  return true;
 }

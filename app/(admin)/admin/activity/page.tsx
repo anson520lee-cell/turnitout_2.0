@@ -11,14 +11,13 @@ import { formatDateTime, shortId } from "@/lib/utils";
 export const metadata: Metadata = { title: "Admin · Activity" };
 
 const kinds: Record<ActivityKind, string> = {
-  free_scan: "Free scan",
   free_report: "Free report",
   paid_report: "Paid report",
   refinement: "Refinement",
 };
 const levelTone: Record<string, Tone> = { low: "success", moderate: "warn", elevated: "danger" };
 
-/** Every free scan and every order (free report, paid report, refinement, with its uploaded file) in one table, with filters. This replaces the separate Orders and Submissions lists. */
+/** Every order (free report, paid report, refinement, with its uploaded file) in one table, with filters. This replaces the separate Orders and Submissions lists. */
 export default async function AdminActivity({ searchParams }: PageProps<"/admin/activity">) {
   const sp = await searchParams;
   const kind = typeof sp.kind === "string" && (sp.kind in kinds || sp.kind === "orders") ? (sp.kind as ActivityKind | "orders") : "";
@@ -39,7 +38,7 @@ export default async function AdminActivity({ searchParams }: PageProps<"/admin/
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
       <p className="mt-2 max-w-3xl text-[13px] text-fg-muted">
-        Free scans, free reports, paid reports and refinements together, newest first (this page replaces the old Orders and Submissions lists). Free scans made without an account are not stored, so they are not listed, and a free scan&rsquo;s text is never stored.
+        Free reports, paid reports and refinements together, newest first (this page replaces the old Orders and Submissions lists).
         An order&rsquo;s text can be opened here while it is still kept ({count("free_report") + count("paid_report") + count("refinement")} orders); each view is logged.
       </p>
       <form className="mt-6 flex flex-wrap gap-2" role="search">
@@ -49,7 +48,6 @@ export default async function AdminActivity({ searchParams }: PageProps<"/admin/
         <select id="kind" name="kind" defaultValue={kind} className={select}>
           <option value="">All types</option>
           <option value="orders">Only orders (all kinds)</option>
-          <option value="free_scan">Only free scan ({count("free_scan")})</option>
           <option value="free_report">Only free report ({count("free_report")})</option>
           <option value="paid_report">Only paid report ({count("paid_report")})</option>
           <option value="refinement">Only refinement ({count("refinement")})</option>
@@ -99,7 +97,7 @@ export default async function AdminActivity({ searchParams }: PageProps<"/admin/
                 <td className="max-w-[200px] truncate px-4 py-3 text-fg-muted">{r.email ?? "—"}</td>
                 <td className="px-4 py-3 text-fg-muted">{r.words?.toLocaleString() ?? "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3">
-                  {r.score !== null ? `${r.score}%` : r.range ? `${r.range}% (range)` : "—"}
+                  {r.score !== null ? `${r.score}%` : "—"}
                 </td>
                 <td className="px-4 py-3">{r.level ? <Badge tone={levelTone[r.level]} dot className="capitalize">{r.level}</Badge> : "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3">{r.price === null ? "—" : formatCredits(r.price)}</td>

@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { Check, FileCheck2, Gauge, PenLine } from "lucide-react";
+import { Check, FileCheck2, PenLine } from "lucide-react";
 import { services, type ServiceKind } from "@/config/services";
 import { buttonClasses } from "@/components/ui/button";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { PaymentMethodStrip } from "@/components/orders/payment-methods";
 import { cn } from "@/lib/utils";
 
-const kindMeta: Record<ServiceKind, { label: string; icon: typeof Gauge; text: string; glow: string }> = {
-  free: { label: "Free · Preliminary", icon: Gauge, text: "text-cyan", glow: "rgb(141 179 255 / 0.45)" },
+const kindMeta: Record<ServiceKind, { label: string; icon: typeof FileCheck2; text: string; glow: string }> = {
   screening: { label: "Report", icon: FileCheck2, text: "text-accent", glow: "rgb(91 140 255 / 0.55)" },
   refinement: { label: "Writing Refinement", icon: PenLine, text: "text-violet", glow: "rgb(141 150 172 / 0.5)" },
 };
@@ -33,7 +32,7 @@ function RunningEdge() {
 export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" | "h3" } = {}) {
   return (
     <>
-      <Stagger className="mx-auto grid max-w-6xl items-stretch gap-5 md:grid-cols-3">
+      <Stagger className="mx-auto grid max-w-4xl items-stretch gap-5 md:grid-cols-2">
         {services.map((s) => {
           const k = kindMeta[s.kind];
           return (

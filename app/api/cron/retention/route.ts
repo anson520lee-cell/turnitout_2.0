@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { retention, uploads } from "@/config/app";
 import { audit } from "@/lib/audit";
-import { notifyOwner } from "@/lib/notify";
 
 /**
  * Daily retention job (vercel.json schedules it). Cancels unpaid orders left
@@ -98,27 +97,9 @@ export async function GET(request: NextRequest) {
     .not("report_text", "is", null)
     .lt("report_saved_at", new Date(Date.now() - retention.savedReportDays * day).toISOString());
 
-  // Guest scan counters only matter for the current Hong Kong day. Before
-  // deleting yesterday's, email the owner one summary of the day's free scans
-  // (per-scan messages go to Telegram only; see lib/notify.ts).
-  const hkDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong" }).format(d);
-  const hkToday = hkDate(new Date());
-  const hkYesterday = hkDate(new Date(Date.now() - day));
-  const [{ data: guestDay }, { data: accountDay }] = await Promise.all([
-    db.from("guest_scan_usage").select("scan_count").eq("usage_date", hkYesterday),
-    db.from("scan_usage").select("scan_count").eq("usage_date", hkYesterday),
-  ]);
-  const sum = (rows: { scan_count: number }[] | null) => (rows ?? []).reduce((n, r) => n + (r.scan_count ?? 0), 0);
-  const guestScans = sum(guestDay);
-  const accountScans = sum(accountDay);
-  if (guestScans + accountScans > 0) {
-    notifyOwner("scan_digest", {
-      date: hkYesterday,
-      scans: guestScans + accountScans,
-      "without an account": `${guestScans} (${guestDay?.length ?? 0} visitors)`,
-      "signed in": `${accountScans} (${accountDay?.length ?? 0} accounts)`,
-    });
-  }
+  // Guest scan counters only mattered for the Hong Kong day they were made on (the free scan is gone;
+  // this clears whatever it left behind).
+  const hkToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Hong_Kong" }).format(new Date());
   const { count: guestRows } = await db
     .from("guest_scan_usage")
     .delete({ count: "exact" })
