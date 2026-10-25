@@ -9,10 +9,6 @@ function needsAuth(url: Pick<URL, "pathname" | "searchParams">): boolean {
   // (the request forms) are open to guests too — pasting text and seeing the
   // price needs no account, only submitting does, and the server action
   // itself checks that. See app/(scan)/layout.tsx.
-  // The free scan is open to guests (per-IP allowance); a saved result
-  // (/scan?id=…) and everything under /scan/ (history) need an account.
-  if (path === "/scan") return url.searchParams.has("id");
-  if (path.startsWith("/scan/")) return true;
   return PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
 }
 

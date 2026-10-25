@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { ScrollStory } from "@/components/landing/scroll-story";
-import { Comparison } from "@/components/landing/comparison";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -16,11 +15,10 @@ export default function HowItWorksPage() {
       <PageHeader
         eyebrow="How it works"
         title="From draft to report, step by step."
-        body="The free scan runs instantly on our servers. The report is a separate paid order that reads your whole text and is ready in a few minutes, while you watch a live scan of your text."
+        body="The report reads your whole text and is ready in a few minutes, while you watch a live scan of your text. Your first report each day is free."
       />
       <HowItWorks heading={false} />
       <ScrollStory />
-      <Comparison />
     </>
   );
 }

@@ -3,21 +3,22 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
+import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC) or PayPal";
 
 export const steps = [
-  { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },
-  { n: "02", title: "Review the signals", body: "See which patterns stand out and where, paragraph by paragraph." },
+  { n: "01", title: "Paste your text", body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free." },
+  { n: "02", title: "Press Enter", body: "Sign in if you haven't yet. Only you and authorised staff can see your text and your report." },
   {
     n: "03",
-    title: "Get a report if you need one",
-    body: "Press Get report, paste your text into the dialog and press Enter. Only you and authorised staff can see your text and your report.",
+    title: "Free or paid",
+    body: `Your daily free report covers up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. Longer texts, or more reports in a day, are paid with credits.`,
   },
   {
     n: "04",
-    title: "Pay with credits",
+    title: "Pay with credits (if paid)",
     body: `${reportRateLabel}. ${reportLimitsLabel}. Top up credits by ${methods}.`,
   },
   { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },

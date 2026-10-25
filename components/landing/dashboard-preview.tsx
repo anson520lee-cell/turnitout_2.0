@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, FileCheck2, FileStack, LayoutGrid, ScanText, Wallet } from "lucide-react";
+import { Check, FileCheck2, FileStack, LayoutGrid, Wallet } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { Badge, type Tone } from "@/components/ui/badge";
@@ -26,7 +26,6 @@ const STEPS = ["Paid", "Starting", "Reading", "Writing up", "Ready"];
 const STEP_TONE: Tone[] = ["neutral", "info", "progress", "warn", "success"];
 const NAV = [
   { icon: LayoutGrid, label: "Overview" },
-  { icon: ScanText, label: "Free Scan" },
   { icon: FileStack, label: "Orders" },
   { icon: FileCheck2, label: "Get Report" },
   { icon: Wallet, label: "Billing & Credits" },
@@ -66,8 +65,8 @@ export function DashboardPreview() {
         <SectionHeading
           align="center"
           eyebrow="Your dashboard"
-          title="Every scan and order in one place."
-          body="Remaining free scans, live order status, and reports ready to open."
+          title="Every order in one place."
+          body="Your free report for today, live order status, and reports ready to open."
         />
         <Reveal className="relative mx-auto mt-16 max-w-5xl [perspective:3200px]">
           {/* light behind the frame */}
@@ -131,18 +130,16 @@ export function DashboardPreview() {
                   {/* three numbers, each a card lifted off the frame */}
                   <div className="grid gap-3 sm:grid-cols-3 [transform-style:preserve-3d]">
                     <div className="dash-card" style={z(12)}>
-                      <p className="text-[12px] text-fg-muted">Free scans today</p>
+                      <p className="text-[12px] text-fg-muted">Free report today</p>
                       <p className="mt-1.5 text-[26px] font-semibold leading-none tracking-tight">
-                        2 <span className="text-[13px] font-normal text-fg-subtle">of 3 left</span>
+                        1 <span className="text-[13px] font-normal text-fg-subtle">of 1 left</span>
                       </p>
                       <div className="mt-3 flex gap-1.5">
                         <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_10px_rgb(91_140_255/0.7)]" />
-                        <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_10px_rgb(91_140_255/0.7)]" />
-                        <span className="h-1.5 flex-1 rounded-full bg-white/10" />
                       </div>
                     </div>
                     <div className="dash-card" style={z(16)}>
-                      <p className="text-[12px] text-fg-muted">Scans this week</p>
+                      <p className="text-[12px] text-fg-muted">Reports this week</p>
                       <p className="mt-1.5 text-[26px] font-semibold leading-none tracking-tight">11</p>
                       <svg viewBox="0 0 120 26" className="mt-2 h-[26px] w-full overflow-visible">
                         <defs>
@@ -261,23 +258,6 @@ export function DashboardPreview() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-            {/* and a result from the free scan, hanging off the bottom-left
-                corner below the sidebar's Credits box rather than over it */}
-            <div className="pointer-events-none absolute -bottom-7 left-4 hidden lg:block xl:-left-8" style={z(34)}>
-              <div className="chip-float glass-strong w-[190px] rounded-2xl p-3.5 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.9)]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-fg-muted">Free scan</span>
-                  <Badge tone="success" dot>Low</Badge>
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  {[34, 22, 46, 18].map((w, i) => (
-                    <div key={i} className="h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-gradient-to-r from-chart-mid to-accent" style={{ width: `${w}%` }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
           <p className="mt-14 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>

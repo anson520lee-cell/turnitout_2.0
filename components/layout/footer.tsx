@@ -7,7 +7,6 @@ const cols = [
   {
     title: "Product",
     links: [
-      { href: "/scan", label: "Free scan" },
       { href: "/services", label: "Services" },
       { href: "/pricing", label: "Pricing" },
       { href: "/sample-report", label: "Sample report" },

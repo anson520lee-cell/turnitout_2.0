@@ -17,7 +17,4 @@ export const retentionSentence = {
   source: `Submitted text and uploaded documents are deleted ${retention.sourceDocumentDays} days after an order completes or is cancelled.`,
   reports: `Reports are deleted ${retention.reportDays} days after completion.`,
   unpaid: `Unpaid orders are cancelled, and their text deleted, after ${retention.unpaidOrderDays} days.`,
-  freeScan: retention.storeScanText
-    ? "The text of a free scan is stored with your scan history."
-    : "The text of a free scan is not stored; only its scores are kept.",
 } as const;

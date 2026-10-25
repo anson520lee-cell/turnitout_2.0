@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 export type PasteResult = { ok: true } | { ok: false; message: string };
 
 /**
- * The paste-and-press-Enter flow shared by the free scan, report requests and
- * writing review: a modal with one big text box. Enter submits (Shift+Enter
+ * The paste-and-press-Enter flow shared by report requests and
+ * writing refinement: a modal with one big text box. Enter submits (Shift+Enter
  * adds a line; Enter while an IME is composing is ignored, so Chinese input
  * works), then the dialog switches to a "please wait" animation until
  * `onSubmit` resolves. On success the caller decides what happens next

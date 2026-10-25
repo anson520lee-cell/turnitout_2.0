@@ -9,17 +9,10 @@ import { cn } from "@/lib/utils";
 /**
  * A design-review page, not part of the product: it just replays the same
  * WaitingAnimation each real flow uses (with that flow's own title/steps),
- * so it can be looked at without a working scan/order backend behind it.
+ * so it can be looked at without a working order backend behind it.
  * Not linked from navigation; reachable only by visiting the URL directly.
  */
 const FLOWS = [
-  {
-    key: "scan",
-    label: "Free scan",
-    title: "Scanning your writing…",
-    steps: ["Segmenting sentences", "Measuring rhythm and structure", "Checking phrasing patterns", "Preparing your report"],
-    note: "This usually takes a few seconds. Please keep this window open.",
-  },
   {
     key: "report",
     label: "Report",
@@ -68,7 +61,7 @@ export default function AnimationPreviewPage() {
           <WaitingAnimation key={flow.key} title={flow.title} steps={flow.steps} note={flow.note} />
         </div>
         <p className="max-w-sm text-[12.5px] text-fg-subtle">
-          This just replays the loading animation free scan, report and writing refinement each show while working. It never runs a real scan or creates an order.
+          This just replays the loading animation the report and writing refinement each show while working. It never runs a real report or creates an order.
         </p>
       </Container>
     </div>

@@ -59,39 +59,6 @@ export async function workerStatus(): Promise<WorkerStatus> {
 }
 
 /**
- * Queues written feedback for a free scan, only while the worker is online
- * and not already behind. Returns the job id the browser polls with, or null
- * when there will be no feedback (the scan result stands on its own).
- */
-export async function enqueueScanFeedback(text: string): Promise<string | null> {
-  if (!localModelEnabled() || !localModel.scanFeedback) return null;
-  try {
-    if (!(await workerStatus()).online) return null;
-    const db = createAdminClient();
-    await db.rpc("purge_model_jobs");
-    const { count } = await db
-      .from("model_jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("kind", "scan_feedback")
-      .eq("status", "queued");
-    if ((count ?? 0) >= localModel.maxQueuedFeedback) return null;
-    const { data, error } = await db
-      .from("model_jobs")
-      .insert({
-        kind: "scan_feedback",
-        input_text: text,
-        expires_at: new Date(Date.now() + localModel.scanFeedbackMinutes * 60_000).toISOString(),
-      })
-      .select("id")
-      .single<{ id: string }>();
-    if (error || !data) return null;
-    return data.id;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Queues a first draft for a paid refinement order. The text stays on the
  * order and is read when the worker claims the job. Replaces earlier
  * finished drafts for the order. Returns a message when it can't queue.

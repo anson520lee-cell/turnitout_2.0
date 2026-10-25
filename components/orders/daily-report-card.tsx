@@ -139,7 +139,7 @@ export function DailyReportCard({
                 ? resetIn
                   ? `Comes back in ${resetIn} (midnight Hong Kong time)`
                   : "Comes back at midnight Hong Kong time"
-                : "Resets every day at midnight Hong Kong time. Free scans are separate."}
+                : "Resets every day at midnight Hong Kong time."}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">

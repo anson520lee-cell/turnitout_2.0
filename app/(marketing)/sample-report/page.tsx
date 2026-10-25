@@ -33,8 +33,8 @@ export default function SampleReportPage() {
           <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
             Get a report
           </Link>
-          <Link href="/scan" className={buttonClasses("secondary", "lg")}>
-            Try a free scan first
+          <Link href="/pricing" className={buttonClasses("secondary", "lg")}>
+            See pricing
           </Link>
         </div>
       </Container>

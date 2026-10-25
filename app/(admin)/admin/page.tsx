@@ -54,8 +54,6 @@ export default async function AdminHome() {
     ["Orders", m.orders],
     ["Revenue", formatHKD(m.revenue)],
     ["Users", m.users],
-    ["Free scans today (accounts)", m.scans],
-    ["Free scans today (visitors)", m.guestScans],
   ];
   return (
     <>

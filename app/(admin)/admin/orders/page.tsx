@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** The orders list now lives in Activity (with free scans and uploads). Old links and filters keep working. */
+/** The orders list now lives in Activity (with uploads). Old links and filters keep working. */
 export default async function AdminOrders({ searchParams }: PageProps<"/admin/orders">) {
   const sp = await searchParams;
   const next = new URLSearchParams({ kind: "orders" });

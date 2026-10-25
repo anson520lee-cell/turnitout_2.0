@@ -1,17 +1,8 @@
 import { z } from "zod";
-import { freeScan, refinement } from "@/config/app";
+import { refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { freeReportCharError, freeScanCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
-
-export const scanInput = z
-  .string()
-  .max(freeScan.maxChars, `Text is too long (max ${freeScan.maxChars.toLocaleString()} characters).`)
-  .transform((s) => s.trim())
-  .superRefine((s, ctx) => {
-    const problem = s ? freeScanCharError(s.length) : "Paste some text to scan.";
-    if (problem) ctx.addIssue({ code: "custom", message: problem });
-  });
+import { freeReportCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
 
 export const screeningType = z.enum(["ai_screening", "similarity_screening", "combined_screening"]);
 
