@@ -63,7 +63,7 @@ export function DashboardView({
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {[
           { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "AI-writing risk, sentence by sentence", tag: reportFromLabel },
-          { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`, tag: `From ${formatCredits(refinementPricing.minimum)}` },
+          { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars.toLocaleString("en-HK")} characters`, tag: `From ${formatCredits(refinementPricing.minimum)}` },
         ].map((q) => (
           <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
             <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>

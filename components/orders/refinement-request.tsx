@@ -37,7 +37,7 @@ export function RefinementRequest({ modelDrafts = false }: { modelDrafts?: boole
           <div className="relative mt-6 grid gap-4 border-t border-[var(--line)] pt-6 sm:grid-cols-3">
             <div>
               <p className="text-[12px] text-fg-subtle">Rate</p>
-              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatCredits(refinementPricing.perBlock)}<span className="text-[13px] font-normal text-fg-subtle"> / {refinementPricing.blockChars} chars</span></p>
+              <p className="mt-1 text-[20px] font-semibold tracking-tight">{formatCredits(refinementPricing.perBlock)}<span className="text-[13px] font-normal text-fg-subtle"> / {refinementPricing.blockChars.toLocaleString("en-HK")} chars</span></p>
             </div>
             <div>
               <p className="text-[12px] text-fg-subtle">Minimum</p>

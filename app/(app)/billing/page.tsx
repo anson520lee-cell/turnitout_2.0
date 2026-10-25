@@ -7,9 +7,10 @@ import { FormMessage } from "@/components/ui/field";
 import { TopUpPanel } from "@/components/billing/top-up-panel";
 import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
-import { topupReference } from "@/config/payments";
+import { paymentMethodLabel, topupReference } from "@/config/payments";
 import { availableCoins, coinMinimums, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
 import { CREDITS_PER_USD, formatUSD, reportPrice, refinementPricing, toCredits, topUp, topUpBonusTiers } from "@/config/pricing";
+import { reportMinimumLabel, reportRateLabel } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -76,8 +77,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <Card className="p-5 sm:p-6">
             <h2 className="text-[15px] font-semibold">What credits buy</h2>
             <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-fg-muted">
-              <li>AI-writing risk report: 1 credit per 200 characters, minimum 10 credits; in every 20,000 characters the first 8,000 are charged and the next 12,000 are free, up to 100,000 characters. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
-              <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
+              <li>AI-writing risk report: {reportRateLabel.toLowerCase()}, {reportMinimumLabel.toLowerCase()}; in every 20,000 characters the first 8,000 are charged and the next 12,000 are free, up to 100,000 characters. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
+              <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars.toLocaleString("en-US")} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
               <li>Rate: {formatUSD(1)} = {CREDITS_PER_USD} credits. Credits don&rsquo;t expire.</li>
               <li>Bonus credits on larger top-ups: {topUpBonusTiers.slice().reverse().map((t) => `${formatUSD(t.minUsd)}+ → +${t.percent}%`).join(", ")}. Bonus credits are not refundable as money.</li>
             </ul>
@@ -86,7 +87,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
         <Card strong className="p-5 sm:p-6">
           <h2 className="text-[15px] font-semibold">Top up</h2>
-          <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars or crypto.</p>
+          <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars; Alipay is paid in Hong Kong dollars at the same value.</p>
           <div className="mt-5">
             <TopUpPanel stripe={false} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
           </div>
@@ -100,7 +101,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             {topups.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <span>
-                  {formatUSD(t.usd)} <span className="text-fg-subtle">→ {n(t.amount)} credits · {t.method === "nowpayments" ? "crypto" : t.method.replace(/_/g, " ")}</span>
+                  {formatUSD(t.usd)} <span className="text-fg-subtle">→ {n(t.amount)} credits · {t.method === "nowpayments" ? "Crypto" : paymentMethodLabel(t.method)}</span>
                   <span className="block text-[12px] text-fg-subtle">{formatDateTime(t.created_at)}{t.admin_note ? ` · ${t.admin_note}` : ""}</span>
                 </span>
                 <span className="flex items-center gap-2">

@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/payments/stripe";
 import { isStripeConfigured } from "@/lib/env";
 import { availableCoins, coinMinUsd, createPayment, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
-import { acceptsClaims, claimReference, isCryptoMethod, MANUAL_PAYMENT_METHODS, manualPayments } from "@/config/payments";
+import { acceptsClaims, claimReference, isCryptoMethod, MANUAL_PAYMENT_METHODS, manualAmountText, manualPayments } from "@/config/payments";
 import { formatUSD, topUp, topUpAmountError, topUpCurrency, usdToCredits } from "@/config/pricing";
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
@@ -18,8 +18,9 @@ import { autoConfirmTopup, isAutoMethod } from "@/lib/payments/stable-topups";
 type Fail = { ok: false; message: string };
 
 const MAX_OPEN_TOPUPS = 5;
+const DUPLICATE_REFERENCE = "This payment reference has already been submitted. If your credits haven't arrived yet, we're still confirming it; there's no need to send it again.";
 
-/** Whole-dollar amount rules: crypto takes any amount from US$10; PayPal and card take the presets (from US$5). */
+/** Whole-dollar amount rules: crypto takes any amount from US$10; PayPal, Alipay and card take the presets (from US$5). */
 function amountProblem(usd: number, crypto: boolean): string | null {
   const base = topUpAmountError(usd, crypto);
   if (base) return base;
@@ -98,7 +99,7 @@ const claimInput = z.object({
 });
 
 /**
- * PayPal / USDT / USDC / Bitcoin: the customer has paid outside the site and
+ * PayPal / Alipay / USDT / USDC / Bitcoin: the customer has paid outside the site and
  * reports the reference. USDT (TRON) and USDC (Base) are checked on chain at
  * once and credited if the transfer matches (lib/payments/stable-topups);
  * everything else, and anything that doesn't match yet, waits for an admin.
@@ -118,6 +119,18 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
   }
 
   const db = createAdminClient();
+  // The same payment must not be claimed twice (a double click, or a retry after a slow page): that would let one
+  // transfer be confirmed, and credited, twice.
+  const { data: same } = await db
+    .from("credit_topups")
+    .select("id")
+    .eq("method", v.method)
+    .in("payer_reference", [...new Set([v.reference, v.reference.toUpperCase(), v.reference.toLowerCase()])])
+    .in("status", ["pending", "confirmed"])
+    .limit(1);
+  if (same?.length) {
+    return { ok: false, message: DUPLICATE_REFERENCE };
+  }
   const { data: row, error } = await db
     .from("credit_topups")
     .insert({
@@ -130,6 +143,7 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
     })
     .select("id,created_at")
     .single();
+  if (error?.code === "23505") return { ok: false, message: DUPLICATE_REFERENCE };
   if (error || !row) return { ok: false, message: "We couldn't record your payment details. Please try again." };
 
   if (isAutoMethod(v.method)) {
@@ -153,7 +167,7 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
   notifyOwner("payment_submitted", {
     topup: shortId(row.id),
     method: cfg.label,
-    amount: formatUSD(v.usd),
+    amount: manualAmountText(v.method, v.usd),
     credits: usdToCredits(v.usd),
     email: user.email,
   });

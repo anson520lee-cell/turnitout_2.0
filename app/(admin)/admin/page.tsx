@@ -5,7 +5,7 @@ import { OrdersTable } from "@/components/admin/orders-table";
 import { TopupReview, type PendingTopup } from "@/components/admin/topup-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatHKD } from "@/config/pricing";
-import { paymentMethodLabel } from "@/config/payments";
+import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { formatDateTime, shortId } from "@/lib/utils";
 import { recheckStableTopups } from "@/lib/payments/stable-topups";
@@ -30,6 +30,8 @@ async function pendingTopups(): Promise<PendingTopup[]> {
     amount: r.amount as number,
     method: r.method as string,
     methodLabel: paymentMethodLabel(r.method as string),
+    // What should have arrived in the customer's own currency, e.g. HK$78 for a US$10 Alipay top-up.
+    expectHkd: isManualPaymentMethod(r.method as string) ? hkdAmount(manualPayments[r.method as keyof typeof manualPayments], r.usd as number) : null,
     reference: (r.payer_reference as string | null) ?? null,
     email: emails.get(r.user_id as string) ?? "—",
     createdAt: formatDateTime(r.created_at as string),

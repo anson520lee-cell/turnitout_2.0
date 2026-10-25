@@ -32,7 +32,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
-              {reportRateLabel}, rounded up to the next {reportPricing.blockChars}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
+              {reportRateLabel}, rounded up to the next {reportPricing.blockChars.toLocaleString("en-HK")}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
               spaces and line breaks count once. You see the exact price before you pay. A new report after you revise is a new order.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
@@ -47,7 +47,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How refinement is priced</h2>
             <p className="mt-2">
-              {refinementRateLabel}, rounded up to the next {refinementPricing.blockChars}. {refinementMinimumLabel}. Spaces count;
+              {refinementRateLabel}, rounded up to the next {refinementPricing.blockChars.toLocaleString("en-HK")}. {refinementMinimumLabel}. Spaces count;
               runs of spaces and line breaks count once. You see the exact price before you pay.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
@@ -62,7 +62,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC) or PayPal. Crypto credits are added automatically once the payment is confirmed; PayPal top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
+              1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed; PayPal and Alipay top-ups are added after we confirm them by hand, then they are yours to spend on any report or refinement.
             </p>
           </div>
         </div>
