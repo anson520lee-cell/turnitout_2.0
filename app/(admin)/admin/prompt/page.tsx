@@ -29,7 +29,7 @@ export default async function AdminPrompt() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">AI prompt</h1>
       <p className="mt-1 max-w-3xl text-[13px] text-fg-muted">
-        What DeepSeek is told with every free scan, and which model runs it. Changes take effect on new scans within about 30 seconds; no redeploy needed.
+        What DeepSeek is told with every report (free and paid), and which model runs it. Changes take effect on new reports within about 30 seconds; no redeploy needed.
       </p>
 
       <div className="mt-6 space-y-5">

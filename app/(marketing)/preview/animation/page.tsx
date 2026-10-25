@@ -9,17 +9,10 @@ import { cn } from "@/lib/utils";
 /**
  * A design-review page, not part of the product: it just replays the same
  * WaitingAnimation each real flow uses (with that flow's own title/steps),
- * so it can be looked at without a working scan/order backend behind it.
+ * so it can be looked at without a working order backend behind it.
  * Not linked from navigation; reachable only by visiting the URL directly.
  */
 const FLOWS = [
-  {
-    key: "scan",
-    label: "Free scan",
-    title: "Scanning your writing…",
-    steps: ["Segmenting sentences", "Measuring rhythm and structure", "Checking phrasing patterns", "Preparing your report"],
-    note: "This usually takes a few seconds. Please keep this window open.",
-  },
   {
     key: "report",
     label: "Report",
@@ -48,7 +41,7 @@ export default function AnimationPreviewPage() {
           <ArrowLeft className="size-3.5" /> Back home
         </Link>
         <h1 className="sr-only">Loading animation preview</h1>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Design preview · not a real scan or order</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Design preview · not a real order</p>
         <div className="flex flex-wrap justify-center gap-2">
           {FLOWS.map((f, i) => (
             <button
@@ -68,7 +61,7 @@ export default function AnimationPreviewPage() {
           <WaitingAnimation key={flow.key} title={flow.title} steps={flow.steps} note={flow.note} />
         </div>
         <p className="max-w-sm text-[12.5px] text-fg-subtle">
-          This just replays the loading animation free scan, report and writing refinement each show while working. It never runs a real scan or creates an order.
+          This just replays the loading animation report and writing refinement requests each show while working. It never creates an order.
         </p>
       </Container>
     </div>

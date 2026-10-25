@@ -20,7 +20,7 @@ export default async function SettingsPage() {
           <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-fg-muted">
             <li>{retentionSentence.source}</li>
             <li>{retentionSentence.reports}</li>
-            <li>{retentionSentence.freeScan}</li>
+            <li>{retentionSentence.earlierScans}</li>
             <li>To delete your account and all data, email <a className="text-accent underline" href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>.</li>
           </ul>
         </Card>

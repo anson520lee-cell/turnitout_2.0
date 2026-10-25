@@ -82,7 +82,7 @@ export interface PromptVersion {
   savedAt: string;
 }
 
-/** The system prompt for the free-scan report. */
+/** The system prompt for the report (free and paid). */
 export async function getScanReportPrompt(): Promise<string> {
   return (await read(SETTING_KEYS.reportPrompt)) ?? DEFAULT_REPORT_PROMPT;
 }

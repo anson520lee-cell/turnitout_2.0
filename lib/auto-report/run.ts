@@ -56,7 +56,7 @@ async function failReport(orderId: string, reason: string): Promise<void> {
       p_note: `Refund: report ${shortId(orderId)} could not be completed`,
     });
   }
-  // A daily free report that could not be made gives the day's allowance back.
+  // A free report that could not be made gives the account's one free report back.
   const freeBack = await refundFreeReport(orderId);
   await db.from("auto_report_pieces").delete().eq("order_id", orderId);
   await audit("report_failed", { orderId, detail: { reason, refunded: Boolean(paid) || freeBack } });

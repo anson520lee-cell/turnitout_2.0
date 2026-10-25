@@ -7,7 +7,7 @@ import { uuid } from "@/lib/validation/schemas";
 
 /**
  * The submitted text of one order, for the activity table. Admin only; every view is written to the audit log
- * (the privacy policy says file access is recorded). Free-scan text is never stored, so only orders have any.
+ * (the privacy policy says file access is recorded). Only orders have any.
  */
 export async function viewOrderText(orderId: unknown): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
   const admin = await assertAdmin();

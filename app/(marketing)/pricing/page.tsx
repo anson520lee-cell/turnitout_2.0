@@ -4,7 +4,7 @@ import { PricingCards } from "@/components/landing/pricing-cards";
 import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
-import { freeReport, freeScan } from "@/config/app";
+import { freeReport } from "@/config/app";
 import { formatCredits, refinementPrice, refinementPricing, reportPrice, reportPricing, topUpBonusTiers } from "@/config/pricing";
 import { refinementMinimumLabel, refinementRateLabel, reportCycleLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
@@ -23,7 +23,7 @@ export default function PricingPage() {
       <PageHeader
         eyebrow="Pricing"
         title="Start free. Pay with credits."
-        body={`The preliminary scan is free, ${freeScan.dailyLimit} times a day, and every account gets ${freeReport.dailyLimit} full report a day free (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). Longer texts: the AI-writing risk report and writing refinement are both priced by length.`}
+        body={`Every account gets ${freeReport.perUserLimit} full report free, once (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). After that, the AI-writing risk report and writing refinement are both priced by length.`}
       />
       <Container>
         <PricingCards headingAs="h2" />

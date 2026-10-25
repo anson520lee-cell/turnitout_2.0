@@ -23,7 +23,7 @@ const promptInput = z
   .transform((s) => s.trim())
   .pipe(z.string().min(20, "The prompt is too short.").max(20_000, "The prompt is too long (max 20,000 characters)."));
 
-/** Saves the owner's system prompt for the free-scan report (and keeps a copy in the history). */
+/** Saves the owner's system prompt for the report (and keeps a copy in the history). */
 export async function saveReportPrompt(input: unknown): Promise<Result> {
   const admin = await assertAdmin();
   const parsed = promptInput.safeParse(input);

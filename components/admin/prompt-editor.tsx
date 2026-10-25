@@ -22,7 +22,7 @@ const SAMPLE = `Urban streets deserve greater attention in planning debates. Str
 
 So why do people still drive so much? It sounds counterintuitive, but in many new towns people have to use a car, because the bus takes forever and the MTR station is a 20 minute walk away. Indeed, only a small group of people like government, investors, are making the decisions to maximize their profits, and they don't really keep an eye on what residents need.`;
 
-/** Edit box for the free-scan report prompt on /admin/prompt, with a test run and older versions. */
+/** Edit box for the report prompt on /admin/prompt, with a test run and older versions. */
 export function PromptEditor({ initial, custom, versions }: { initial: string; custom: boolean; versions: Version[] }) {
   const router = useRouter();
   const [text, setText] = useState(initial);

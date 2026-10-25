@@ -1,22 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, Gauge, FileCheck2, PenLine } from "lucide-react";
+import { ArrowUpRight, FileCheck2, PenLine } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { SpotlightCard } from "@/components/motion/spotlight-card";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
-import { freeScan } from "@/config/app";
 import { formatCredits, refinementPricing } from "@/config/pricing";
 import { refinementRateLabel, reportFromLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 
 const cards = [
-  {
-    icon: Gauge,
-    tag: <Badge tone="accent">Free · Instant</Badge>,
-    title: "Preliminary Writing Scan",
-    body: "Our own analysis of sentence rhythm, transitions, phrasing and structure. A fast first look at patterns detectors tend to weigh.",
-    meta: `${freeScan.dailyLimit} per day · website-generated`,
-    href: "/scan",
-  },
   {
     icon: FileCheck2,
     tag: <Badge tone="info">Automatic · a few minutes</Badge>,
@@ -40,11 +31,11 @@ export function CoreServices() {
     <section id="services" className="py-24 sm:py-32">
       <Container>
         <SectionHeading
-          eyebrow="Three services"
-          title="Three services, clearly separated."
-          body="An instant estimate from us, an automatic AI-writing risk report when you need one, and optional refinement of your own writing. Each is labelled for exactly what it is."
+          eyebrow="Two services"
+          title="Two services, clearly separated."
+          body="An automatic AI-writing risk report (your first one is free), and optional refinement of your own writing. Each is labelled for exactly what it is."
         />
-        <Stagger className="mt-14 grid gap-5 md:grid-cols-3">
+        <Stagger className="mt-14 grid gap-5 md:grid-cols-2">
           {cards.map((c) => (
             <StaggerItem key={c.title}>
               <SpotlightCard press className="h-full">

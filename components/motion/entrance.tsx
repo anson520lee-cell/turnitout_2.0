@@ -20,7 +20,7 @@ export function Entrance() {
   return null;
 }
 
-const SIGNED_IN = ["/dashboard", "/billing", "/orders", "/settings", "/scan/history", "/admin"];
+const SIGNED_IN = ["/dashboard", "/billing", "/orders", "/settings", "/admin"];
 const isSignedInArea = (path: string) => SIGNED_IN.some((p) => path === p || path.startsWith(p + "/"));
 
 /**

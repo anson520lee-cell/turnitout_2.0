@@ -44,8 +44,6 @@ export default function OpengraphImage() {
           <div style={{ fontSize: 60, fontWeight: 600, marginTop: 12 }}>{brand.tagline}</div>
         </div>
         <div style={{ display: "flex", gap: 18, fontSize: 28, color: "#9aa3bf" }}>
-          <span>Free writing scan</span>
-          <span style={{ color: "#5b8cff" }}>·</span>
           <span>AI-writing risk reports</span>
           <span style={{ color: "#5b8cff" }}>·</span>
           <span>Writing refinement</span>

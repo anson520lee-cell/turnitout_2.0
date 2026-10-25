@@ -20,7 +20,7 @@ export default async function NotFound() {
         <Container className="pb-24">
           <div className="flex flex-wrap gap-3">
             <Link href="/" className={buttonClasses("primary", "lg")}>Back to home</Link>
-            <Link href="/scan" className={buttonClasses("secondary", "lg")}>Run free scan</Link>
+            <Link href="/services/screening" className={buttonClasses("secondary", "lg")}>Get a report</Link>
             <Link href="/services" className={buttonClasses("secondary", "lg")}>See services</Link>
           </div>
         </Container>

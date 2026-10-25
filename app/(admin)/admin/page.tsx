@@ -54,13 +54,11 @@ export default async function AdminHome() {
     ["Orders", m.orders],
     ["Revenue", formatHKD(m.revenue)],
     ["Users", m.users],
-    ["Free scans today (accounts)", m.scans],
-    ["Free scans today (visitors)", m.guestScans],
   ];
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map(([k, v, alert]) => (
           <div key={k} className={alert ? "glass rounded-2xl border-warn/40 p-4 shadow-[0_0_0_1px_rgb(141_179_255/0.2)]" : "glass rounded-2xl p-4"}>
             <p className={alert ? "text-[12px] text-warn" : "text-[12px] text-fg-muted"}>{k}</p>

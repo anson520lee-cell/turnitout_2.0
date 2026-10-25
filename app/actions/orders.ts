@@ -140,11 +140,12 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
 }
 
 /**
- * The daily free report: the same automatic report as a paid one, for texts up
- * to freeReport.maxChars, once a day per account (and a few per network
+ * The free report: the same automatic report as a paid one, for texts up to
+ * freeReport.maxChars, once per account ever (and a few a day per network
  * address). The order is created at price 0 and marked paid at once with the
- * "free_daily" provider, so the order page starts the live scan right away.
- * An admin account has no daily limit.
+ * "free_daily" provider (the name predates the one-time limit and is kept so
+ * older payments still match), so the order page starts the live scan right
+ * away. An admin account has no limit.
  */
 export async function createFreeReportOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
   const user = await getSessionUser();
@@ -161,7 +162,7 @@ export async function createFreeReportOrder(input: unknown): Promise<{ ok: true;
     .insert({
       user_id: user.id,
       service_type: reportService,
-      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Daily free report", chars, "characters"),
+      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Free report", chars, "characters"),
       price: 0,
       currency,
       word_count: words,
@@ -180,9 +181,9 @@ export async function createFreeReportOrder(input: unknown): Promise<{ ok: true;
         ok: false,
         message:
           taken === "used"
-            ? "You've used today's free report. It comes back at midnight Hong Kong time, or you can get a full report with credits."
+            ? "You've already used your free report. You can get a full report with credits."
             : taken === "network"
-              ? "Today's free reports from this network are used up. Try again tomorrow, or get a full report with credits."
+              ? "Free reports from this network are used up for today. Try again tomorrow, or get a full report with credits."
               : "We couldn't check your free report allowance. Please try again.",
       };
     }

@@ -1,14 +1,13 @@
 # 0%
 
-A pre-submission service for students checking their own academic writing. It offers three separate services:
+A pre-submission service for students checking their own academic writing. It offers two services:
 
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
-| **Preliminary Scan** (free, 3/day) | Instant writing-pattern analysis | This website (`HeuristicWritingAnalyzer`) |
-| **AI-Writing Risk Report** (automatic, 1 credit per 200 characters, minimum 10 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
+| **AI-Writing Risk Report** (every account gets one free report of up to 4,000 characters, ever; after that automatic, 1 credit per 200 characters, minimum 10 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
 | **Writing Refinement** (1 credit per 200 characters, minimum 15 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
-The UI keeps these apart everywhere: free-scan results are labelled "Preliminary risk estimate · not a Turnitin result"; the paid report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
+The UI keeps these apart everywhere: the report is labelled as our own reviewer's guidance, not a Turnitin result. Older hand-made Turnitin reports still display as the observed result of that run. There is no separate free scan: **Get report** is the only entry point, and its one free use per account is the free report (see [Free report](#free-report)).
 
 > Turnitin is a third-party service. This platform is independently operated and is not affiliated with, endorsed by, or operated by Turnitin. The app contains no Turnitin branding, UI, credentials, scraping or automation.
 
@@ -27,7 +26,6 @@ The brand name is "0%". Rename it in `config/app.ts` (`brand`); nothing else har
 
 ```
 USER ─► NEXT.JS (App Router)
-          ├─ Preliminary analysis ─ WritingAnalyzer ─► scan_results
           └─ Paid orders ─ Stripe Checkout ─► webhook ─► queue
                               └─ Admin workflow (human) ─► TURNITIN (outside the app)
                                                     └─► screening_results + private report ─► user dashboard
@@ -43,14 +41,15 @@ Supabase: Auth · Postgres (RLS) · private Storage
 | Path | Purpose |
 | --- | --- |
 | `config/pricing.ts` | All prices (HKD cents). Nothing else hard-codes a price. |
-| `config/app.ts` | Brand, daily limit, upload limits, retention periods. |
+| `config/app.ts` | Brand, free report allowance, upload limits, retention periods. |
 | `config/services.ts`, `config/faq.ts` | Service copy, disclaimers, FAQ. |
 | `lib/orders/status.ts` | The order state machine: labels, flows, allowed transitions. |
-| `lib/scanning/` | `WritingAnalyzer` interface, `HeuristicWritingAnalyzer`, and `canUserScan` / `getRemainingScans` / `incrementScanUsage`. |
+| `lib/free-report.ts`, `lib/ip-hash.ts` | The one-free-report allowance per account (and the per-network-address cap against throw-away accounts). |
+| `lib/scanning/` | `WritingAnalyzer` interface and `HeuristicWritingAnalyzer`. No longer used by the site (the free scan was removed); kept for the calibration tools in `tools/calib` and its tests. |
 | `lib/screening/` | `ScreeningProvider` interface and `ManualTurnitinProvider` (human-in-the-loop). |
 | `lib/payments/` | Stripe client and `markOrderPaid` (idempotent, amount-checked), used by the webhook and by admin claim confirmation. |
 | `config/payments.ts` | Alipay / PayMe / bank transfer payee details, QR paths and instructions. |
-| `app/actions/` | Server actions: scan, orders, admin, account. |
+| `app/actions/` | Server actions: orders, credits, admin, account. |
 | `app/api/files/[kind]/[orderId]` | Access-checked 60-second signed URLs for source files and reports. |
 | `app/api/stripe/webhook` | Marks card orders paid (signature- and amount-checked). Manual payments are confirmed by an admin; see [Payments](#payments). |
 | `app/api/cron/retention` | Scheduled deletion of old documents and reports. |
@@ -124,7 +123,7 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 | --- | --- | --- |
 | AI-Writing Risk Report (`combined_screening`) | 1 credit per 200 characters, minimum 10 credits; first 8,000 of every 20,000 characters charged, the rest free (`reportPricing`) | 500–100,000 characters, checked in the browser and again in `screeningTextOrderInput` |
 | Writing Refinement (`refinement`) | 1 credit per 200 characters, rounded up, minimum 15 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
-| Preliminary scan | Free, 3 a day | — |
+| Free report (`createFreeReportOrder`) | Free: one per account, ever (`freeReport.perUserLimit`) | 500–4,000 characters (`freeReport`) |
 
 Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening` and `similarity_screening` remain in the enum so older orders still display, but they are no longer offered.
 
@@ -156,10 +155,6 @@ Customers can never mark an order paid; only a verified Stripe webhook or an adm
 | `payment_submitted` | A customer reports an Alipay / PayMe / bank payment (check your account) |
 | `payment_confirmed` | You confirm a claim, or Stripe confirms a card payment |
 | `payment_rejected` | You reject a claim |
-| `scan_used` | A free scan is run. Telegram only, so anonymous scans can't use up the email quota payment alerts need |
-| `scan_digest` | Once a day (retention job): yesterday's free-scan total, by email only |
-
-`NOTIFY_ON_SCANS=false` turns off both scan events.
 
 Messages contain the order number, service, word or character count, amount, payment method and account email, never document text, titles or file names. Order and payment messages are retried once if a send fails. If a card payment arrives for an order that was already cancelled, you get a `payment_confirmed` message telling you to refund it or restore the order.
 
@@ -187,42 +182,35 @@ Every step writes to `audit_events`.
 
 `HeuristicWritingAnalyzer` computes six explainable signals from the text itself: sentence-length variation, sentence-opening repetition, connector frequency, stock phrasing and repeated trigrams, moving-average type–token ratio, and paragraph-length variation. It returns a level (Low / Moderate / Elevated) and per-signal measurements, not an "AI %". Add another implementation (model, LLM rubric, external API) behind `WritingAnalyzer` and select it with `WRITING_ANALYZER`. `metadata.isMock` exists so any future development mock is never shown as real analysis.
 
-It also returns sentence-level highlights (which patterns each sentence contains) and readability measures (Flesch reading ease, Flesch–Kincaid grade, sentence length, reading time). Highlights contain the user's text, so `forStorage()` strips them, and paragraph excerpts, before a result is saved; scan history keeps scores only.
+It also returns sentence-level highlights (which patterns each sentence contains) and readability measures (Flesch reading ease, Flesch–Kincaid grade, sentence length, reading time). The site no longer runs this analyzer (the free scan was removed); it stays for the calibration and back-test tools in `tools/calib`.
 
-The free scan accepts .docx, .pdf and .txt files. Text is extracted in the browser (`lib/extract-text.ts`, mammoth and unpdf), so the file itself is never uploaded. Results can be saved as a PDF through the browser's print dialog (print styles in `globals.css`).
+Report requests accept .docx, .pdf and .txt files. Text is extracted in the browser (`lib/extract-text.ts`, mammoth and unpdf), so the file itself is never uploaded.
 
 ## Local writing model
 
-The owner's own model, served by Open WebUI on the owner's computer, can write feedback under free scans and first drafts of refinement orders. Everything is off until `MODEL_WORKER_SECRET` (24+ characters) is set.
-
-```
-browser ─► runScan ─► model_jobs (queued) ◄── poll ── worker on owner's PC ─► Open WebUI ─► local model
-   ▲                                    └── result ──┘
-   └── /api/scan-feedback/[id] (read once, then deleted)
-```
+The owner's own model, served by Open WebUI on the owner's computer, can write first drafts of refinement orders. Everything is off until `MODEL_WORKER_SECRET` (24+ characters) is set.
 
 - **Pull, not push.** `tools/local-model-worker/worker.mjs` (Node 18+, no packages) polls `POST /api/model-worker/next` and reports to `POST /api/model-worker/jobs/[id]`, authenticated with `Authorization: Bearer $MODEL_WORKER_SECRET` (constant-time check). The owner's computer only makes outgoing requests. Each poll is a heartbeat (`model_worker.last_seen_at`).
-- **Queue:** migration `0003`. `claim_model_job` hands out one job at a time (`for update skip locked`), scan feedback first, and requeues a draft whose worker stopped reporting progress for 20 minutes (up to three tries). Service role only.
-- **Scan feedback** is queued only while the worker was seen in the last `localModel.onlineWindowSeconds` (45 s) and fewer than `maxQueuedFeedback` are waiting, so the report never waits on it. The text is cleared from the row when the worker claims it; the feedback is deleted when the browser reads it or after `scanFeedbackMinutes` (10). The UI labels it as model-written writing feedback; it never judges AI authorship or gives a score.
-- **Refinement drafts** are queued when an order is paid (`markOrderPaid`) or from the admin order page. The worker reads the text from the order at claim time (it is never copied into the job), writes it in chunks of `CHUNK_CHARS`, and between chunks answers waiting scan feedback. The admin loads the draft into the revision editor and reviews it; the customer sees only what the admin saves and releases. Drafts are deleted with the order's text by the retention cron.
+- **Queue:** migration `0003`. `claim_model_job` hands out one job at a time (`for update skip locked`) and requeues a draft whose worker stopped reporting progress for 20 minutes (up to three tries). Service role only.
+- **Scan feedback** jobs are no longer queued by the site (the free scan was removed). The worker still understands the job kind, so anything already queued is finished and then expires.
+- **Refinement drafts** are queued when an order is paid (`markOrderPaid`) or from the admin order page. The worker reads the text from the order at claim time (it is never copied into the job), and writes it in chunks of `CHUNK_CHARS`. The admin loads the draft into the revision editor and reviews it; the customer sees only what the admin saves and releases. Drafts are deleted with the order's text by the retention cron.
 - **Prompts** live in `lib/local-model/prompts.ts`, not in the worker, so the rules ship with the site: clarity, grammar and flow only; keep meaning, citations and voice; nothing about AI detection or evading it.
 - The privacy page says the model runs on equipment the operator controls and text doesn't go to an outside AI provider. That's only true if `OPENWEBUI_MODEL` is a local model; change the page before using a cloud model.
 
 Setup (in Traditional Chinese for the owner): `tools/local-model-worker/README.md`.
 
-## Guest scans
+## Free report
 
-The free scan lives at `/scan` in its own route group, `app/(scan)`, so visitors can use it without an account: guests see the marketing navbar, signed-in users see the app sidebar. Opening a saved scan (`/scan?id=…`) and `/scan/history` still require sign-in (`lib/supabase/proxy.ts`).
+Every account gets **one** free report, ever (`freeReport.perUserLimit` = 1 in `config/app.ts`), for texts of 500–4,000 characters. It is an ordinary order at price 0 that goes through the same report pipeline as a paid one, so the result is the full report. Once it is used, reports are paid for with credits. Guests can paste text and see the page, but submitting needs an account (`createFreeReportOrder` checks that on the server).
 
-Guests get `freeScan.dailyLimit` (3) scans per Hong Kong calendar day per network address (`lib/scanning/guest.ts`, migration `0002`):
-
-- The address comes from the first `x-forwarded-for` entry, else `x-real-ip`, and only on a host that overwrites them: Vercel (detected from `VERCEL`), or another host where you set `TRUST_PROXY_IP_HEADERS=true` because its proxy replaces any value the visitor sends. Elsewhere these headers can be forged, so they are ignored.
-- IPv6 counts per /64, because one device can rotate through addresses inside its /64.
-- Without a trusted header, all guests share one `unknown` bucket, so the limit fails closed.
-- Known limit: someone with a routed IPv6 block larger than a /64 can get more than 3 a day. The cost is only server time for the heuristic scan (scan messages go to Telegram, not the email quota). Add a platform rate limit (Vercel Firewall) if it happens.
-- Only a salted SHA-256 of the address is stored (`GUEST_IP_SALT`, or a value derived from the service-role key when unset). Neither the address nor the hash is logged.
-- Counting is an atomic Postgres function callable only by the service role; a failed scan refunds its use. Yesterday's rows are deleted by the retention cron.
-- People behind one shared address (a school network, mobile carrier NAT) share one allowance. Signing in gives each person their own 3 a day.
+- The allowance is counted in Postgres (`consume_free_report`, `free_report_remaining`, `refund_free_report`; migration `0019`). Taking it is atomic, so parallel requests can't take two. The per-account count is one lifetime row in `free_report_usage` under the fixed date `1970-01-01`. Accounts that took a free report on any earlier day under the old one-a-day rule count as used. A report that fails or is never made refunds its allowance.
+- Second guard against throw-away accounts: one network address can hand out `freeReport.perNetworkLimit` (3) free reports per Hong Kong day (`lib/ip-hash.ts`).
+  - The address comes from the first `x-forwarded-for` entry, else `x-real-ip`, and only on a host that overwrites them: Vercel (detected from `VERCEL`), or another host where you set `TRUST_PROXY_IP_HEADERS=true` because its proxy replaces any value the visitor sends. Elsewhere these headers can be forged, so they are ignored.
+  - IPv6 counts per /64, because one device can rotate through addresses inside its /64.
+  - Without a trusted header, all visitors share one `unknown` bucket, so the limit fails closed.
+  - Only a salted SHA-256 of the address is stored (`GUEST_IP_SALT`, or a value derived from the service-role key when unset). Neither the address nor the hash is logged.
+- Admin accounts have no limit.
+- The `free_daily` payment provider name predates the one-time limit and is kept so older payments still match.
 
 ## Interaction design
 
@@ -231,8 +219,7 @@ Guests get `freeScan.dailyLimit` (3) scans per Hong Kong calendar day per networ
 ## Privacy and retention
 
 - Private buckets; no public URLs; users have no direct storage policy. Everything goes through server-checked signed URLs.
-- Free-scan text is not stored (`retention.storeScanText = false`); only scores are. With the local model on, it sits in `model_jobs` only until the worker claims it, and the feedback until the browser reads it (10 minutes at most).
-- Guest scan counts keep only a salted hash of the visitor's network address, and each day's rows are deleted by the retention cron the next day.
+- The free-report network cap keeps only a salted hash of the visitor's network address. Rows left by the removed free scan (`guest_scan_usage`) are still cleared by the retention cron.
 - Source documents and refinement text are deleted `retention.sourceDocumentDays` (14) days after an order closes; reports after `retention.reportDays` (90). This depends on the cron job running with `CRON_SECRET` set; the admin Settings page shows whether it is.
 - Analytics hooks (`lib/analytics.ts`) carry ids and enums only, never document content. No provider is wired yet.
 
@@ -242,7 +229,7 @@ Checked in this build:
 
 - Service-role key only in `server-only` modules; admin pages and actions call `assertAdmin()` (role read from the database) before using it.
 - RLS on every table; customers can't insert or update orders, results or payments; results hidden until `completed`.
-- Daily limit enforced by an atomic Postgres function (tested: 12 parallel calls → exactly 3 succeed). The refund function is service-role only.
+- The free report allowance is enforced by an atomic Postgres function (`consume_free_report`, migration `0019`), so parallel requests can't take a second one. The refund function is service-role only.
 - Prices recomputed server-side; webhook verifies the Stripe signature and amount.
 - Uploads: extension/MIME/size checked before issuing a single-path signed upload URL, then the stored object's real size and magic bytes are checked before checkout is allowed. Bucket-level limits as a backstop.
 - UUID order ids; every file access re-checks ownership.

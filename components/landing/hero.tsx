@@ -4,7 +4,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
 import { HeroVisual } from "./hero-visual";
-import { freeScan } from "@/config/app";
+import { freeReport } from "@/config/app";
 
 /** Extrusion layers behind the headline, nearest first. */
 const DEPTH = [
@@ -81,23 +81,23 @@ export function Hero() {
           </Reveal>
           <Reveal aboveFold delay={0.16}>
             <p className="mt-6 max-w-lg text-pretty text-[16.5px] leading-relaxed text-fg-muted">
-              Run a preliminary writing scan instantly. When you want the full picture, get a report that
-              reads every sentence and shows where your writing could be misread as AI-written.
+              Get a report that reads every sentence and shows where your writing could be misread as
+              AI-written. Your first report is free.
             </p>
           </Reveal>
           <Reveal aboveFold delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">
-            <Link href="/scan" className={buttonClasses("primary", "lg")}>
-              Run free scan
+            <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
+              Get report
               <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
             </Link>
-            <Link href="/services/screening" className={buttonClasses("secondary", "lg")}>
-              Get report
+            <Link href="/sample-report" className={buttonClasses("secondary", "lg")}>
+              See a sample report
             </Link>
           </Reveal>
           <Reveal aboveFold delay={0.32}>
             <p className="mt-6 flex items-center gap-2 text-[13px] text-fg-subtle">
               <ShieldCheck className="size-4 text-ok" aria-hidden />
-              {freeScan.dailyLimit} preliminary scans free every day. Private document handling.
+              One free report per account, up to {freeReport.maxChars.toLocaleString("en-HK")} characters. Private document handling.
             </p>
           </Reveal>
         </div>

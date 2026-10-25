@@ -21,16 +21,16 @@ export default function AboutPage() {
       <Container className="prose-doc max-w-3xl">
         <h2>What we do</h2>
         <p>
-          We offer three things: a free preliminary scan that measures writing patterns, a paid AI-writing risk report that
-          reads your whole text and shows where it could be misread as AI-written, and
-          Writing Refinement: clarity, flow and style refinement of your own writing.
+          We offer two things: an AI-writing risk report that reads your whole text and shows where it could be
+          misread as AI-written (your first report is free), and Writing Refinement: clarity, flow and style
+          refinement of your own writing.
         </p>
         <h2>What we don&rsquo;t do</h2>
         <ul>
           <li>We don&rsquo;t claim any indicator proves who wrote a text.</li>
           <li>We don&rsquo;t guarantee scores or outcomes.</li>
           <li>We don&rsquo;t help disguise AI-generated or third-party work.</li>
-          <li>We don&rsquo;t present our own scan as a Turnitin result.</li>
+          <li>We don&rsquo;t present our own report as a Turnitin result.</li>
         </ul>
         <h2>Independence</h2>
         <p>{disclaimers.turnitin}</p>

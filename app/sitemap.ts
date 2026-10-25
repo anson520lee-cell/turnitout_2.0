@@ -4,7 +4,6 @@ const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 const pages: { path: string; priority: number }[] = [
   { path: "/", priority: 1 },
-  { path: "/scan", priority: 0.9 },
   { path: "/services", priority: 0.8 },
   { path: "/services/screening", priority: 0.8 },
   { path: "/services/refinement", priority: 0.8 },

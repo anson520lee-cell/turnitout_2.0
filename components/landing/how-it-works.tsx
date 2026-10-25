@@ -3,24 +3,28 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { Reveal } from "@/components/motion/reveal";
+import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC) or PayPal";
 
 export const steps = [
-  { n: "01", title: "Run a preliminary scan", body: "Paste your text. Get writing-pattern signals in seconds." },
-  { n: "02", title: "Review the signals", body: "See which patterns stand out and where, paragraph by paragraph." },
   {
-    n: "03",
-    title: "Get a report if you need one",
+    n: "01",
+    title: "Get a report",
     body: "Press Get report, paste your text into the dialog and press Enter. Only you and authorised staff can see your text and your report.",
   },
   {
-    n: "04",
-    title: "Pay with credits",
+    n: "02",
+    title: "Use your free report",
+    body: `Every account's first report is free, for texts of up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. Create a free account to start it.`,
+  },
+  {
+    n: "03",
+    title: "Pay with credits for the rest",
     body: `${reportRateLabel}. ${reportLimitsLabel}. Top up credits by ${methods}.`,
   },
-  { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
+  { n: "04", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
 
 export function HowItWorks({ heading = true }: { heading?: boolean }) {
@@ -34,7 +38,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
         {heading && (
           <SectionHeading
             eyebrow="How it works"
-            title="Five steps, fully visible."
+            title="Four steps, fully visible."
             body="Every order shows its current step in your dashboard, from payment to report."
           />
         )}

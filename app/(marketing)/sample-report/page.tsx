@@ -31,10 +31,10 @@ export default function SampleReportPage() {
         <AutoReportView title="Example: Sociology essay, final draft" finishedAt="30 Sep 2026, 10:40" result={sampleReport} />
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
-            Get a report
+            Get a report (first one free)
           </Link>
-          <Link href="/scan" className={buttonClasses("secondary", "lg")}>
-            Try a free scan first
+          <Link href="/pricing" className={buttonClasses("secondary", "lg")}>
+            See pricing
           </Link>
         </div>
       </Container>

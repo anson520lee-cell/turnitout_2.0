@@ -1,17 +1,8 @@
 import { z } from "zod";
-import { freeScan, refinement } from "@/config/app";
+import { refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { freeReportCharError, freeScanCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
-
-export const scanInput = z
-  .string()
-  .max(freeScan.maxChars, `Text is too long (max ${freeScan.maxChars.toLocaleString()} characters).`)
-  .transform((s) => s.trim())
-  .superRefine((s, ctx) => {
-    const problem = s ? freeScanCharError(s.length) : "Paste some text to scan.";
-    if (problem) ctx.addIssue({ code: "custom", message: problem });
-  });
+import { freeReportCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
 
 export const screeningType = z.enum(["ai_screening", "similarity_screening", "combined_screening"]);
 
@@ -41,11 +32,11 @@ export const screeningTextOrderInput = z.object({
     }),
 });
 
-/** Daily free report: the pasted text only; the server sets title and price (0). */
+/** The free report: the pasted text only; the server sets title and price (0). */
 export const freeReportOrderInput = z.object({
   text: z
     .string()
-    .max(MAX_PASTE_CHARS, "That text is too long for the daily free report.")
+    .max(MAX_PASTE_CHARS, "That text is too long for the free report.")
     .transform((s) => s.trim())
     .superRefine((s, ctx) => {
       const problem = s ? freeReportCharError(billableChars(s)) : "Paste the text you want a report for.";

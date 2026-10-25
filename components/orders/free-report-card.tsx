@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, CornerDownLeft, FileCheck2, Gift, Lock, Sparkles } from "lucide-react";
+import { CornerDownLeft, FileCheck2, Gift, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { createFreeReportOrder } from "@/app/actions/orders";
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -10,12 +10,11 @@ import { Card } from "@/components/ui/card";
 import { billableChars, reportPricing } from "@/config/pricing";
 import { freeReport } from "@/config/app";
 import { freeReportCharError } from "@/lib/orders/limits";
-import { nextHkMidnight } from "@/lib/free-report-time";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
 /** What the card needs from the server: a guest can try it (sign-in is asked on Enter); an account knows what is left. */
-export type DailyReportStatus = { mode: "guest" } | { mode: "account"; remaining: number; unlimited: boolean };
+export type FreeReportCardStatus = { mode: "guest" } | { mode: "account"; remaining: number; unlimited: boolean };
 
 const n = (v: number) => v.toLocaleString("en-HK");
 
@@ -25,24 +24,7 @@ const PERKS = [
   "PDF download",
 ];
 
-/** "5 h 12 min" until the next Hong Kong midnight; null on the server so the first paint matches. */
-function useResetIn(): string | null {
-  const [text, setText] = useState<string | null>(null);
-  useEffect(() => {
-    const tick = () => {
-      const mins = Math.max(1, Math.ceil((nextHkMidnight() - Date.now()) / 60_000));
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      setText(h > 0 ? `${h} h ${m} min` : `${m} min`);
-    };
-    tick();
-    const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
-  }, []);
-  return text;
-}
-
-/** Progress ring: full while today's free report is available, empty and locked once it is used. */
+/** Progress ring: full while the free report is available, empty and locked once it is used. */
 function Ring({ available }: { available: boolean }) {
   const r = 34;
   const c = 2 * Math.PI * r;
@@ -55,7 +37,7 @@ function Ring({ available }: { available: boolean }) {
           cy="40"
           r={r}
           fill="none"
-          stroke={available ? "url(#daily-ring)" : "transparent"}
+          stroke={available ? "url(#free-ring)" : "transparent"}
           strokeWidth="5"
           strokeLinecap="round"
           strokeDasharray={c}
@@ -63,7 +45,7 @@ function Ring({ available }: { available: boolean }) {
           style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)", filter: available ? "drop-shadow(0 0 7px rgb(91 140 255 / 0.7))" : undefined }}
         />
         <defs>
-          <linearGradient id="daily-ring" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id="free-ring" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#5b8cff" />
             <stop offset="1" stopColor="#8db3ff" />
           </linearGradient>
@@ -82,36 +64,35 @@ function Ring({ available }: { available: boolean }) {
 }
 
 /**
- * The "daily free report" card: one free full report a day (up to 4,000
- * characters), same report as the paid one. Shows what is left, when it comes
- * back, and turns into a locked card with a way to buy a report once used.
+ * The "free report" card: one free full report per account, ever (up to 4,000
+ * characters), same report as the paid one. Shows whether it is still
+ * available and turns into a locked card with a way to buy a report once used.
  */
-export function DailyReportCard({
+export function FreeReportCard({
   status,
   paidHref = "/services/screening#paid-report",
   className,
 }: {
-  status: DailyReportStatus;
-  /** Where "get a full report" leads once today's free one is used. */
+  status: FreeReportCardStatus;
+  /** Where "get a full report" leads once the free one is used. */
   paidHref?: string;
   className?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const resetIn = useResetIn();
   const used = status.mode === "account" && status.remaining <= 0;
   const unlimited = status.mode === "account" && status.unlimited;
 
   return (
     <>
-      <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
+      <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="free-report">
         <div aria-hidden className={cn("pointer-events-none absolute -left-16 -top-20 size-64 rounded-full blur-3xl", used ? "bg-white/[0.04]" : "bg-accent/20")} />
         <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-accent/12")} />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
           <Ring available={!used} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Daily free report</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Free report</p>
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium",
@@ -119,11 +100,11 @@ export function DailyReportCard({
                 )}
               >
                 {used ? <Lock className="size-3" aria-hidden /> : <Gift className="size-3" aria-hidden />}
-                {used ? "Used today" : unlimited ? "Owner · unlimited" : "1 left today"}
+                {used ? "Used" : unlimited ? "Owner · unlimited" : "1 free report"}
               </span>
             </div>
             <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-              {used ? "Today's free report is used" : `One free full report every day, up to ${n(freeReport.maxChars)} characters`}
+              {used ? "Your free report is used" : `Your first full report is free, up to ${n(freeReport.maxChars)} characters`}
             </h2>
             <ul className="mt-3 space-y-1.5 text-[13px] text-fg-muted">
               {PERKS.map((t) => (
@@ -134,12 +115,8 @@ export function DailyReportCard({
               ))}
             </ul>
             <p className="mt-3 flex items-center gap-1.5 text-[12px] text-fg-subtle">
-              <CalendarClock className="size-3.5" aria-hidden />
-              {used
-                ? resetIn
-                  ? `Comes back in ${resetIn} (midnight Hong Kong time)`
-                  : "Comes back at midnight Hong Kong time"
-                : "Resets every day at midnight Hong Kong time. Free scans are separate."}
+              <ShieldCheck className="size-3.5" aria-hidden />
+              {used ? "Every account gets one free report. More reports are paid with credits." : "One free report per account. More reports are paid with credits."}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
@@ -160,7 +137,7 @@ export function DailyReportCard({
                     setOpen(true);
                   }}
                 >
-                  <Gift className="size-4" /> Use today&rsquo;s free report
+                  <Gift className="size-4" /> Use my free report
                 </Button>
                 <p className="flex items-center gap-1.5 text-[12px] text-fg-subtle sm:justify-end">
                   Paste, then press
@@ -178,7 +155,7 @@ export function DailyReportCard({
       <PasteDialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Paste your text for today's free report"
+        title="Paste your text for your free report"
         description={`Free · ${n(freeReport.minChars)}–${n(freeReport.maxChars)} characters · the same full report as a paid one, with PDF.`}
         placeholder="Paste the text you want a report on. Press Enter when you're done."
         submitLabel="Start my free report"
@@ -205,7 +182,7 @@ export function DailyReportCard({
           return { ok: true };
         }}
         waitingTitle="Starting your free report…"
-        waitingSteps={["Counting characters", "Checking today's allowance", "Creating your report", "Opening the live scan"]}
+        waitingSteps={["Counting characters", "Checking your free report", "Creating your report", "Opening the live scan"]}
         waitingNote="Please wait and keep this window open. Your report starts in a moment."
       />
     </>

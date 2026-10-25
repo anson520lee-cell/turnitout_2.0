@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
-import { DailyReportCard } from "@/components/orders/daily-report-card";
+import { FreeReportCard } from "@/components/orders/free-report-card";
 import { getFreeReportStatus } from "@/lib/free-report";
 import { ReportRequest } from "@/components/orders/report-request";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 // Older links pass ?type=ai_screening etc.; every new request is the combined report.
 export default async function Page() {
-  const dailyReport = await getFreeReportStatus();
+  const freeReportStatus = await getFreeReportStatus();
   return (
     <>
       <AppHeader
@@ -32,7 +32,7 @@ export default async function Page() {
           </>
         }
       />
-      <DailyReportCard status={dailyReport} className="mb-6" />
+      <FreeReportCard status={freeReportStatus} className="mb-6" />
       <ReportRequest />
     </>
   );

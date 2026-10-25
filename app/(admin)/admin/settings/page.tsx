@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { assertAdmin } from "@/lib/auth/session";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { brand, freeScan, refinement, retention, uploads } from "@/config/app";
+import { brand, freeReport, refinement, retention, uploads } from "@/config/app";
 import { refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 import { isPlaceholder, manualPaymentList, referencePrefix } from "@/config/payments";
 import { isStripeConfigured, devPaymentsEnabled } from "@/lib/env";
 import { notificationChannels } from "@/lib/notify";
 import { getScreeningProvider } from "@/lib/screening";
-import { getAnalyzer } from "@/lib/scanning";
-import { trustsProxyHeaders } from "@/lib/scanning/guest";
+import { trustsProxyHeaders } from "@/lib/ip-hash";
 import { deepseekEnabled, deepseekModel } from "@/lib/deepseek";
 import { localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
 import { formatDateTime } from "@/lib/utils";
@@ -40,14 +39,13 @@ export default async function AdminSettings() {
   const worker = await workerStatus();
   const rows: [string, React.ReactNode][] = [
     ["Brand", brand.name],
-    ["Free scans / day", `${freeScan.dailyLimit} (${freeScan.timezone})`],
+    ["Free report / account", `${freeReport.perUserLimit}, once (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters)`],
     [
-      "Guest scan limit",
+      "Free report network limit",
       trustsProxyHeaders()
-        ? on("Per visitor address")
+        ? on(`${freeReport.perNetworkLimit} a day per visitor address`)
         : off("One shared allowance: set TRUST_PROXY_IP_HEADERS if your host overwrites X-Forwarded-For"),
     ],
-    ["Preliminary analyzer", getAnalyzer().id],
     [
       "Writing model (DeepSeek)",
       <div key="m" className="space-y-1">
@@ -59,7 +57,7 @@ export default async function AdminSettings() {
             ? on(`Online${worker.model ? ` · ${worker.model}` : ""}`)
             : off(worker.lastSeenAt ? `Offline · last seen ${formatDateTime(worker.lastSeenAt)}` : "Waiting for the worker to connect")}
         <p className="text-[12px] text-fg-subtle">
-          Set {env("DEEPSEEK_API_KEY")} in Vercel to write free-scan feedback and refinement drafts with DeepSeek. Without it, drafts can still use the worker on your computer ({env("MODEL_WORKER_SECRET")}).
+          Set {env("DEEPSEEK_API_KEY")} in Vercel to write refinement drafts with DeepSeek. Without it, drafts can still use the worker on your computer ({env("MODEL_WORKER_SECRET")}).
         </p>
       </div>,
     ],
@@ -70,7 +68,6 @@ export default async function AdminSettings() {
     ["Source text kept", `${retention.sourceDocumentDays} days after completion`],
     ["Unpaid orders", `Cancelled and text deleted after ${retention.unpaidOrderDays} days`],
     ["Reports kept", `${retention.reportDays} days after completion`],
-    ["Store free-scan text", retention.storeScanText ? "Yes" : "No"],
     ["Report upload limit", `${uploads.maxBytes / 1024 / 1024} MB · PDF, DOCX`],
   ];
 
@@ -88,15 +85,6 @@ export default async function AdminSettings() {
         {channels.email ? on() : off()}
         <p className="text-[12px] text-fg-subtle">
           Set {env("RESEND_API_KEY")} and {env("NOTIFY_EMAIL_TO")} (comma-separated). Optional {env("NOTIFY_EMAIL_FROM")}.
-        </p>
-      </div>,
-    ],
-    [
-      "Free-scan messages",
-      <div key="s" className="space-y-1">
-        {channels.scans && (channels.telegram || channels.email) ? <Badge tone="info">On</Badge> : <Badge>Off</Badge>}
-        <p className="text-[12px] text-fg-subtle">
-          Telegram: one message per scan. Email: one summary a day (needs the retention job), so scans can&rsquo;t use up the email quota payment alerts need. Set {env("NOTIFY_ON_SCANS")}=false to stop both.
         </p>
       </div>,
     ],
@@ -118,7 +106,7 @@ export default async function AdminSettings() {
           <Card className="p-5">
             <h2 className="text-[14px] font-semibold">Owner notifications</h2>
             <p className="mt-1 text-[12.5px] text-fg-muted">
-              Sent for new orders, reported payments, confirmations and rejections{channels.scans ? ", and free scans (each one on Telegram, a daily total by email)" : ""}. Messages
+              Sent for new orders, reported payments, confirmations and rejections. Messages
               carry order numbers, amounts, methods and the account email, never document text or titles.
             </p>
             {!channels.telegram && !channels.email && (

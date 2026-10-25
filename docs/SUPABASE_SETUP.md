@@ -4,7 +4,7 @@
 
 (Steps 1–2 are only needed if you ever make a fresh project.)
 
-Until this is done, sign-up/login show "Getting accounts ready" and report/refinement orders can't be submitted. The free scan works either way.
+Until this is done, sign-up/login show "Getting accounts ready" and report/refinement orders can't be submitted.
 
 ## 1. Create the project
 1. supabase.com → New project (any name, pick a region near Hong Kong, e.g. Singapore). Save the database password somewhere safe.

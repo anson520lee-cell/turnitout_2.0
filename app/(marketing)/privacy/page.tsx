@@ -22,13 +22,13 @@ export default function PrivacyPage() {
         <h2>What we collect</h2>
         <ul>
           <li><strong>Account:</strong> email address, optional display name, sign-in records.</li>
-          <li><strong>Free scans:</strong> the signal scores and risk level for each scan. {retention.storeScanText ? "The scanned text is also stored." : "The text you paste is analysed in memory and not stored."}</li>
+          <li><strong>Earlier preliminary scans:</strong> the website used to offer a free preliminary scan. If you used it, the signal scores and risk level of each scan are still in your account until you delete them from Settings. The text you pasted was analysed in memory and not stored.</li>
           {model && (
-            <li><strong>Writing feedback on free scans:</strong> the text you scan is also sent to an outside AI provider (DeepSeek) so it can write you feedback. We don&rsquo;t store the text. The written report isn&rsquo;t kept either, unless you are signed in and press &ldquo;Save this report to my history&rdquo;: then the report (which quotes the first few words of the sentences it flags) is stored with that scan, visible only to you, and deleted after {retention.savedReportDays} days or when you delete it. We also log how many tokens each model call used and how long it took, never the text.</li>
+            <li><strong>Model usage:</strong> we log how many tokens each model call used and how long it took, never the text.</li>
           )}
           <li><strong>Orders:</strong> the document or text you submit, its title, any notes, the service chosen, and the result we deliver.</li>
           <li><strong>Payments:</strong> you top up credits with crypto (USDT, USDC or BTC) through NOWPayments, or by PayPal, and spend credits on orders. We keep your credit balance and transaction history, and for each crypto payment the coin, network, amount, deposit address, transaction status and the payment ID, so we can match your payment. For a PayPal top-up we keep the PayPal transaction ID you give us so staff can confirm it by hand. We never ask for or store your wallet keys or seed phrase.</li>
-          <li><strong>Free scans without an account:</strong> to enforce the daily limit we keep a salted one-way hash of your IP address (never the address itself) and a count for the day. Old counts are deleted automatically. Results of scans made without an account are not saved.</li>
+          <li><strong>Free report:</strong> every account gets one free report. To enforce that limit we record that your account has used it, and, to limit how many free reports one network can hand out a day, a salted one-way hash of your IP address (never the address itself) with a count for the day.</li>
         </ul>
         <h2>How documents are handled</h2>
         <ul>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Supabase:</strong> authentication, database and file storage.</li>
           <li><strong>NOWPayments:</strong> crypto payment processing (USDT, USDC, BTC).</li>
-          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for free-scan feedback, paid reports and refinement drafts.</li>}
+          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for reports and refinement drafts.</li>}
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>
         <h2>Your rights</h2>

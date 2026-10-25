@@ -13,7 +13,7 @@ export function NotConfigured() {
       stepMs={1800}
       note={
         process.env.NODE_ENV === "production"
-          ? "Sign-in opens shortly. The free scan already works without an account."
+          ? "Sign-in opens shortly."
           : "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable accounts (see README)."
       }
     />

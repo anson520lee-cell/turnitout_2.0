@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBytes } from "@/lib/utils";
 import { assertAdmin } from "@/lib/auth/session";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
-import { freeRange } from "@/lib/scanning/free-range";
 import type { OrderStatus } from "@/lib/orders/status";
 import type {
   AdminNote,
@@ -34,7 +33,7 @@ export async function adminMetrics() {
   const todayIso = new Date(`${hkDate}T00:00:00+08:00`).toISOString();
 
   const count = (q: PromiseLike<{ count: number | null }>) => Promise.resolve(q).then((r) => r.count ?? 0);
-  const [users, orders, ordersToday, queued, inScreening, completed, payments, scansToday, guestScansToday, claimsPending] = await Promise.all([
+  const [users, orders, ordersToday, queued, inScreening, completed, payments, claimsPending] = await Promise.all([
     count(db.from("profiles").select("id", { count: "exact", head: true })),
     count(db.from("orders").select("id", { count: "exact", head: true })),
     count(db.from("orders").select("id", { count: "exact", head: true }).gte("created_at", todayIso)),
@@ -42,15 +41,10 @@ export async function adminMetrics() {
     count(db.from("orders").select("id", { count: "exact", head: true }).in("status", ["screening", "under_review", "processing", "report_ready"])),
     count(db.from("orders").select("id", { count: "exact", head: true }).eq("status", "completed")),
     db.from("payments").select("amount,provider").eq("status", "succeeded"),
-    db.from("scan_usage").select("scan_count").eq("usage_date", hkDate),
-    db.from("guest_scan_usage").select("scan_count").eq("usage_date", hkDate),
     count(db.from("payment_claims").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
   const revenue = (payments.data ?? []).filter((p) => p.provider !== "dev" && p.provider !== "admin_free" && p.provider !== "free_daily").reduce((s, p) => s + p.amount, 0);
-  const sum = (rows: { scan_count: number }[] | null) => (rows ?? []).reduce((s, r) => s + r.scan_count, 0);
-  const scans = sum(scansToday.data);
-  const guestScans = sum(guestScansToday.data);
-  return { users, orders, ordersToday, queued, inScreening, completed, revenue, scans, guestScans, claimsPending };
+  return { users, orders, ordersToday, queued, inScreening, completed, revenue, claimsPending };
 }
 
 export async function adminOrders(limit = 500): Promise<AdminOrder[]> {
@@ -102,7 +96,7 @@ export async function adminOrderBundle(id: string) {
   };
 }
 
-export type ActivityKind = "free_scan" | "free_report" | "paid_report" | "refinement";
+export type ActivityKind = "free_report" | "paid_report" | "refinement";
 
 export interface ActivityRow {
   key: string;
@@ -110,15 +104,14 @@ export interface ActivityRow {
   kind: ActivityKind;
   email: string | null;
   words: number | null;
-  /** Exact AI score (0 to 100) for reports; a free scan only has a range, kept as a label. */
+  /** Exact AI score (0 to 100) for reports. */
   score: number | null;
-  range: string | null;
   level: "low" | "moderate" | "elevated" | null;
   /** Everything else worth reading, as short "name: value" parts. */
   detail: string[];
   /** Set for orders: their id (opens the order, and the text can be fetched while it is still kept). */
   orderId: string | null;
-  /** True while the submitted text is still stored (orders only; free-scan text is never stored). */
+  /** True while the submitted text is still stored. */
   hasText: boolean;
   status: OrderStatus | null;
   title: string | null;
@@ -142,32 +135,15 @@ type ActivityOrder = {
   auto_reports: { status: string; summary: AutoReportResult["summary"] | null } | { status: string; summary: AutoReportResult["summary"] | null }[] | null;
 };
 
-type ActivityScan = {
-  id: string;
-  word_count: number;
-  overall_risk: "low" | "moderate" | "elevated";
-  analyzer: string;
-  created_at: string;
-  report_saved_at: string | null;
-  result_json: { standoutShare?: number; signals?: { id: string; score: number | null }[] } | null;
-  profiles: { email: string } | null;
-};
-
 /**
- * Every free scan, free report, paid report and refinement in one list, newest first. Metadata only:
+ * Every free report, paid report and refinement in one list, newest first. Metadata only:
  * no text and no report content leave this function (the text is fetched one order at a time, by
- * viewOrderText, and each view is logged). Scans made without an account are never stored, so they
- * are not here.
+ * viewOrderText, and each view is logged).
  */
 export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
   await assertAdmin();
   const db = createAdminClient();
-  const [{ data: scans }, { data: orders }, { data: claims }] = await Promise.all([
-    db
-      .from("scan_results")
-      .select("id,word_count,overall_risk,analyzer,created_at,report_saved_at,result_json,profiles(email)")
-      .order("created_at", { ascending: false })
-      .limit(limit),
+  const [{ data: orders }, { data: claims }] = await Promise.all([
     db
       .from("orders")
       // `summary` is only the counts; the report body (which quotes the text) is never selected.
@@ -178,33 +154,6 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
   ]);
   const toVerify = new Set(((claims ?? []) as { order_id: string }[]).map((c) => c.order_id));
   const rows: ActivityRow[] = [];
-  for (const s of (scans ?? []) as unknown as ActivityScan[]) {
-    const share = s.result_json?.standoutShare;
-    const range = freeRange(share, s.overall_risk);
-    const signals = (s.result_json?.signals ?? []).filter((x) => x.score !== null).map((x) => `${x.id.replace(/_/g, " ")} ${x.score}`);
-    rows.push({
-      key: `scan-${s.id}`,
-      at: s.created_at,
-      kind: "free_scan",
-      email: s.profiles?.email ?? null,
-      words: s.word_count,
-      score: null,
-      range: `${range.lo}–${range.hi}`,
-      level: s.overall_risk,
-      detail: [
-        ...(share === undefined ? [] : [`stand-out sentences ${Math.round(share * 100)}%`]),
-        ...(signals.length ? [`signals: ${signals.join(", ")}`] : []),
-        s.analyzer,
-        ...(s.report_saved_at ? ["written report saved by the user"] : []),
-      ],
-      orderId: null,
-      hasText: false,
-      status: null,
-      title: null,
-      price: null,
-      paymentToVerify: false,
-    });
-  }
   for (const o of (orders ?? []) as unknown as ActivityOrder[]) {
     const auto = Array.isArray(o.auto_reports) ? o.auto_reports[0] : o.auto_reports;
     const sum = auto?.summary ?? null;
@@ -216,7 +165,6 @@ export async function adminActivity(limit = 1000): Promise<ActivityRow[]> {
       email: o.profiles?.email ?? null,
       words: sum?.words ?? o.word_count,
       score: sum ? Math.round(reportScore(sum) * 100) : null,
-      range: null,
       level: sum?.overall ?? null,
       detail: sum
         ? [
