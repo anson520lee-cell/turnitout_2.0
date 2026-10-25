@@ -116,6 +116,11 @@ export function formatCredits(cents: number): string {
 export const CREDITS_PER_USD = 8;
 export const topUpCurrency = "usd" as const;
 
+/** A price in cents (100 = 1 credit) in US dollars at the top-up rate, to the cent: 3 credits = US$0.38. */
+export function priceUsd(cents: number): number {
+  return Math.round((toCredits(cents) * 100) / CREDITS_PER_USD) / 100;
+}
+
 /**
  * Whole US dollars. Crypto: any amount from US$10 (NOWPayments won't take less than about US$9 to 15
  * depending on the coin; USDT on TRON is the highest, about US$14.4, and the top-up screen checks each

@@ -20,13 +20,15 @@ export default function RefundsPage() {
         <h2>1. Credits</h2>
         <p>
           Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by PayPal, Alipay or
-          crypto (USDT, USDC or Bitcoin). Credits do not expire and are tied to your account.
+          crypto (USDT, USDC or Bitcoin). Credits do not expire and are tied to your account. You can also pay for one order
+          directly by Alipay, at that order&rsquo;s exact price, without buying credits.
         </p>
 
         <h2>2. If we can&rsquo;t deliver</h2>
         <p>
           If we cannot complete a paid report or Writing Refinement order (for example, the document can&rsquo;t be processed),
-          the credits for that order go back to your balance in full. For reports this happens automatically. You can also ask for them as a refund of the top-up (see 4).
+          the credits for that order go back to your balance in full (an order paid directly by Alipay gets the credits its
+          price was worth). For reports this happens automatically. You can also ask for them as a refund of the top-up (see 4).
         </p>
 
         <h2>3. Orders that were delivered</h2>

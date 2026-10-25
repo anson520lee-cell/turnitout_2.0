@@ -7,6 +7,7 @@ import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
 import { refundFreeReport } from "@/lib/free-report";
+import { DIRECT_PAY_METHODS } from "@/config/payments";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
 import { PIECE_SIZE, stitchReport, type PieceAnswer } from "./stitch";
@@ -44,8 +45,16 @@ async function failReport(orderId: string, reason: string): Promise<void> {
   await db.from("auto_reports").update({ status: "failed", error: reason, lease_until: null, updated_at: now }).eq("order_id", orderId);
   if (!order || order.status === "cancelled") return;
   await db.from("orders").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("id", orderId);
-  // Nothing was delivered: give back credits the customer paid (an owner test order paid nothing).
-  const { data: paid } = await db.from("payments").select("id").eq("order_id", orderId).eq("provider", "credits").eq("status", "succeeded").maybeSingle();
+  // Nothing was delivered: give back what the customer paid, as credits (an owner test order paid nothing). An order
+  // paid directly by Alipay gets the same number of credits its price was worth.
+  const { data: paid } = await db
+    .from("payments")
+    .select("id")
+    .eq("order_id", orderId)
+    .in("provider", ["credits", ...DIRECT_PAY_METHODS])
+    .eq("status", "succeeded")
+    .limit(1)
+    .maybeSingle();
   if (paid) {
     await db.rpc("credit_add", {
       p_user: order.user_id,

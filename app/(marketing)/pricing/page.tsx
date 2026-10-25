@@ -22,7 +22,7 @@ export default function PricingPage() {
     <>
       <PageHeader
         eyebrow="Pricing"
-        title="Start free. Pay with credits."
+        title="Start free. Pay only for what you check."
         body={`Every account gets ${freeReport.dailyLimit} full report a day free (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). Longer texts: the AI-writing risk report and writing refinement are both priced by length.`}
       />
       <Container>
@@ -33,7 +33,7 @@ export default function PricingPage() {
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
               {reportRateLabel}, rounded up to the next {reportPricing.blockChars.toLocaleString("en-HK")}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
-              spaces and line breaks count once. You see the exact price before you pay. A new report after you revise is a new order.
+              spaces and line breaks count once. You see the exact price before you pay, and you can pay just that one report by Alipay (no top-up, no minimum) or use credits. A new report after you revise is a new order.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
               {reportExamples.map((e) => (
@@ -48,7 +48,7 @@ export default function PricingPage() {
             <h2 className="text-[15px] font-semibold text-fg">How refinement is priced</h2>
             <p className="mt-2">
               {refinementRateLabel}, rounded up to the next {refinementPricing.blockChars.toLocaleString("en-HK")}. {refinementMinimumLabel}. Spaces count;
-              runs of spaces and line breaks count once. You see the exact price before you pay.
+              runs of spaces and line breaks count once. You see the exact price before you pay, and you can pay just that one report by Alipay (no top-up, no minimum) or use credits.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
               {examples.map((e) => (

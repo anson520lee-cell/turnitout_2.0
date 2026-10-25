@@ -14,6 +14,7 @@ import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
 import { appUrl, shortId } from "@/lib/utils";
 import { autoConfirmTopup, isAutoMethod } from "@/lib/payments/stable-topups";
+import { referenceTaken } from "@/lib/payments/reference-check";
 
 type Fail = { ok: false; message: string };
 
@@ -118,19 +119,10 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
     return { ok: false, message: `You already have ${MAX_OPEN_TOPUPS} top-ups waiting to be confirmed. Please wait for those first.` };
   }
 
+  // The same payment must not be claimed twice (a double click, a retry after a slow page, or a number already used
+  // to pay an order): that would let one transfer be confirmed, and credited, twice.
+  if (await referenceTaken(v.method, v.reference)) return { ok: false, message: DUPLICATE_REFERENCE };
   const db = createAdminClient();
-  // The same payment must not be claimed twice (a double click, or a retry after a slow page): that would let one
-  // transfer be confirmed, and credited, twice.
-  const { data: same } = await db
-    .from("credit_topups")
-    .select("id")
-    .eq("method", v.method)
-    .in("payer_reference", [...new Set([v.reference, v.reference.toUpperCase(), v.reference.toLowerCase()])])
-    .in("status", ["pending", "confirmed"])
-    .limit(1);
-  if (same?.length) {
-    return { ok: false, message: DUPLICATE_REFERENCE };
-  }
   const { data: row, error } = await db
     .from("credit_topups")
     .insert({

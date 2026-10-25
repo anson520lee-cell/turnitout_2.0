@@ -65,6 +65,7 @@ export function ManualMethod({
   disabled,
   submit,
   onSubmitted,
+  confirmNote = "We check every payment by hand. Your credits are added as soon as it\u2019s confirmed.",
 }: {
   method: ManualPaymentConfig;
   /** e.g. "US$20" */
@@ -77,6 +78,8 @@ export function ManualMethod({
   disabled: boolean;
   submit: (method: string, reference: string) => Promise<{ ok: true } | { ok: false; message: string }>;
   onSubmitted: () => void;
+  /** The line under the submit button: what happens once the payment is confirmed. */
+  confirmNote?: string;
 }) {
   const [payer, setPayer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +179,7 @@ export function ManualMethod({
           I&rsquo;ve paid · submit for confirmation
         </Button>
         <p className="mt-2 text-center text-[11.5px] text-fg-subtle">
-          We check every payment by hand. Your credits are added as soon as it&rsquo;s confirmed.
+          {confirmNote}
         </p>
       </form>
     </div>

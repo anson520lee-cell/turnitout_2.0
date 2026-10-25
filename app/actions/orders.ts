@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { billableChars, currency, formatHKD, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
+import { billableChars, currency, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
-import { acceptsClaims, manualPayments } from "@/config/payments";
+import { acceptsClaims, isDirectPayMethod, manualPayments, orderAmountText } from "@/config/payments";
 import { uploads } from "@/config/app";
 import {
   freeReportOrderInput,
@@ -26,6 +26,8 @@ import { devPaymentsEnabled, isStripeConfigured, isSupabaseConfigured } from "@/
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
 import { repriceUnpaid } from "@/lib/orders/reprice";
+import { referenceTaken } from "@/lib/payments/reference-check";
+import { heldNote, returnNote } from "@/lib/orders/held-credits";
 import type { Order } from "@/types/domain";
 
 type Fail = { ok: false; message: string };
@@ -492,27 +494,83 @@ async function hasPendingClaim(orderId: string): Promise<boolean> {
   return (count ?? 0) > 0;
 }
 
+const DUPLICATE_REFERENCE = "This transaction number has already been submitted. If it was for this order, we're confirming it now; there's no need to send it again.";
+
+/** Credits on the account right now (server-side read). */
+async function balanceOf(userId: string): Promise<number> {
+  const db = createAdminClient();
+  const { data } = await db.from("credit_accounts").select("balance").eq("user_id", userId).maybeSingle<{ balance: number }>();
+  return data?.balance ?? 0;
+}
+
 /**
- * The customer says they have paid by Alipay, PayMe or bank transfer. This
- * only records the claim; the order stays awaiting_payment until an admin
- * finds the money and confirms it (confirmPaymentClaim in actions/admin.ts).
+ * Pays one order directly (Alipay): the customer has paid outside the site and
+ * tells us the transaction number. Credits already on the account are used
+ * first: they are taken now, and only the rest of the price is paid by Alipay
+ * (`useCredits` is the number the popup showed, so the customer is never asked
+ * for one amount and charged another). This only records the claim; the order
+ * stays awaiting_payment until an admin finds the money and confirms it
+ * (confirmPaymentClaim in actions/admin.ts), and only then does the report
+ * start. A rejected claim gives the credits back. No top-up minimum.
  */
-export async function submitPaymentClaim(orderId: string, method: string, reference: string): Promise<{ ok: true } | Fail> {
+export async function submitPaymentClaim(orderId: string, method: string, reference: string, useCredits = 0): Promise<{ ok: true } | Fail> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Please sign in again." };
   const parsed = paymentClaimInput.safeParse({ orderId, method, reference });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the payment details." };
   const v = parsed.data;
-  if (!acceptsClaims(manualPayments[v.method])) return { ok: false, message: "That payment method isn't available right now." };
-
-  const order = await ownOrder(v.orderId, user.id);
-  if (!order) return { ok: false, message: "Order not found." };
-  if (order.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
-  if (await hasPendingClaim(order.id)) {
-    return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
+  if (!isDirectPayMethod(v.method) || !acceptsClaims(manualPayments[v.method])) {
+    return { ok: false, message: "That payment method isn't available for single orders. Please pay with credits." };
   }
 
+  const found = await ownOrder(v.orderId, user.id);
+  if (!found) return { ok: false, message: "Order not found." };
+  if (found.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (await hasPendingClaim(found.id)) {
+    return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
+  }
+  // The claim is for the price shown in the popup: the current one, never an older stored price.
+  const order = await repriceUnpaid(found);
+  const price = toCredits(order.price);
+  const balance = await balanceOf(user.id);
+  if (balance >= price) {
+    return { ok: false, message: "You have enough credits for this order, so it is paid with credits. Close this window and press Pay with credits." };
+  }
+  // Credits first, Alipay for the rest. The popup must have shown the same split.
+  const use = balance;
+  if (Number(useCredits) !== use) {
+    revalidatePath(`/orders/${order.id}`);
+    return {
+      ok: false,
+      message: `Your credit balance has changed, so the amount to pay is now ${orderAmountText(v.method, (price - use) * 100)}. Close this window to see it. If you already paid the old amount, contact support.`,
+    };
+  }
+  // One transfer can't pay for two things (another order, a top-up, or this order twice).
+  if (await referenceTaken(v.method, v.reference)) return { ok: false, message: DUPLICATE_REFERENCE };
+
   const db = createAdminClient();
+  if (use > 0) {
+    const { data: tx } = await db.rpc("credit_spend", {
+      p_user: user.id,
+      p_amount: use,
+      p_order: order.id,
+      p_note: heldNote(order.id, manualPayments[v.method].label),
+    });
+    if (!tx) return { ok: false, message: "Your credit balance has changed. Close this window to see the new amount." };
+  }
+  // Exactly what this request took: another request's credits on the same order are not this one's to return.
+  const giveBack = async () => {
+    if (use > 0) {
+      await db.rpc("credit_add", {
+        p_user: user.id,
+        p_amount: use,
+        p_kind: "refund",
+        p_order: order.id,
+        p_topup: null,
+        p_note: returnNote(order.id, "payment not recorded"),
+      });
+    }
+  };
   const { data: claim, error } = await db
     .from("payment_claims")
     .insert({
@@ -520,27 +578,35 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
       user_id: user.id,
       method: v.method,
       payer_reference: v.reference,
-      // Always the server-side price, never an amount from the browser.
-      amount: order.price,
+      // Always the server-side amount, never one from the browser: the part of the price not paid with credits.
+      amount: (price - use) * 100,
     })
     .select("id")
     .single();
   if (error || !claim) {
-    // 23505: the one-pending-claim-per-order index caught a double submit.
-    if (error?.code === "23505") return { ok: false, message: "You've already reported a payment for this order." };
+    await giveBack();
+    if (error?.code === "23505") {
+      // payment_claims_reference (migration 0021): the same number arrived twice at once.
+      if (error.message?.includes("reference")) return { ok: false, message: DUPLICATE_REFERENCE };
+      // payment_claims_one_pending: a double submit on this order.
+      return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
+    }
     return { ok: false, message: "We couldn't record your payment details. Please try again." };
   }
 
-  await audit("payment_claim_submitted", { actorId: user.id, orderId: order.id, detail: { claim: claim.id, method: v.method } });
+  await audit("payment_claim_submitted", { actorId: user.id, orderId: order.id, detail: { claim: claim.id, method: v.method, creditsUsed: use } });
   notifyOwner("payment_submitted", {
     order: shortId(order.id),
     service: serviceLabels[order.service_type],
     method: manualPayments[v.method].label,
-    amount: formatHKD(order.price),
+    amount: orderAmountText(v.method, (price - use) * 100) + (use ? ` + ${use} credit${use === 1 ? "" : "s"} from balance` : ""),
+    transaction: v.reference,
     email: user.email,
+    check: `${appUrl()}/admin`,
   });
   revalidatePath(`/orders/${order.id}`);
   revalidatePath("/orders");
+  revalidatePath("/billing");
   return { ok: true };
 }
 
