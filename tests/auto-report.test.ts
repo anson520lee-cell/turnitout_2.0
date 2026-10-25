@@ -110,22 +110,35 @@ test("counted curve bands: red from about 43.5% of sentences counted, yellow fro
 import { billableChars, refinementPrice, reportChargedChars, reportPrice, reportPricing, toCredits } from "../config/pricing";
 import { reportCharError } from "../lib/orders/limits";
 
-test("report price: 1 credit per 200 characters, minimum 10 credits, first 8,000 of every 20,000 charged", () => {
-  assert.equal(reportPrice(500), 1000);
-  assert.equal(reportPrice(2000), 1000);
-  assert.equal(reportPrice(2001), 1100);
-  assert.equal(reportPrice(6000), 3000);
-  assert.equal(reportPrice(7999), 4000);
-  // Characters 8,001 to 20,000 are free, so the first cycle never costs more than 40 credits.
-  assert.equal(reportPrice(8000), 4000);
-  assert.equal(reportPrice(12345), 4000);
-  assert.equal(reportPrice(20000), 4000);
+test("report price: 1 credit per 1,000 characters, minimum 2 credits, first 8,000 of every 20,000 charged", () => {
+  assert.equal(reportPrice(500), 200);
+  assert.equal(reportPrice(2000), 200);
+  assert.equal(reportPrice(2001), 300);
+  assert.equal(reportPrice(3000), 300);
+  assert.equal(reportPrice(6000), 600);
+  assert.equal(reportPrice(7999), 800);
+  // Characters 8,001 to 20,000 are free, so the first cycle never costs more than 8 credits.
+  assert.equal(reportPrice(8000), 800);
+  assert.equal(reportPrice(12345), 800);
+  assert.equal(reportPrice(20000), 800);
   // The next cycle starts charging again at 20,001.
-  assert.equal(reportPrice(20001), 4100);
-  assert.equal(reportPrice(28000), 8000);
-  assert.equal(reportPrice(40000), 8000);
-  assert.equal(reportPrice(50000), 12_000);
-  assert.equal(reportPrice(100000), 20_000);
+  assert.equal(reportPrice(20001), 900);
+  assert.equal(reportPrice(28000), 1600);
+  assert.equal(reportPrice(40000), 1600);
+  assert.equal(reportPrice(50000), 2400);
+  assert.equal(reportPrice(100000), 4000);
+});
+
+test("prices are whole credits and a fifth of the old per-200-character prices", () => {
+  // Old rule: 1 credit per 200 characters (minimum 10) on the charged characters. New: per 1,000 (minimum 2).
+  for (const chars of [500, 1999, 2000, 3500, 7777, 8000, 19999, 20001, 33333, 100000]) {
+    const oldCredits = Math.max(10, Math.ceil(reportChargedChars(chars) / 200));
+    const now = toCredits(reportPrice(chars));
+    assert.equal(reportPrice(chars) % 100, 0, `${chars} chars is a whole number of credits`);
+    assert.ok(now >= 2);
+    assert.ok(now <= Math.ceil(oldCredits / 5) + 1, `${chars} chars: ${now} credits vs old ${oldCredits}`);
+    assert.ok(now >= Math.floor(oldCredits / 5), `${chars} chars: ${now} credits vs old ${oldCredits}`);
+  }
 });
 
 test("charged characters follow the cycle constants", () => {
@@ -138,11 +151,12 @@ test("charged characters follow the cycle constants", () => {
   assert.equal(reportChargedChars(100000) + 5 * (reportPricing.cycleChars - reportPricing.chargedChars), 100000);
 });
 
-test("refinement price: 1 credit per 200 characters, rounded up, minimum 15 credits", () => {
-  assert.equal(refinementPrice(500), 1500);
-  assert.equal(refinementPrice(3000), 1500);
-  assert.equal(refinementPrice(3001), 1600);
-  assert.equal(refinementPrice(4250), 2200);
+test("refinement price: 1 credit per 1,000 characters, rounded up, minimum 3 credits", () => {
+  assert.equal(refinementPrice(500), 300);
+  assert.equal(refinementPrice(3000), 300);
+  assert.equal(refinementPrice(3001), 400);
+  assert.equal(refinementPrice(4250), 500);
+  assert.equal(refinementPrice(12000), 1200);
 });
 
 test("report length limits are in characters", () => {
@@ -162,9 +176,9 @@ test("a 100,000-character report is about 29 pieces, priced up front and stitche
   const pieces = chunkText(text, PIECE_SIZE);
   assert.ok(pieces.length >= 26 && pieces.length <= 33, `${pieces.length} pieces`);
   assert.ok(pieces.every((c) => c.text.length <= PIECE_SIZE * 1.25), "no piece is over 1.25 times the base size");
-  // Free characters still cost model calls, but only the charged ones are priced: 200 credits at most.
+  // Free characters still cost model calls, but only the charged ones are priced: 40 credits at most.
   assert.equal(toCredits(reportPrice(chars)), Math.ceil(reportChargedChars(chars) / reportPricing.blockChars));
-  assert.ok(toCredits(reportPrice(chars)) <= 200);
+  assert.ok(toCredits(reportPrice(chars)) <= 40);
   const flag = `- P1 S1 "This is sentence..." | Risk: High | Signals 3, 4: tidy | Ask: How would you say it?`;
   const answers = pieces.map((_, idx) => ({ idx, ok: true, truncated: false, report: answer([flag]) }));
   const result = stitchReport(text, answers, PIECE_SIZE);

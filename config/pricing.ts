@@ -26,34 +26,37 @@ export const screeningPrices: Record<ScreeningServiceType, number> = {
 export const screeningWordRange = { min: 450, max: 29000 } as const;
 
 /**
- * Writing refinement is priced per 200 characters (spaces included) with a
- * minimum charge: 1 credit (HK$1) per 200 characters, minimum 15 credits
- * (3,000 characters).
+ * Writing refinement is priced per 1,000 characters (spaces included) with a
+ * minimum charge: 1 credit (HK$1) per 1,000 characters, minimum 3 credits
+ * (3,000 characters). (Cut to a fifth of the old prices on 2026-10-25: it used
+ * to be 1 credit per 200 characters, minimum 15.)
  * price = max(minimum, ceil(chars / blockChars) * perBlock)
  */
 export const refinementPricing = {
-  minimum: 1500,
-  blockChars: 200,
+  minimum: 300,
+  blockChars: 1000,
   perBlock: 100,
 } as const;
 
 /**
- * The automatic AI-writing risk report is priced per 200 characters (spaces
- * included): 1 credit per 200 characters, minimum 10 credits (2,000
- * characters), for texts of 500 to 100,000 characters.
+ * The automatic AI-writing risk report is priced per 1,000 characters (spaces
+ * included): 1 credit per 1,000 characters, minimum 2 credits (2,000
+ * characters), for texts of 500 to 100,000 characters. (Cut to a fifth of the
+ * old prices on 2026-10-25: it used to be 1 credit per 200 characters,
+ * minimum 10.)
  *
  * Charging repeats in cycles of `cycleChars` (20,000) characters: the first
  * `chargedChars` (8,000) of each cycle are charged, and the rest of the cycle
  * (12,000) is free. The next cycle starts charging again, up to `maxChars`. So
- * one cycle costs at most 40 credits and a 100,000-character text (5 cycles) 200
+ * one cycle costs at most 8 credits and a 100,000-character text (5 cycles) 40
  * credits. Pricing counts characters, not pieces: the text is reviewed in pieces
  * of about 3,500 characters, and a piece that straddles a cycle edge is neither
  * split nor priced differently.
  * price = max(minimum, ceil(chargedChars(chars) / blockChars) * perBlock)
  */
 export const reportPricing = {
-  minimum: 1000,
-  blockChars: 200,
+  minimum: 200,
+  blockChars: 1000,
   perBlock: 100,
   minChars: 500,
   maxChars: 100_000,
@@ -89,7 +92,7 @@ export function refinementPrice(chars: number): number {
 
 /**
  * Service prices are shown as credits. They stay stored in HKD cents (so existing
- * orders are unchanged): 100 cents = 1 credit, i.e. a 3,000-character report is 15 credits.
+ * orders are unchanged): 100 cents = 1 credit, i.e. a 3,000-character report is 3 credits.
  */
 export const CENTS_PER_CREDIT = 100;
 
@@ -97,7 +100,7 @@ export function toCredits(cents: number): number {
   return Math.round(cents / CENTS_PER_CREDIT);
 }
 
-/** "15 credits" / "1 credit". */
+/** "3 credits" / "1 credit". */
 export function formatCredits(cents: number): string {
   const c = toCredits(cents);
   if (c === 0) return "Free";
@@ -108,7 +111,7 @@ export function formatCredits(cents: number): string {
  * Top-ups are bought in US dollars (card, PayPal) or crypto (USDT, USDC, BTC),
  * and credited at a fixed rate; service prices stay as they are in credits:
  * US$1 = 8 credits (8 credits = US$1), so a US$10 top-up is 80 credits, one
- * 15-credit report (3,000 characters) costs about US$1.88. Change the rate here and nowhere else.
+ * 3-credit report (3,000 characters) costs about US$0.38. Change the rate here and nowhere else.
  */
 export const CREDITS_PER_USD = 8;
 export const topUpCurrency = "usd" as const;

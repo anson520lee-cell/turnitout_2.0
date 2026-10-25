@@ -7,7 +7,7 @@ import { CREDITS_PER_USD } from "@/config/pricing";
 
 export const metadata: Metadata = {
   title: "Refunds",
-  description: "How credits, top-ups and refunds work at 0%, including crypto and PayPal payments.",
+  description: "How credits, top-ups and refunds work at 0%, including crypto, PayPal and Alipay payments.",
   alternates: { canonical: "/refunds" },
 };
 
@@ -19,7 +19,7 @@ export default function RefundsPage() {
       <Container className="prose-doc max-w-3xl">
         <h2>1. Credits</h2>
         <p>
-          Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by PayPal or
+          Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by PayPal, Alipay or
           crypto (USDT, USDC or Bitcoin). Credits do not expire and are tied to your account.
         </p>
 
@@ -40,7 +40,7 @@ export default function RefundsPage() {
         <h2>4. Refunding unused credits</h2>
         <ul>
           <li>Within 14 days of a top-up, credits from it that you have not spent can be refunded.</li>
-          <li>PayPal refunds go back to the PayPal account that paid.</li>
+          <li>PayPal refunds go back to the PayPal account that paid. Alipay refunds go back to the Alipay account that paid, in Hong Kong dollars at the amount you sent.</li>
           <li>
             Crypto refunds are sent in the same coin to an address you give us, on the same network, less the network fee. The
             amount is the US dollar value you paid, not the coin&rsquo;s later price.
@@ -61,7 +61,7 @@ export default function RefundsPage() {
           </li>
           <li>
             <strong>Payment not showing.</strong> Crypto payments are usually confirmed automatically within minutes (Bitcoin can take longer while the network
-            confirms it); PayPal payments are checked by hand. If nothing has happened after a working day, contact us with your reference.
+            confirms it); PayPal and Alipay payments are checked by hand. If nothing has happened after a working day, contact us with your reference.
           </li>
         </ul>
 

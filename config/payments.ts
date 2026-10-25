@@ -1,5 +1,5 @@
 /**
- * Manual payment methods (Alipay, PayMe, bank transfer). The customer pays
+ * Manual payment methods (PayPal, Alipay, and the others kept for later). The customer pays
  * outside the site, then tells us their reference; an admin checks the
  * account and confirms the claim, and only then is the order marked paid.
  *
@@ -28,6 +28,8 @@ export interface ManualPaymentConfig {
   note?: string;
   enabled: boolean;
   payee: PayeeDetail[];
+  /** Set when customers pay this method in Hong Kong dollars: HK$ per US$1. Prices stay in US dollars. */
+  hkdPerUsd?: number;
   /** Optional pay link (e.g. a PayMe business link). Opened in a new tab. */
   link?: string;
   /** Path under /public. A framed placeholder is shown if the file is missing. */
@@ -43,21 +45,21 @@ export const manualPayments: Record<ManualPaymentMethod, ManualPaymentConfig> = 
   alipay: {
     id: "alipay",
     label: "Alipay",
-    short: "Scan the QR code in AlipayHK or Alipay.",
-    enabled: false, // credits are bought in USD / crypto only; set true to offer the HKD methods again
-    payee: [
-      { label: "Account", value: "REPLACE: Alipay account (phone or email)", copy: true },
-      { label: "Account name", value: "REPLACE: account holder name" },
-    ],
+    short: "Scan the QR code in AlipayHK or Alipay and pay in Hong Kong dollars.",
+    enabled: true, // hand-confirmed like PayPal: the customer scans, pays, then enters the transaction number
+    payee: [],
     qrImage: "/payments/alipay-qr.png",
+    // The QR is an AlipayHK collect code, so the customer types a Hong Kong dollar amount: show it at a fixed rate.
+    hkdPerUsd: 7.8,
+    note: "Pay the exact Hong Kong dollar (HKD) amount shown here. Prices are in US dollars; this is the same amount at HK$7.8 = US$1.",
     steps: [
-      "Open AlipayHK (or Alipay) and scan the QR code, or transfer to the account shown.",
-      "Enter the exact amount shown here.",
-      "Put the reference code in the payment note.",
-      "Come back here and enter your Alipay transaction number.",
+      "Open AlipayHK (or Alipay) and scan the QR code.",
+      "Enter the exact HKD amount shown here.",
+      "Add the reference code in the payment note if the app lets you.",
+      "Come back here and enter the transaction number from your Alipay payment receipt.",
     ],
     referenceLabel: "Alipay transaction number",
-    referencePlaceholder: "e.g. 2026092722001…",
+    referencePlaceholder: "e.g. 2026102522001…",
   },
   payme: {
     id: "payme",
@@ -207,6 +209,19 @@ export function payeeReady(m: ManualPaymentConfig): boolean {
  */
 export function acceptsClaims(m: ManualPaymentConfig): boolean {
   return m.enabled && (payeeReady(m) || process.env.NODE_ENV !== "production");
+}
+
+/** What the customer sends for a US$ top-up: HK$ for a method paid in Hong Kong dollars (Alipay), else null. Whole cents. */
+export function hkdAmount(method: ManualPaymentConfig, usd: number): number | null {
+  return method.hkdPerUsd ? Math.round(usd * method.hkdPerUsd * 100) / 100 : null;
+}
+
+/** "US$10" or, for Alipay, "US$10 (HK$78)". Used in owner alerts and the admin list. */
+export function manualAmountText(methodId: string, usd: number): string {
+  const usdText = `US$${usd.toLocaleString("en-US")}`;
+  if (!isManualPaymentMethod(methodId)) return usdText;
+  const hkd = hkdAmount(manualPayments[methodId], usd);
+  return hkd === null ? usdText : `${usdText} (HK$${hkd.toLocaleString("en-HK")})`;
 }
 
 /** Methods where the customer may pick any amount (min US$10): the crypto ones. */

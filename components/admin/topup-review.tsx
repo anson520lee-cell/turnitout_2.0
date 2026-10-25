@@ -10,6 +10,8 @@ export interface PendingTopup {
   amount: number;
   method: string;
   methodLabel: string;
+  /** HK$ the customer should have paid (Alipay), else null */
+  expectHkd: number | null;
   reference: string | null;
   email: string;
   createdAt: string;
@@ -43,6 +45,7 @@ export function TopupReview({ t }: { t: PendingTopup }) {
         <div className="text-right">
           <p className="text-[18px] font-semibold">US${t.usd.toLocaleString("en-US")}</p>
           <p className="text-[12px] text-fg-subtle">{t.amount.toLocaleString("en-US")} credits</p>
+          {t.expectHkd !== null && <p className="mt-0.5 text-[12px] font-medium text-warn">Check you received HK${t.expectHkd.toLocaleString("en-HK")}</p>}
         </div>
       </div>
       {rejecting && (

@@ -9,7 +9,7 @@ import { FormMessage } from "@/components/ui/field";
 import { WaitingAnimation } from "@/components/ui/waiting";
 import { ManualMethod } from "@/components/orders/payment-panel";
 import { methodIcons } from "@/components/orders/payment-methods";
-import { enabledManualPayments, isCryptoMethod, type ManualPaymentMethod } from "@/config/payments";
+import { enabledManualPayments, hkdAmount, isCryptoMethod, type ManualPaymentMethod } from "@/config/payments";
 import { CREDITS_PER_USD, formatUSD, reportPrice, topUp, topUpAmountError, topUpBonusPercent, usdToCredits, toCredits } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -33,7 +33,7 @@ const OTHER_PRESETS = topUp.presetsOtherUsd as readonly number[];
 
 /**
  * Buy credits: pick an amount in US dollars (crypto: 10, 20, 100, 200, 500, or any whole
- * amount from US$10; PayPal and card: the same plus a US$5 first step), then pay by card, PayPal or crypto.
+ * amount from US$10; PayPal, Alipay and card: the same plus a US$5 first step), then pay by card, PayPal, Alipay or crypto.
  * Card top-ups are credited automatically; the rest once an admin confirms.
  */
 export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {
@@ -61,6 +61,9 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   const credits = usd !== null && !problem ? usdToCredits(usd) : 0;
   const reports = Math.floor(credits / REPORT_CREDITS);
   const current = tab === "card" || tab === "crypto" ? null : manual.find((m) => m.id === tab) ?? null;
+  const amountReady = usd !== null && !problem;
+  // A method paid in Hong Kong dollars (Alipay) shows the HK$ the customer must send, with the US$ price beside it.
+  const hkd = current && amountReady ? hkdAmount(current, usd) : null;
 
   const pickTab = (t: Tab) => {
     setTab(t);
@@ -75,11 +78,16 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
 
   if (submitted) {
     return (
-      <WaitingAnimation
-        title="Payment submitted — we're confirming it"
-        steps={["Saving your payment details", "Letting our team know", "Adding your credits once it's confirmed"]}
-        note="You can leave this page. Your balance updates when the payment is confirmed."
-      />
+      <div>
+        <WaitingAnimation
+          title="Payment submitted — we're confirming it"
+          steps={["Saving your payment details", "Letting our team know", "Adding your credits once it's confirmed"]}
+          note="You can leave this page. Your balance updates when the payment is confirmed."
+        />
+        <Button variant="ghost" size="sm" className="mx-auto mt-2 flex" onClick={() => setSubmitted(false)}>
+          Back to top-up
+        </Button>
+      </div>
     );
   }
 
@@ -203,8 +211,9 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
             <ManualMethod
               key={`${current.id}-${usd}`}
               method={current}
-              amountLabel={usd !== null && !problem ? formatUSD(usd) : "Choose an amount"}
-              amountCopy={usd !== null && !problem ? String(usd) : ""}
+              amountLabel={!amountReady ? "Choose an amount" : hkd !== null ? `HK$${hkd.toLocaleString("en-HK")}` : formatUSD(usd)}
+              amountCopy={!amountReady ? "" : hkd !== null ? String(hkd) : String(usd)}
+              amountSub={amountReady && hkd !== null ? `= ${formatUSD(usd)}` : undefined}
               reference={reference}
               disabled={pending || Boolean(problem)}
               submit={(m, ref) => submitTopupClaim(usd ?? 0, m, ref)}

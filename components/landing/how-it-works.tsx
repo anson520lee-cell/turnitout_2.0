@@ -6,7 +6,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
-const methods = "crypto (USDT, USDC or BTC) or PayPal";
+const methods = "crypto (USDT, USDC or BTC), PayPal or Alipay";
 
 export const steps = [
   { n: "01", title: "Paste your text", body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free." },

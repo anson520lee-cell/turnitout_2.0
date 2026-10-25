@@ -4,8 +4,8 @@ A pre-submission service for students checking their own academic writing. It of
 
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
-| **AI-Writing Risk Report** (automatic, 1 credit per 200 characters, minimum 10 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
-| **Writing Refinement** (1 credit per 200 characters, minimum 15 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
+| **AI-Writing Risk Report** (automatic, 1 credit per 1,000 characters, minimum 2 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
+| **Writing Refinement** (1 credit per 1,000 characters, minimum 3 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: the report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
 
@@ -120,8 +120,8 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 
 | Product | Price | Limits |
 | --- | --- | --- |
-| AI-Writing Risk Report (`combined_screening`) | 1 credit per 200 characters, minimum 10 credits; first 8,000 of every 20,000 characters charged, the rest free (`reportPricing`) | 500–100,000 characters, checked in the browser and again in `screeningTextOrderInput` |
-| Writing Refinement (`refinement`) | 1 credit per 200 characters, rounded up, minimum 15 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
+| AI-Writing Risk Report (`combined_screening`) | 1 credit per 1,000 characters, minimum 2 credits; first 8,000 of every 20,000 characters charged, the rest free (`reportPricing`) | 500–100,000 characters, checked in the browser and again in `screeningTextOrderInput` |
+| Writing Refinement (`refinement`) | 1 credit per 1,000 characters, rounded up, minimum 3 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
 | Daily free report | Free, 1 a day per account, up to 4,000 characters (`freeReport`) | — |
 
 Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening` and `similarity_screening` remain in the enum so older orders still display, but they are no longer offered.

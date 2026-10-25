@@ -5,6 +5,7 @@ import { ArrowLeft, Info } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonClasses } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FormMessage } from "@/components/ui/field";
 import { WaitingAnimation } from "@/components/ui/waiting";
@@ -24,6 +25,7 @@ import { CREDITS_PER_USD, formatCredits, toCredits, topUp } from "@/config/prici
 import { manualPayments, paymentReference } from "@/config/payments";
 import { devPaymentsEnabled } from "@/lib/env";
 import { getCreditBalance } from "@/lib/credits";
+import { repriceUnpaid } from "@/lib/orders/reprice";
 import { formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order" };
@@ -34,7 +36,9 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   if (!uuid.safeParse(id).success) notFound();
   const bundle = await getOrderBundle(id);
   if (!bundle) notFound();
-  const { order, file, screening, refinement, payments, claims } = bundle;
+  const { file, screening, refinement, payments, claims } = bundle;
+  // An unpaid order made before a price change shows (and is charged) the current price.
+  const order = await repriceUnpaid(bundle.order);
   const screeningOrder = isScreening(order.service_type);
   const unpaid = order.status === "awaiting_payment";
   const pendingClaim = unpaid ? claims.find((c) => c.status === "pending") ?? null : null;
@@ -59,7 +63,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <ArrowLeft className="size-3.5" /> Orders
       </Link>
       <AppHeader
-        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto || (screeningOrder && order.source_text) ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
+        eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto || (screeningOrder && (order.source_text || !file)) ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
         title={order.title}
         body={`${serviceLabels[order.service_type]} · Order #${shortId(order.id)} · ${formatDateTime(order.created_at)}`}
         actions={pendingClaim ? <Badge tone="warn" dot>Confirming payment</Badge> : <StatusBadge status={order.status} />}
@@ -213,7 +217,18 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         </div>
       )}
 
-      {order.status === "cancelled" && <OrderDetails order={order} file={file} payments={payments} />}
+      {order.status === "cancelled" && (
+        <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
+          <Card strong className="p-5 sm:p-7">
+            <h2 className="text-[15px] font-semibold">Order cancelled</h2>
+            <p className="mt-1 text-[13px] text-fg-muted">Nothing was charged and your text has been deleted. You can start a new one whenever you like.</p>
+            <Link href={screeningOrder ? "/services/screening" : "/services/refinement"} className={buttonClasses("primary", "lg", "mt-5")}>
+              {screeningOrder ? "Get a new report" : "Start a new refinement"}
+            </Link>
+          </Card>
+          <OrderDetails order={order} file={file} payments={payments} />
+        </div>
+      )}
     </>
   );
 }

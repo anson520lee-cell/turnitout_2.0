@@ -36,10 +36,10 @@ export const serviceLabels: Record<ServiceType, string> = {
 
 export const reportRangeLabel = `${reportPricing.minChars.toLocaleString("en-HK")}–${reportPricing.maxChars.toLocaleString("en-HK")} characters`;
 
-/** "1 credit per 200 characters". */
-export const reportRateLabel = `${formatCredits(reportPricing.perBlock)} per ${reportPricing.blockChars} characters`;
+/** "1 credit per 1,000 characters". */
+export const reportRateLabel = `${formatCredits(reportPricing.perBlock)} per ${reportPricing.blockChars.toLocaleString("en-HK")} characters`;
 
-/** "Minimum 10 credits (2,000 characters)". */
+/** "Minimum 2 credits (2,000 characters)". */
 export const reportMinimumLabel = `Minimum ${formatCredits(reportPricing.minimum)} (${(
   (reportPricing.minimum / reportPricing.perBlock) *
   reportPricing.blockChars
@@ -50,15 +50,15 @@ export const reportCycleLabel = `In every ${reportPricing.cycleChars.toLocaleStr
   reportPricing.cycleChars - reportPricing.chargedChars
 ).toLocaleString("en-HK")} are free`;
 
-/** "Minimum 10 credits (2,000 characters); in every 20,000 characters, the first 8,000 are charged and the next 12,000 are free". */
+/** "Minimum 2 credits (2,000 characters); in every 20,000 characters, the first 8,000 are charged and the next 12,000 are free". */
 export const reportLimitsLabel = `${reportMinimumLabel}; ${reportCycleLabel.charAt(0).toLowerCase()}${reportCycleLabel.slice(1)}`;
 
-/** "From 10 credits". */
+/** "From 2 credits". */
 export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
 
-export const refinementRateLabel = `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars} characters`;
+export const refinementRateLabel = `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars.toLocaleString("en-HK")} characters`;
 
-/** "Minimum 15 credits (3,000 characters)". */
+/** "Minimum 3 credits (3,000 characters)". */
 export const refinementMinimumLabel = `Minimum ${formatCredits(refinementPricing.minimum)} (${(
   (refinementPricing.minimum / refinementPricing.perBlock) *
   refinementPricing.blockChars

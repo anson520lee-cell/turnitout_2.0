@@ -25,6 +25,7 @@ import { notifyOwner } from "@/lib/notify";
 import { devPaymentsEnabled, isStripeConfigured, isSupabaseConfigured } from "@/lib/env";
 import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
+import { repriceUnpaid } from "@/lib/orders/reprice";
 import type { Order } from "@/types/domain";
 
 type Fail = { ok: false; message: string };
@@ -361,9 +362,11 @@ export async function createRefinementOrder(input: unknown): Promise<{ ok: true;
 export async function payOrderWithCredits(orderId: string): Promise<{ ok: true } | Fail> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Please sign in again." };
-  const order = await ownOrder(orderId, user.id);
-  if (!order) return { ok: false, message: "Order not found." };
-  if (order.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  const found = await ownOrder(orderId, user.id);
+  if (!found) return { ok: false, message: "Order not found." };
+  if (found.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  // An order made before a price change is charged the current price, never the old one.
+  const order = await repriceUnpaid(found);
   if (order.service_type !== "refinement" && !order.source_text) {
     const admin = createAdminClient();
     const { data: file } = await admin.from("order_files").select("verified").eq("order_id", order.id).maybeSingle();
@@ -569,12 +572,20 @@ export async function cancelUnpaidOrder(orderId: string): Promise<{ ok: true } |
   }
   const db = createAdminClient();
   const { data: files } = await db.from("order_files").select("storage_path").eq("order_id", order.id);
-  if (files?.length) await db.storage.from(uploads.documentsBucket).remove(files.map((f) => f.storage_path));
   const now = new Date().toISOString();
-  await db
+  // Only an order that is still unpaid can be cancelled: if it was paid a moment ago (another tab, a slow click) it
+  // must keep its text and carry on, not be cancelled and wiped.
+  const { data: closed } = await db
     .from("orders")
     .update({ status: "cancelled", cancelled_at: now, source_deleted_at: files?.length ? now : null, source_text: null })
-    .eq("id", order.id);
+    .eq("id", order.id)
+    .eq("status", "awaiting_payment")
+    .select("id");
+  if (!closed?.length) {
+    revalidatePath(`/orders/${order.id}`);
+    return { ok: false, message: "This order has just been paid or closed, so it can't be cancelled." };
+  }
+  if (files?.length) await db.storage.from(uploads.documentsBucket).remove(files.map((f) => f.storage_path));
   await audit("order_cancelled_by_user", { actorId: user.id, orderId: order.id });
   revalidatePath("/orders");
   revalidatePath(`/orders/${order.id}`);

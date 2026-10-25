@@ -51,7 +51,7 @@ function QrFrame({ method }: { method: ManualPaymentConfig }) {
 }
 
 /**
- * Payment instructions for one manual method (PayPal, USDT, USDC, Bitcoin):
+ * Payment instructions for one manual method (PayPal, Alipay, USDT, USDC, Bitcoin):
  * QR and payee details, the exact amount and reference, and a form for the
  * customer's payment reference. `submit` records the claim; nothing here can
  * add credits by itself.
@@ -60,6 +60,7 @@ export function ManualMethod({
   method,
   amountLabel,
   amountCopy,
+  amountSub,
   reference,
   disabled,
   submit,
@@ -70,6 +71,8 @@ export function ManualMethod({
   amountLabel: string;
   /** the number to copy, e.g. "20" */
   amountCopy: string;
+  /** a second line under the amount, e.g. "= US$10" when the amount is in another currency */
+  amountSub?: string;
   reference: string;
   disabled: boolean;
   submit: (method: string, reference: string) => Promise<{ ok: true } | { ok: false; message: string }>;
@@ -91,6 +94,7 @@ export function ManualMethod({
               <dt className="text-fg-subtle">Amount</dt>
               <dd className="flex items-center gap-1 font-semibold">
                 {amountLabel}
+                {amountSub && <span className="text-[12px] font-normal text-fg-subtle">{amountSub}</span>}
                 <CopyValue value={amountCopy} label="amount" />
               </dd>
             </div>
