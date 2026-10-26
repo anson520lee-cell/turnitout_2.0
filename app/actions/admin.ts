@@ -17,7 +17,7 @@ import { manualPayments, orderAmountText } from "@/config/payments";
 import { serviceLabels } from "@/config/services";
 import { shortId } from "@/lib/utils";
 import { creditsHeldFor, releaseHeldCredits } from "@/lib/orders/held-credits";
-import { FAKE_CLAIM_EVENT, startedOnClaim } from "@/lib/payments/pay-first";
+import { FAKE_CLAIM_EVENT, startNextWaiting, startedOnClaim } from "@/lib/payments/pay-first";
 import type { AdminChecklist, Order, PaymentClaim } from "@/types/domain";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -88,6 +88,13 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
     }
     await audit("payment_claim_confirmed", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, method: claim.method, checkedAfterStart: true, refunded } });
     refresh(order.id);
+    // This customer's next Alipay order, if it was waiting for this check, starts now.
+    const next = await startNextWaiting(order.user_id);
+    if (next) {
+      const started = await loadOrder(next);
+      if (started) notifyCustomer(started.user_id, "order_paid", { order: shortId(started.id), id: started.id, service: serviceLabels[started.service_type] });
+      refresh(next);
+    }
     return { ok: true };
   }
   if (order.status !== "awaiting_payment") {

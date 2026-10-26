@@ -7,9 +7,10 @@ import { deepseekEnabled, REASONING_EFFORTS, type ReasoningEffort } from "@/lib/
 import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
 import { CANDIDATE_PROMPT_NAMES, type CandidatePromptName } from "@/lib/chunk-candidate-names";
 import { pieceBudget } from "@/lib/chunk-queue";
+import { advanceIdleReport } from "@/lib/auto-report/sweep";
 
 /**
- * Background runner for the prompt backtest. The database scheduler (pg_cron) calls this every minute with a key
+ * Background runner for customers' unwatched reports (lib/auto-report/sweep.ts) and the prompt backtest. The database scheduler (pg_cron) calls this every minute with a key
  * whose hash is stored in site_settings (chunk_queue_key_hash); the key itself lives only in the scheduler job.
  * Each call claims one queued run (a lease stops two calls working on the same run), runs a batch of its missing
  * pieces and records the progress. A run stops at its own cap, and all runs together stop at the daily cap
@@ -37,6 +38,9 @@ export async function POST(request: NextRequest) {
   const given = createHash("sha256").update(request.headers.get("x-queue-key") ?? "").digest("hex");
   if (!same(given, setting.value.trim())) return new NextResponse("Unauthorized", { status: 401 });
   if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "No model key." }, { headers: noStore });
+  // Customers' paid reports come first: one that nobody is watching is moved on here, and the backtest waits a minute.
+  const report = await advanceIdleReport();
+  if (report) return NextResponse.json({ ok: true, report }, { headers: noStore });
 
   const now = new Date();
   const { data: candidates } = await db

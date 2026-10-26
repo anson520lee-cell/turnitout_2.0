@@ -1,6 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { PaymentClaim } from "@/types/domain";
+import { audit } from "@/lib/audit";
+import { creditsHeldFor } from "@/lib/orders/held-credits";
+import { markOrderPaid } from "@/lib/payments/fulfil";
+import { looksLikeAlipayNumber } from "@/lib/payments/alipay-number";
+import type { Order, PaymentClaim } from "@/types/domain";
 
 /*
  * Alipay orders start first and are checked later (Jordan 2026-10-26: checking
@@ -56,4 +60,35 @@ export async function startedOnClaim(claim: Pick<PaymentClaim, "id" | "method" |
     db.from("orders").select("status").eq("id", claim.order_id).maybeSingle<{ status: string }>(),
   ]);
   return Boolean(pay && order && order.status !== "awaiting_payment");
+}
+
+/**
+ * Once an account's started payment has been found, its next Alipay order that
+ * was left waiting starts too (it becomes the account's one unchecked payment),
+ * so the admin doesn't have to confirm it separately. Returns that order's id, or
+ * null when nothing was started.
+ */
+export async function startNextWaiting(userId: string): Promise<string | null> {
+  if ((await payFirstFor(userId)) !== "now") return null;
+  const db = createAdminClient();
+  const { data: claims } = await db
+    .from("payment_claims")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("method", "alipay")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .returns<PaymentClaim[]>();
+  for (const claim of claims ?? []) {
+    const { data: order } = await db.from("orders").select("*").eq("id", claim.order_id).maybeSingle<Order>();
+    if (!order || order.status !== "awaiting_payment") continue;
+    // Only a claim that pays the whole price (with the credits used first) and looks like a real receipt.
+    if (!looksLikeAlipayNumber(claim.payer_reference, new Date(claim.created_at))) return null;
+    if (claim.amount + (await creditsHeldFor(order.id)) * 100 !== order.price) return null;
+    const res = await markOrderPaid({ orderId: order.id, provider: claim.method, providerPaymentId: claim.id, amount: order.price, currency: order.currency });
+    if (!res.ok || !res.newlyPaid) return null;
+    await audit("payment_claim_started_after_check", { orderId: order.id, detail: { claim: claim.id, method: claim.method } });
+    return order.id;
+  }
+  return null;
 }
