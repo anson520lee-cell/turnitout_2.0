@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
 import { freeReport } from "@/config/app";
-import { formatCredits, reportPrice, reportPricing, topUpBonusTiers } from "@/config/pricing";
+import { formatCredits, reportPrice, reportPricing, rewritePricing, topUpBonusTiers } from "@/config/pricing";
 import { reportCycleLabel, reportMinimumLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
 
 export const metadata: Metadata = {
@@ -33,6 +33,9 @@ export default function PricingPage() {
             <p className="mt-2">
               {reportRateLabel}, rounded up to the next {reportPricing.blockChars.toLocaleString("en-HK")}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
               spaces and line breaks count once. You see the exact price before you pay, and you can pay just that one report by Alipay (no top-up, no minimum) or use credits. A new report after you revise is a new order.
+            </p>
+            <p className="mt-2">
+              <span className="font-medium text-fg">Writing Refinement</span> is an optional add-on after a finished report: it suggests a rewrite for each flagged sentence, keeping your facts, numbers, names and citations, and you choose which to use. It costs {rewritePricing.multiple === 1 ? "the same as" : `${rewritePricing.multiple} times the price of`} that report and is charged only when suggestions are made. It does not change your report and does not guarantee any result in any checker.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
               {reportExamples.map((e) => (
