@@ -8,6 +8,7 @@ import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
 import { CANDIDATE_PROMPT_NAMES, type CandidatePromptName } from "@/lib/chunk-candidate-names";
 import { pieceBudget } from "@/lib/chunk-queue";
 import { advanceIdleReport } from "@/lib/auto-report/sweep";
+import { RW_MAKE_BATCH, makeNextRewriteSample } from "@/lib/rewrite-backtest";
 
 /**
  * Background runner for customers' unwatched reports (lib/auto-report/sweep.ts) and the prompt backtest. The database scheduler (pg_cron) calls this every minute with a key
@@ -54,6 +55,16 @@ export async function POST(request: NextRequest) {
   const { data: claimed } = await db.from("chunk_queue").update({ status: "running", lease_until: lease, updated_at: now.toISOString() })
     .eq("id", run.id).or(`lease_until.is.null,lease_until.lt.${now.toISOString()}`).select("id");
   if (!claimed?.length) return NextResponse.json({ ok: true, busy: true }, { headers: noStore });
+
+  // The rewrite backtest's sample maker: one essay per call, then the ordinary rows score the new samples.
+  if (run.batch === RW_MAKE_BATCH) {
+    const more = await makeNextRewriteSample().catch((e) => {
+      console.error("rewrite sample maker failed", e instanceof Error ? e.name : "error");
+      return true;
+    });
+    await db.from("chunk_queue").update({ lease_until: null, updated_at: new Date().toISOString(), attempted: run.attempted + 1, status: !more ? "done" : run.attempted + 1 >= run.max_pieces ? "stopped" : "queued" }).eq("id", run.id);
+    return NextResponse.json({ ok: true, rewriteSamples: more ? "more" : "done" }, { headers: noStore });
+  }
 
   const since = new Date(now.getTime() - 24 * 3600_000).toISOString();
   // The daily cap is for this runner only (runs started by hand on /admin/chunking are not counted).
