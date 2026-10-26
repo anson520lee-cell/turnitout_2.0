@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
+import type { ReportRewrite } from "@/lib/auto-report/rewrite";
 import type {
   Order,
   OrderFile,
@@ -63,4 +64,13 @@ export async function getAutoReport(orderId: string): Promise<{ status: "running
     .eq("order_id", orderId)
     .maybeSingle<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; updated_at: string }>();
   return data ? { status: data.status, result: data.result, updatedAt: data.updated_at } : null;
+}
+
+/**
+ * The saved suggested rewrites of a report, or null when the rewrite column doesn't exist yet (migration 0023 not
+ * applied): the report page then simply doesn't offer rewrites, instead of failing. `saved` is null until they are made.
+ */
+export async function getReportRewrite(orderId: string): Promise<{ saved: ReportRewrite | null } | null> {
+  const { data, error } = await createAdminClient().from("auto_reports").select("rewrite").eq("order_id", orderId).maybeSingle<{ rewrite: ReportRewrite | null }>();
+  return error ? null : { saved: data?.rewrite ?? null };
 }
