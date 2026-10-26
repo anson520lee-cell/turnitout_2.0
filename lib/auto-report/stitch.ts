@@ -66,6 +66,8 @@ export interface AutoReportResult {
   summary: AutoReportSummary;
   paragraphs: ReportParagraph[];
   grammar: GrammarNote[];
+  /** Fingerprints of the text and of how the report was made, so the same text checked again finds this result (reuse.ts). Reports made before 2026-10-26 have none. */
+  reuse?: { text: string; basis: string };
 }
 
 export interface PieceAnswer {
