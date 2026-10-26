@@ -7,7 +7,7 @@ import { faq } from "@/config/faq";
 
 export const metadata: Metadata = {
   title: "FAQ",
-  description: "Answers about the free writing scan, AI-writing risk reports, writing refinement, payment and privacy.",
+  description: "Answers about the daily free report, AI-writing risk reports, payment and privacy.",
   alternates: { canonical: "/faq" },
 };
 

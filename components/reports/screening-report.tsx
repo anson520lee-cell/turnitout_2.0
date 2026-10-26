@@ -126,7 +126,6 @@ export function ScreeningReport({
 
       <div className="flex flex-wrap gap-2">
         <Link href="/services/screening" className={buttonClasses("secondary", "md")}>Get another report</Link>
-        <Link href="/services/refinement" className={buttonClasses("ghost", "md")}>Writing refinement</Link>
       </div>
     </div>
   );

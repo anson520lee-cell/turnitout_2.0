@@ -275,9 +275,13 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
           <Card strong className="p-5 sm:p-7">
             <h2 className="text-[15px] font-semibold">Order cancelled</h2>
-            <p className="mt-1 text-[13px] text-fg-muted">Nothing was charged and your text has been deleted. You can start a new one whenever you like.</p>
-            <Link href={screeningOrder ? "/services/screening" : "/services/refinement"} className={buttonClasses("primary", "lg", "mt-5")}>
-              {screeningOrder ? "Get a new report" : "Start a new refinement"}
+            <p className="mt-1 text-[13px] text-fg-muted">
+              {screeningOrder
+                ? "Nothing was charged and your text has been deleted. You can start a new one whenever you like."
+                : "Writing Refinement is no longer offered, so this order was cancelled. Anything you paid for it was returned to your balance as credits, which you can use for reports."}
+            </p>
+            <Link href="/services/screening" className={buttonClasses("primary", "lg", "mt-5")}>
+              Get a new report
             </Link>
           </Card>
           <OrderDetails order={order} file={file} payments={payments} />

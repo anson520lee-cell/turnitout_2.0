@@ -5,7 +5,7 @@ import { ScrollStory } from "@/components/landing/scroll-story";
 
 export const metadata: Metadata = {
   title: "How it works",
-  description: "From a free preliminary scan to a screening report or refined draft: how each 0% service works, step by step.",
+  description: "From pasting your text to a finished AI-writing risk report: how 0% works, step by step.",
   alternates: { canonical: "/how-it-works" },
 };
 

@@ -1,12 +1,7 @@
-import {
-  formatCredits,
-  refinementPricing,
-  reportPricing,
-  type ServiceType,
-} from "./pricing";
+import { formatCredits, reportPricing, type ServiceType } from "./pricing";
 import { freeReport } from "./app";
 
-export type ServiceKind = "screening" | "refinement";
+export type ServiceKind = "screening";
 
 export interface ServiceDefinition {
   id: ServiceType;
@@ -22,8 +17,9 @@ export interface ServiceDefinition {
 }
 
 /**
- * The one report product. `ai_screening` and `similarity_screening` stay in
- * the enum so older orders still render, but they are no longer offered.
+ * The one report product. `ai_screening`, `similarity_screening` and
+ * `refinement` (Writing Refinement, removed 2026-10-26) stay in the enum so
+ * older orders still render, but they are no longer offered.
  */
 export const reportService = "combined_screening" as const;
 
@@ -56,14 +52,6 @@ export const reportLimitsLabel = `${reportMinimumLabel}; ${reportCycleLabel.char
 /** "From 2 credits". */
 export const reportFromLabel = `From ${formatCredits(reportPricing.minimum)}`;
 
-export const refinementRateLabel = `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars.toLocaleString("en-HK")} characters`;
-
-/** "Minimum 3 credits (3,000 characters)". */
-export const refinementMinimumLabel = `Minimum ${formatCredits(refinementPricing.minimum)} (${(
-  (refinementPricing.minimum / refinementPricing.perBlock) *
-  refinementPricing.blockChars
-).toLocaleString("en-HK")} characters)`;
-
 export const services: ServiceDefinition[] = [
   {
     id: reportService,
@@ -85,22 +73,6 @@ export const services: ServiceDefinition[] = [
     cta: "Get report",
     highlight: true,
   },
-  {
-    id: "refinement",
-    kind: "refinement",
-    name: "Writing Refinement",
-    short: "Clarity, flow and style refinement of your own writing, checked by our team.",
-    priceLabel: `From ${formatCredits(refinementPricing.minimum)}`,
-    cadence: refinementRateLabel,
-    features: [
-      "Clarity, flow and style",
-      "Meaning and citations preserved",
-      "Your voice retained",
-      refinementMinimumLabel,
-    ],
-    href: "/services/refinement",
-    cta: "Refine my writing",
-  },
 ];
 
 export const disclaimers = {
@@ -110,6 +82,4 @@ export const disclaimers = {
     "This report is written by an automated reviewer from the text you submitted. Its ratings are guidance, can be wrong in both directions, and are not, on their own, proof of authorship.",
   noGuarantee:
     "We do not guarantee any particular AI-writing result or outcome.",
-  refinement:
-    "Writing Refinement improves the clarity, flow and style of your own writing. It is not a service for disguising AI-generated or third-party work.",
 } as const;

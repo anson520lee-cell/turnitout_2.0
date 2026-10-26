@@ -6,7 +6,7 @@ export const brand = {
   name: "0%",
   tagline: "Know before you submit.",
   description:
-    "Automatic AI-writing risk reports on your own text (one free every day), and writing refinement of your own work.",
+    "Automatic AI-writing risk reports on your own text, with one free every day.",
   supportEmail: "support@getzeropercent.com",
   // Operator name shown in the footer, terms and privacy.
   operator: "Zero Percent Labs",
@@ -59,20 +59,14 @@ export const retention = {
   savedReportDays: 90,
 } as const;
 
-export const refinement = {
-  minChars: 200,
-  maxChars: 60000,
-  maxInstructionChars: 1000,
-} as const;
-
 /**
  * The owner's local writing model (Open WebUI on the owner's computer), used
  * through the worker in tools/local-model-worker. Everything here is off until
  * MODEL_WORKER_SECRET is set; see README > Local writing model.
  */
 export const localModel = {
-  /** A first draft for each paid refinement order, for an admin to review and edit. */
-  refinementDrafts: true,
+  /** A first draft for each paid refinement order. Off since Writing Refinement was removed (2026-10-26). */
+  refinementDrafts: false,
   /** The worker counts as online if it checked in within this many seconds. */
   onlineWindowSeconds: 45,
   /** A draft the worker hasn't picked up by then is marked failed; request another from the order page. */

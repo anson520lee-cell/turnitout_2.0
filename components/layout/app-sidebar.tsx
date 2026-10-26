@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutGrid, FileStack, FileCheck2, PenLine, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
+import { LayoutGrid, FileStack, FileCheck2, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,6 @@ const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
   { href: "/orders", label: "Orders", icon: FileStack },
   { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
-  { href: "/services/refinement", label: "Writing Refinement", icon: PenLine },
   { href: "/billing", label: "Billing & Credits", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

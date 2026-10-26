@@ -1,8 +1,8 @@
-import { freeReport, refinement } from "@/config/app";
+import { freeReport } from "@/config/app";
 import { reportPricing } from "@/config/pricing";
 
 /**
- * Length rules for report and refinement requests, as plain functions so the
+ * Length rules for report requests, as plain functions so the
  * paste dialog (browser) and the zod schemas (server) give the same message.
  * The server always re-checks; the browser check is only for fast feedback.
  */
@@ -27,17 +27,6 @@ export function freeReportCharError(chars: number): string | null {
   }
   if (chars > freeReport.maxChars) {
     return `The daily free report covers up to ${n(freeReport.maxChars)} characters. This text has ${n(chars)}; paste a shorter part, or get a full report with credits.`;
-  }
-  return null;
-}
-
-/** Null when `chars` (billable characters) is inside the refinement range. */
-export function refinementCharError(chars: number): string | null {
-  if (chars < refinement.minChars) {
-    return `Refinement needs at least ${n(refinement.minChars)} characters. This text has ${n(chars)}.`;
-  }
-  if (chars > refinement.maxChars) {
-    return `Refinement handles up to ${n(refinement.maxChars)} characters per order. Split longer work into separate orders.`;
   }
   return null;
 }

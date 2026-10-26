@@ -4,14 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { billableChars, currency, formatCredits, refinementPrice, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
+import { billableChars, currency, formatCredits, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
 import { acceptsClaims, isDirectPayMethod, manualPayments, orderAmountText } from "@/config/payments";
 import { uploads } from "@/config/app";
 import {
   freeReportOrderInput,
   paymentClaimInput,
-  refinementOrderInput,
   screeningOrderInput,
   screeningTextOrderInput,
   uuid,
@@ -79,6 +78,9 @@ async function freeAdminPay(order: { id: string; price: number; currency: string
   });
   if (!res.ok) await audit("admin_free_order_failed", { orderId: order.id, detail: { reason: res.reason } });
 }
+
+/** Writing Refinement was removed on 2026-10-26: its old unpaid orders can't be paid any more. */
+const REFINEMENT_REMOVED = "Writing Refinement is no longer offered, so this order can't be paid. Please cancel it; you can get a report instead.";
 
 async function ownOrder(orderId: string, userId: string): Promise<Order | null> {
   if (!uuid.safeParse(orderId).success) return null;
@@ -309,56 +311,6 @@ export async function confirmUpload(orderId: string): Promise<{ ok: true } | Fai
 }
 
 /**
- * Writing Refinement: pasted text plus optional instructions. Priced by
- * billable characters on the server; the browser's estimate is display only.
- */
-export async function createRefinementOrder(input: unknown): Promise<{ ok: true; orderId: string } | Fail> {
-  const user = await getSessionUser();
-  if (!user) return { ok: false, message: signInMessage() };
-  const parsed = refinementOrderInput.safeParse(input);
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid order." };
-  if (await tooManyUnpaid(user.id)) return { ok: false, message: TOO_MANY_UNPAID };
-  const v = parsed.data;
-  const words = countWords(v.text);
-  const chars = billableChars(v.text);
-  const price = refinementPrice(chars);
-
-  const db = createAdminClient();
-  const { data: order, error } = await db
-    .from("orders")
-    .insert({
-      user_id: user.id,
-      service_type: "refinement",
-      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Refinement", chars, "characters"),
-      price,
-      currency,
-      word_count: words,
-      instructions: v.instructions || null,
-      source_text: v.text,
-      integrity_confirmed: true,
-    })
-    .select("id")
-    .single();
-  if (error || !order) return { ok: false, message: "We couldn't create the order. Please try again." };
-  await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: "refinement", words, chars } });
-  if (isAdminUser(user)) {
-    await freeAdminPay({ id: order.id, price, currency });
-    revalidatePath("/orders");
-    return { ok: true, orderId: order.id };
-  }
-  notifyOwner("order_created", {
-    order: shortId(order.id),
-    service: serviceLabels.refinement,
-    words,
-    characters: chars,
-    amount: formatCredits(price),
-    email: user.email,
-  });
-  revalidatePath("/orders");
-  return { ok: true, orderId: order.id };
-}
-
-/**
  * Pays an order with credits: spends the price in one atomic step (only if the
  * balance covers it), then marks the order paid through the same path as every
  * other payment. If marking it paid fails, the credits are returned.
@@ -369,6 +321,7 @@ export async function payOrderWithCredits(orderId: string): Promise<{ ok: true }
   const found = await ownOrder(orderId, user.id);
   if (!found) return { ok: false, message: "Order not found." };
   if (found.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (found.service_type === "refinement") return { ok: false, message: REFINEMENT_REMOVED };
   // An order made before a price change is charged the current price, never the old one.
   const order = await repriceUnpaid(found);
   if (order.service_type !== "refinement" && !order.source_text) {
@@ -440,8 +393,9 @@ export async function startCheckout(orderId: string): Promise<Fail> {
   const order = await ownOrder(orderId, user.id);
   if (!order) return { ok: false, message: "Order not found." };
   if (order.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (order.service_type === "refinement") return { ok: false, message: REFINEMENT_REMOVED };
   // Report requests carry pasted text; only legacy file orders need a verified upload.
-  if (order.service_type !== "refinement" && !order.source_text) {
+  if (!order.source_text) {
     const db = createAdminClient();
     const { data: file } = await db.from("order_files").select("verified").eq("order_id", order.id).maybeSingle();
     if (!file?.verified) return { ok: false, message: "Your document hasn't finished uploading. Please upload it again." };
@@ -535,6 +489,7 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
   const found = await ownOrder(v.orderId, user.id);
   if (!found) return { ok: false, message: "Order not found." };
   if (found.status !== "awaiting_payment") return { ok: false, message: "This order has already been paid or closed." };
+  if (found.service_type === "refinement") return { ok: false, message: REFINEMENT_REMOVED };
   if (await hasPendingClaim(found.id)) {
     return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
   }
@@ -653,6 +608,7 @@ export async function devMarkPaid(orderId: string): Promise<{ ok: true } | Fail>
   if (!user) return { ok: false, message: "Please sign in again." };
   const order = await ownOrder(orderId, user.id);
   if (!order) return { ok: false, message: "Order not found." };
+  if (order.service_type === "refinement") return { ok: false, message: REFINEMENT_REMOVED };
   const res = await markOrderPaid({
     orderId: order.id,
     provider: "dev",

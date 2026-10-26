@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { assertAdmin } from "@/lib/auth/session";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { brand, freeReport, refinement, retention, uploads } from "@/config/app";
-import { refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
+import { brand, freeReport, retention, uploads } from "@/config/app";
+import { reportLimitsLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 import { isPlaceholder, manualPaymentList, referencePrefix } from "@/config/payments";
 import { isStripeConfigured, devPaymentsEnabled } from "@/lib/env";
 import { notificationChannels } from "@/lib/notify";
@@ -57,7 +57,7 @@ export default async function AdminSettings() {
             ? on(`Online${worker.model ? ` · ${worker.model}` : ""}`)
             : off(worker.lastSeenAt ? `Offline · last seen ${formatDateTime(worker.lastSeenAt)}` : "Waiting for the worker to connect")}
         <p className="text-[12px] text-fg-subtle">
-          Set {env("DEEPSEEK_API_KEY")} in Vercel to write reports and refinement drafts with DeepSeek. Without it, drafts can still use the worker on your computer ({env("MODEL_WORKER_SECRET")}).
+          Set {env("DEEPSEEK_API_KEY")} in Vercel to write reports with DeepSeek.
         </p>
       </div>,
     ],
@@ -122,8 +122,6 @@ export default async function AdminSettings() {
             <Rows
               rows={[
                 [serviceLabels[reportService], `${reportRateLabel} · ${reportLimitsLabel} · ${reportRangeLabel}`],
-                [serviceLabels.refinement, `${refinementRateLabel} · ${refinementMinimumLabel}`],
-                ["Refinement length", `${refinement.minChars.toLocaleString("en-HK")}–${refinement.maxChars.toLocaleString("en-HK")} characters per order`],
               ]}
             />
             <p className="mt-4 rounded-xl border border-[var(--line)] bg-ink-900/40 p-3 text-[12px] leading-relaxed text-fg-muted">

@@ -26,7 +26,7 @@ export default function RefundsPage() {
 
         <h2>2. If we can&rsquo;t deliver</h2>
         <p>
-          If we cannot complete a paid report or Writing Refinement order (for example, the document can&rsquo;t be processed),
+          If we cannot complete a paid report (for example, the document can&rsquo;t be processed),
           the credits for that order go back to your balance in full (an order paid directly by Alipay gets the credits its
           price was worth). For reports this happens automatically. You can also ask for them as a refund of the top-up (see 4).
         </p>

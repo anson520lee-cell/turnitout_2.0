@@ -24,7 +24,7 @@ import Link from "next/link";
  *    the final call to action.
  *
  * Kept off the homepage because they repeated a neighbour: the two service
- * cards (the pricing cards show the same two services, with prices and
+ * cards (the pricing card shows the same service, with prices and
  * buttons; the cards live on /services) and the scroll-pinned draft-to-report
  * story (the same five steps as How it works; it lives on /how-it-works).
  */
@@ -49,8 +49,8 @@ export default function HomePage() {
           <SectionHeading
             align="center"
             eyebrow="Services & pricing"
-            title="Two services, simple per-document pricing."
-            body="Start with your free daily report. Pay only when you need more, or writing refinement."
+            title="Simple per-document pricing."
+            body="Start with your free daily report. Pay only when you need more."
           />
           <div className="mt-14">
             <PricingCards />

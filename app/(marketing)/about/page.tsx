@@ -21,9 +21,8 @@ export default function AboutPage() {
       <Container className="prose-doc max-w-3xl">
         <h2>What we do</h2>
         <p>
-          We offer two things: an AI-writing risk report that
-          reads your whole text and shows where it could be misread as AI-written (one is free every day), and
-          Writing Refinement: clarity, flow and style refinement of your own writing.
+          We offer an AI-writing risk report that
+          reads your whole text and shows where it could be misread as AI-written (one is free every day).
         </p>
         <h2>What we don&rsquo;t do</h2>
         <ul>

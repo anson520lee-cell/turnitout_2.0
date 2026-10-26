@@ -1,6 +1,6 @@
 import { brand, freeReport } from "./app";
 import { retentionSentence } from "./privacy-copy";
-import { disclaimers, refinementMinimumLabel, refinementRateLabel, reportLimitsLabel, reportRangeLabel, reportRateLabel } from "./services";
+import { disclaimers, reportLimitsLabel, reportRangeLabel, reportRateLabel } from "./services";
 
 export interface FaqItem {
   q: string;
@@ -22,15 +22,15 @@ export const faq: FaqItem[] = [
   },
   {
     q: "How much does it cost?",
-    a: `A report is ${reportRateLabel}, rounded up, for texts of ${reportRangeLabel}. ${reportLimitsLabel}. Writing refinement is ${refinementRateLabel}, rounded up. ${refinementMinimumLabel}. Your daily free report costs nothing.`,
+    a: `A report is ${reportRateLabel}, rounded up, for texts of ${reportRangeLabel}. ${reportLimitsLabel}. Your daily free report costs nothing.`,
   },
   {
     q: "How do I submit my text?",
-    a: "Press the button on the report or refinement page, paste your text into the box and press Enter. You can also load a .docx, .pdf or .txt file into the box; the text is extracted in your browser. You then pay for it with credits on the order page.",
+    a: "Press the button on the report page, paste your text into the box and press Enter. You can also load a .docx, .pdf or .txt file into the box; the text is extracted in your browser. You then pay for it with credits on the order page.",
   },
   {
     q: "How do credits work?",
-    a: `Everything is paid for with credits (8 credits = US$1). Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed. For PayPal or Alipay, scan the QR code, send the amount (Alipay is paid in Hong Kong dollars), then enter your PayPal or Alipay transaction ID; we confirm it by hand and add the credits as soon as it is confirmed. Larger top-ups come with bonus credits (see Pricing). Then pay for a report or refinement with one click on its order page.`,
+    a: `Everything is paid for with credits (8 credits = US$1). Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed. For PayPal or Alipay, scan the QR code, send the amount (Alipay is paid in Hong Kong dollars), then enter your PayPal or Alipay transaction ID; we confirm it by hand and add the credits as soon as it is confirmed. Larger top-ups come with bonus credits (see Pricing). Then pay for a report with one click on its order page.`,
   },
   {
     q: "Are you affiliated with Turnitin?",
@@ -59,10 +59,6 @@ export const faq: FaqItem[] = [
   {
     q: "How long does a report take?",
     a: "About a minute for a long text. It starts as soon as you pay, you can watch the progress on your order page, and if you close the page it carries on where it stopped when you come back.",
-  },
-  {
-    q: "What is Writing Refinement?",
-    a: `A refinement of your own writing for clarity, flow and style. An AI model prepares a draft, and our team reviews and edits it before it reaches you. Your meaning, factual claims and citations are preserved, and we keep your voice. ${disclaimers.refinement}`,
   },
   {
     q: "What is the daily free report?",

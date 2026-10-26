@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getCreditBalance, listCreditTopups, listCreditTransactions, type CreditTopup } from "@/lib/credits";
 import { paymentMethodLabel, topupReference } from "@/config/payments";
 import { availableCoins, coinMinimums, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
-import { CREDITS_PER_USD, formatUSD, reportPrice, refinementPricing, toCredits, topUp, topUpBonusTiers } from "@/config/pricing";
+import { CREDITS_PER_USD, formatUSD, reportPrice, toCredits, topUp, topUpBonusTiers } from "@/config/pricing";
 import { reportMinimumLabel, reportRateLabel } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
@@ -78,7 +78,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             <h2 className="text-[15px] font-semibold">What credits buy</h2>
             <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-fg-muted">
               <li>AI-writing risk report: {reportRateLabel.toLowerCase()}, {reportMinimumLabel.toLowerCase()}; in every 20,000 characters the first 8,000 are charged and the next 12,000 are free, up to 100,000 characters. A 3,000-character text is {reportCredits} credits (about {formatUSD(Math.round((reportCredits / CREDITS_PER_USD) * 100) / 100)}).</li>
-              <li>Writing Refinement: {toCredits(refinementPricing.perBlock)} credit per {refinementPricing.blockChars.toLocaleString("en-US")} characters, minimum {toCredits(refinementPricing.minimum)} credits.</li>
               <li>Rate: {formatUSD(1)} = {CREDITS_PER_USD} credits. Credits don&rsquo;t expire.</li>
               <li>Bonus credits on larger top-ups: {topUpBonusTiers.slice().reverse().map((t) => `${formatUSD(t.minUsd)}+ → +${t.percent}%`).join(", ")}. Bonus credits are not refundable as money.</li>
             </ul>

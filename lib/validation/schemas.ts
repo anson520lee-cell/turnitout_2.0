@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { refinement } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
-import { freeReportCharError, refinementCharError, reportCharError } from "@/lib/orders/limits";
+import { freeReportCharError, reportCharError } from "@/lib/orders/limits";
 
 export const screeningType = z.enum(["ai_screening", "similarity_screening", "combined_screening"]);
 
@@ -42,18 +41,6 @@ export const freeReportOrderInput = z.object({
       const problem = s ? freeReportCharError(billableChars(s)) : "Paste the text you want a report for.";
       if (problem) ctx.addIssue({ code: "custom", message: problem });
     }),
-});
-
-export const refinementOrderInput = z.object({
-  text: z
-    .string()
-    .max(refinement.maxChars * 2, "That text is too long for one order.")
-    .transform((s) => s.trim())
-    .superRefine((s, ctx) => {
-      const problem = s ? refinementCharError(billableChars(s)) : "Paste the text you want refined.";
-      if (problem) ctx.addIssue({ code: "custom", message: problem });
-    }),
-  instructions: z.string().trim().max(refinement.maxInstructionChars).optional().default(""),
 });
 
 export const paymentClaimInput = z.object({

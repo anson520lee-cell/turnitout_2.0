@@ -4,7 +4,7 @@ import { CoreServices } from "@/components/landing/core-services";
 
 export const metadata: Metadata = {
   title: "Services",
-  description: "Two services: automatic AI-writing risk reports (one free every day), and writing refinement.",
+  description: "Automatic AI-writing risk reports on your own text, with one free every day.",
   alternates: { canonical: "/services" },
 };
 
@@ -13,8 +13,8 @@ export default function ServicesPage() {
     <>
       <PageHeader
         eyebrow="Services"
-        title="AI-writing risk report and writing refinement."
-        body="Two separate services. The report reads your whole text and maps where it could be misread as AI-written; refinement is editing of your own writing for clarity, flow and style."
+        title="The AI-writing risk report."
+        body="The report reads your whole text and maps where it could be misread as AI-written. It is ready in a few minutes."
       />
       <CoreServices />
     </>

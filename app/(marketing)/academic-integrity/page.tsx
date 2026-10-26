@@ -23,10 +23,9 @@ export default function IntegrityPage() {
           <li>Follow your institution&rsquo;s rules on proofreading, editing help and pre-submission checks.</li>
           <li>You confirm this each time you place an order.</li>
         </ul>
-        <h2>How we position each service</h2>
+        <h2>How we position the report</h2>
         <ul>
           <li><strong>Report:</strong> guidance from an automated reviewer at one point in time, useful for understanding false-positive risk. It is not evidence of authorship and not a judgement about you.</li>
-          <li><strong>Writing Refinement:</strong> clarity, flow and style refinement of your own writing that keeps your meaning, argument, citations and voice. We don&rsquo;t write new content or arguments for you.</li>
         </ul>
         <h2>What we won&rsquo;t do</h2>
         <ul>
