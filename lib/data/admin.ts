@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBytes } from "@/lib/utils";
 import { assertAdmin } from "@/lib/auth/session";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+import { NOT_MONEY_PROVIDERS, revenueTotals, type RevenueOrderPayment } from "@/lib/payments/revenue";
 import type { OrderStatus } from "@/lib/orders/status";
 import type {
   AdminNote,
@@ -33,17 +34,39 @@ export async function adminMetrics() {
   const todayIso = new Date(`${hkDate}T00:00:00+08:00`).toISOString();
 
   const count = (q: PromiseLike<{ count: number | null }>) => Promise.resolve(q).then((r) => r.count ?? 0);
-  const [users, orders, ordersToday, queued, inScreening, completed, payments, claimsPending] = await Promise.all([
+  const [users, orders, ordersToday, queued, inScreening, completed, payments, topups, claimsPending] = await Promise.all([
     count(db.from("profiles").select("id", { count: "exact", head: true })),
     count(db.from("orders").select("id", { count: "exact", head: true })),
     count(db.from("orders").select("id", { count: "exact", head: true }).gte("created_at", todayIso)),
     count(db.from("orders").select("id", { count: "exact", head: true }).in("status", ["paid", "queued"])),
     count(db.from("orders").select("id", { count: "exact", head: true }).in("status", ["screening", "under_review", "processing", "report_ready"])),
     count(db.from("orders").select("id", { count: "exact", head: true }).eq("status", "completed")),
-    db.from("payments").select("amount,provider").eq("status", "succeeded"),
+    // Filtered here, not after: there are over a thousand free-report rows, and a read stops at 1,000 rows.
+    db
+      .from("payments")
+      .select("amount,provider,provider_payment_id,orders(status)")
+      .eq("status", "succeeded")
+      .not("provider", "in", `(${NOT_MONEY_PROVIDERS.join(",")})`)
+      .limit(10000),
+    db.from("credit_topups").select("usd").eq("status", "confirmed").limit(10000),
     count(db.from("payment_claims").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
-  const revenue = (payments.data ?? []).filter((p) => p.provider !== "dev" && p.provider !== "admin_free" && p.provider !== "free_daily").reduce((s, p) => s + p.amount, 0);
+  // An Alipay order's payment points at its claim; a pending claim is money not found in AlipayHK yet.
+  const payRows = (payments.data ?? []) as unknown as { amount: number; provider: string; provider_payment_id: string; orders: { status: string } | null }[];
+  const claimIds = payRows.map((p) => p.provider_payment_id).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  const { data: claimRows } = claimIds.length
+    ? await db.from("payment_claims").select("id,status").in("id", claimIds)
+    : { data: [] as { id: string; status: string }[] };
+  const claimStatus = new Map((claimRows ?? []).map((c) => [c.id as string, c.status as string]));
+  const revenue = revenueTotals(
+    (topups.data ?? []) as { usd: number }[],
+    payRows.map<RevenueOrderPayment>((p) => ({
+      provider: p.provider,
+      amount: p.amount,
+      orderStatus: p.orders?.status ?? "cancelled",
+      claimStatus: claimStatus.get(p.provider_payment_id) ?? null,
+    })),
+  );
   return { users, orders, ordersToday, queued, inScreening, completed, revenue, claimsPending };
 }
 
