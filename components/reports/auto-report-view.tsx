@@ -109,7 +109,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
 }
 
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
-export function AutoReportView({ title, finishedAt, result, rewrite }: { title: string; finishedAt: string; result: AutoReportResult; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null } }) {
+export function AutoReportView({ title, finishedAt, result, rewrite }: { title: string; finishedAt: string; result: AutoReportResult; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number } }) {
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
@@ -266,7 +266,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite }: { title: 
         </Card>
       )}
 
-      {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} />}
+      {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} />}
 
       <div className="space-y-3">
         <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>

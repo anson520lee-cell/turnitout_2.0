@@ -1,8 +1,9 @@
 "use client";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { Check, Copy, PenLine, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { WaitingAnimation } from "@/components/ui/waiting";
 import { reviseText, type Decision, type ReportRewrite } from "@/lib/auto-report/rewrite";
@@ -34,11 +35,11 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * "Fix flagged phrasing, keep your meaning": after a finished report, suggests a rewrite for each flagged sentence,
+ * Writing Refinement, an add-on after a finished report ("Fix flagged phrasing, keep your meaning"): paid in credits, once per report. After a finished report, suggests a rewrite for each flagged sentence,
  * made from the reviewer's reason. The student sees their own sentence beside the suggestion and accepts or keeps
  * theirs one by one. Nothing is scored again here, and nothing changes the report above it.
  */
-export function RewritePanel({ orderId, result, initial, sourceText }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null }) {
+export function RewritePanel({ orderId, result, initial, sourceText, credits, balance }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +105,8 @@ export function RewritePanel({ orderId, result, initial, sourceText }: { orderId
   return (
     <Card className="p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-[15px] font-semibold tracking-tight">Fix flagged phrasing, keep your meaning</h3>
-        <Badge tone="info">Free with your report</Badge>
+        <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: fix flagged phrasing, keep your meaning</h3>
+        <Badge tone="info">{rewrite ? "Done for this report" : credits === 0 ? "Add-on · free for you" : `Add-on · ${credits} ${credits === 1 ? "credit" : "credits"}`}</Badge>
       </div>
       <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">
         For each flagged sentence we suggest a rewrite that answers the reviewer&rsquo;s reason and keeps what you said: your facts, numbers, names, quotations and citations stay as they are. You choose, sentence by sentence.
@@ -113,11 +114,20 @@ export function RewritePanel({ orderId, result, initial, sourceText }: { orderId
 
       {!rewrite && !busy && (
         <div className="mt-4">
-          <Button onClick={start}>
-            <PenLine className="size-4" /> Suggest rewrites for {Math.min(flagged, 60)} flagged sentence{flagged === 1 ? "" : "s"}
-          </Button>
+          {balance < credits ? (
+            <>
+              <Link href="/billing" className={buttonClasses("primary", "md")}>
+                Top up {credits - balance} more credit{credits - balance === 1 ? "" : "s"} to continue
+              </Link>
+              <p className="mt-2 text-[12px] text-fg-subtle">Writing Refinement costs {credits} credits and your balance is {balance}.</p>
+            </>
+          ) : (
+            <Button onClick={start}>
+              <PenLine className="size-4" /> Suggest rewrites for {Math.min(flagged, 60)} flagged sentence{flagged === 1 ? "" : "s"}{credits > 0 ? ` · ${credits} credit${credits === 1 ? "" : "s"}` : ""}
+            </Button>
+          )}
           {flagged > 60 && <p className="mt-2 text-[12px] text-fg-subtle">The 60 strongest flags are covered; rewrite the rest in your own words.</p>}
-          <p className="mt-2 text-[12px] text-fg-subtle">Made once for this report. It takes about half a minute.</p>
+          <p className="mt-2 text-[12px] text-fg-subtle">Made once for this report, about half a minute. Credits are taken only when suggestions are ready; if none can be made safely, you pay nothing.</p>
         </div>
       )}
 

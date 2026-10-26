@@ -5,13 +5,14 @@ import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, rewriteLimitReached } from "@/lib/model-usage";
 import { getModelSetting } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
+import { shortId } from "@/lib/utils";
 import type { AutoReportResult, ReportSentence } from "./stitch";
-import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, pickFlagged, rewriteInput, type ReportRewrite, type RewriteItem } from "./rewrite";
+import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, pickFlagged, rewriteCredits, rewriteInput, type ReportRewrite, type RewriteItem } from "./rewrite";
 
 /**
- * Makes the suggested rewrites for a finished report, once. Free: it costs a cent or so, and the report it follows is
- * already paid for (or the day's free one). The report itself, its score and its band are never touched, and the new
- * text is not scored here: a fresh report is the only way to see how an edited text reads.
+ * Makes the suggested rewrites for a finished report, once: the Writing Refinement add-on, paid in credits (price in
+ * config/pricing.ts rewritePricing) only when suggestions were made. The report itself, its score and its band are
+ * never touched, and the new text is not scored here: a fresh report is the only way to see how an edited text reads.
  */
 
 const LEASE_MS = 150_000;
@@ -20,7 +21,8 @@ const CALL_TIMEOUT_MS = 50_000;
 
 export type RewriteOutcome =
   | { ok: true; rewrite: ReportRewrite }
-  | { ok: false; reason: "no_report" | "nothing_flagged" | "busy" | "daily_limit" | "unavailable" };
+  | { ok: false; reason: "no_report" | "nothing_flagged" | "busy" | "daily_limit" | "unavailable" | "no_suggestions" }
+  | { ok: false; reason: "insufficient"; credits: number; balance: number };
 
 async function askBatch(batch: ReportSentence[], result: AutoReportResult, model: string, redo?: Map<number, string>): Promise<Map<number, string> | null> {
   try {
@@ -74,7 +76,7 @@ export async function generateRewrite(result: AutoReportResult, flagged: ReportS
   return { version: 1, model, createdAt: new Date().toISOString(), items };
 }
 
-export async function makeRewrite(orderId: string): Promise<RewriteOutcome> {
+export async function makeRewrite(orderId: string, who: { userId: string; admin: boolean }): Promise<RewriteOutcome> {
   const db = createAdminClient();
   const { data: report } = await db.from("auto_reports").select("status,result,rewrite").eq("order_id", orderId).maybeSingle<{ status: string; result: AutoReportResult | null; rewrite: ReportRewrite | null }>();
   if (!report || report.status !== "done" || !report.result) return { ok: false, reason: "no_report" };
@@ -83,6 +85,16 @@ export async function makeRewrite(orderId: string): Promise<RewriteOutcome> {
   if (!flagged.length) return { ok: false, reason: "nothing_flagged" };
   if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
   if (await rewriteLimitReached()) return { ok: false, reason: "daily_limit" };
+
+  // What it costs, and whether the account can pay, before any model call. An admin's own test is free.
+  const { data: order } = await db.from("orders").select("price,source_text").eq("id", orderId).maybeSingle<{ price: number; source_text: string | null }>();
+  if (!order) return { ok: false, reason: "no_report" };
+  const credits = who.admin ? 0 : rewriteCredits(order, report.result);
+  if (credits > 0) {
+    const { data: account } = await db.from("credit_accounts").select("balance").eq("user_id", who.userId).maybeSingle<{ balance: number }>();
+    const balance = account?.balance ?? 0;
+    if (balance < credits) return { ok: false, reason: "insufficient", credits, balance };
+  }
 
   // One worker per report: take the lease or leave it to whoever has it.
   const now = new Date();
@@ -95,17 +107,40 @@ export async function makeRewrite(orderId: string): Promise<RewriteOutcome> {
     .select("order_id");
   if (!leased?.length) return { ok: false, reason: "busy" };
 
+  const release = () => db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
   try {
     const rewrite = await generateRewrite(report.result, flagged);
     if (!rewrite) {
-      await db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
+      await release();
       return { ok: false, reason: "unavailable" };
     }
-    await db.from("auto_reports").update({ rewrite, rewrite_lease: null }).eq("order_id", orderId);
-    await audit("report_rewrite_made", { orderId, detail: { flagged: flagged.length, suggested: rewrite.items.filter((i) => i.rewrite).length } });
-    return { ok: true, rewrite };
+    // Nothing usable came back: nothing is charged, and the customer can try again.
+    if (!rewrite.items.some((i) => i.rewrite)) {
+      await release();
+      return { ok: false, reason: "no_suggestions" };
+    }
+    // Charged only now that there is something to deliver. If the balance changed meanwhile, nothing is delivered.
+    const note = `Writing Refinement for report ${shortId(orderId)}`;
+    if (credits > 0) {
+      const { data: spent } = await db.rpc("credit_spend", { p_user: who.userId, p_amount: credits, p_order: orderId, p_note: note });
+      if (!spent) {
+        await release();
+        const { data: account } = await db.from("credit_accounts").select("balance").eq("user_id", who.userId).maybeSingle<{ balance: number }>();
+        return { ok: false, reason: "insufficient", credits, balance: account?.balance ?? 0 };
+      }
+    }
+    const saved: ReportRewrite = { ...rewrite, credits };
+    const { data: stored } = await db.from("auto_reports").update({ rewrite: saved, rewrite_lease: null }).eq("order_id", orderId).is("rewrite", null).select("order_id");
+    if (!stored?.length) {
+      // Another request finished first: give this charge back and show theirs.
+      if (credits > 0) await db.rpc("credit_add", { p_user: who.userId, p_amount: credits, p_kind: "refund", p_order: orderId, p_topup: null, p_note: `Refund: ${note}` });
+      const again = await savedRewrite(orderId);
+      return again ? { ok: true, rewrite: again } : { ok: false, reason: "busy" };
+    }
+    await audit("report_rewrite_made", { orderId, actorId: who.userId, detail: { flagged: flagged.length, suggested: saved.items.filter((i) => i.rewrite).length, credits } });
+    return { ok: true, rewrite: saved };
   } catch (e) {
-    await db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
+    await release();
     console.error("report rewrite failed", e instanceof Error ? e.name : "error");
     return { ok: false, reason: "unavailable" };
   }

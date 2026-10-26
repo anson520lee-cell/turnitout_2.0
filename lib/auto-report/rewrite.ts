@@ -11,6 +11,7 @@
  */
 
 import { splitSentences } from "@/lib/recheck";
+import { rewritePrice, toCredits } from "@/config/pricing";
 import type { AutoReportResult, ReportSentence } from "./stitch";
 
 export interface RewriteItem {
@@ -29,7 +30,15 @@ export interface ReportRewrite {
   version: 1;
   model: string;
   createdAt: string;
+  /** Credits charged for it (0 for an admin's test). Absent on rewrites made before the add-on was priced. */
+  credits?: number;
   items: RewriteItem[];
+}
+
+/** What the add-on costs for this report, in credits (see rewritePrice in config/pricing.ts). */
+export function rewriteCredits(order: { price: number; source_text: string | null }, result: AutoReportResult): number {
+  const chars = order.source_text?.length ?? result.paragraphs.reduce((sum, p) => sum + p.sentences.reduce((n, s) => n + s.text.length + 1, 0), 0);
+  return toCredits(rewritePrice(order.price, chars));
 }
 
 /** The most sentences rewritten for one report (a cost and a quality limit). */

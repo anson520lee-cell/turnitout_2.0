@@ -85,3 +85,14 @@ test("reviseText swaps accepted sentences inside the pasted text, or falls back 
   assert.equal(reviseText("something else", r, rw, { 1: "accept" }), `NEW ONE.\n\n${s2.text}`);
   assert.equal(reviseText(source, r, rw, {}), source);
 });
+
+test("the add-on is priced from the report's price, and a free report is priced as the paid report of its length", async () => {
+  const { rewritePrice, rewritePricing } = await import("../config/pricing");
+  const { rewriteCredits } = await import("../lib/auto-report/rewrite");
+  assert.equal(rewritePricing.multiple, 1);
+  assert.equal(rewritePrice(500, 5000), 500); // a 5-credit report: 5 credits
+  assert.equal(rewritePrice(0, 4000), 400); // a free 4,000-character report: as a paid one, 4 credits
+  assert.equal(rewritePrice(0, 100), 200); // never below the report minimum
+  const r = result([[sentence(1, "high")]]);
+  assert.equal(rewriteCredits({ price: 300, source_text: null }, r), 3);
+});
