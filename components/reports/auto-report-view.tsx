@@ -7,6 +7,8 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
 import { reportOverall, reportScore, scoreBasis, type AutoReportResult, type Level, type Overall, type ReportParagraph, type ReportSentence } from "@/lib/auto-report/stitch";
+import { RewritePanel } from "@/components/reports/rewrite-panel";
+import type { ReportRewrite } from "@/lib/auto-report/rewrite";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +109,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
 }
 
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
-export function AutoReportView({ title, finishedAt, result }: { title: string; finishedAt: string; result: AutoReportResult }) {
+export function AutoReportView({ title, finishedAt, result, rewrite }: { title: string; finishedAt: string; result: AutoReportResult; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null } }) {
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
@@ -263,6 +265,8 @@ export function AutoReportView({ title, finishedAt, result }: { title: string; f
           <p className="mt-3 text-[12.5px] text-fg-subtle">Rewrite them in your everyday words, the way you would explain the idea to a classmate.</p>
         </Card>
       )}
+
+      {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} />}
 
       <div className="space-y-3">
         <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>

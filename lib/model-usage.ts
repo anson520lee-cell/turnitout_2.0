@@ -9,7 +9,7 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
  * best-effort: a logging problem never affects the user's request.
  */
 
-export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test" | "paid_report";
+export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test" | "paid_report" | "report_rewrite";
 
 /**
  * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
@@ -172,4 +172,27 @@ export async function usageSummary(days = 14): Promise<UsageSummary> {
     reasons: [...reasons.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
     efforts: [...efforts.entries()].map(([effort, count]) => ({ effort, count })).sort((a, b) => b.count - a.count),
   };
+}
+
+/** Rewrite calls a day may make (each report takes one to four); a cost brake. Set DAILY_REWRITE_LIMIT in Vercel to change it; 0 turns the brake off. */
+export function dailyRewriteLimit(): number {
+  const n = Number(process.env.DAILY_REWRITE_LIMIT);
+  return Number.isFinite(n) && n >= 0 && process.env.DAILY_REWRITE_LIMIT?.trim() ? Math.floor(n) : 1000;
+}
+
+export async function rewriteLimitReached(): Promise<boolean> {
+  const limit = dailyRewriteLimit();
+  if (limit === 0 || !isSupabaseConfigured) return false;
+  try {
+    const hkNow = new Date(Date.now() + 8 * 3_600_000);
+    const startUtc = new Date(Date.UTC(hkNow.getUTCFullYear(), hkNow.getUTCMonth(), hkNow.getUTCDate()) - 8 * 3_600_000);
+    const { count } = await createAdminClient()
+      .from("model_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("purpose", "report_rewrite")
+      .gte("created_at", startUtc.toISOString());
+    return (count ?? 0) >= limit;
+  } catch {
+    return false;
+  }
 }

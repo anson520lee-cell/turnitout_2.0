@@ -21,7 +21,9 @@ export type AnalyticsEvent =
   | "direct_pay_submitted"
   | "payment_completed"
   | "report_opened"
-  | "report_downloaded";
+  | "report_downloaded"
+  | "rewrite_requested"
+  | "rewrite_copied";
 
 type Props = Record<string, string | number | boolean | null>;
 

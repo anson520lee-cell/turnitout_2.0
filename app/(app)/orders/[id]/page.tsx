@@ -109,7 +109,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <div className="mb-5"><FormMessage>We couldn&rsquo;t finish this report. What you paid has been returned to your account as credits. Please try again in a little while.</FormMessage></div>
       )}
       {order.status === "completed" && auto?.result && (
-        <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} />
+        <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} rewrite={{ orderId: order.id, saved: auto.rewrite, sourceText: order.source_text }} />
       )}
       {order.status === "completed" && screeningOrder && !auto && screening && (
         <ScreeningReport order={order} file={file} result={screening} />
