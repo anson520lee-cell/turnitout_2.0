@@ -47,6 +47,33 @@ export async function savedRewrite(orderId: string): Promise<ReportRewrite | nul
   return data?.rewrite ?? null;
 }
 
+/**
+ * Asks the model for a rewrite of each flagged sentence, checks every answer, and gives refused ones one more try.
+ * Null when the model could not be reached at all. No database writes: used by makeRewrite and by the backtest sample maker.
+ */
+export async function generateRewrite(result: AutoReportResult, flagged: ReportSentence[]): Promise<ReportRewrite | null> {
+  const { model } = await getModelSetting();
+  const batches: ReportSentence[][] = [];
+  for (let i = 0; i < flagged.length; i += REWRITE_BATCH) batches.push(flagged.slice(i, i + REWRITE_BATCH));
+  const first = await Promise.all(batches.map((b) => askBatch(b, result, model)));
+  if (first.every((a) => a === null)) return null;
+  const answers = new Map<number, string>();
+  for (const a of first) for (const [n, t] of a ?? []) answers.set(n, t);
+
+  const known = knownNames(result);
+  let items: RewriteItem[] = buildItems(flagged, answers, known);
+  // One more try for the sentences whose suggestion was refused, telling the model why.
+  const redo = new Map(items.filter((i) => i.rewrite === null && i.kept).map((i) => [i.n, i.kept as string]));
+  if (redo.size) {
+    const again = await askBatch(flagged.filter((s) => redo.has(s.n)), result, model, redo);
+    if (again) {
+      for (const [n, t] of again) answers.set(n, t);
+      items = buildItems(flagged, answers, known);
+    }
+  }
+  return { version: 1, model, createdAt: new Date().toISOString(), items };
+}
+
 export async function makeRewrite(orderId: string): Promise<RewriteOutcome> {
   const db = createAdminClient();
   const { data: report } = await db.from("auto_reports").select("status,result,rewrite").eq("order_id", orderId).maybeSingle<{ status: string; result: AutoReportResult | null; rewrite: ReportRewrite | null }>();
@@ -69,32 +96,13 @@ export async function makeRewrite(orderId: string): Promise<RewriteOutcome> {
   if (!leased?.length) return { ok: false, reason: "busy" };
 
   try {
-    const { model } = await getModelSetting();
-    const batches: ReportSentence[][] = [];
-    for (let i = 0; i < flagged.length; i += REWRITE_BATCH) batches.push(flagged.slice(i, i + REWRITE_BATCH));
-    const first = await Promise.all(batches.map((b) => askBatch(b, report.result as AutoReportResult, model)));
-    if (first.every((a) => a === null)) {
+    const rewrite = await generateRewrite(report.result, flagged);
+    if (!rewrite) {
       await db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
       return { ok: false, reason: "unavailable" };
     }
-    const answers = new Map<number, string>();
-    for (const a of first) for (const [n, t] of a ?? []) answers.set(n, t);
-
-    const known = knownNames(report.result);
-    let items: RewriteItem[] = buildItems(flagged, answers, known);
-    // One more try for the sentences whose suggestion was refused, telling the model why.
-    const redo = new Map(items.filter((i) => i.rewrite === null && i.kept).map((i) => [i.n, i.kept as string]));
-    if (redo.size) {
-      const again = await askBatch(flagged.filter((s) => redo.has(s.n)), report.result, model, redo);
-      if (again) {
-        for (const [n, t] of again) answers.set(n, t);
-        items = buildItems(flagged, answers, known);
-      }
-    }
-
-    const rewrite: ReportRewrite = { version: 1, model, createdAt: new Date().toISOString(), items };
     await db.from("auto_reports").update({ rewrite, rewrite_lease: null }).eq("order_id", orderId);
-    await audit("report_rewrite_made", { orderId, detail: { flagged: flagged.length, suggested: items.filter((i) => i.rewrite).length } });
+    await audit("report_rewrite_made", { orderId, detail: { flagged: flagged.length, suggested: rewrite.items.filter((i) => i.rewrite).length } });
     return { ok: true, rewrite };
   } catch (e) {
     await db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
