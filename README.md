@@ -140,7 +140,9 @@ Manual methods are confirmed by a person:
    - **Confirm payment received**: records the payment through the same `markOrderPaid` path as Stripe (provider = the method, id = the claim id) and queues the order.
    - **Reject** (optional note, shown to the customer): the order stays unpaid and the customer can submit again.
 
-Customers can never mark an order paid; only a verified Stripe webhook or an admin confirming a claim can. Refunds happen outside the app.
+**Alipay orders start first and are checked later** (`lib/payments/pay-first.ts`): when a customer pays one order by Alipay, `submitPaymentClaim` marks the order paid straight away and the report starts; the claim stays `pending` and appears in **Admin → Overview → Alipay payments to check later**, with **Received**, **Not received** and **All received**. Two limits: an account with an unchecked started payment gets the old flow above for its next Alipay order (it waits for Confirm), and **Not received** marks the account (audit event `payment_claim_fake`) so it can't pay orders by Alipay again; the report is not taken back and its payment row is removed. If such a report fails before the check, only the credits used first are refunded; the Alipay part is refunded as credits when the payment is marked Received. Alipay credit top-ups are still confirmed before any credits are added.
+
+Customers can never mark an order paid except through that Alipay pay-first path, which is limited as above; otherwise only a verified Stripe webhook or an admin confirming a claim can. Refunds happen outside the app.
 
 **Set your payee details before launch** in `config/payments.ts`: replace every value starting with `REPLACE`, set `enabled` per method, and put QR images at `public/payments/alipay-qr.png` and `public/payments/payme-qr.png` (or set `qrImage: null`). Missing images show a neutral frame. **Admin → Settings** lists any method still using placeholders.
 

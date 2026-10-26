@@ -66,6 +66,7 @@ export function ManualMethod({
   submit,
   onSubmitted,
   confirmNote = "We check every payment by hand. Your credits are added as soon as it\u2019s confirmed.",
+  submitLabel,
 }: {
   method: ManualPaymentConfig;
   /** e.g. "US$20" */
@@ -80,6 +81,8 @@ export function ManualMethod({
   onSubmitted: () => void;
   /** The line under the submit button: what happens once the payment is confirmed. */
   confirmNote?: string;
+  /** the submit button's text (default: submit for confirmation) */
+  submitLabel?: string;
 }) {
   const [payer, setPayer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +179,7 @@ export function ManualMethod({
         </Field>
         <div className="mt-3"><FormMessage>{error}</FormMessage></div>
         <Button type="submit" size="lg" className="mt-2 w-full" loading={pending} disabled={disabled || !claimsOpen}>
-          I&rsquo;ve paid · submit for confirmation
+          {submitLabel ?? <>I&rsquo;ve paid · submit for confirmation</>}
         </Button>
         <p className="mt-2 text-center text-[11.5px] text-fg-subtle">
           {confirmNote}
