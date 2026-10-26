@@ -8,7 +8,7 @@ import { PaymentAlert } from "@/components/admin/payment-alert";
 import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { creditsHeldForMany } from "@/lib/orders/held-credits";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatHKD } from "@/config/pricing";
+import { formatHkdDollars } from "@/lib/payments/revenue";
 import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { formatDateTime } from "@/lib/utils";
@@ -64,7 +64,7 @@ export default async function AdminHome() {
       ])
     : [[] as PaymentClaim[], new Map<string, number>()];
   const claimById = new Map(claimRows.map((c) => [c.id, c]));
-  const stats: [string, string | number, boolean?][] = [
+  const stats: [string, string | number, boolean?, string?][] = [
     ["Payments to verify", toVerify.length, toVerify.length > 0],
     ["To check later", toCheck.length],
     ["Waiting in queue", m.queued],
@@ -72,7 +72,17 @@ export default async function AdminHome() {
     ["Completed", m.completed],
     ["Orders today", m.ordersToday],
     ["Orders", m.orders],
-    ["Revenue", formatHKD(m.revenue)],
+    [
+      "Revenue",
+      formatHkdDollars(m.revenue.checked),
+      false,
+      [
+        `Top-ups ${formatHkdDollars(m.revenue.topups)} · Alipay orders ${formatHkdDollars(m.revenue.orders)}`,
+        m.revenue.unchecked > 0 ? `+ ${formatHkdDollars(m.revenue.unchecked)} not checked yet` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    ],
     ["Users", m.users],
   ];
   return (
@@ -83,10 +93,11 @@ export default async function AdminHome() {
         <PaymentAlert count={toVerify.length} />
       </div>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        {stats.map(([k, v, alert]) => (
+        {stats.map(([k, v, alert, sub]) => (
           <div key={k} className={alert ? "glass rounded-2xl border-warn/40 p-4 shadow-[0_0_0_1px_rgb(141_179_255/0.2)]" : "glass rounded-2xl p-4"}>
             <p className={alert ? "text-[12px] text-warn" : "text-[12px] text-fg-muted"}>{k}</p>
             <p className="mt-1.5 text-2xl font-semibold tracking-tight">{v}</p>
+            {sub && <p className="mt-1 whitespace-pre-line text-[11.5px] leading-snug text-fg-subtle">{sub}</p>}
           </div>
         ))}
       </div>
