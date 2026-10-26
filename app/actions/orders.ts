@@ -27,7 +27,8 @@ import { stripe } from "@/lib/payments/stripe";
 import { markOrderPaid } from "@/lib/payments/fulfil";
 import { repriceUnpaid } from "@/lib/orders/reprice";
 import { referenceTaken } from "@/lib/payments/reference-check";
-import { heldNote, returnNote } from "@/lib/orders/held-credits";
+import { payFirstFor } from "@/lib/payments/pay-first";
+import { heldNote, releaseHeldCredits, returnNote } from "@/lib/orders/held-credits";
 import type { Order } from "@/types/domain";
 
 type Fail = { ok: false; message: string };
@@ -494,6 +495,8 @@ async function hasPendingClaim(orderId: string): Promise<boolean> {
   return (count ?? 0) > 0;
 }
 
+const BLOCKED_MESSAGE = "Alipay payment isn't available for this account because an earlier transaction number couldn't be found. Please pay with credits or contact support.";
+
 const DUPLICATE_REFERENCE = "This transaction number has already been submitted. If it was for this order, we're confirming it now; there's no need to send it again.";
 
 /** Credits on the account right now (server-side read). */
@@ -508,12 +511,16 @@ async function balanceOf(userId: string): Promise<number> {
  * tells us the transaction number. Credits already on the account are used
  * first: they are taken now, and only the rest of the price is paid by Alipay
  * (`useCredits` is the number the popup showed, so the customer is never asked
- * for one amount and charged another). This only records the claim; the order
- * stays awaiting_payment until an admin finds the money and confirms it
- * (confirmPaymentClaim in actions/admin.ts), and only then does the report
- * start. A rejected claim gives the credits back. No top-up minimum.
+ * for one amount and charged another). No top-up minimum.
+ *
+ * The report starts straight away and the admin checks the payment later
+ * (lib/payments/pay-first.ts), unless this account already has an unchecked
+ * Alipay order: then this one waits for the admin to confirm it
+ * (confirmPaymentClaim in actions/admin.ts), as before. An account whose number
+ * was marked fake can't pay orders by Alipay. A claim rejected before its
+ * order started gives the credits back.
  */
-export async function submitPaymentClaim(orderId: string, method: string, reference: string, useCredits = 0): Promise<{ ok: true } | Fail> {
+export async function submitPaymentClaim(orderId: string, method: string, reference: string, useCredits = 0): Promise<{ ok: true; started: boolean } | Fail> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Please sign in again." };
   const parsed = paymentClaimInput.safeParse({ orderId, method, reference });
@@ -529,6 +536,8 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
   if (await hasPendingClaim(found.id)) {
     return { ok: false, message: "You've already reported a payment for this order. We're confirming it now." };
   }
+  const payFirst = await payFirstFor(user.id);
+  if (payFirst === "blocked") return { ok: false, message: BLOCKED_MESSAGE };
   // The claim is for the price shown in the popup: the current one, never an older stored price.
   const order = await repriceUnpaid(found);
   const price = toCredits(order.price);
@@ -594,8 +603,31 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
     return { ok: false, message: "We couldn't record your payment details. Please try again." };
   }
 
-  await audit("payment_claim_submitted", { actorId: user.id, orderId: order.id, detail: { claim: claim.id, method: v.method, creditsUsed: use } });
+  // Start the report now; the admin checks the payment later.
+  let started = false;
+  if (payFirst === "now") {
+    const res = await markOrderPaid({
+      orderId: order.id,
+      provider: v.method,
+      providerPaymentId: claim.id,
+      amount: order.price,
+      currency: order.currency,
+    });
+    if (res.ok && !res.newlyPaid && !res.duplicate) {
+      // The order was paid or closed another way a moment ago: this claim pays for nothing.
+      await db.from("payments").delete().eq("provider", v.method).eq("provider_payment_id", claim.id);
+      await db.from("payment_claims").update({ status: "rejected", admin_note: "Order was already paid or closed" }).eq("id", claim.id);
+      await releaseHeldCredits(order.id, user.id, "was already paid or closed");
+      revalidatePath(`/orders/${order.id}`);
+      return { ok: false, message: "This order has just been paid or closed, so this payment wasn't used. If you paid by Alipay, contact support for a refund." };
+    }
+    // If marking it paid failed, the claim simply waits for the admin like before.
+    started = res.ok && Boolean(res.newlyPaid);
+  }
+
+  await audit("payment_claim_submitted", { actorId: user.id, orderId: order.id, detail: { claim: claim.id, method: v.method, creditsUsed: use, started } });
   notifyOwner("payment_submitted", {
+    status: started ? "Report already started. Check this payment when you have time." : "Waiting for you: nothing starts until you confirm.",
     order: shortId(order.id),
     service: serviceLabels[order.service_type],
     method: manualPayments[v.method].label,
@@ -607,7 +639,7 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
   revalidatePath(`/orders/${order.id}`);
   revalidatePath("/orders");
   revalidatePath("/billing");
-  return { ok: true };
+  return { ok: true, started };
 }
 
 /** Development only: simulate a verified payment. Disabled in production builds. */

@@ -10,6 +10,7 @@ import { refundFreeReport } from "@/lib/free-report";
 import { DIRECT_PAY_METHODS } from "@/config/payments";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
+import { creditsHeldFor } from "@/lib/orders/held-credits";
 import { PIECE_SIZE, stitchReport, type PieceAnswer } from "./stitch";
 
 /**
@@ -44,21 +45,35 @@ async function failReport(orderId: string, reason: string): Promise<void> {
   const now = new Date().toISOString();
   await db.from("auto_reports").update({ status: "failed", error: reason, lease_until: null, updated_at: now }).eq("order_id", orderId);
   if (!order || order.status === "cancelled") return;
-  await db.from("orders").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("id", orderId);
+  // Only the call that actually cancels the order refunds it: two calls failing at once must not refund twice.
+  const { data: moved } = await db
+    .from("orders")
+    .update({ status: "cancelled", cancelled_at: now, updated_at: now })
+    .eq("id", orderId)
+    .neq("status", "cancelled")
+    .select("id");
+  if (!moved?.length) return;
   // Nothing was delivered: give back what the customer paid, as credits (an owner test order paid nothing). An order
   // paid directly by Alipay gets the same number of credits its price was worth.
   const { data: paid } = await db
     .from("payments")
-    .select("id")
+    .select("id,provider,provider_payment_id")
     .eq("order_id", orderId)
     .in("provider", ["credits", ...DIRECT_PAY_METHODS])
     .eq("status", "succeeded")
     .limit(1)
-    .maybeSingle();
-  if (paid) {
+    .maybeSingle<{ id: string; provider: string; provider_payment_id: string }>();
+  let refund = paid ? toCredits(order.price) : 0;
+  if (paid && paid.provider !== "credits") {
+    // Started before the Alipay payment was checked: refund now only the credits used first. The Alipay part is
+    // refunded when the admin finds the payment (confirmPaymentClaim), never for a number nobody paid.
+    const { data: claim } = await db.from("payment_claims").select("status").eq("id", paid.provider_payment_id).maybeSingle<{ status: string }>();
+    if (claim?.status === "pending") refund = await creditsHeldFor(orderId);
+  }
+  if (refund > 0) {
     await db.rpc("credit_add", {
       p_user: order.user_id,
-      p_amount: toCredits(order.price),
+      p_amount: refund,
       p_kind: "refund",
       p_order: orderId,
       p_topup: null,
@@ -68,7 +83,7 @@ async function failReport(orderId: string, reason: string): Promise<void> {
   // A daily free report that could not be made gives the day's allowance back.
   const freeBack = await refundFreeReport(orderId);
   await db.from("auto_report_pieces").delete().eq("order_id", orderId);
-  await audit("report_failed", { orderId, detail: { reason, refunded: Boolean(paid) || freeBack } });
+  await audit("report_failed", { orderId, detail: { reason, refunded: refund > 0 || freeBack, credits: refund } });
 }
 
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {

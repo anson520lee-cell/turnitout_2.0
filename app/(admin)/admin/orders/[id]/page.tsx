@@ -122,7 +122,7 @@ export default async function AdminOrderPage({ params }: PageProps<"/admin/order
           </Card>
 
           {(claims.length > 0 || order.status === "awaiting_payment") && (
-            <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} held={held} />
+            <PaymentClaims claims={claims} orderPrice={order.price} reference={paymentReference(order.id)} held={held} started={pendingClaim && order.status !== "awaiting_payment"} />
           )}
 
           <StatusControls orderId={order.id} type={order.service_type} status={order.status} cancelOnly={Boolean(auto)} />

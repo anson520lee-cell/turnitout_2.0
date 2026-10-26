@@ -3,7 +3,7 @@ import Link from "next/link";
 import { adminMetrics, adminOrders } from "@/lib/data/admin";
 import { OrdersTable } from "@/components/admin/orders-table";
 import { TopupReview, type PendingTopup } from "@/components/admin/topup-review";
-import { ClaimQuickReview } from "@/components/admin/payment-claims";
+import { AllReceivedButton, ClaimQuickReview } from "@/components/admin/payment-claims";
 import { PaymentAlert } from "@/components/admin/payment-alert";
 import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { creditsHeldForMany } from "@/lib/orders/held-credits";
@@ -52,15 +52,21 @@ export default async function AdminHome() {
   const toVerify = orders
     .filter((o) => o.pending_claim && o.status === "awaiting_payment")
     .sort((a, b) => a.pending_claim!.created_at.localeCompare(b.pending_claim!.created_at));
-  const [claimRows, held] = toVerify.length
+  // Alipay orders whose report already started: check them against the AlipayHK records whenever there is time.
+  const toCheck = orders
+    .filter((o) => o.pending_claim && o.status !== "awaiting_payment")
+    .sort((a, b) => a.pending_claim!.created_at.localeCompare(b.pending_claim!.created_at));
+  const withClaims = [...toVerify, ...toCheck];
+  const [claimRows, held] = withClaims.length
     ? await Promise.all([
-        createAdminClient().from("payment_claims").select("*").in("id", toVerify.map((o) => o.pending_claim!.id)).then((r) => (r.data ?? []) as PaymentClaim[]),
-        creditsHeldForMany(toVerify.map((o) => o.id)),
+        createAdminClient().from("payment_claims").select("*").in("id", withClaims.map((o) => o.pending_claim!.id)).then((r) => (r.data ?? []) as PaymentClaim[]),
+        creditsHeldForMany(withClaims.map((o) => o.id)),
       ])
     : [[] as PaymentClaim[], new Map<string, number>()];
   const claimById = new Map(claimRows.map((c) => [c.id, c]));
   const stats: [string, string | number, boolean?][] = [
-    ["Payments to verify", m.claimsPending, m.claimsPending > 0],
+    ["Payments to verify", toVerify.length, toVerify.length > 0],
+    ["To check later", toCheck.length],
     ["Waiting in queue", m.queued],
     ["In progress", m.inScreening],
     ["Completed", m.completed],
@@ -90,7 +96,7 @@ export default async function AdminHome() {
             Payments to verify <span className="text-fg-subtle">· oldest first</span>
           </h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            Customers who paid one order by Alipay. Open your AlipayHK transaction records, find the transaction number, and check the amount is exactly what is shown here. Nothing is made for the customer until you press Confirm; if the money is missing or less, press Reject.
+            These customers already have another Alipay payment you haven&rsquo;t checked yet, so this order waits for you. Open your AlipayHK transaction records, find the transaction number, and check the amount is exactly what is shown here. Nothing is made for the customer until you press Confirm; if the money is missing or less, press Reject.
           </p>
           <ul className="mt-4 grid gap-3 md:grid-cols-2">
             {toVerify.map((o) => {
@@ -98,6 +104,29 @@ export default async function AdminHome() {
               return c ? (
                 <li key={o.id}>
                   <ClaimQuickReview claim={c} orderId={o.id} orderPrice={o.price} email={o.profiles?.email ?? null} held={held.get(o.id) ?? 0} />
+                </li>
+              ) : null;
+            })}
+          </ul>
+        </>
+      )}
+      {toCheck.length > 0 && (
+        <>
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-[16px] font-semibold">
+              Alipay payments to check later <span className="text-fg-subtle">· report already started · oldest first</span>
+            </h2>
+            <AllReceivedButton claimIds={toCheck.map((o) => o.pending_claim!.id)} />
+          </div>
+          <p className="mt-1 text-[12.5px] text-fg-muted">
+            No rush: these reports started as soon as the customer sent the transaction number. When you have time, compare them with your AlipayHK records. Press Received for each one you find (or All received if you found them all). If one is missing, press Not received: that account can&rsquo;t pay by Alipay any more.
+          </p>
+          <ul className="mt-4 grid gap-3 md:grid-cols-2">
+            {toCheck.map((o) => {
+              const c = claimById.get(o.pending_claim!.id);
+              return c ? (
+                <li key={o.id}>
+                  <ClaimQuickReview claim={c} orderId={o.id} orderPrice={o.price} email={o.profiles?.email ?? null} held={held.get(o.id) ?? 0} started />
                 </li>
               ) : null;
             })}

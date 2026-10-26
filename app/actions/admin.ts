@@ -17,6 +17,7 @@ import { manualPayments, orderAmountText } from "@/config/payments";
 import { serviceLabels } from "@/config/services";
 import { shortId } from "@/lib/utils";
 import { creditsHeldFor, releaseHeldCredits } from "@/lib/orders/held-credits";
+import { FAKE_CLAIM_EVENT, startedOnClaim } from "@/lib/payments/pay-first";
 import type { AdminChecklist, Order, PaymentClaim } from "@/types/domain";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -62,6 +63,33 @@ export async function confirmPaymentClaim(input: unknown): Promise<Result> {
   if (claim.status !== "pending") return { ok: false, message: "This claim has already been reviewed." };
   const order = await loadOrder(claim.order_id);
   if (!order) return { ok: false, message: "Order not found." };
+  if (order.status !== "awaiting_payment" && (await startedOnClaim(claim))) {
+    // The report already started on this claim: the money was found, so only the claim is closed.
+    const db = createAdminClient();
+    const { data: taken } = await db
+      .from("payment_claims")
+      .update({ status: "confirmed", reviewed_by: admin.id, reviewed_at: new Date().toISOString(), admin_note: parsed.data.note || null })
+      .eq("id", claim.id)
+      .eq("status", "pending")
+      .select("id");
+    if (!taken?.length) return { ok: false, message: "This claim has already been reviewed." };
+    let refunded = 0;
+    if (order.status === "cancelled") {
+      // The report failed before this check, so only the credits used first were refunded then: the Alipay part is now.
+      refunded = Math.round(claim.amount / 100);
+      await db.rpc("credit_add", {
+        p_user: order.user_id,
+        p_amount: refunded,
+        p_kind: "refund",
+        p_order: order.id,
+        p_topup: null,
+        p_note: `Refund: report ${shortId(order.id)} could not be completed (Alipay part)`,
+      });
+    }
+    await audit("payment_claim_confirmed", { actorId: admin.id, orderId: order.id, detail: { claim: claim.id, method: claim.method, checkedAfterStart: true, refunded } });
+    refresh(order.id);
+    return { ok: true };
+  }
   if (order.status !== "awaiting_payment") {
     return {
       ok: false,
@@ -142,6 +170,7 @@ export async function rejectPaymentClaim(input: unknown): Promise<Result> {
   const claim = await loadClaim(parsed.data.claimId);
   if (!claim) return { ok: false, message: "Payment claim not found." };
   if (claim.status !== "pending") return { ok: false, message: "This claim has already been reviewed." };
+  if (await startedOnClaim(claim)) return markClaimFake(admin.id, claim, parsed.data.note);
 
   const db = createAdminClient();
   const { data: done } = await db
@@ -168,6 +197,60 @@ export async function rejectPaymentClaim(input: unknown): Promise<Result> {
   });
   refresh(claim.order_id);
   return { ok: true };
+}
+
+/**
+ * The report already started on this claim and the money never arrived: the
+ * number was fake or wrong. The report is not taken back (it cost only the AI
+ * run), the payment record is removed so it isn't counted as revenue, the
+ * credits used first stay spent (they paid for part of a report that was made),
+ * and the account can't pay orders by Alipay any more.
+ */
+async function markClaimFake(adminId: string, claim: PaymentClaim, note: string): Promise<Result> {
+  const db = createAdminClient();
+  const { data: done } = await db
+    .from("payment_claims")
+    .update({
+      status: "rejected",
+      reviewed_by: adminId,
+      reviewed_at: new Date().toISOString(),
+      admin_note: note || "Payment not found",
+    })
+    .eq("id", claim.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!done?.length) return { ok: false, message: "This claim has already been reviewed." };
+  await db.from("payments").delete().eq("provider", claim.method).eq("provider_payment_id", claim.id);
+  await audit(FAKE_CLAIM_EVENT, { actorId: adminId, orderId: claim.order_id, detail: { claim: claim.id, method: claim.method, customer: claim.user_id } });
+  notifyOwner("payment_rejected", {
+    order: shortId(claim.order_id),
+    method: manualPayments[claim.method]?.label ?? claim.method,
+    amount: orderAmountText(claim.method, claim.amount),
+    email: await customerEmail(claim.user_id),
+    account: "Blocked from paying orders by Alipay",
+  });
+  refresh(claim.order_id);
+  return { ok: true };
+}
+
+/** "All received": closes every listed claim whose report already started. Claims still waiting need their own Confirm. */
+export async function confirmStartedClaims(claimIds: string[]): Promise<{ ok: true; confirmed: number; failed: number } | { ok: false; message: string }> {
+  await assertAdmin();
+  const ids = z.array(z.string().uuid()).max(200).safeParse(claimIds);
+  if (!ids.success) return { ok: false, message: "Invalid request." };
+  let confirmed = 0;
+  let failed = 0;
+  for (const id of ids.data) {
+    const claim = await loadClaim(id);
+    if (!claim || claim.status !== "pending" || !(await startedOnClaim(claim))) {
+      failed++;
+      continue;
+    }
+    const r = await confirmPaymentClaim({ claimId: id });
+    if (r.ok) confirmed++;
+    else failed++;
+  }
+  return { ok: true, confirmed, failed };
 }
 
 export async function updateOrderStatus(orderId: string, to: string): Promise<Result> {

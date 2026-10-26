@@ -13,10 +13,11 @@ import { track } from "@/lib/analytics";
 /**
  * "Pay just this order with Alipay": a card on the order's payment panel and a
  * popup with the QR code, the exact amount for this text (no top-up, no
- * minimum) and a box for the transaction number. Submitting records a claim for
- * the admin to confirm; the order page then shows "confirming" and starts the
- * report by itself once it is confirmed. Closing the popup changes nothing, so
- * it can be closed and opened again freely.
+ * minimum) and a box for the transaction number. Submitting records the claim
+ * and, when `startsNow`, starts the report straight away (the admin checks the
+ * payment later). Otherwise the order page shows "confirming" and starts the
+ * report by itself once the admin confirms. Closing the popup changes nothing,
+ * so it can be closed and opened again freely.
  */
 export function DirectPay({
   orderId,
@@ -27,6 +28,7 @@ export function DirectPay({
   primary,
   autoOpen,
   useCredits = 0,
+  startsNow = true,
 }: {
   orderId: string;
   methodId: ManualPaymentMethod;
@@ -40,6 +42,8 @@ export function DirectPay({
   autoOpen: boolean;
   /** credits on the customer's account, used first (fewer than the price) */
   useCredits?: number;
+  /** the report starts as soon as the number is sent (false: this account has an unchecked payment, so it waits for us) */
+  startsNow?: boolean;
 }) {
   const router = useRouter();
   const method = manualPayments[methodId];
@@ -137,7 +141,9 @@ export function DirectPay({
                     {useCredits > 0
                       ? `Your ${creditsText} ${isAre} used first; ${mainText}${hkd !== null ? ` (${usdText})` : ""} is the rest of this ${report ? "report" : "order"}'s price. `
                       : `${hkd !== null ? `${mainText} = ${usdText}, ` : ""}the exact price of this ${report ? "report" : "order"}. `}
-                    {report ? "Your report starts as soon as we confirm the payment." : "Your order joins the queue as soon as we confirm the payment."}
+                    {startsNow
+                      ? report ? "Your report starts as soon as you send the transaction number." : "Your order joins the queue as soon as you send the transaction number."
+                      : report ? "Your report starts as soon as we confirm the payment." : "Your order joins the queue as soon as we confirm the payment."}
                   </p>
                 </div>
                 <button
@@ -163,10 +169,13 @@ export function DirectPay({
                     close();
                     router.refresh();
                   }}
+                  submitLabel={startsNow ? (report ? "I’ve paid · start my report" : "I’ve paid · start my order") : undefined}
                   confirmNote={
-                    report
-                      ? "We check every payment by hand. Keep this page open and your report starts here by itself once it’s confirmed."
-                      : "We check every payment by hand. Your order joins the queue as soon as it’s confirmed."
+                    startsNow
+                      ? "We check every payment against our Alipay records afterwards. Accounts that send a wrong or made-up number can no longer pay by Alipay."
+                      : report
+                        ? "Your earlier Alipay payment is still being checked, so this one is checked by hand first. Keep this page open and your report starts here by itself once it’s confirmed."
+                        : "Your earlier Alipay payment is still being checked, so this one is checked by hand first. Your order joins the queue as soon as it’s confirmed."
                   }
                 />
               </div>

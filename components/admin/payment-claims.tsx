@@ -2,8 +2,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, X } from "lucide-react";
-import { confirmPaymentClaim, rejectPaymentClaim } from "@/app/actions/admin";
+import { Check, CheckCheck, X } from "lucide-react";
+import { confirmPaymentClaim, confirmStartedClaims, rejectPaymentClaim } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,9 +20,10 @@ const creditsText = (n: number) => `${n} credit${n === 1 ? "" : "s"}`;
 /**
  * Confirm / Reject for one pending claim. `held` is the credits already taken
  * from the customer's balance for this order (used before Alipay); the claim
- * covers the rest of the price.
+ * covers the rest of the price. `started`: the report already started on this
+ * claim, so the buttons are Received / Not received (which blocks the account).
  */
-export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentClaim; orderPrice: number; held?: number }) {
+export function ClaimActions({ claim, orderPrice, held = 0, started = false }: { claim: PaymentClaim; orderPrice: number; held?: number; started?: boolean }) {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
@@ -36,7 +37,10 @@ export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentCl
       try {
         const fn = kind === "confirm" ? confirmPaymentClaim : rejectPaymentClaim;
         const r = await fn({ claimId: claim.id, note });
-        setMsg(r.ok ? { ok: true, message: kind === "confirm" ? "Confirmed. The order is paid; the customer\u2019s report starts on their order page." : "Rejected. The customer can submit again." } : { ok: false, message: r.message });
+        const done = started
+          ? kind === "confirm" ? "Checked. Nothing else to do." : "Marked not received. This account can\u2019t pay by Alipay any more."
+          : kind === "confirm" ? "Confirmed. The order is paid; the customer\u2019s report starts on their order page." : "Rejected. The customer can submit again.";
+        setMsg(r.ok ? { ok: true, message: done } : { ok: false, message: r.message });
         if (r.ok) router.refresh();
       } catch (e) {
         setMsg({ ok: false, message: e instanceof Error ? e.message : "Request failed." });
@@ -45,14 +49,14 @@ export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentCl
 
   return (
     <div className="mt-3 border-t border-[var(--line)] pt-3">
-      {claim.amount + held * 100 !== orderPrice && (
+      {!started && claim.amount + held * 100 !== orderPrice && (
         <p className="mb-2 text-[12px] text-warn">Claim amount{held ? ` plus ${creditsText(held)}` : ""} differs from the order price ({orderAmountText(claim.method, orderPrice)}).</p>
       )}
       <label htmlFor={`note-${claim.id}`} className="sr-only">Note to customer</label>
       <Input
         id={`note-${claim.id}`}
         className="h-9 text-[13px]"
-        placeholder="Note to customer (optional, shown if rejected)"
+        placeholder={started ? "Note (optional, kept with the payment)" : "Note to customer (optional, shown if rejected)"}
         value={note}
         maxLength={500}
         onChange={(e) => setNote(e.target.value)}
@@ -65,11 +69,12 @@ export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentCl
           disabled={pending}
           onClick={() => {
             const amount = orderAmountParts(claim.method, claim.amount).main;
+            if (started) return run("confirm");
             if (!confirm(`Did ${amount} arrive in your ${paymentMethodLabel(claim.method)} account with transaction number ${claim.payer_reference}?\n\nOnly confirm if the amount is exactly ${amount} (not less). The order will be marked paid and the report starts.`)) return;
             run("confirm");
           }}
         >
-          <Check className="size-3.5" /> Confirm payment received
+          <Check className="size-3.5" /> {started ? "Received" : "Confirm payment received"}
         </Button>
         <Button
           size="sm"
@@ -77,11 +82,15 @@ export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentCl
           loading={pending && which === "reject"}
           disabled={pending}
           onClick={() => {
-            if (!confirm(`Reject this payment? The order stays unpaid, no report is made${held ? `, the ${creditsText(held)} taken from their balance ${held === 1 ? "goes" : "go"} back to them` : ""}, and they can submit again.`)) return;
+            const amount = orderAmountParts(claim.method, claim.amount).main;
+            const ask = started
+              ? `Mark ${amount} (transaction number ${claim.payer_reference}) as NOT received?\n\nThe report already started and stays with the customer, but this account will no longer be able to pay by Alipay. Only do this if you searched your ${paymentMethodLabel(claim.method)} records and the payment isn't there.`
+              : `Reject this payment? The order stays unpaid, no report is made${held ? `, the ${creditsText(held)} taken from their balance ${held === 1 ? "goes" : "go"} back to them` : ""}, and they can submit again.`;
+            if (!confirm(ask)) return;
             run("reject");
           }}
         >
-          <X className="size-3.5" /> Reject
+          <X className="size-3.5" /> {started ? "Not received" : "Reject"}
         </Button>
       </div>
       {msg && <div className="mt-2"><FormMessage tone={msg.ok ? "success" : "error"}>{msg.message}</FormMessage></div>}
@@ -93,13 +102,13 @@ export function ClaimActions({ claim, orderPrice, held = 0 }: { claim: PaymentCl
  * Manual payment claims on one order. Confirm only after you have seen the
  * money in the Alipay / PayMe / bank account; that is what marks it paid.
  */
-export function PaymentClaims({ claims, orderPrice, reference, held = 0 }: { claims: PaymentClaim[]; orderPrice: number; reference: string; held?: number }) {
+export function PaymentClaims({ claims, orderPrice, reference, held = 0, started = false }: { claims: PaymentClaim[]; orderPrice: number; reference: string; held?: number; started?: boolean }) {
   const pendingCount = claims.filter((c) => c.status === "pending").length;
   return (
     <Card className={pendingCount ? "border-warn/40 p-5 shadow-[0_0_0_1px_rgb(141_179_255/0.2),0_20px_60px_-30px_rgb(141_179_255/0.45)]" : "p-5"}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[14px] font-semibold">Payment claims</h2>
-        {pendingCount > 0 && <Badge tone="warn" dot>Payment to verify</Badge>}
+        {pendingCount > 0 && <Badge tone="warn" dot>{started ? "Check later · report started" : "Payment to verify"}</Badge>}
       </div>
       <p className="mt-1 text-[12.5px] text-fg-muted">
         Look for the customer&rsquo;s transaction number (and reference <span className="font-mono text-fg">{reference}</span> if they added it) and the exact amount in the account before confirming.
@@ -126,7 +135,7 @@ export function PaymentClaims({ claims, orderPrice, reference, held = 0 }: { cla
                 {c.reviewed_at && <div className="flex gap-2"><dt className="w-28 shrink-0 text-fg-subtle">Reviewed</dt><dd>{formatDateTime(c.reviewed_at)}</dd></div>}
                 {c.admin_note && <div className="flex gap-2"><dt className="w-28 shrink-0 text-fg-subtle">Note</dt><dd className="text-fg-muted">{c.admin_note}</dd></div>}
               </dl>
-              {c.status === "pending" && <ClaimActions claim={c} orderPrice={orderPrice} held={held} />}
+              {c.status === "pending" && <ClaimActions claim={c} orderPrice={orderPrice} held={held} started={started} />}
             </li>
           ))}
         </ul>
@@ -148,19 +157,24 @@ export function ClaimQuickReview({
   orderPrice,
   email,
   held,
+  started = false,
 }: {
   claim: PaymentClaim;
   orderId: string;
   orderPrice: number;
   email: string | null;
   held: number;
+  /** the report already started; this is the later check */
+  started?: boolean;
 }) {
   const parts = orderAmountParts(claim.method, claim.amount);
   return (
-    <Card className="border-warn/40 p-4 sm:p-5">
+    <Card className={started ? "p-4 sm:p-5" : "border-warn/40 p-4 sm:p-5"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium text-warn">Check your {paymentMethodLabel(claim.method)} account for exactly</p>
+          <p className={started ? "text-[12px] font-medium text-fg-muted" : "text-[12px] font-medium text-warn"}>
+            {started ? "Report started · look in" : "Check"} your {paymentMethodLabel(claim.method)} account for exactly
+          </p>
           <p className="mt-0.5 text-3xl font-semibold tracking-tight">{parts.main}</p>
           <p className="font-mono text-[11.5px] text-fg-subtle">{parts.sub}</p>
           {held > 0 && <p className="mt-1 text-[12px] text-fg-muted">+ {creditsText(held)} from their balance (already taken, nothing to check)</p>}
@@ -175,7 +189,38 @@ export function ClaimQuickReview({
         <div className="flex gap-2"><dt className="w-28 shrink-0 text-fg-subtle">Customer</dt><dd className="min-w-0 truncate">{email ?? "—"}</dd></div>
         <div className="flex gap-2"><dt className="w-28 shrink-0 text-fg-subtle">Reported</dt><dd>{formatDateTime(claim.created_at)}</dd></div>
       </dl>
-      <ClaimActions claim={claim} orderPrice={orderPrice} held={held} />
+      <ClaimActions claim={claim} orderPrice={orderPrice} held={held} started={started} />
     </Card>
+  );
+}
+
+/** Marks every Alipay payment in the "check later" list as received, after one confirmation. */
+export function AllReceivedButton({ claimIds }: { claimIds: string[] }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
+  if (claimIds.length < 2) return null;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={pending}
+        disabled={pending}
+        onClick={() => {
+          if (!confirm(`Did you find all ${claimIds.length} payments below in your AlipayHK records, each with the exact amount?\n\nIf any is missing, press Not received on that one instead.`)) return;
+          start(async () => {
+            setMsg(null);
+            const r = await confirmStartedClaims(claimIds).catch(() => ({ ok: false as const, message: "Request failed." }));
+            if (!r.ok) return setMsg({ ok: false, message: r.message });
+            setMsg({ ok: !r.failed, message: r.failed ? `${r.confirmed} marked received; ${r.failed} could not be (already checked or not started).` : `All ${r.confirmed} marked received.` });
+            router.refresh();
+          });
+        }}
+      >
+        <CheckCheck className="size-3.5" /> All received ({claimIds.length})
+      </Button>
+      {msg && <FormMessage tone={msg.ok ? "success" : "error"}>{msg.message}</FormMessage>}
+    </div>
   );
 }

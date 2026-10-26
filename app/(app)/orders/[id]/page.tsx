@@ -28,6 +28,7 @@ import { devPaymentsEnabled } from "@/lib/env";
 import { getCreditBalance } from "@/lib/credits";
 import { repriceUnpaid } from "@/lib/orders/reprice";
 import { creditsHeldFor } from "@/lib/orders/held-credits";
+import { payFirstFor } from "@/lib/payments/pay-first";
 import { formatDateTime, shortId } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order" };
@@ -61,7 +62,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   // Pay just this order (Alipay): the exact price, no top-up, when credits don't cover the order. Credits on the account
   // are used first and Alipay pays only the rest. It pops up by itself straight after Get report.
   const enoughCredits = shortfall === 0;
-  const direct = unpaid && order.price > 0 && !enoughCredits ? directPayMethods()[0] ?? null : null;
+  const directMethod = unpaid && order.price > 0 && !enoughCredits ? directPayMethods()[0] ?? null : null;
+  // The report starts as soon as the transaction number is sent, unless this account has an unchecked one already
+  // (then it waits for us) or sent a fake one before (then Alipay isn't offered).
+  const payFirst = directMethod ? await payFirstFor(order.user_id) : "now";
+  const direct = payFirst === "blocked" ? null : directMethod;
   // Credits already taken for a payment that is being checked.
   const held = pendingClaim ? await creditsHeldFor(order.id) : 0;
   const autoOpenDirect = sp.created === "1" && !enoughCredits && !rejectedClaim;
@@ -181,6 +186,13 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                   </FormMessage>
                 </div>
               )}
+              {directMethod && !direct && (
+                <div className="mt-5">
+                  <FormMessage tone="info">
+                    {directMethod.label} payment isn&rsquo;t available for this account because an earlier transaction number couldn&rsquo;t be found. Please pay with credits or contact support.
+                  </FormMessage>
+                </div>
+              )}
               {direct && (
                 <div className="mt-6">
                   <DirectPay
@@ -192,6 +204,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                     report={screeningOrder}
                     primary
                     autoOpen={autoOpenDirect}
+                    startsNow={payFirst === "now"}
                   />
                   <p className="mt-6 flex items-center gap-3 text-[11.5px] uppercase tracking-[0.16em] text-fg-subtle">
                     <span aria-hidden className="h-px flex-1 bg-[var(--line)]" /> or pay with credits <span aria-hidden className="h-px flex-1 bg-[var(--line)]" />
