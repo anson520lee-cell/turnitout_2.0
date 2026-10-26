@@ -57,11 +57,20 @@ export async function getOrderBundle(id: string) {
  * The automatic report of an order, or null when the order has none (older orders were made by hand).
  * The page checks the viewer owns the order before calling this.
  */
-export async function getAutoReport(orderId: string): Promise<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; rewrite: ReportRewrite | null; updatedAt: string } | null> {
+export async function getAutoReport(orderId: string): Promise<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; updatedAt: string } | null> {
   const { data } = await createAdminClient()
     .from("auto_reports")
-    .select("status,result,rewrite,updated_at")
+    .select("status,result,updated_at")
     .eq("order_id", orderId)
-    .maybeSingle<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; rewrite: ReportRewrite | null; updated_at: string }>();
-  return data ? { status: data.status, result: data.result, rewrite: data.rewrite, updatedAt: data.updated_at } : null;
+    .maybeSingle<{ status: "running" | "done" | "failed"; result: AutoReportResult | null; updated_at: string }>();
+  return data ? { status: data.status, result: data.result, updatedAt: data.updated_at } : null;
+}
+
+/**
+ * The saved suggested rewrites of a report, or null when the rewrite column doesn't exist yet (migration 0023 not
+ * applied): the report page then simply doesn't offer rewrites, instead of failing. `saved` is null until they are made.
+ */
+export async function getReportRewrite(orderId: string): Promise<{ saved: ReportRewrite | null } | null> {
+  const { data, error } = await createAdminClient().from("auto_reports").select("rewrite").eq("order_id", orderId).maybeSingle<{ rewrite: ReportRewrite | null }>();
+  return error ? null : { saved: data?.rewrite ?? null };
 }
