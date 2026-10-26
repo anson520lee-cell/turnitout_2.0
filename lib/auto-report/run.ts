@@ -11,7 +11,8 @@ import { DIRECT_PAY_METHODS } from "@/config/payments";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
 import { creditsHeldFor } from "@/lib/orders/held-credits";
-import { PIECE_SIZE, stitchReport, type PieceAnswer } from "./stitch";
+import { PIECE_SIZE, stitchReport, type AutoReportResult, type PieceAnswer } from "./stitch";
+import { reportBasis, textHash } from "./reuse";
 
 /**
  * Works on an automatic report: reviews the pieces that have no answer yet (a few
@@ -86,6 +87,30 @@ async function failReport(orderId: string, reason: string): Promise<void> {
   await audit("report_failed", { orderId, detail: { reason, refunded: refund > 0 || freeBack, credits: refund } });
 }
 
+/**
+ * The first finished report of exactly this text made by this account with the same prompt, model and settings, if
+ * there is one. Only a complete report counts.
+ */
+async function earlierResult(userId: string, orderId: string, hash: string, basis: string): Promise<AutoReportResult | null> {
+  const db = createAdminClient();
+  const { data: same } = await db
+    .from("auto_reports")
+    .select("order_id,result")
+    .eq("status", "done")
+    .eq("result->reuse->>text", hash)
+    .eq("result->reuse->>basis", basis)
+    .neq("order_id", orderId)
+    .not("result", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(50)
+    .returns<{ order_id: string; result: AutoReportResult }[]>();
+  if (!same?.length) return null;
+  // Only this account's own earlier reports count: another account never gets a result made for someone else.
+  const { data: mine } = await db.from("orders").select("id").eq("user_id", userId).in("id", same.map((r) => r.order_id)).returns<{ id: string }[]>();
+  const own = new Set((mine ?? []).map((o) => o.id));
+  return same.find((r) => own.has(r.order_id) && r.result.pieces.reviewed >= r.result.pieces.total)?.result ?? null;
+}
+
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   const db = createAdminClient();
   const { data: order } = await db.from("orders").select("id,user_id,status,price,source_text").eq("id", orderId).maybeSingle<OrderRow>();
@@ -125,7 +150,23 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
     await db.from("orders").update({ status: "screening", updated_at: now.toISOString() }).eq("id", orderId).in("status", ["paid", "queued"]);
   }
 
+  const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
+  const hash = textHash(text);
+  const basis = reportBasis({ prompt: [prompt, DRAFT_GUARD].join("\n\n"), model: setting.model, effort: setting.effort, pieceSize: PIECE_SIZE });
+
   const { data: have } = await db.from("auto_report_pieces").select("idx,ok,attempts").eq("order_id", orderId);
+  // The same text checked again by the same account shows the first result again, with no new review. The order page
+  // still plays the whole scan; it only replays a finished result either way.
+  if (!have?.length) {
+    const first = await earlierResult(order.user_id, orderId, hash, basis);
+    if (first) {
+      const at = new Date().toISOString();
+      await db.from("auto_reports").update({ status: "done", result: first, lease_until: null, updated_at: at }).eq("order_id", orderId);
+      await db.from("orders").update({ status: "completed", completed_at: at, updated_at: at }).eq("id", orderId).eq("status", "screening");
+      await audit("report_completed", { orderId, detail: { pieces: total, reused: true } });
+      return { state: "done", reviewed: total, total };
+    }
+  }
   const rows = new Map((have ?? []).map((r: { idx: number; ok: boolean; attempts: number }) => [r.idx, r]));
   const todo = chunks.map((_, idx) => idx).filter((idx) => !rows.get(idx)?.ok && (rows.get(idx)?.attempts ?? 0) < MAX_ATTEMPTS);
 
@@ -139,7 +180,6 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
     if (await paidPieceLimitReached()) {
       paused = true;
     } else {
-      const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
       const started = Date.now();
       let next = 0;
       await Promise.all(
@@ -174,7 +214,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   const answers: PieceAnswer[] = (done ?? []).filter((r: { ok: boolean }) => r.ok);
   const reviewed = answers.length;
   if (reviewed >= total) {
-    const result = stitchReport(text, answers, PIECE_SIZE);
+    const result = { ...stitchReport(text, answers, PIECE_SIZE), reuse: { text: hash, basis } };
     const at = new Date().toISOString();
     await db.from("auto_reports").update({ status: "done", result, lease_until: null, updated_at: at }).eq("order_id", orderId);
     await db.from("orders").update({ status: "completed", completed_at: at, updated_at: at }).eq("id", orderId).eq("status", "screening");
