@@ -96,7 +96,7 @@ export default async function AdminHome() {
             Payments to verify <span className="text-fg-subtle">· oldest first</span>
           </h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            These customers already have another Alipay payment you haven&rsquo;t checked yet, so this order waits for you. Open your AlipayHK transaction records, find the transaction number, and check the amount is exactly what is shown here. Nothing is made for the customer until you press Confirm; if the money is missing or less, press Reject.
+            These orders wait for you: the customer already has another Alipay payment you haven&rsquo;t checked, or the transaction number doesn&rsquo;t look like an Alipay receipt&rsquo;s (a long number starting with the date). Open your AlipayHK transaction records, find the transaction number, and check the amount is exactly what is shown here. Nothing is made for the customer until you press Confirm; if the money is missing or less, press Reject.
           </p>
           <ul className="mt-4 grid gap-3 md:grid-cols-2">
             {toVerify.map((o) => {
