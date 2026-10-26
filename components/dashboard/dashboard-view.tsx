@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileCheck2, PenLine, FileStack } from "lucide-react";
+import { FileCheck2, FileStack } from "lucide-react";
 import { AppHeader, EmptyState } from "@/components/layout/app-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { HudCorners, HudLabel } from "@/components/ui/hud";
 import { DailyReportCard, type DailyReportStatus } from "@/components/orders/daily-report-card";
 import type { Order } from "@/types/domain";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
-import { formatCredits, refinementPricing } from "@/config/pricing";
 import { reportFromLabel } from "@/config/services";
 
 /** The signed-in overview. Takes plain data so the real page and the design preview render the same thing. */
@@ -60,10 +59,9 @@ export function DashboardView({
 
       {dailyReport && <DailyReportCard status={dailyReport} className="mt-5" />}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid gap-3">
         {[
           { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "AI-writing risk, sentence by sentence", tag: reportFromLabel },
-          { href: "/services/refinement", icon: PenLine, t: "Writing refinement", d: `${formatCredits(refinementPricing.perBlock)} per ${refinementPricing.blockChars.toLocaleString("en-HK")} characters`, tag: `From ${formatCredits(refinementPricing.minimum)}` },
         ].map((q) => (
           <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
             <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>
@@ -91,7 +89,7 @@ export function DashboardView({
               <EmptyState
                 icon={<FileStack className="size-5" />}
                 title="No orders yet"
-                body="When you get a report or request writing refinement, it appears here with its live status."
+                body="When you get a report, it appears here with its live status."
                 action={<Link href="/services/screening" className={buttonClasses("secondary", "sm")}>Get a report</Link>}
               />
             </div>

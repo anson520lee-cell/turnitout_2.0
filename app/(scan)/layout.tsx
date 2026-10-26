@@ -6,8 +6,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getCreditBalance } from "@/lib/credits";
 
 /**
- * The report and refinement request forms (/services/screening,
- * /services/refinement) work without an account — pasting text, seeing
+ * The report request form (/services/screening) works without an account — pasting text, seeing
  * the live length/price and opening the dialog is open to guests; only
  * actually submitting requires sign-in, and the server action itself checks
  * that. So these live outside (app), whose layout requires sign-in. Signed-in

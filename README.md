@@ -1,11 +1,10 @@
 # 0%
 
-A pre-submission service for students checking their own academic writing. It offers two separate services (the free scan that used to be a third was removed on 2026-10-25; every account now gets one free full report a day instead, see `freeReport` in `config/app.ts`):
+A pre-submission service for students checking their own academic writing. It offers one service, the automatic report (the free scan was removed on 2026-10-25, and every account now gets one free full report a day instead, see `freeReport` in `config/app.ts`; Writing Refinement was removed on 2026-10-26, its paid orders refunded as credits and its open orders cancelled by migration 0022):
 
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
 | **AI-Writing Risk Report** (automatic, 1 credit per 1,000 characters, minimum 2 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
-| **Writing Refinement** (1 credit per 1,000 characters, minimum 3 credits) | Human clarity/flow/style refinement of the author's own text | A reviewer |
 
 The UI keeps these apart everywhere: the report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
 
@@ -121,12 +120,11 @@ All prices live in `config/pricing.ts` (HKD cents) and are recomputed on the ser
 | Product | Price | Limits |
 | --- | --- | --- |
 | AI-Writing Risk Report (`combined_screening`) | 1 credit per 1,000 characters, minimum 2 credits; first 8,000 of every 20,000 characters charged, the rest free (`reportPricing`) | 500–100,000 characters, checked in the browser and again in `screeningTextOrderInput` |
-| Writing Refinement (`refinement`) | 1 credit per 1,000 characters, rounded up, minimum 3 credits = 3,000 characters (`refinementPricing`, `refinementPrice(billableChars(text))`) | 200–60,000 characters per order (`config/app.ts` → `refinement`) |
 | Daily free report | Free, 1 a day per account, up to 4,000 characters (`freeReport`) | — |
 
-Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening` and `similarity_screening` remain in the enum so older orders still display, but they are no longer offered.
+Characters are counted by `billableChars()`: spaces count, runs of whitespace count once. `ai_screening`, `similarity_screening` and `refinement` remain in the enum so older orders still display, but they are no longer offered; old refinement orders can't be paid and `/services/refinement` redirects to the report page.
 
-Customers request both paid services the same way: press **Get report** (or **Paste your text**), paste into the dialog, press Enter. The server re-validates, creates an unpaid order holding the text (`createScreeningTextOrder` / `createRefinementOrder`), and the browser goes to the order's payment page. At most 10 unpaid orders per account.
+Customers request a report this way: press **Get report** (or **Paste your text**), paste into the dialog, press Enter. The server re-validates, creates an unpaid order holding the text (`createScreeningTextOrder`), and the browser goes to the order's payment page. At most 10 unpaid orders per account.
 
 ## Payments
 

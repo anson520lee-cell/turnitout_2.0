@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { ArrowUpRight, FileCheck2, PenLine } from "lucide-react";
+import { ArrowUpRight, FileCheck2 } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { SpotlightCard } from "@/components/motion/spotlight-card";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
 import { freeReport } from "@/config/app";
-import { formatCredits, refinementPricing } from "@/config/pricing";
-import { refinementRateLabel, reportFromLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
+import { reportFromLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 
 const cards = [
   {
@@ -17,14 +16,6 @@ const cards = [
     meta: `${freeReport.dailyLimit} free a day · ${reportFromLabel} · ${reportRateLabel} · ${reportRangeLabel}`,
     href: "/services/screening",
   },
-  {
-    icon: PenLine,
-    tag: <Badge tone="progress">Human-reviewed</Badge>,
-    title: "Writing Refinement",
-    body: "Clarity, flow and style refinement of your own writing. Your meaning, citations and voice are kept.",
-    meta: `${refinementRateLabel} · min ${formatCredits(refinementPricing.minimum)}`,
-    href: "/services/refinement",
-  },
 ];
 
 export function CoreServices() {
@@ -32,11 +23,11 @@ export function CoreServices() {
     <section id="services" className="py-24 sm:py-32">
       <Container>
         <SectionHeading
-          eyebrow="Two services"
-          title="Two services, clearly separated."
-          body="An automatic AI-writing risk report (one is free every day), and optional refinement of your own writing. Each is labelled for exactly what it is."
+          eyebrow="Our service"
+          title="One service: the AI-writing risk report."
+          body="An automatic AI-writing risk report on your own text. Your first report each day is free."
         />
-        <Stagger className="mt-14 mx-auto grid max-w-4xl gap-5 md:grid-cols-2">
+        <Stagger className="mt-14 mx-auto grid max-w-xl gap-5">
           {cards.map((c) => (
             <StaggerItem key={c.title}>
               <SpotlightCard press className="h-full">

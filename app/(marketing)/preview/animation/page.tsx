@@ -20,13 +20,6 @@ const FLOWS = [
     steps: ["Counting words", "Checking the length", "Creating your order", "Preparing payment options"],
     note: "Please wait and keep this window open. You'll be taken to payment in a moment.",
   },
-  {
-    key: "refinement",
-    label: "Writing refinement",
-    title: "Creating your refinement order…",
-    steps: ["Counting characters", "Working out the price", "Creating your order", "Preparing payment options"],
-    note: "Please wait and keep this window open. You'll be taken to payment in a moment.",
-  },
 ];
 
 export default function AnimationPreviewPage() {
@@ -61,7 +54,7 @@ export default function AnimationPreviewPage() {
           <WaitingAnimation key={flow.key} title={flow.title} steps={flow.steps} note={flow.note} />
         </div>
         <p className="max-w-sm text-[12.5px] text-fg-subtle">
-          This just replays the loading animation the report and writing refinement each show while working. It never runs a real report or creates an order.
+          This just replays the loading animation the report shows while working. It never runs a real report or creates an order.
         </p>
       </Container>
     </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
-import { brand, localModel, retention, uploads } from "@/config/app";
+import { brand, retention, uploads } from "@/config/app";
 import { retentionSentence } from "@/config/privacy-copy";
 import { deepseekEnabled } from "@/lib/deepseek";
 
@@ -32,9 +32,6 @@ export default function PrivacyPage() {
           <li>Files are stored in private storage. There are no public links to them.</li>
           <li>Access is limited to you and authorised staff, enforced by database access rules, and opened through signed links that expire after {uploads.signedUrlTtl} seconds.</li>
           <li>For a paid report, your text is cut into sections and each section is sent to an outside AI provider (DeepSeek), which writes the review. Your text is not sent to Turnitin or added to any paper repository. The sections&rsquo; answers are kept only until the report is finished.</li>
-          {model && localModel.refinementDrafts && (
-            <li>For writing refinement, an AI model (DeepSeek, an outside provider) may prepare a first draft from your text, so the text is sent to that provider. A staff member reviews and edits every draft, and nothing the model writes reaches you without that review. Drafts are deleted together with your text.</li>
-          )}
           <li>We do not put document contents in analytics or logs.</li>
           <li>We may use text submitted from now on, with personal details removed, to maintain and improve the service.</li>
           <li>Every status change and file access is recorded in an audit log.</li>
@@ -50,7 +47,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Supabase:</strong> authentication, database and file storage.</li>
           <li><strong>NOWPayments:</strong> crypto payment processing (USDT, USDC, BTC).</li>
-          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for reports and refinement drafts.</li>}
+          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for reports.</li>}
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>
         <h2>Your rights</h2>

@@ -31,12 +31,9 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
     <>
       <AppHeader
         title="Orders"
-        body="Reports and writing refinement orders, with their live status."
+        body="Your reports, with their live status."
         actions={
-          <>
-            <Link href="/services/refinement" className={buttonClasses("secondary", "md")}>Refine writing</Link>
-            <Link href="/services/screening" className={buttonClasses("primary", "md")}>Get a report</Link>
-          </>
+          <Link href="/services/screening" className={buttonClasses("primary", "md")}>Get a report</Link>
         }
       />
       <nav aria-label="Filter orders" className="mb-4 flex flex-wrap gap-1.5">
@@ -64,7 +61,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
         <EmptyState
           icon={<FileStack className="size-5" />}
           title={filter === "all" ? "No orders yet" : "Nothing here"}
-          body={filter === "all" ? "Get a report or request writing refinement to get started." : "No orders match this filter."}
+          body={filter === "all" ? "Get a report to get started." : "No orders match this filter."}
           action={<Link href="/services/screening" className={buttonClasses("secondary", "sm")}>Get a report</Link>}
         />
       )}
