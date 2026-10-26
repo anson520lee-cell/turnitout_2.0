@@ -19,9 +19,7 @@ import { CLASS_NAMES, INPUT_NAMES, NET_LAYERS, classColor, createTrainer } from 
  *    the weave: forward along strong strands (cyan), backward along the ones
  *    whose gradient is large (violet). Scrolling trains it faster
  *  - a loss landscape in perspective along the bottom: it flows toward the
- *    viewer over time and as the page scrolls, and five optimisers (SGD,
- *    Momentum, RMSProp, Adam, AdaGrad) race down it from the same start,
- *    each by its own real update rule
+ *    viewer over time and as the page scrolls
  *  - meteors that fall at random, now and then in showers
  *  - a thin scroll-progress line on the top edge
  *
@@ -31,32 +29,6 @@ import { CLASS_NAMES, INPUT_NAMES, NET_LAYERS, classColor, createTrainer } from 
 
 const WAVE_SPEED = 2.4; // layers a signal crosses per second
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-
-/**
- * The optimisers that race down the loss landscape. Each is the real update
- * rule, run on the landscape's actual slope.
- */
-interface Optimiser {
-  name: string;
-  rgb: string;
-  x: number;
-  z: number;
-  /** per-rule state: velocity / first moment, and squared-gradient accumulators */
-  mx: number;
-  mz: number;
-  vx: number;
-  vz: number;
-  t: number;
-  alive: boolean;
-  trail: number[];
-}
-const OPTIMISERS: [string, string][] = [
-  ["SGD", "225,230,245"],
-  ["Momentum", "95,216,245"],
-  ["RMSProp", "178,132,255"],
-  ["Adam", "255,186,110"],
-  ["AdaGrad", "130,235,170"],
-];
 
 interface Meteor { x: number; y: number; vx: number; vy: number; len: number; age: number; max: number; w: number; violet: boolean }
 /** Where a neuron sits: fractions of the viewport, a depth for parallax, a phase for its drift. */
@@ -371,10 +343,6 @@ export function SpaceBackground() {
     const fieldPulses: { e: number; u: number; sp: number; rev: boolean }[] = [];
     let energy = 0; // 0…1, how hard the page is being scrolled
     let netPhase = 0; // the network's clock: it runs faster while scrolling
-    // the optimisers racing on the loss landscape
-    const opts: Optimiser[] = OPTIMISERS.map(([name, rgb]) => ({ name, rgb, x: 0, z: 0, mx: 0, mz: 0, vx: 0, vz: 0, t: 0, alive: false, trail: [] }));
-    let raceAge = 99;
-    let raceQuiet = 0;
     const px = new Float32Array(net.nodes.length);
     const py = new Float32Array(net.nodes.length);
     let lx = new Float32Array(0);
@@ -577,8 +545,7 @@ export function SpaceBackground() {
     }
 
     // ── the loss landscape: a surface in perspective under the page. It flows
-    // toward the viewer over time and when the page scrolls, and an optimiser
-    // (the bright point) rolls downhill on it by gradient descent.
+    // toward the viewer over time and when the page scrolls.
     function landscape(x: number, z: number, time: number, flow: number) {
       const zz = z + flow;
       return (
@@ -588,7 +555,7 @@ export function SpaceBackground() {
       );
     }
 
-    function drawLandscape(time: number, dt: number, still: boolean) {
+    function drawLandscape(time: number) {
       const COLS = small ? 34 : 64;
       const ROWS = small ? 14 : 22;
       const X = 6;
@@ -655,106 +622,6 @@ export function SpaceBackground() {
         for (let j = 1; j < ROWS; j++) c.lineTo(lx[j * (COLS + 1) + i], ly[j * (COLS + 1) + i]);
       }
       c.stroke();
-
-      // ── the race: five optimisers start from the same point and each follows
-      // its own update rule down the surface's real slope
-      // The race is left out on phones: the dots and labels read as clutter on a narrow screen.
-      if (!still && !small) {
-        raceAge += dt;
-        // a new race once this one has gone quiet (everyone has settled), or has run long
-        if (raceAge > 14 || raceQuiet > 1.4 || opts.every((o) => !o.alive)) {
-          raceAge = 0;
-          raceQuiet = 0;
-          const sx = rand(-2.7, 2.8);
-          const sz = rand(5.6, 7.1);
-          for (const o of opts) {
-            o.x = sx;
-            o.z = sz;
-            o.mx = o.mz = o.vx = o.vz = 0;
-            o.t = 0;
-            o.alive = true;
-            o.trail.length = 0;
-          }
-        }
-        const e = 0.04;
-        const sc = Math.min(2, dt * 60); // the step sizes below are per 60 Hz frame
-        let moved = 0;
-        for (const o of opts) {
-          if (!o.alive) continue;
-          const bx = o.x;
-          const bz = o.z;
-          const gx = (landscape(o.x + e, o.z, time, flow) - landscape(o.x - e, o.z, time, flow)) / (2 * e);
-          const gz = (landscape(o.x, o.z + e, time, flow) - landscape(o.x, o.z - e, time, flow)) / (2 * e);
-          o.t++;
-          if (o.name === "SGD") {
-            o.x -= 0.014 * gx * sc;
-            o.z -= 0.014 * gz * sc;
-          } else if (o.name === "Momentum") {
-            o.mx = 0.93 * o.mx + gx;
-            o.mz = 0.93 * o.mz + gz;
-            o.x -= 0.0019 * o.mx * sc;
-            o.z -= 0.0019 * o.mz * sc;
-          } else if (o.name === "RMSProp") {
-            o.vx = 0.95 * o.vx + 0.05 * gx * gx;
-            o.vz = 0.95 * o.vz + 0.05 * gz * gz;
-            o.x -= (0.0052 * gx * sc) / Math.sqrt(o.vx + 1e-6);
-            o.z -= (0.0052 * gz * sc) / Math.sqrt(o.vz + 1e-6);
-          } else if (o.name === "Adam") {
-            o.mx = 0.9 * o.mx + 0.1 * gx;
-            o.mz = 0.9 * o.mz + 0.1 * gz;
-            o.vx = 0.999 * o.vx + 0.001 * gx * gx;
-            o.vz = 0.999 * o.vz + 0.001 * gz * gz;
-            const c1 = 1 - Math.pow(0.9, o.t);
-            const c2 = 1 - Math.pow(0.999, o.t);
-            o.x -= (0.0062 * (o.mx / c1) * sc) / (Math.sqrt(o.vx / c2) + 1e-6);
-            o.z -= (0.0062 * (o.mz / c1) * sc) / (Math.sqrt(o.vz / c2) + 1e-6);
-          } else {
-            // AdaGrad: the accumulated squared gradient only grows, so its steps shrink
-            o.vx += gx * gx;
-            o.vz += gz * gz;
-            o.x -= (0.045 * gx * sc) / Math.sqrt(o.vx + 1e-6);
-            o.z -= (0.045 * gz * sc) / Math.sqrt(o.vz + 1e-6);
-          }
-          moved = Math.max(moved, Math.hypot(o.x - bx, o.z - bz));
-          if (Math.abs(o.x) > 3.2 || o.z < 2.3 || o.z > 7.6) o.alive = false;
-        }
-        raceQuiet = moved < 0.0012 * sc ? raceQuiet + dt : 0;
-      }
-      c.font = `9px ${MONO}`;
-      c.textAlign = "left";
-      for (let oi = 0; oi < opts.length; oi++) {
-        const o = opts[oi];
-        if (small || !o.alive) continue;
-        const ok = f / o.z;
-        const ox = w / 2 + o.x * ok;
-        const oy = hor + (camY - landscape(o.x, o.z, time, flow)) * ok;
-        if (Math.abs(vel) > 3) o.trail.length = 0; // the surface is rushing past: an old trail would no longer lie on it
-        o.trail.push(ox, oy);
-        if (o.trail.length > 110) o.trail.splice(0, 2);
-        if (o.trail.length > 3) {
-          c.strokeStyle = `rgba(${o.rgb},0.4)`;
-          c.lineWidth = 1;
-          c.beginPath();
-          c.moveTo(o.trail[0], o.trail[1]);
-          for (let i = 2; i < o.trail.length; i += 2) c.lineTo(o.trail[i], o.trail[i + 1]);
-          c.stroke();
-        }
-        c.fillStyle = `rgba(${o.rgb},0.2)`;
-        c.beginPath();
-        c.arc(ox, oy, 7, 0, Math.PI * 2);
-        c.fill();
-        c.fillStyle = `rgba(${o.rgb},0.95)`;
-        c.beginPath();
-        c.arc(ox, oy, 2.4, 0, Math.PI * 2);
-        c.fill();
-        c.fillStyle = `rgba(${o.rgb},0.75)`;
-        const label = `∇L ${o.name}`;
-        const tw = c.measureText(label).width;
-        // keep the label on screen: flip it to the left of the dot near the right edge, and never past either side
-        let lxPos = ox + 10;
-        if (lxPos + tw > w - 6) lxPos = ox - 10 - tw;
-        c.fillText(label, clamp(lxPos, 6, Math.max(6, w - 6 - tw)), oy - 26 + oi * 11);
-      }
     }
 
     function drawPlanet(off: number) {
@@ -1048,7 +915,7 @@ export function SpaceBackground() {
       drawGalaxy(time, off);
       drawPlanet(off);
       drawField(time, dt, reduce);
-      drawLandscape(time, dt, reduce);
+      drawLandscape(time);
       drawNet(time, dt, reduce);
       if (!reduce) drawMeteors(dt);
       drawProgress();
