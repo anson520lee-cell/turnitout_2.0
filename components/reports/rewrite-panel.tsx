@@ -40,7 +40,7 @@ function subscribe(onChange: () => void) {
  * theirs one by one. Nothing is scored again here, and nothing changes the report above it. While the suggestions
  * are written the customer watches them being typed over their text (RefineScan).
  */
-export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string }) {
+export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title, canSkip = false }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string; canSkip?: boolean }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
   // The live rewrite on screen: running until the suggestions are in and have been typed out.
   const [live, setLive] = useState<{ run: number; rewrite: ReportRewrite | null } | null>(null);
@@ -154,7 +154,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
 
       {live && (
         <div className="mt-5 rounded-xl border border-[#9b7bff]/25 bg-ink-950/50 p-4">
-          <RefineScan key={live.run} result={result} rewrite={live.rewrite} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} />
+          <RefineScan key={live.run} result={result} rewrite={live.rewrite} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} canSkip={canSkip} />
         </div>
       )}
 

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Maximize2, Minimize2, PenLine, Sparkles } from "lucide-react";
+import { ArrowRight, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
@@ -39,6 +39,7 @@ export function RefineScan({
   onFinish,
   speed = 1,
   skipIntro = false,
+  canSkip = false,
 }: {
   result: AutoReportResult;
   /** The suggestions, once the request has answered. */
@@ -50,6 +51,8 @@ export function RefineScan({
   /** Design preview only: run faster. */
   speed?: number;
   skipIntro?: boolean;
+  /** One admin account (decided on the server): may skip the animation and wait for the suggestions. */
+  canSkip?: boolean;
 }) {
   const reduce = usePrefersReducedMotion();
   const plan = useMemo(() => refinePlan(result), [result]);
@@ -61,6 +64,7 @@ export function RefineScan({
 
   const mounted = useHydrated();
   const [overlay, setOverlay] = useState(true);
+  const [skipped, setSkipped] = useState(false);
   // Read on the client only; the server's render (and hydration) treat the run as just started.
   const [startedAt] = useState(() => (typeof window === "undefined" ? 0 : performance.now()));
   const [now, setNow] = useState(startedAt);
@@ -132,6 +136,14 @@ export function RefineScan({
   useEffect(() => {
     if (doneAt !== null && now - doneAt > FINALE_MS) end();
   }, [doneAt, now, end]);
+  // Animation skipped: show the suggestions as soon as they are in.
+  useEffect(() => {
+    if (skipped && rewrite) end();
+  }, [skipped, rewrite, end]);
+  const skip = () => {
+    setSkipped(true);
+    setOverlay(false);
+  };
 
   // The page under the full-screen view doesn't scroll while it is open.
   useEffect(() => {
@@ -144,15 +156,29 @@ export function RefineScan({
     };
   }, [mounted, overlay]);
 
-  const inline = (
+  const inline = skipped ? (
+    <div className="relative">
+      <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
+        <span className="refine-live-dot" aria-hidden /> Animation skipped
+      </p>
+      <p className="mt-3 text-[13px] text-fg-muted">The suggestions show as soon as they are ready.</p>
+    </div>
+  ) : (
     <div className="relative">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
           <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : "Live rewrite running"}
         </p>
-        <Button size="sm" variant="secondary" onClick={() => setOverlay(true)}>
-          <Maximize2 className="size-3.5" /> Open live view
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canSkip && (
+            <Button size="sm" variant="ghost" onClick={skip}>
+              <SkipForward className="size-3.5" /> Skip animation
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => setOverlay(true)}>
+            <Maximize2 className="size-3.5" /> Open live view
+          </Button>
+        </div>
       </div>
       <div className="mt-4">
         <RefineRatePanel compact meter={meter} ready={!inIntro} final={done} original={rate.original} counts={counts} reduce={reduce} />
@@ -196,6 +222,16 @@ export function RefineScan({
             {String(Math.floor(secs / 60)).padStart(2, "0")}:{String(secs % 60).padStart(2, "0")}
             {left !== null && <> · ~{left}s left</>}
           </span>
+          {canSkip && (
+            <button
+              type="button"
+              onClick={skip}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] px-2.5 text-[12px] text-fg-subtle hover:bg-white/[0.06] hover:text-fg"
+              title="Skip the animation (admin only)"
+            >
+              <SkipForward className="size-3.5" /> Skip
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setOverlay(false)}

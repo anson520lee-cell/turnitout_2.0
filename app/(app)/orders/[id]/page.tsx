@@ -20,6 +20,7 @@ import { AutoReportRunner } from "@/components/reports/auto-report-runner";
 import { RefinementResult } from "@/components/reports/refinement-result";
 import { getAutoReport, getOrderBundle, getReportRewrite } from "@/lib/data/user";
 import { getSessionUser } from "@/lib/auth/session";
+import { canSkipAnimations } from "@/lib/auth/skip-animations";
 import { rewriteCredits } from "@/lib/auto-report/rewrite";
 import { ACTIVE_STATUSES, isScreening, statusMeta } from "@/lib/orders/status";
 import { uuid } from "@/lib/validation/schemas";
@@ -57,6 +58,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   // Writing Refinement, the add-on after a report: its price in credits (free for an admin) and what the account holds.
   const viewer = rewrite && !rewrite.saved ? await getSessionUser() : null;
   const rewriteOffer = rewrite && auto?.result ? { credits: viewer?.profile.role === "admin" ? 0 : rewriteCredits(order, auto.result), balance: rewrite.saved ? 0 : await getCreditBalance() } : null;
+  // One admin account gets a "Skip animation" button on the report scan and the live rewrite; decided here, on the server.
+  const canSkip = canSkipAnimations(await getSessionUser());
   // A paid report with pasted text and no automatic report yet (an order from before reports became automatic) starts one now.
   const waitingStatus = ["paid", "queued", "screening"].includes(order.status);
   const autoRunning = waitingStatus && (auto ? auto.status === "running" : screeningOrder && Boolean(order.source_text));
@@ -108,14 +111,14 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
       {autoRunning && (
         <Card strong className="noise relative mb-5 overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-accent/15 blur-3xl" />
-          <AutoReportRunner orderId={order.id} text={order.source_text ?? ""} title={order.title} reference={`Order #${shortId(order.id)}`} />
+          <AutoReportRunner orderId={order.id} text={order.source_text ?? ""} title={order.title} reference={`Order #${shortId(order.id)}`} canSkip={canSkip} />
         </Card>
       )}
       {auto?.status === "failed" && (
         <div className="mb-5"><FormMessage>We couldn&rsquo;t finish this report. What you paid has been returned to your account as credits. Please try again in a little while.</FormMessage></div>
       )}
       {order.status === "completed" && auto?.result && (
-        <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} rewrite={rewrite && rewriteOffer ? { orderId: order.id, saved: rewrite.saved, sourceText: order.source_text, ...rewriteOffer } : undefined} />
+        <AutoReportView title={order.title} finishedAt={formatDateTime(auto.updatedAt)} result={auto.result} rewrite={rewrite && rewriteOffer ? { orderId: order.id, saved: rewrite.saved, sourceText: order.source_text, canSkip, ...rewriteOffer } : undefined} />
       )}
       {order.status === "completed" && screeningOrder && !auto && screening && (
         <ScreeningReport order={order} file={file} result={screening} />
