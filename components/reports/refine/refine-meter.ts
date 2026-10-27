@@ -1,7 +1,7 @@
 /**
  * The projected AI rate during a live rewrite, as a ticking series. It starts on the report's own score and follows
- * the rewrite down smoothly (see projectedAt): a share of each counted sentence's drop as R1 encodes it, the rest
- * as its suggestion is typed. A faint tremor keeps the line alive while it works. When the rewrite is over it
+ * the rewrite down in even steps (see projectedAt): part of each counted sentence's step as R1 erases it, the
+ * rest as R2 types its suggestion. A faint tremor keeps the line alive while it works. When the rewrite is over it
  * settles exactly on the projected figure and stops.
  *
  * Kept outside React like the report scan's RateMeter: it ticks 20 times a second and its readers (the number and

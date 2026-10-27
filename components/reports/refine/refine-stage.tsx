@@ -2,19 +2,7 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { lookaheadLine, quote, scanPosition, thinkingLine, type LogLine, type ScanPlan } from "@/lib/auto-report/scan-script";
-import {
-  WRITERS,
-  clearedBy,
-  draftLine,
-  eraseLine,
-  guardLine,
-  jobPhase,
-  keptLine,
-  queuedLine,
-  writeLine,
-  writerName,
-  type RefineJob,
-} from "@/lib/auto-report/refine-script";
+import { clearedBy, eraseLine, guardLine, jobPhase, keptLine, queuedLine, readerAt, writeLine, type RefineJob } from "@/lib/auto-report/refine-script";
 import type { ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { Terminal, type TermLine } from "../scan/scan-panels";
@@ -23,11 +11,11 @@ import type { RefineMeter } from "./refine-meter";
 
 /**
  * The live rewrite: the report scan's layout (the text in the middle, terminal windows, the rate on the right),
- * with the same reader and lookahead at the front. A3 locks onto each flagged sentence as the reader finishes it,
- * and R1 follows on the reader's tail, turning each one into scrambled code (its letters burst off the page). Three
- * writers (R2a to R2c) decode the code into the real suggestion character by character, R3 sweeps over it to
- * confirm it kept the facts, and R4 floats the projected rate as each one lands. A diff card follows the sentence
- * being rewritten. Every sentence, suggestion and reason shown is the real one.
+ * with the same reader and lookahead at the front. Each agent has a look of its own: A3 locks blue brackets onto
+ * each flagged sentence as the reader finishes it; right behind the reader R1, an eraser bar, backspaces the
+ * original and R2, a pen, types the real suggestion; R3 runs a green scan line over it; and R4 carries what it took
+ * off the rate to the chart. A diff card follows the sentence being rewritten. Every sentence, suggestion and
+ * reason shown is the real one.
  */
 
 /** The scan clock as of the last render; the animation carries it on between renders. */
@@ -44,17 +32,14 @@ const pad = (n: number, w = 2) => String(n).padStart(w, "0");
 const clock = (ms: number) => `${pad(Math.floor(ms / 60_000))}:${pad(Math.floor(ms / 1000) % 60)}.${Math.floor(ms / 100) % 10}`;
 /** How long the diff card stays on a finished sentence before it goes. */
 const HOLD_MS = 1_600;
-/** How far R1 trails the reader when it has nothing to encode. */
+/** How far R1 trails the reader when it has nothing to rewrite. */
 const TRAIL_MS = 900;
-/** What R1 turns a sentence into. */
-const GLYPHS = "0101010123456789abcdef<>/{}#=";
-const glyph = () => GLYPHS[(Math.random() * GLYPHS.length) | 0];
 const pct = (v: number) => (v * 100).toFixed(1);
 
 type TermId = "reader" | "rewriter" | "agents";
 const TERMS: { id: TermId; title: string; dot: string; hint: string }[] = [
   { id: "reader", title: "reader.log", dot: "bg-cyan", hint: "Reading your text, word by word" },
-  { id: "rewriter", title: "rewriter.log", dot: "bg-[#9b7bff]", hint: "Each flagged sentence, encoded and rewritten" },
+  { id: "rewriter", title: "rewriter.log", dot: "bg-[#9b7bff]", hint: "Each flagged sentence, erased and rewritten" },
   { id: "agents", title: "agents.log", dot: "bg-accent", hint: "What the agents are working on" },
 ];
 type Logs = Record<TermId, TermLine[]>;
@@ -66,6 +51,7 @@ export function RefineStage({
   jobs,
   known,
   readMs,
+  resultAt,
   frontier,
   within,
   scanMs,
@@ -86,6 +72,8 @@ export function RefineStage({
   /** Whether the suggestions are in. */
   known: boolean;
   readMs: number;
+  /** When the suggestions came in (scan clock), or null until then. */
+  resultAt: number | null;
   frontier: number;
   within: number;
   scanMs: number;
@@ -125,7 +113,7 @@ export function RefineStage({
     );
     push("agents", [
       { tone: "info", text: `rewrite started · ${total} sentences · ${queue.size} to rewrite` },
-      { tone: "dim", text: `${AGENT_COUNT} agents deployed: A1 READ · A2 LOOKAHEAD · A3 FLAG · R1 ENCODE · R2a–R2c WRITE · R3 GUARD · R4 SCORE` },
+      { tone: "dim", text: `${AGENTS.length} agents deployed: ${AGENTS.map((a) => a.name).join(" · ")}` },
       ...(plan.sentences[1] ? [lookaheadLine(plan.sentences[1])] : []),
     ]);
     return () => timers.forEach(clearTimeout);
@@ -161,20 +149,20 @@ export function RefineStage({
     push("agents", side);
   }, [frontier, plan, total, queue, push]);
 
-  // Rewriter: each sentence's encode, write and check, as the clock passes them.
+  // Rewriter: each sentence's erase, write and check, as the clock passes them.
   const stage = useRef(new Map<number, number>());
   useEffect(() => {
     const out: LogLine[] = [];
     for (const j of jobs) {
       const was = stage.current.get(j.n) ?? 0;
-      const now = scanMs >= j.end ? 4 : scanMs >= j.write ? 3 : scanMs >= j.erased ? 2 : scanMs >= j.start ? 1 : 0;
+      const now = scanMs >= j.end ? 3 : scanMs >= j.erased && j.rewrite ? 2 : scanMs >= j.start ? 1 : 0;
       if (now <= was) continue;
       stage.current.set(j.n, now);
-      const encoded = j.erased > j.start;
-      if (encoded && was < 1) out.push(eraseLine(j));
-      if (encoded && was < 2 && now === 2) out.push(draftLine(j));
-      if (encoded && was < 3 && now >= 3 && j.rewrite) out.push(writeLine(j));
-      if (now === 4) out.push(j.rewrite ? guardLine(j) : keptLine(j));
+      if (j.rewrite) {
+        if (was < 1) out.push(eraseLine(j));
+        if (was < 2 && now >= 2) out.push(writeLine(j));
+        if (now === 3) out.push(guardLine(j));
+      } else if (now === 3) out.push(keptLine(j));
     }
     push("rewriter", out);
   }, [jobs, scanMs, push]);
@@ -185,7 +173,7 @@ export function RefineStage({
     const back = jobs.filter((j) => j.rewrite).length;
     push("agents", [
       { tone: "ok", text: `writer · ${back} suggestion${back === 1 ? "" : "s"} back · ${jobs.length - back} kept as written · all checked` },
-      { tone: "info", text: `R2a · R2b · R2c on the encoded sentences · ${WRITERS} at a time` },
+      { tone: "info", text: "A1 back to full pace · R1 and R2 on its tail" },
     ]);
   }, [known, jobs, push]);
   const waited = useRef(waitedSecs);
@@ -194,7 +182,7 @@ export function RefineStage({
   });
   useEffect(() => {
     if (known) return;
-    const say = () => push("agents", [{ tone: "dim", text: `writer drafting ${queue.size} suggestion${queue.size === 1 ? "" : "s"} · ${waited.current}s` }]);
+    const say = () => push("agents", [{ tone: "dim", text: `writer drafting ${queue.size} suggestion${queue.size === 1 ? "" : "s"} · ${waited.current}s · A1 reading slowly meanwhile` }]);
     say();
     const t = setInterval(say, 5_000);
     return () => clearInterval(t);
@@ -205,23 +193,13 @@ export function RefineStage({
     push("rewriter", [{ tone: "ok", text: `all ${jobs.length} sentences done · ${made} rewritten · ${jobs.length - made} kept` }]);
   }, [done, jobs, push]);
 
-  // The diff card follows the work: a sentence being written, else the one being encoded, else the one just
-  // finished (for a moment), else the latest one waiting for a writer.
+  // The diff card follows the sentence being rewritten, and stays a moment on the last one finished.
   const card = useMemo(() => {
-    if (done) return null;
+    if (done || !known) return null;
     let pick: RefineJob | null = null;
-    let rank = 0;
-    for (const j of jobs) {
-      const ph = jobPhase(j, scanMs).phase;
-      const r =
-        ph === "typing" || ph === "restoring" || ph === "checking" ? 4 : ph === "erasing" ? 3 : ph === "done" && scanMs < j.end + HOLD_MS ? 2 : ph === "drafting" ? 1 : 0;
-      if (r > rank || (r === rank && r > 0 && r <= 2)) {
-        pick = j;
-        rank = r;
-      }
-    }
+    for (const j of jobs) if (scanMs >= j.start && scanMs < j.end + HOLD_MS) pick = j;
     return pick;
-  }, [jobs, scanMs, done]);
+  }, [jobs, scanMs, done, known]);
 
   const lead = plan.sentences[Math.min(frontier, total - 1)];
   const readerLive =
@@ -259,7 +237,7 @@ export function RefineStage({
       </div>
 
       <section className="relative min-h-0 overflow-hidden rounded-2xl border border-[#9b7bff]/25 bg-ink-950/70" aria-label="Your text, being rewritten">
-        <RefineDocument plan={plan} ratings={ratings} queue={queue} jobs={jobs} known={known} meter={meter} readMs={readMs} frontier={frontier} within={within} scanMs={scanMs} clockRef={clockRef} reduce={reduce} done={done} />
+        <RefineDocument plan={plan} ratings={ratings} queue={queue} jobs={jobs} meter={meter} readMs={readMs} resultAt={resultAt} frontier={frontier} within={within} scanMs={scanMs} clockRef={clockRef} reduce={reduce} done={done} />
         <AnimatePresence>
           {card && (
             <motion.div
@@ -268,9 +246,9 @@ export function RefineStage({
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -24, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 420, damping: 30 }}
-              className="absolute bottom-3 right-3 z-20 w-[min(380px,calc(100%-24px))]"
+              className="absolute bottom-3 right-3 z-20 w-[min(380px,calc(100%-24px))] max-sm:hidden"
             >
-              <DiffCard job={card} clockRef={clockRef} reduce={reduce} />
+              <DiffCard job={card} clockRef={clockRef} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -329,56 +307,42 @@ export function RefineStage({
 }
 
 /**
- * The diff card: the sentence being rewritten, its original struck out as R1 encodes it and the suggestion
- * appearing as a writer types it, with the reviewer's reason it answers. Until a writer starts, the new line is
- * scrambled code. Once typed, R3's checks light up one by one. The text is written straight to the page every
- * frame, in step with the text itself.
+ * The diff /**
+ * The diff card: the sentence being rewritten, its original struck out as R1 erases it and the suggestion
+ * appearing as R2 types it, with the reviewer's reason it answers. Once typed, R3's checks light up one by one.
+ * The text is written straight to the page every frame, in step with the text itself.
  */
-function DiffCard({ job, clockRef, reduce }: { job: RefineJob; clockRef: React.RefObject<RefineClock>; reduce: boolean }) {
+function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject<RefineClock> }) {
   const card = useRef<HTMLDivElement>(null);
-  const before = useRef<HTMLSpanElement>(null);
+  const keep = useRef<HTMLSpanElement>(null);
   const gone = useRef<HTMLSpanElement>(null);
-  const after = useRef<HTMLSpanElement>(null);
   const typed = useRef<HTMLSpanElement>(null);
-  const code = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let raf = 0;
     let last = "";
-    let shuffled = 0;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const now = performance.now();
       const ph = jobPhase(job, clockNow(clockRef.current));
-      const scrambling = !reduce && ph.phase === "erasing" || ph.phase === "drafting" || ph.phase === "typing" || ph.phase === "restoring";
-      const key = JSON.stringify(ph);
-      if ((key === last && !(scrambling && now - shuffled > 110)) || !before.current || !gone.current || !after.current || !card.current) return;
-      last = key;
-      shuffled = now;
-      const o = job.original;
-      const [a, b] = ph.phase === "erasing" ? [0, ph.encoded] : ph.phase === "drafting" || ph.phase === "typing" ? [0, o.length] : ph.phase === "restoring" ? [ph.restored, o.length] : [0, 0];
-      before.current.textContent = o.slice(0, a);
-      gone.current.textContent = o.slice(a, b);
-      after.current.textContent = o.slice(b);
+      const left = ph.phase === "erasing" ? ph.left : ph.phase === "typing" || (ph.phase === "done" && job.rewrite) ? 0 : job.original.length;
       const n = ph.phase === "typing" ? ph.typed : ph.phase === "done" ? (job.rewrite?.length ?? 0) : 0;
-      if (typed.current) typed.current.textContent = job.rewrite?.slice(0, n) ?? "";
-      if (code.current) {
-        const left = ph.phase === "typing" && job.rewrite ? Math.min(14, job.rewrite.length - n) : ph.phase === "erasing" || ph.phase === "drafting" ? 18 : 0;
-        code.current.textContent = reduce ? (left ? "…" : "") : Array.from({ length: left }, glyph).join("");
-      }
-      card.current.dataset.ph = ph.phase === "done" ? (job.rewrite ? "done" : "kept") : ph.phase === "checking" ? "inspect" : ph.phase;
+      const key = `${ph.phase}:${left}:${n}`;
+      if (key === last || !keep.current || !gone.current || !card.current) return;
+      last = key;
+      keep.current.textContent = job.original.slice(0, left);
+      gone.current.textContent = job.original.slice(left);
+      if (typed.current && job.rewrite) typed.current.textContent = job.rewrite.slice(0, n);
+      card.current.dataset.ph = job.rewrite ? ph.phase : ph.phase === "done" ? "kept" : "inspect";
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [job, clockRef, reduce]);
+  }, [job, clockRef]);
   const ratio = job.rewrite ? Math.round((job.rewrite.length / Math.max(1, job.original.length)) * 100) : 0;
-  const kept = job.known && !job.rewrite;
   return (
     <div ref={card} data-ph="waiting" className="rf-diff scan-term overflow-hidden rounded-xl border border-[#9b7bff]/40 bg-ink-950/90 shadow-[0_24px_70px_-20px_rgb(0_0_0/0.95),0_0_40px_-12px_rgb(155_123_255/0.6)]">
       <div className="flex items-center gap-2 border-b border-[#9b7bff]/20 bg-[#9b7bff]/[0.07] px-3 py-1.5">
         <span className="size-2 rounded-full bg-[#9b7bff] shadow-[0_0_8px_#9b7bff]" aria-hidden />
         <span className="font-mono text-[10.5px] tracking-[0.12em] text-fg-muted">
           diff.log · P{job.p} S{job.s}
-          {job.lane >= 0 && <span className="text-[#cdbdff]"> · {writerName(job.lane)}</span>}
         </span>
         <span className="rf-diff-state ml-auto font-mono text-[9.5px] uppercase tracking-[0.18em]" />
       </div>
@@ -386,20 +350,18 @@ function DiffCard({ job, clockRef, reduce }: { job: RefineJob; clockRef: React.R
         {job.why && <p className="line-clamp-2 text-fg-subtle max-sm:hidden">fixing · {job.why}</p>}
         <p className="line-clamp-2 break-words sm:line-clamp-3">
           <span className="mr-1.5 text-[#c99bff]">−</span>
-          <span ref={before} className="text-fg-muted" />
+          <span ref={keep} className="text-fg-muted" />
           <span ref={gone} className="rf-diff-gone" />
-          <span ref={after} className="text-fg-muted" />
         </p>
         <p className="line-clamp-3 break-words text-[#e9e3ff]">
           <span className="mr-1.5 text-[#8db3ff]">+</span>
-          {kept ? (
-            <span className="text-fg-subtle">kept as you wrote it{job.kept ? ` · ${job.kept}` : ""}</span>
-          ) : (
+          {job.rewrite ? (
             <>
               <span ref={typed} />
               <span className="rf-diff-caret" aria-hidden />
-              <span ref={code} className="rf-diff-code" />
             </>
+          ) : (
+            <span className="text-fg-subtle">kept as you wrote it{job.kept ? ` · ${job.kept}` : ""}</span>
           )}
         </p>
         {job.rewrite && (
@@ -416,30 +378,29 @@ function DiffCard({ job, clockRef, reduce }: { job: RefineJob; clockRef: React.R
   );
 }
 
+/** The agents, each drawn in a look of its own on the text. */
 const AGENTS = [
-  { c: "cyan", name: "A1 READ", job: "Reads your text word by word" },
-  { c: "violet", name: "A2 LOOKAHEAD", job: "Looks one line ahead" },
-  { c: "blue", name: "A3 FLAG", job: "Locks onto each sentence your report flagged" },
-  { c: "purple", name: "R1 ENCODE", job: "Follows the reader and turns each flagged sentence into code" },
-  { c: "lilac", name: "R2 WRITE ×3", job: "Three writers decode the code into your suggestion, character by character" },
-  { c: "accent", name: "R3 GUARD", job: "Confirms each suggestion kept your facts, names, citations and hedges" },
-  { c: "purple", name: "R4 SCORE", job: "Takes each rewritten sentence that counts off the projected rate" },
+  { c: "cyan", name: "A1 READ", job: "Reads your text word by word (a cyan cell)" },
+  { c: "violet", name: "A2 LOOKAHEAD", job: "Looks one line ahead (a lens over the next line)" },
+  { c: "blue", name: "A3 FLAG", job: "Locks blue brackets onto each sentence your report flagged" },
+  { c: "purple", name: "R1 ERASE", job: "An eraser bar on the reader's tail: backspaces each flagged sentence" },
+  { c: "lilac", name: "R2 WRITE", job: "A pen right behind the eraser: types the suggestion, character by character" },
+  { c: "accent", name: "R3 GUARD", job: "Runs a green scan line over each suggestion: facts, names, citations and hedges kept" },
+  { c: "pink", name: "R4 SCORE", job: "Carries what each rewritten sentence took off the rate to the chart" },
 ] as const;
-/** A1, A2, A3, R1, three writers, R3 and R4. */
-export const AGENT_COUNT = 9;
 
 /**
- * The text, with the reader and lookahead at the front exactly as in the report scan, and the rewrite behind them.
- * States are written straight onto the spans, so the text is rendered by React only once.
+ * The text, with the reader and lookahead at the front exactly as in the report scan, and the rewrite right behind
+ * them. States are written straight onto the spans, so the text is rendered by React only once.
  */
 const RefineDocument = memo(function RefineDocument({
   plan,
   ratings,
   queue,
   jobs,
-  known,
   meter,
   readMs,
+  resultAt,
   frontier,
   within,
   scanMs,
@@ -451,9 +412,9 @@ const RefineDocument = memo(function RefineDocument({
   ratings: Map<number, ReportSentence>;
   queue: Set<number>;
   jobs: RefineJob[];
-  known: boolean;
   meter: RefineMeter;
   readMs: number;
+  resultAt: number | null;
   frontier: number;
   within: number;
   scanMs: number;
@@ -470,18 +431,18 @@ const RefineDocument = memo(function RefineDocument({
   const lives = useRef<(HTMLSpanElement | null)[]>([]);
   const read = useRef<HTMLDivElement>(null);
   const xray = useRef<HTMLDivElement>(null);
-  const shards = useRef<HTMLDivElement>(null);
-  const chaser = useRef<HTMLDivElement>(null);
-  const writers = useRef<(HTMLDivElement | null)[]>([]);
-  const live = useRef({ frontier, within, done, jobs });
+  const marks = useRef<HTMLDivElement>(null);
+  const eraser = useRef<HTMLDivElement>(null);
+  const pen = useRef<HTMLDivElement>(null);
+  const live = useRef({ frontier, within, done, jobs, resultAt });
   useLayoutEffect(() => {
-    live.current = { frontier, within, done, jobs };
+    live.current = { frontier, within, done, jobs, resultAt };
   });
   const userScrolledAt = useRef(-Infinity);
 
   // A3 FLAG: blue brackets lock onto a flagged sentence, line by line, as the reader finishes it.
   const lockOn = useCallback((el: HTMLElement, label: string) => {
-    const box = shards.current;
+    const box = marks.current;
     const host = content.current;
     if (!box || !host) return;
     const base = host.getBoundingClientRect();
@@ -523,7 +484,6 @@ const RefineDocument = memo(function RefineDocument({
           if (queue.has(x.n)) lockOn(el, `A3 FLAG · P${x.p} S${x.s} · ${st}`);
         }
       }
-      if (i < frontier && queue.has(x.n) && !el.dataset.rf) el.dataset.rf = "queued";
     }
   }, [frontier, ratings, queue, plan, reduce, lockOn]);
 
@@ -580,58 +540,44 @@ const RefineDocument = memo(function RefineDocument({
     };
   }, [total, reduce, plan]);
 
-  // The rewrite, every frame: R1 encodes the original into code (its letters burst off), the writers decode the
-  // code into the suggestion, the new ink cools under R3's sweep, and R4 floats the projected rate as it lands.
+  // The rewrite, every frame: R1 marks each flagged sentence and erases it, R2 types the suggestion, R3 runs its scan
+  // line over the new ink, and R4 carries what it took off the rate to the chart.
   useEffect(() => {
     let raf = 0;
     let lastScroll = 0;
-    let lastShuffle = 0;
-    let alive = 0;
     const shown = new Map<number, string>();
-    const standing = new Map<number, number>();
-    const codes = new Map<number, string[]>();
-    const codeOf = (j: RefineJob, n: number, shuffle: boolean) => {
-      let c = codes.get(j.i);
-      const need = Math.max(j.original.length, j.rewrite?.length ?? 0);
-      if (!c || c.length < need) {
-        c = Array.from({ length: need }, glyph);
-        codes.set(j.i, c);
-      } else if (shuffle) for (let k = 0; k < c.length; k++) if (Math.random() < 0.18) c[k] = glyph();
-      return c.slice(0, Math.max(0, n)).join("");
+    // R4 SCORE: an orb from the sentence to the chart on screen, which flashes as it lands.
+    const fly = (from: HTMLElement) => {
+      if (reduce) return;
+      const charts = [...document.querySelectorAll<HTMLElement>("[data-refine-chart]")].filter((el) => el.offsetParent !== null && el.getBoundingClientRect().width > 0);
+      const target = charts[charts.length - 1];
+      if (!target || typeof from.animate !== "function") return;
+      const a = from.getBoundingClientRect();
+      const b = target.getBoundingClientRect();
+      const orb = document.createElement("div");
+      orb.className = "rf-orb";
+      orb.textContent = meter.cur === null ? "R4" : `R4 ${pct(meter.cur)}%`;
+      orb.style.left = `${a.left}px`;
+      orb.style.top = `${a.top}px`;
+      document.body.appendChild(orb);
+      const dx = b.right - 40 - a.left;
+      const dy = b.top + b.height * 0.45 - a.top;
+      const anim = orb.animate(
+        [
+          { transform: "translate(-50%, 0) scale(0.6)", opacity: 0 },
+          { transform: `translate(calc(-50% + ${dx * 0.45}px), ${dy * 0.45 - 70}px) scale(1.05)`, opacity: 1, offset: 0.45 },
+          { transform: `translate(calc(-50% + ${dx}px), ${dy}px) scale(0.55)`, opacity: 0.35 },
+        ],
+        { duration: 1_000, easing: "cubic-bezier(0.45, 0, 0.25, 1)" },
+      );
+      anim.onfinish = () => {
+        orb.remove();
+        target.classList.remove("rf-chart-hit");
+        void target.offsetWidth;
+        target.classList.add("rf-chart-hit");
+      };
     };
-    const burst = (caret: HTMLElement, chars: string) => {
-      const box = shards.current;
-      if (reduce || !box) return;
-      for (const ch of chars.replace(/\s+/g, "").slice(-4)) {
-        if (alive >= 64) return;
-        const s = document.createElement("span");
-        s.className = "rf-shard";
-        s.textContent = ch;
-        s.style.left = `${caret.offsetLeft}px`;
-        s.style.top = `${caret.offsetTop}px`;
-        s.style.setProperty("--dx", `${(Math.random() * 1.6 - 0.4) * 90}px`);
-        s.style.setProperty("--dy", `${-(24 + Math.random() * 70)}px`);
-        s.style.setProperty("--r", `${(Math.random() - 0.5) * 220}deg`);
-        alive += 1;
-        s.addEventListener("animationend", () => {
-          s.remove();
-          alive -= 1;
-        });
-        box.appendChild(s);
-      }
-    };
-    const floatScore = (caret: HTMLElement) => {
-      const box = shards.current;
-      if (reduce || !box || meter.cur === null) return;
-      const d = document.createElement("div");
-      d.className = "rf-score";
-      d.textContent = `R4 → ${pct(meter.cur)}%`;
-      d.style.left = `${caret.offsetLeft}px`;
-      d.style.top = `${caret.offsetTop}px`;
-      d.addEventListener("animationend", () => d.remove());
-      box.appendChild(d);
-    };
-    const place = (el: HTMLElement | null | undefined, at: HTMLElement | null, w: number, back: number, opacity = 1) => {
+    const place = (el: HTMLElement | null, at: HTMLElement | null, w: number, back: number, opacity = 1) => {
       if (!el) return;
       if (!at) {
         el.style.opacity = "0";
@@ -646,33 +592,35 @@ const RefineDocument = memo(function RefineDocument({
     let lastFocus: { el: HTMLElement; at: number } | null = null;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const { jobs: list, frontier: f, done: finished } = live.current;
+      const { jobs: list, frontier: f, done: finished, resultAt: at } = live.current;
       const t = clockNow(clockRef.current);
       const now = performance.now();
-      const shuffle = now - lastShuffle > 90;
-      if (shuffle) lastShuffle = now;
-      let encoding: HTMLElement | null = null;
-      let writing: HTMLElement | null = null;
-      const lanes: (HTMLElement | null)[] = Array.from({ length: WRITERS }, () => null);
+      let erasing: HTMLElement | null = null;
+      let typing: HTMLElement | null = null;
+      let focus: HTMLElement | null = null;
+      let focusSent: HTMLElement | null = null;
       for (const j of list) {
         const sent = spans.current[j.i];
         const wrap = wraps.current[j.i];
         const box = lives.current[j.i];
         if (!sent || !wrap || !box) continue;
         const ph = jobPhase(j, t);
-        const caret = box.children[1] as HTMLElement | undefined;
-        const moving = ph.phase === "erasing" || ph.phase === "drafting" || ph.phase === "typing" || ph.phase === "restoring";
-        if (!reduce && caret && ph.phase === "erasing") encoding = caret;
-        if (!reduce && caret && (ph.phase === "typing" || ph.phase === "restoring")) {
-          writing ??= caret;
-          if (j.lane >= 0) lanes[j.lane] = caret;
-        }
-        if (ph.phase === "checking") writing ??= sent;
-        const key = JSON.stringify(ph);
+        const caret = box.lastElementChild as HTMLElement | null;
+        if (!reduce && caret && ph.phase === "erasing") erasing = caret;
+        if (!reduce && caret && ph.phase === "typing") typing = caret;
+        if (ph.phase === "erasing" || ph.phase === "typing") [focus, focusSent] = [!reduce && caret ? caret : sent, sent];
+        if (ph.phase === "checking") [focus, focusSent] = [sent, sent];
+        const key = ph.phase === "erasing" ? `e${ph.left}` : ph.phase === "typing" ? `t${ph.typed}` : ph.phase;
         const was = shown.get(j.i);
-        if (was === key && !(moving && shuffle && !reduce)) continue;
+        if (was === key) continue;
         shown.set(j.i, key);
         if (ph.phase === "waiting") continue;
+        if (ph.phase === "marked") {
+          sent.dataset.rf = "queued";
+          // R1 marks it on the reader's tail: a purple sweep along the sentence.
+          if (!reduce) sent.classList.add("rf-mark");
+          continue;
+        }
         if (ph.phase === "checking") {
           sent.dataset.rf = "inspect";
           continue;
@@ -686,68 +634,49 @@ const RefineDocument = memo(function RefineDocument({
         if (reduce && ph.phase !== "done") continue;
         wrap.hidden = true;
         box.hidden = false;
-        const a = box.children[0] as HTMLElement | undefined;
-        const b = box.children[2] as HTMLElement | undefined;
-        if (!a || !b || !caret) continue;
-        box.dataset.ph = ph.phase;
-        const o = j.original;
+        const txt = box.firstElementChild as HTMLElement | null;
+        if (!txt || !j.rewrite) continue;
         if (ph.phase === "erasing") {
           sent.dataset.rf = "erase";
-          a.textContent = codeOf(j, ph.encoded, shuffle);
-          b.textContent = o.slice(ph.encoded);
-          const before = standing.get(j.i) ?? 0;
-          if (ph.encoded > before) burst(caret, o.slice(before, ph.encoded));
-          standing.set(j.i, ph.encoded);
-        } else if (ph.phase === "drafting") {
-          sent.dataset.rf = "draft";
-          a.textContent = codeOf(j, o.length, shuffle);
-          b.textContent = "";
-        } else if (ph.phase === "typing" && j.rewrite) {
+          txt.textContent = j.original.slice(0, ph.left);
+        } else if (ph.phase === "typing") {
           sent.dataset.rf = "type";
-          const r = j.rewrite;
-          const f = ph.typed / Math.max(1, r.length);
-          a.textContent = r.slice(0, ph.typed);
-          b.textContent = codeOf(j, Math.round(o.length * (1 - f) + r.length * f) - ph.typed, shuffle);
-        } else if (ph.phase === "restoring") {
-          sent.dataset.rf = "type";
-          a.textContent = o.slice(0, ph.restored);
-          b.textContent = codeOf(j, o.length - ph.restored, shuffle);
-        } else if (ph.phase === "done" && j.rewrite) {
+          txt.textContent = j.rewrite.slice(0, ph.typed);
+        } else {
           sent.dataset.rf = "done";
-          a.textContent = j.rewrite;
-          b.textContent = "";
-          // Only for a sentence seen being written, not one already done when the view opened.
+          txt.textContent = j.rewrite;
+          // R3 and R4 only for a sentence seen being rewritten, not one already done when the view opened.
           if (was !== undefined && !reduce) {
             sent.classList.add("rf-guarded");
-            if (j.counts) floatScore(caret);
+            if (j.counts) fly(sent);
           }
         }
       }
 
-      // R1 on the reader's tail when it has nothing to encode, and each writer on its caret.
+      // R1's eraser bar on the caret it erases from, else on the reader's tail; R2's pen on the caret it types at.
       if (!reduce) {
         let trail: HTMLElement | null = null;
-        if (!encoding && !finished && f < total) {
-          const p = scanPosition(plan, Math.max(0, t - TRAIL_MS) / readMs);
+        if (!erasing && !finished && f < total) {
+          const p = scanPosition(plan, readerAt(Math.max(0, t - TRAIL_MS), readMs, at));
           const ws = words.current[Math.min(p.index, total - 1)];
           trail = ws?.[Math.max(0, Math.min(ws.length - 1, Math.floor(p.within * ws.length)))] ?? null;
         }
-        place(chaser.current, encoding ?? trail, encoding ? 34 : 22, encoding ? 30 : 2, encoding ? 1 : 0.7);
-        if (chaser.current) chaser.current.dataset.on = encoding ? "1" : "0";
-        lanes.forEach((c, k) => place(writers.current[k], c, 26, 22));
+        place(eraser.current, erasing ?? trail, 4, 0, erasing ? 1 : 0.55);
+        if (eraser.current) eraser.current.dataset.on = erasing ? "1" : "0";
+        place(pen.current, typing, 4, 0);
       }
 
-      // Keep the work in view: a sentence being written, else the one being encoded (or just worked on), else the
-      // reader. Not while the customer scrolls.
-      let focus = writing ?? encoding;
+      // Keep the work in view: the sentence being rewritten (or just rewritten), else the reader. Not while the
+      // customer scrolls.
       const sc = scroller.current;
-      if (focus) lastFocus = { el: focus, at: now };
+      // Remember the sentence, not the caret: the caret is hidden once the sentence is done.
+      if (focusSent) lastFocus = { el: focusSent, at: now };
       else if (lastFocus && now - lastFocus.at < 900) focus = lastFocus.el;
       if (!focus && f < total) {
         const ws = words.current[f];
         focus = ws?.[Math.max(0, Math.min(ws.length - 1, Math.floor(live.current.within * ws.length)))] ?? null;
       }
-      if (sc && content.current && focus && now - userScrolledAt.current > 4_000 && now - lastScroll > 700) {
+      if (sc && content.current && focus?.offsetParent && now - userScrolledAt.current > 4_000 && now - lastScroll > 700) {
         const inView = content.current.offsetTop + focus.offsetTop - sc.scrollTop;
         if (inView > sc.clientHeight * 0.62 || inView < sc.clientHeight * 0.1) {
           lastScroll = now;
@@ -761,7 +690,7 @@ const RefineDocument = memo(function RefineDocument({
 
   return (
     <div className="flex flex-col max-lg:h-[50dvh] lg:h-full">
-      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} known={known} scanMs={scanMs} done={done} />
+      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} known={resultAt !== null} scanMs={scanMs} done={done} />
       <div
         ref={scroller}
         className="scan-doc relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-10 sm:py-7"
@@ -772,25 +701,23 @@ const RefineDocument = memo(function RefineDocument({
         <div ref={content} className="relative mx-auto max-w-[72ch]">
           <div ref={xray} aria-hidden className="scan-xray pointer-events-none absolute -inset-x-3 top-0 opacity-0" />
           <Text plan={plan} queue={queue} spans={spans} words={words} wraps={wraps} lives={lives} />
-          <div ref={shards} aria-hidden className="pointer-events-none absolute inset-0" />
+          <div ref={marks} aria-hidden className="pointer-events-none absolute inset-0" />
           <div ref={read} aria-hidden className="scan-agent pointer-events-none absolute left-0 top-0 opacity-0" data-c="cyan">
             <span className="rf-tag">A1</span>
           </div>
-          <div ref={chaser} aria-hidden className="scan-agent rf-chaser pointer-events-none absolute left-0 top-0 opacity-0" data-c="purple">
+          <div ref={eraser} aria-hidden className="rf-eraser pointer-events-none absolute left-0 top-0 opacity-0">
             <span className="rf-tag">R1</span>
           </div>
-          {Array.from({ length: WRITERS }, (_, k) => (
-            <div key={k} ref={(el) => void (writers.current[k] = el)} aria-hidden className="scan-agent rf-writer pointer-events-none absolute left-0 top-0 opacity-0" data-c="lilac">
-              <span className="rf-tag">{writerName(k)}</span>
-            </div>
-          ))}
+          <div ref={pen} aria-hidden className="rf-pen pointer-events-none absolute left-0 top-0 opacity-0">
+            <span className="rf-tag">R2</span>
+          </div>
         </div>
       </div>
     </div>
   );
 });
 
-/** The words, rendered once. A sentence to be rewritten also gets an empty box the rewrite is drawn into. */
+/** The words, rendered once. A sentence to be rewritten also gets an empty box the suggestion is typed into. */
 const Text = memo(function Text({
   plan,
   queue,
@@ -824,10 +751,9 @@ const Text = memo(function Text({
                 ))}
               </span>
               {queue.has(x.n) && (
-                <span ref={(el) => void (lives.current[i] = el)} className="rf-live" hidden>
+                <span ref={(el) => void (lives.current[i] = el)} hidden>
                   <span className="rf-txt" />
                   <span className="rf-caret" aria-hidden />
-                  <span className="rf-tail" />
                 </span>
               )}
             </span>{" "}
@@ -864,21 +790,19 @@ function AgentBar({
   const ahead = plan.sentences[f + 1];
   const over = done || frontier >= total;
   const flagged = plan.sentences.slice(0, frontier).filter((s) => queue.has(s.n)).length;
-  const phases = jobs.map((j) => ({ j, ph: jobPhase(j, scanMs) }));
-  const enc = phases.find((p) => p.ph.phase === "erasing");
-  const lanes = Array.from({ length: WRITERS }, (_, k) => phases.find((p) => p.j.lane === k && (p.ph.phase === "typing" || p.ph.phase === "restoring"))?.j ?? null);
-  const drafting = phases.filter((p) => p.ph.phase === "drafting").length;
+  const active = jobs.find((j) => scanMs >= j.start && scanMs < j.end) ?? null;
+  const ph = active ? jobPhase(active, scanMs) : null;
+  const marked = jobs.filter((j) => jobPhase(j, scanMs).phase === "marked").length;
   const checked = jobs.filter((j) => scanMs >= j.end);
   const passed = checked.filter((j) => j.rewrite).length;
-  const cleared = clearedBy(jobs, scanMs);
   const target = [
-    x && !over ? `P${x.p} S${x.s} · w${Math.max(1, Math.ceil(within * x.words.length))}/${x.words.length}` : "done",
+    x && !over ? `P${x.p} S${x.s} · w${Math.max(1, Math.ceil(within * x.words.length))}/${x.words.length}${known ? "" : " · slow"}` : "done",
     ahead && !over ? `P${ahead.p} S${ahead.s}` : over ? "done" : "last line",
     `${flagged}/${queue.size} locked`,
-    enc && enc.ph.phase === "erasing" ? `P${enc.j.p} S${enc.j.s} · ${enc.ph.encoded}/${enc.j.original.length}` : done ? "done" : "on A1's tail",
-    done ? "done" : !known ? `drafting · ${drafting} encoded` : lanes.map((j, k) => `${String.fromCharCode(97 + k)}:${j ? `S${j.n}` : "–"}`).join(" "),
+    active && ph?.phase === "erasing" ? `P${active.p} S${active.s} · −${active.original.length - ph.left}` : done ? "done" : known ? "on A1's tail" : `${marked} marked`,
+    active?.rewrite && ph?.phase === "typing" ? `P${active.p} S${active.s} · ${ph.typed}/${active.rewrite.length}` : done ? "done" : known ? "standing by" : "waiting for suggestions",
     `${passed} passed${checked.length > passed ? ` · ${checked.length - passed} kept` : ""}`,
-    `${cleared} off the rate`,
+    `${clearedBy(jobs, scanMs)} sent to the chart`,
   ];
   return (
     <div className="scan-agentbar flex shrink-0 gap-1 overflow-x-auto border-b border-[#9b7bff]/20 bg-ink-950/70 px-3 py-2" aria-label="Rewrite agents">
