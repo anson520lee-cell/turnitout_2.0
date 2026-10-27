@@ -1875,11 +1875,25 @@ html.ent-pre :is(.depth-title, h1, h2) {
 }
 .refine-progress > i::after { content: ""; position: absolute; right: -2px; top: -4px; width: 70px; height: 10px; background: radial-gradient(closest-side, #f1ebff, transparent); }
 
-/* The text: a flagged sentence is locked onto once read, encoded into code, decoded into the suggestion, and the new ink cools. */
+/* The text: a flagged sentence is locked onto once read, marked by R1, erased, typed afresh, and the new ink cools. */
 .scan-sent.rf-sent[data-rf="queued"] { box-shadow: inset 0 -2px 0 rgb(155 123 255 / 0.6); animation: rf-queued 1.1s ease-in-out infinite; }
 @keyframes rf-queued { 50% { box-shadow: inset 0 -2px 0 rgb(155 123 255 / 0.15); } }
+/* R1 marks a flagged sentence on the reader's tail: a purple highlighter stroke along it. */
+.scan-sent.rf-sent.rf-mark[data-rf="queued"] {
+  background-image: linear-gradient(90deg, rgb(155 123 255 / 0.28), rgb(155 123 255 / 0.28)); background-repeat: no-repeat; background-size: 0% 100%;
+  animation: rf-queued 1.1s ease-in-out 1s infinite, rf-mark 1s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+}
+@keyframes rf-mark { 0% { background-size: 0% 100%; } 60% { background-size: 100% 100%; } 100% { background-size: 100% 100%; background-image: linear-gradient(90deg, rgb(155 123 255 / 0.07), rgb(155 123 255 / 0.07)); } }
 .scan-sent.rf-sent[data-rf="erase"] { background: rgb(155 123 255 / 0.15); color: rgb(201 209 228 / 0.72); text-decoration: line-through 1.5px rgb(201 155 255 / 0.9); box-shadow: none; animation: none; }
 .scan-sent.rf-sent[data-rf="type"] { background: rgb(124 108 255 / 0.13); color: #f3efff; text-decoration: none; text-shadow: 0 0 14px rgb(155 123 255 / 0.85); box-shadow: none; animation: none; }
+/* R2's ink: a lilac line under what it has typed so far. */
+.scan-sent.rf-sent[data-rf="type"] .rf-txt { background: linear-gradient(90deg, rgb(205 190 255 / 0.15), rgb(205 190 255 / 0.85)) 0 100% / 100% 2px no-repeat; }
+/* R2 taking something back: the caret turns pink and the second thought it deletes is struck through. */
+.scan-sent.rf-sent[data-rf="revise"] { background: rgb(124 108 255 / 0.13); color: #f3efff; text-decoration: none; text-shadow: 0 0 14px rgb(155 123 255 / 0.85); box-shadow: none; animation: none; }
+.scan-sent.rf-sent[data-rf="revise"] .rf-txt { background: linear-gradient(90deg, rgb(205 190 255 / 0.15), rgb(205 190 255 / 0.85)) 0 100% / 100% 2px no-repeat; }
+.rf-draft { color: #ffb3e6; background: rgb(255 123 213 / 0.14); border-radius: 2px; text-shadow: 0 0 10px rgb(255 123 213 / 0.7); }
+.rf-sent[data-rf="revise"] .rf-draft { text-decoration: line-through 1.5px rgb(255 123 213 / 0.9); }
+.rf-sent[data-rf="revise"] .rf-caret { background: #ff9bdc; box-shadow: 0 0 10px #ff7bd5, 0 0 2px #fff; }
 .scan-sent.rf-sent[data-rf="done"] { background: transparent; color: var(--color-fg); text-decoration: underline 1.5px rgb(155 123 255 / 0.75); text-shadow: none; box-shadow: none; animation: none; }
 .scan-sent.rf-sent[data-rf="done"] .rf-txt { border-radius: 3px; animation: rf-cool 1.8s ease-out both; }
 @keyframes rf-cool {
@@ -1893,22 +1907,16 @@ html.ent-pre :is(.depth-title, h1, h2) {
   border: 1px solid rgb(141 179 255 / 0.4); background: rgb(91 140 255 / 0.1);
   font: 600 9px/15px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 2px; color: #a9c1ff;
 }
-.scan-sent.rf-sent[data-rf="draft"] { background: rgb(155 123 255 / 0.08); color: rgb(201 209 228 / 0.72); text-decoration: none; box-shadow: inset 0 -1px 0 rgb(155 123 255 / 0.45); animation: none; }
-/* R1's code: what a sentence turns into before a writer decodes it. Smaller, so the line keeps about its length. */
-.rf-live[data-ph="erasing"] .rf-txt, .rf-live[data-ph="drafting"] .rf-txt, .rf-live[data-ph="typing"] .rf-tail, .rf-live[data-ph="restoring"] .rf-tail {
-  font: 500 0.8em/1 var(--font-mono); letter-spacing: -0.02em; word-break: break-all;
-  color: #b9a8ff; text-shadow: 0 0 8px rgb(155 123 255 / 0.7);
-}
-.rf-live[data-ph="drafting"] .rf-txt { color: rgb(185 168 255 / 0.55); text-shadow: none; }
-.rf-live[data-ph="typing"] .rf-tail, .rf-live[data-ph="restoring"] .rf-tail { color: rgb(185 168 255 / 0.5); text-shadow: none; }
-.rf-live[data-ph="erasing"] .rf-tail { text-decoration: none; color: rgb(201 209 228 / 0.8); }
 .rf-caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 1px; vertical-align: -3px; background: #ece5ff; box-shadow: 0 0 10px #9b7bff, 0 0 2px #fff; }
-.rf-sent[data-rf="erase"] .rf-caret { width: 0.5em; background: #9b7bff; box-shadow: 0 0 14px #9b7bff, -12px 0 20px rgb(155 123 255 / 0.65); }
+.rf-sent[data-rf="erase"] .rf-caret { width: 0; box-shadow: none; }
 .rf-sent[data-rf="done"] .rf-caret, .rf-sent[data-rf="kept"] .rf-caret { display: none; }
-.rf-sent[data-rf="draft"] .rf-caret { width: 0.45em; background: rgb(155 123 255 / 0.7); box-shadow: 0 0 10px #9b7bff; animation: hud-blink 0.9s steps(2) infinite; }
-/* R3 GUARD: a green sweep over a finished suggestion, and a check that rises and fades. */
-.scan-sent.rf-sent.rf-guarded[data-rf="done"] .rf-txt { animation: rf-cool 1.8s ease-out both, rf-guard 1s ease-out both; background-image: linear-gradient(90deg, transparent 35%, color-mix(in srgb, var(--color-accent) 45%, transparent) 50%, transparent 65%); background-size: 300% 100%; background-repeat: no-repeat; }
-@keyframes rf-guard { from { background-position: 100% 0; } to { background-position: 0 0; } }
+/* R3 GUARD: a green scan line run across a finished suggestion, and a check that rises and fades. */
+.scan-sent.rf-sent.rf-guarded[data-rf="done"] .rf-txt {
+  animation: rf-cool 1.8s ease-out both, rf-guard 0.9s linear both;
+  background-image: linear-gradient(90deg, transparent calc(50% - 3px), var(--color-accent) 50%, transparent calc(50% + 3px)), linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 70%);
+  background-size: 300% 100%, 0% 100%; background-repeat: no-repeat;
+}
+@keyframes rf-guard { from { background-position: 100% 0, 0 0; background-size: 300% 100%, 0% 100%; } to { background-position: 0 0, 0 0; background-size: 300% 100%, 100% 100%; } }
 .scan-sent.rf-sent.rf-guarded[data-rf="done"]::after {
   content: "✓ R3"; position: absolute; margin: -0.2em 0 0 6px; padding: 0 5px; border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--color-accent) 50%, transparent); background: color-mix(in srgb, var(--color-accent) 14%, transparent);
@@ -1916,18 +1924,35 @@ html.ent-pre :is(.depth-title, h1, h2) {
   animation: rf-tick 2.2s ease-out forwards; pointer-events: none;
 }
 @keyframes rf-tick { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 15% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
-/* The agents' names, over their boxes. */
+/* The agents' names, over them. */
 .rf-tag {
   position: absolute; left: -1px; bottom: calc(100% + 3px); padding: 0 4px; border-radius: 3px;
   font: 700 8.5px/13px var(--font-mono); letter-spacing: 0.06em; white-space: nowrap;
   color: #0a0d16; background: var(--c); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent);
 }
-.scan-agent[data-c="purple"] { --c: #9b7bff; }
-.scan-agent[data-c="lilac"] { --c: #cdbdff; }
-/* R1 on the reader's tail: a purple cell with a comet trail, brighter while it encodes. */
-.rf-chaser { transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1), width 0.2s ease, height 0.16s ease, opacity 0.4s ease; }
-.rf-chaser[data-on="1"] { background: rgb(155 123 255 / 0.32); box-shadow: 0 0 0 1px rgb(155 123 255 / 0.5), 0 0 26px rgb(155 123 255 / 0.9), -26px 0 30px -6px rgb(155 123 255 / 0.7); }
-.rf-writer { transition: transform 0.08s linear, height 0.16s ease, opacity 0.3s ease; background: rgb(205 190 255 / 0.18); }
+/* R1 ERASE: an eraser bar with a smear behind it, eating the sentence back from its end. Dim while it follows the reader. */
+.rf-eraser {
+  --c: #b48cff; border-radius: 2px; background: #b48cff;
+  box-shadow: 0 0 14px #9b7bff, 0 0 3px #fff;
+  transition: transform 0.12s linear, height 0.16s ease, opacity 0.4s ease; will-change: transform;
+}
+.rf-eraser::after {
+  content: ""; position: absolute; left: 4px; top: 15%; height: 70%; width: 46px; border-radius: 0 6px 6px 0;
+  background: linear-gradient(90deg, rgb(155 123 255 / 0.55), rgb(155 123 255 / 0));
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.rf-eraser[data-on="1"]::after { opacity: 1; }
+.rf-eraser[data-on="0"] { transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1), height 0.16s ease, opacity 0.4s ease; }
+.rf-eraser[data-on="0"] .rf-tag { opacity: 0.7; }
+/* R2 WRITE: a pen nib riding the caret as it types. */
+.rf-pen { --c: #e3d8ff; transition: transform 0.06s linear, opacity 0.3s ease; will-change: transform; }
+.rf-pen::before {
+  content: ""; position: absolute; left: -5px; top: -9px; width: 12px; height: 12px;
+  background: linear-gradient(135deg, #f4efff, #9b7bff); clip-path: polygon(50% 100%, 0 30%, 30% 0, 70% 0, 100% 30%);
+  filter: drop-shadow(0 0 6px #9b7bff); animation: rf-nib 0.32s ease-in-out infinite alternate;
+}
+.rf-pen .rf-tag { left: 10px; bottom: calc(100% + 6px); }
+@keyframes rf-nib { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(2px) rotate(6deg); } }
 /* A3 FLAG: blue brackets that lock onto a flagged sentence, line by line. */
 .rf-lock {
   position: absolute; z-index: 4; pointer-events: none; border-radius: 4px;
@@ -1948,29 +1973,18 @@ html.ent-pre :is(.depth-title, h1, h2) {
   75% { opacity: 1; }
   100% { opacity: 0; }
 }
-/* R4 SCORE: what a rewritten sentence took off the projected rate, floating up. */
-.rf-score {
-  position: absolute; z-index: 6; pointer-events: none; white-space: nowrap;
-  padding: 1px 6px; border-radius: 99px; border: 1px solid rgb(155 123 255 / 0.6); background: rgb(20 16 40 / 0.85);
-  font: 700 10.5px/15px var(--font-mono); color: #e3dbff; text-shadow: 0 0 8px #9b7bff;
-  animation: rf-score 1.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+/* R4 SCORE: an orb carrying the new rate from the sentence to the chart, which flashes as it lands. */
+.rf-orb {
+  position: fixed; z-index: 140; pointer-events: none; white-space: nowrap;
+  padding: 2px 8px; border-radius: 99px; border: 1px solid rgb(255 140 220 / 0.7); background: rgb(40 14 40 / 0.9);
+  font: 700 10.5px/15px var(--font-mono); color: #ffe3f6; text-shadow: 0 0 8px #ff7bd5;
+  box-shadow: 0 0 22px rgb(255 123 213 / 0.7), -18px 6px 26px -8px rgb(155 123 255 / 0.8);
 }
-@keyframes rf-score { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -18px) scale(1.05); } 100% { opacity: 0; transform: translate(-50%, -62px); } }
-/* Letters erased by R1 burst off the page. */
-.rf-shard {
-  position: absolute; z-index: 5; pointer-events: none;
-  font: 700 16px/1 var(--font-mono); color: #f1ecff; text-shadow: 0 0 12px #9b7bff, 0 0 3px #cdbdff;
-  animation: rf-shard 0.85s cubic-bezier(0.12, 0.75, 0.3, 1) forwards;
-}
-@keyframes rf-shard {
-  from { transform: translate(0, 0) rotate(0deg) scale(1.25); opacity: 1; }
-  60% { opacity: 0.85; }
-  to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.4); opacity: 0; filter: blur(1.5px); }
-}
+[data-refine-chart].rf-chart-hit { animation: rf-chart-hit 0.7s ease-out; }
+@keyframes rf-chart-hit { from { filter: brightness(1.9) drop-shadow(0 0 10px rgb(255 123 213 / 0.8)); } to { filter: none; } }
 
 /* The diff card. */
 .rf-diff-gone { color: rgb(201 155 255 / 0.6); text-decoration: line-through; }
-.rf-diff-code { color: rgb(185 168 255 / 0.6); word-break: break-all; }
 .rf-diff-caret { display: inline-block; width: 6px; height: 1em; margin-left: 1px; vertical-align: -2px; background: #cdbdff; box-shadow: 0 0 8px #9b7bff; }
 .rf-diff[data-ph="done"] .rf-diff-caret { animation: hud-blink 0.8s steps(2) infinite; }
 .rf-diff .rf-guard > span { opacity: 0.18; }
@@ -1981,9 +1995,7 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .rf-diff[data-ph="done"] .rf-guard > span:nth-child(5) { animation-delay: 0.36s; }
 @keyframes rf-check { from { opacity: 0.18; transform: translateY(4px) scale(0.9); } to { opacity: 1; transform: none; } }
 .rf-diff-state { color: #b9a8ff; }
-.rf-diff[data-ph="erasing"] .rf-diff-state::after { content: "encoding"; color: #c99bff; }
-.rf-diff[data-ph="drafting"] .rf-diff-state::after { content: "drafting"; color: #c99bff; }
-.rf-diff[data-ph="restoring"] .rf-diff-state::after { content: "restoring"; color: #a9c1ff; }
+.rf-diff[data-ph="erasing"] .rf-diff-state::after { content: "erasing"; color: #c99bff; }
 .rf-diff[data-ph="typing"] .rf-diff-state::after { content: "writing"; }
 .rf-diff[data-ph="done"] .rf-diff-state::after { content: "✓ checked"; color: #cdbdff; }
 .rf-diff[data-ph="inspect"] .rf-diff-state::after { content: "checking"; }
@@ -1992,9 +2004,10 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-chip[data-c="purple"] { --c: #9b7bff; }
 .scan-chip[data-c="lilac"] { --c: #cdbdff; }
 .scan-chip[data-c="blue"] { --c: #6496ff; }
+.scan-chip[data-c="pink"] { --c: #ff7bd5; }
 
 @media (prefers-reduced-motion: reduce) {
-  .refine-live-dot, .refine-intro-warp::before, .refine-intro-warp::after, .scan-sent.rf-sent[data-rf], .rf-sent .rf-txt, .rf-shard, .rf-diff .rf-guard > span, .rf-sent .rf-caret, .rf-lock, .rf-score, .scan-sent.rf-sent::after { animation: none !important; }
-  .rf-lock, .rf-score { display: none; }
+  .refine-live-dot, .refine-intro-warp::before, .refine-intro-warp::after, .scan-sent.rf-sent[data-rf], .rf-sent .rf-txt, .rf-diff .rf-guard > span, .rf-sent .rf-caret, .rf-lock, .rf-pen::before, .scan-sent.rf-sent::after, [data-refine-chart].rf-chart-hit { animation: none !important; }
+  .rf-lock, .rf-orb, .rf-eraser, .rf-pen { display: none; }
   .rf-diff .rf-guard > span { opacity: 1; }
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/section";
 import { RefineScan } from "@/components/reports/refine/refine-scan";
-import type { ReportRewrite } from "@/lib/auto-report/rewrite";
+import type { ReportRewrite, RewriteItem } from "@/lib/auto-report/rewrite";
 import { refineDemoResult, refineDemoRewrite } from "./demo";
 
 export function RefineScanPreview({ speed, skipIntro, late }: { speed: number; skipIntro: boolean; late: boolean }) {
@@ -41,11 +41,23 @@ export function RefineScanPreview({ speed, skipIntro, late }: { speed: number; s
 
 function Demo({ speed, skipIntro, late, onFinish }: { speed: number; skipIntro: boolean; late: boolean; onFinish: () => void }) {
   const result = useMemo(() => refineDemoResult(), []);
-  // The real writer usually answers in about half a minute; ?late=1 has it answer after the reader is through the text.
+  // Like the real writer: batches of six asked at once, each answering sentence by sentence once it starts writing
+  // (first answers after about 5 s; ?late=1 after about 25 s), then the whole rewrite with the kept ones.
+  const [arrived, setArrived] = useState<RewriteItem[]>([]);
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(null);
   useEffect(() => {
-    const t = setTimeout(() => setRewrite(refineDemoRewrite(result)), (late ? 60_000 : 26_000) / speed);
-    return () => clearTimeout(t);
+    const full = refineDemoRewrite(result);
+    const base = late ? 25_000 : 5_000;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let last = base;
+    full.items.forEach((item, k) => {
+      if (!item.rewrite) return;
+      const at = base + Math.floor(k / 6) * 900 + (k % 6) * 2_400;
+      last = Math.max(last, at);
+      timers.push(setTimeout(() => setArrived((a) => [...a, item]), at / speed));
+    });
+    timers.push(setTimeout(() => setRewrite(full), (last + 1_500) / speed));
+    return () => timers.forEach(clearTimeout);
   }, [result, late, speed]);
-  return <RefineScan result={result} rewrite={rewrite} title="Example: Urban transport essay" reference="Preview session" onFinish={onFinish} speed={speed} skipIntro={skipIntro} />;
+  return <RefineScan result={result} rewrite={rewrite} arrived={arrived} title="Example: Urban transport essay" reference="Preview session" onFinish={onFinish} speed={speed} skipIntro={skipIntro} />;
 }

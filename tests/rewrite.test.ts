@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildItems, checkRewrite, knownNames, parseRewrites, pickFlagged, reviseText, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { buildItems, checkRewrite, knownNames, parseRewrites, pickFlagged, reviseText, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -40,6 +40,17 @@ test("a sentence opener is not treated as a name, but a real name is", () => {
   assert.match(checkRewrite(o, "It is argued that ideas spread by imitation among people.", known) ?? "", /Blackmore/);
   assert.equal(checkRewrite("Urban transport has long been shaped by the pursuit of speed.", "City transport has long been shaped by the push for speed.", known), null);
   assert.deepEqual([...knownNames(result([[{ ...sentence(1, "low"), text: "Early on, Blackmore (1999) wrote about London." }]]))].sort(), ["Blackmore", "London"]);
+});
+
+test("streamedRewrites reads each answer as soon as its object is complete, as parseRewrites would", () => {
+  const full = '```json\n[{"id": 3, "rewrite": "A {brace} and a \\"quote\\" } inside."}, {"id": 5, "rewrite": " Yes. "}, {"id": 7, "rewrite": "Last one."}]\n```';
+  const cut = full.indexOf('{"id": 7') + 12;
+  const partial = streamedRewrites(full.slice(0, cut));
+  assert.deepEqual([...partial.keys()], [3, 5], "the half-written third answer is not read yet");
+  assert.equal(partial.get(3), 'A {brace} and a "quote" } inside.');
+  assert.equal(partial.get(5), "Yes.");
+  assert.deepEqual(streamedRewrites(full), parseRewrites(full));
+  assert.equal(streamedRewrites("thinking...").size, 0);
 });
 
 test("parseRewrites reads fenced and plain JSON and skips junk", () => {

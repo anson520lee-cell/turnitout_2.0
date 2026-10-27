@@ -1,7 +1,7 @@
 /**
  * The projected AI rate during a live rewrite, as a ticking series. It starts on the report's own score and follows
- * the rewrite down smoothly (see projectedAt): a share of each counted sentence's drop as R1 encodes it, the rest
- * as its suggestion is typed. A faint tremor keeps the line alive while it works. When the rewrite is over it
+ * the rewrite down in even steps (see projectedAt): part of each counted sentence's step as R1 erases it, the
+ * rest as R2 types its suggestion. A faint tremor keeps the line alive while it works. When the rewrite is over it
  * settles exactly on the projected figure and stops.
  *
  * Kept outside React like the report scan's RateMeter: it ticks 20 times a second and its readers (the number and
@@ -15,7 +15,7 @@ export interface RefineMeterInput {
   target: number;
   /** The report's own score. */
   original: number;
-  /** Steps so far (a counted sentence encoded, or its suggestion typed): each one marks the drop since the last. */
+  /** Counted sentences rewritten so far: each one marks the drop since the last. */
   marks: number;
   done: boolean;
   reduce: boolean;
@@ -80,8 +80,9 @@ export class RefineMeter {
       this.marks = input.marks;
       this.markedAt = at;
     }
-    this.target = input.target;
-    this.level = input.reduce ? input.target : this.level + (input.target - this.level) * (input.done ? 0.3 : 0.16);
+    // Only ever down while it works (an estimate can rise a little when a sentence turns out kept); at the end, the real figure.
+    this.target = input.done ? input.target : Math.min(this.target, input.target);
+    this.level = input.reduce ? this.target : this.level + (this.target - this.level) * (input.done ? 0.3 : 0.16);
     this.noise = input.done ? this.noise * 0.5 : this.noise * 0.85 + (input.reduce ? 0 : 0.0012) * gauss();
     if (input.done && Math.abs(this.level - input.target) < 0.0004 && Math.abs(this.noise) < 0.0004) {
       this.level = input.target;

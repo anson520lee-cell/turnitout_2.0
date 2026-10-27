@@ -6,8 +6,8 @@ import { ArrowRight, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
-import { REFINE_INTRO_MS, clearedBy, jobPhase, projectedAt, projectedScore, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs } from "@/lib/auto-report/refine-script";
-import { pickFlagged, type ReportRewrite } from "@/lib/auto-report/rewrite";
+import { REFINE_INTRO_MS, clearedBy, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival } from "@/lib/auto-report/refine-script";
+import { pickFlagged, type ReportRewrite, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RefineIntro } from "./refine-intro";
@@ -20,14 +20,15 @@ import { RefineStage, clockNow, type RefineClock } from "./refine-stage";
  * 1. an opening sequence (20 seconds) with the same network "tunnel";
  * 2. the live rewrite over their own text, at 1.2 times the report scan's pace per character.
  *
- * The suggestions are made in the background meanwhile (one request, `rewrite` is null until it answers). The
- * reader goes through the text at its own pace and R1 encodes each flagged sentence right behind it; the writers
- * type each real suggestion in once the suggestions are in. If they are late the reader waits near the end and
- * three writers catch up side by side. The projected rate falls with all of it, and ends on the real projection.
+ * The suggestions are made in the background meanwhile and come in one by one (`arrived`, streamed as the writer
+ * finishes each; `rewrite` once all are in). The reader never waits: R1 marks each flagged sentence behind it, and
+ * R1 and R2 erase and retype a sentence as soon as its suggestion is in. The projected rate falls as each sentence is
+ * rewritten, and ends on the real projection.
  */
 
 const FINALE_MS = 7_000;
 
+const NO_ITEMS: RewriteItem[] = [];
 const noop = () => () => {};
 /** False on the server and while hydrating, true after. */
 const useHydrated = () => useSyncExternalStore(noop, () => true, () => false);
@@ -35,6 +36,7 @@ const useHydrated = () => useSyncExternalStore(noop, () => true, () => false);
 export function RefineScan({
   result,
   rewrite,
+  arrived = NO_ITEMS,
   reference,
   title,
   onFinish,
@@ -43,8 +45,10 @@ export function RefineScan({
   canSkip = false,
 }: {
   result: AutoReportResult;
-  /** The suggestions, once the request has answered. */
+  /** All the suggestions, once the request has answered. */
   rewrite: ReportRewrite | null;
+  /** The suggestions that have come in so far, as the writer finishes each. */
+  arrived?: RewriteItem[];
   reference: string;
   title: string;
   /** Called when the rewrite is over: show the suggestions. */
@@ -69,7 +73,8 @@ export function RefineScan({
   // Read on the client only; the server's render (and hydration) treat the run as just started.
   const [startedAt] = useState(() => (typeof window === "undefined" ? 0 : performance.now()));
   const [now, setNow] = useState(startedAt);
-  const [resultAt, setResultAt] = useState<number | null>(null);
+  // When each suggestion came in, on the scan clock.
+  const [arrivals, setArrivals] = useState<ReadonlyMap<number, Arrival>>(() => new Map());
   const [doneAt, setDoneAt] = useState<number | null>(null);
   const finished = useRef(false);
   const finish = useRef(onFinish);
@@ -93,13 +98,20 @@ export function RefineScan({
   const inIntro = elapsed < introMs;
   const scanMs = Math.max(0, elapsed - introMs) * speed;
 
-  if (rewrite && resultAt === null) setResultAt(scanMs);
-  const known = Boolean(rewrite) && resultAt !== null;
-  const jobs = useMemo(() => refineJobs(plan, result, rewrite, resultAt, readMs), [rewrite, resultAt, plan, result, readMs]);
+  // A flagged sentence the finished rewrite has no item for (should not happen) is shown as kept.
+  const missing = rewrite ? [...queue].filter((n) => !rewrite.items.some((it) => it.n === n)).map((n): RewriteItem => ({ n, original: plan.sentences.find((x) => x.n === n)?.text ?? "", rewrite: null, kept: "no suggestion came back" })) : [];
+  const incoming = [...arrived, ...(rewrite?.items ?? []), ...missing].filter((it) => queue.has(it.n) && !arrivals.has(it.n));
+  if (incoming.length) {
+    const next = new Map(arrivals);
+    for (const item of incoming) if (!next.has(item.n)) next.set(item.n, { at: scanMs, item });
+    setArrivals(next);
+  }
+  const jobs = useMemo(() => refineJobs(plan, result, arrivals, readMs), [arrivals, plan, result, readMs]);
+  const known = Boolean(rewrite) && jobs.every((j) => j.known);
   const endMs = refineEndMs(jobs, readMs);
-  const fraction = known ? scanMs / readMs : Math.min(scanMs / readMs, 0.97);
+  const fraction = readerAt(scanMs, readMs);
   const pos = scanPosition(plan, fraction);
-  const frontier = known && fraction >= 1 ? total : pos.index;
+  const frontier = fraction >= 1 ? total : pos.index;
   const done = known && scanMs >= endMs;
   if (done && doneAt === null) setDoneAt(now);
 
@@ -109,13 +121,8 @@ export function RefineScan({
     rewritten: jobs.filter((j) => j.rewrite && scanMs >= j.end).length,
     total: queue.size,
     kept: jobs.filter((j) => j.known && !j.rewrite && scanMs >= j.end).length,
-    encoded: jobs.filter((j) => j.erased > j.start && scanMs >= j.erased).length,
-    writing: jobs.filter((j) => {
-      const ph = jobPhase(j, scanMs).phase;
-      return ph === "typing" || ph === "restoring";
-    }).length,
     counted: Math.max(0, rate.counted - cleared),
-    progress: known ? Math.min(1, scanMs / endMs) : Math.min(0.97, scanMs / readMs) * 0.9,
+    progress: known ? Math.min(1, scanMs / endMs) : Math.min(fraction, jobs.filter((j) => scanMs >= j.end).length / Math.max(1, jobs.length)) * 0.95,
   };
 
   // The clock the animation runs on between renders.
@@ -138,7 +145,7 @@ export function RefineScan({
         ready: l.ready,
         target: l.done ? l.final : projectedAt(rate, l.jobs, at),
         original: rate.original,
-        marks: l.jobs.reduce((n, j) => n + (j.counts ? Number(j.erased > j.start && at >= j.erased) + Number(at >= j.end) : 0), 0),
+        marks: clearedBy(l.jobs, at),
         done: l.done,
         reduce: l.reduce,
       };

@@ -124,6 +124,41 @@ export function parseRewrites(text: string): Map<number, string> {
   return out;
 }
 
+/**
+ * The answers finished so far in a reply that is still being written: every complete {"id", "rewrite"} object in the
+ * JSON array, read the same way as parseRewrites, so an answer seen early is the one the full reply gives.
+ */
+export function streamedRewrites(text: string): Map<number, string> {
+  const out = new Map<number, string>();
+  const open = text.indexOf("[");
+  if (open < 0) return out;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let from = -1;
+  for (let k = open + 1; k < text.length; k++) {
+    const c = text[k];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "{") {
+      if (depth === 0) from = k;
+      depth++;
+    } else if (c === "}" && depth > 0) {
+      depth--;
+      if (depth === 0 && from >= 0) {
+        for (const [n, t] of parseRewrites(`[${text.slice(from, k + 1)}]`)) out.set(n, t);
+        from = -1;
+      }
+    } else if (c === "]" && depth === 0) break;
+  }
+  return out;
+}
+
 const HEDGE = /\b(may|might|can|could|suggests?|suggested|appears?|seems?|likely|perhaps|possibly|probably|tends?|often|generally|typically|somewhat|partly|arguably|sometimes)\b/i;
 const STRONG = /\b(proves?|proven|demonstrates?|undoubtedly|certainly|definitely|always|never|must|clearly shows?)\b/i;
 const CAUSAL = /\b(therefore|thus|hence|consequently|as a result|because|due to|leads? to|led to|results? in|resulting in|accordingly)\b/gi;

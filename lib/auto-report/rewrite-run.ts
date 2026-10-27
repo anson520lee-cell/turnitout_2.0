@@ -1,13 +1,13 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekRunError, deepseekEnabled, deepseekRun } from "@/lib/deepseek";
+import { DeepSeekRunError, deepseekEnabled, deepseekRun, deepseekStream } from "@/lib/deepseek";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, rewriteLimitReached } from "@/lib/model-usage";
 import { getModelSetting } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
 import { shortId } from "@/lib/utils";
 import type { AutoReportResult, ReportSentence } from "./stitch";
-import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, pickFlagged, rewriteCredits, rewriteInput, type ReportRewrite, type RewriteItem } from "./rewrite";
+import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, pickFlagged, rewriteCredits, rewriteInput, streamedRewrites, type ReportRewrite, type RewriteItem } from "./rewrite";
 
 /**
  * Makes the suggested rewrites for a finished report, once: the Writing Refinement add-on, paid in credits (price in
@@ -18,6 +18,13 @@ import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, p
 const LEASE_MS = 150_000;
 /** Two attempts (thinking, then not) must fit inside the route's 120 s. */
 const CALL_TIMEOUT_MS = 50_000;
+/**
+ * When the suggestions are streamed to the live rewrite, smaller batches (all asked at once) so the first ones come
+ * back sooner and the rest follow one by one.
+ */
+const STREAM_BATCH = 6;
+/** The retry of refused suggestions only starts while there is still time for it inside the route's 120 s. */
+const RETRY_BEFORE_MS = 60_000;
 
 export type RewriteOutcome =
   | { ok: true; rewrite: ReportRewrite }
@@ -43,6 +50,42 @@ async function askBatch(batch: ReportSentence[], result: AutoReportResult, model
   }
 }
 
+/**
+ * Like askBatch, but reads the reply as it is written and hands over each answer (`onAnswer`) as soon as its JSON
+ * object is complete. Returns every answer at the end, or what had come in if the reply broke off.
+ */
+async function streamBatch(batch: ReportSentence[], result: AutoReportResult, model: string, onAnswer: (n: number, text: string) => void): Promise<Map<number, string> | null> {
+  let text = "";
+  const seen = new Set<number>();
+  const take = () => {
+    const got = streamedRewrites(text);
+    for (const [n, t] of got) {
+      if (seen.has(n)) continue;
+      seen.add(n);
+      onAnswer(n, t);
+    }
+    return got;
+  };
+  try {
+    for await (const e of deepseekStream({ system: [REWRITE_PROMPT, DRAFT_GUARD].join("\n\n"), user: rewriteInput(batch, result), maxTokens: 12_000, model, effort: "low" })) {
+      if (e.type === "delta") {
+        text += e.text;
+        if (e.text.includes("}")) take();
+        continue;
+      }
+      await logModelCall("report_rewrite", { ok: true, result: e.result });
+      if (e.result.truncated) return take();
+      const all = parseRewrites(e.result.text);
+      for (const [n, t] of all) if (!seen.has(n)) onAnswer(n, t);
+      return all;
+    }
+    return seen.size ? take() : null;
+  } catch (e) {
+    if (e instanceof DeepSeekRunError) await logModelCall("report_rewrite", { ok: false, error: e });
+    return seen.size ? take() : null;
+  }
+}
+
 /** The saved rewrite of a report, if there is one. */
 export async function savedRewrite(orderId: string): Promise<ReportRewrite | null> {
   const { data } = await createAdminClient().from("auto_reports").select("rewrite").eq("order_id", orderId).maybeSingle<{ rewrite: ReportRewrite | null }>();
@@ -52,21 +95,36 @@ export async function savedRewrite(orderId: string): Promise<ReportRewrite | nul
 /**
  * Asks the model for a rewrite of each flagged sentence, checks every answer, and gives refused ones one more try.
  * Null when the model could not be reached at all. No database writes: used by makeRewrite and by the backtest sample maker.
+ * With `onItem`, each suggestion that passes the checks is handed over as soon as the model has written it (the
+ * live rewrite shows it right away); refused and retried ones only come with the whole rewrite.
  */
-export async function generateRewrite(result: AutoReportResult, flagged: ReportSentence[]): Promise<ReportRewrite | null> {
+export async function generateRewrite(result: AutoReportResult, flagged: ReportSentence[], onItem?: (item: RewriteItem) => void): Promise<ReportRewrite | null> {
+  const started = Date.now();
   const { model } = await getModelSetting();
+  const known = knownNames(result);
+  const size = onItem ? STREAM_BATCH : REWRITE_BATCH;
   const batches: ReportSentence[][] = [];
-  for (let i = 0; i < flagged.length; i += REWRITE_BATCH) batches.push(flagged.slice(i, i + REWRITE_BATCH));
-  const first = await Promise.all(batches.map((b) => askBatch(b, result, model)));
+  for (let i = 0; i < flagged.length; i += size) batches.push(flagged.slice(i, i + size));
+  const first = await Promise.all(
+    batches.map((b) =>
+      onItem
+        ? streamBatch(b, result, model, (n, text) => {
+            const s = b.find((x) => x.n === n);
+            if (!s) return;
+            const [item] = buildItems([s], new Map([[n, text]]), known);
+            if (item.rewrite) onItem(item);
+          })
+        : askBatch(b, result, model),
+    ),
+  );
   if (first.every((a) => a === null)) return null;
   const answers = new Map<number, string>();
   for (const a of first) for (const [n, t] of a ?? []) answers.set(n, t);
 
-  const known = knownNames(result);
   let items: RewriteItem[] = buildItems(flagged, answers, known);
   // One more try for the sentences whose suggestion was refused, telling the model why.
   const redo = new Map(items.filter((i) => i.rewrite === null && i.kept).map((i) => [i.n, i.kept as string]));
-  if (redo.size) {
+  if (redo.size && Date.now() - started < RETRY_BEFORE_MS) {
     const again = await askBatch(flagged.filter((s) => redo.has(s.n)), result, model, redo);
     if (again) {
       for (const [n, t] of again) answers.set(n, t);
@@ -76,7 +134,8 @@ export async function generateRewrite(result: AutoReportResult, flagged: ReportS
   return { version: 1, model, createdAt: new Date().toISOString(), items };
 }
 
-export async function makeRewrite(orderId: string, who: { userId: string; admin: boolean }): Promise<RewriteOutcome> {
+/** `onItem`: see generateRewrite (the suggestions are only saved and charged for once all are in). */
+export async function makeRewrite(orderId: string, who: { userId: string; admin: boolean }, onItem?: (item: RewriteItem) => void): Promise<RewriteOutcome> {
   const db = createAdminClient();
   const { data: report } = await db.from("auto_reports").select("status,result,rewrite").eq("order_id", orderId).maybeSingle<{ status: string; result: AutoReportResult | null; rewrite: ReportRewrite | null }>();
   if (!report || report.status !== "done" || !report.result) return { ok: false, reason: "no_report" };
@@ -109,7 +168,7 @@ export async function makeRewrite(orderId: string, who: { userId: string; admin:
 
   const release = () => db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
   try {
-    const rewrite = await generateRewrite(report.result, flagged);
+    const rewrite = await generateRewrite(report.result, flagged, onItem);
     if (!rewrite) {
       await release();
       return { ok: false, reason: "unavailable" };
