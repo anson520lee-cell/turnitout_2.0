@@ -67,6 +67,7 @@ export const services: ServiceDefinition[] = [
       "Marked sentences, with a question to ask yourself",
       "Grammar spots, location only",
       "PDF download",
+      "Optional add-on: Writing Refinement, suggested rewrites for the flagged sentences",
       reportLimitsLabel,
     ],
     href: "/services/screening",
