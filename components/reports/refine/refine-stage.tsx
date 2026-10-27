@@ -124,7 +124,7 @@ export function RefineStage({
       }, 300 + i * 900),
     );
     push("agents", [
-      { tone: "info", text: `rewrite started · ${total} sentences · ${queue.size} to rewrite · pace 1.2×` },
+      { tone: "info", text: `rewrite started · ${total} sentences · ${queue.size} to rewrite` },
       { tone: "dim", text: `${AGENT_COUNT} agents deployed: A1 READ · A2 LOOKAHEAD · A3 FLAG · R1 ENCODE · R2a–R2c WRITE · R3 GUARD · R4 SCORE` },
       ...(plan.sentences[1] ? [lookaheadLine(plan.sentences[1])] : []),
     ]);

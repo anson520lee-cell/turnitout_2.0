@@ -91,7 +91,7 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
         <Cell k="Drop" v={<DropValue meter={meter} original={original} />} tone="text-[#cdbdff]" />
         <Cell k="Writers" v={`${counts.writing}/${WRITERS}`} tone={counts.writing ? "text-[#e9e3ff]" : undefined} />
         <Cell k="Agents" v="9" />
-        <Cell k="Pace" v="1.2×" />
+        <Cell k="Left" v={String(Math.max(0, counts.total - counts.rewritten - counts.kept))} />
         <Cell k="Progress" v={`${Math.round(counts.progress * 100)}%`} />
       </dl>
       <p className="text-[10.5px] leading-snug text-fg-subtle">A projection, not a new report: run one on your edited text to see how it reads.</p>

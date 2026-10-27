@@ -209,7 +209,6 @@ export function RefineScan({
           <p className="truncate text-[13px] text-fg-muted">{title}</p>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <span className="hidden rounded-full border border-[#9b7bff]/35 bg-[#9b7bff]/10 px-2 py-0.5 font-mono text-[10.5px] text-[#cdbdff] sm:inline">1.2× pace</span>
           <span className="hidden font-mono text-[11px] tabular-nums text-fg-subtle sm:inline">
             {String(Math.floor(secs / 60)).padStart(2, "0")}:{String(secs % 60).padStart(2, "0")}
             {left !== null && <> · ~{left}s left</>}
