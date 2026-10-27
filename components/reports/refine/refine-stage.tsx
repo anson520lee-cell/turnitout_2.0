@@ -196,7 +196,7 @@ export function RefineStage({
       </p>
     ) : null;
 
-  const rateProps = { meter, ready: true, final: done, original, counts };
+  const rateProps = { meter, ready: true, final: done, original, counts, reduce };
 
   const terminalFor = (id: TermId, mobile = false) => {
     const meta = TERMS.find((t) => t.id === id)!;

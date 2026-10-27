@@ -73,7 +73,7 @@ export class RefineMeter {
     }
     this.target = input.target;
     // A quick fall to each new level, so every rewritten sentence shows as a sharp step down.
-    this.level += (input.target - this.level) * (input.done ? 0.3 : 0.24);
+    this.level = input.reduce ? input.target : this.level + (input.target - this.level) * (input.done ? 0.3 : 0.24);
     this.noise = input.done ? this.noise * 0.5 : this.noise * 0.82 + (input.reduce ? 0 : 0.0032) * gauss();
     if (input.done && Math.abs(this.level - input.target) < 0.0004 && Math.abs(this.noise) < 0.0004) {
       this.level = input.target;

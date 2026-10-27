@@ -155,7 +155,7 @@ export function RefineScan({
         </Button>
       </div>
       <div className="mt-4">
-        <RefineRatePanel compact meter={meter} ready={!inIntro} final={done} original={rate.original} counts={counts} />
+        <RefineRatePanel compact meter={meter} ready={!inIntro} final={done} original={rate.original} counts={counts} reduce={reduce} />
       </div>
       <p className="mt-3 text-[12px] text-fg-subtle">Your suggestions are saved as soon as they are ready, so they are here when you come back.</p>
     </div>

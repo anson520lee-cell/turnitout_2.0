@@ -31,7 +31,7 @@ export interface RefineCounts {
   progress: number;
 }
 
-export function RefineRatePanel({ meter, ready, final, original, counts, compact }: { meter: RefineMeter; ready: boolean; final: boolean; original: number; counts: RefineCounts; compact?: boolean }) {
+export function RefineRatePanel({ meter, ready, final, original, counts, compact, reduce = false }: { meter: RefineMeter; ready: boolean; final: boolean; original: number; counts: RefineCounts; compact?: boolean; reduce?: boolean }) {
   if (compact) {
     return (
       <div className="flex items-center gap-3">
@@ -40,7 +40,7 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
           <Readout meter={meter} original={original} final={final} className="text-[26px]" unit="text-[14px]" deltaClass="text-[10px]" />
         </div>
         <div className="relative h-12 min-w-0 flex-1">
-          <RefineChart meter={meter} compact className="absolute inset-0" />
+          <RefineChart meter={meter} compact reduce={reduce} className="absolute inset-0" />
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 font-mono text-[10px] tabular-nums">
           <span className="rounded-full border border-[#5b8cff]/40 bg-[#5b8cff]/10 px-2 py-0.5 text-[#a9c1ff]">was {pct(original, 0)}%</span>
@@ -75,7 +75,7 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
       </div>
 
       <div className="relative min-h-[190px] flex-1 overflow-hidden rounded-xl border border-[#9b7bff]/20 bg-[radial-gradient(80%_60%_at_100%_100%,rgb(155_123_255/0.10),transparent_70%)] bg-ink-950/60">
-        <RefineChart meter={meter} className="absolute inset-0" />
+        <RefineChart meter={meter} reduce={reduce} className="absolute inset-0" />
         {!ready && <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-mono text-[10.5px] text-fg-subtle">warming up<span className="scan-ellipsis" /></p>}
       </div>
 
@@ -151,9 +151,10 @@ function Readout({ meter, original, final, className, unit, deltaClass }: { mete
 /**
  * The chart: the report's score as a dashed blue level, the projected rate as a purple line that scrolls left as it
  * ticks and steps down at each rewritten sentence, the gap between them filled, and a flash with the size of each
- * drop. The scale starts at zero so the fall is shown at its real size.
+ * drop. The scale starts at zero so the fall is shown at its real size. With reduced motion it holds still: the two
+ * levels and the gap between them, stepping down at each drop, with nothing scrolling or pulsing.
  */
-export function RefineChart({ meter, compact, className }: { meter: RefineMeter; compact?: boolean; className?: string }) {
+export function RefineChart({ meter, compact, reduce = false, className }: { meter: RefineMeter; compact?: boolean; reduce?: boolean; className?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const cv = canvas.current;
@@ -226,7 +227,7 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
         }
         ctx.setLineDash([]);
         // Time lines every 2 s, scrolling past fast.
-        for (let t = Math.floor(now / 2_000) * 2_000; xAt(t) > x0; t -= 2_000) {
+        for (let t = Math.floor(now / 2_000) * 2_000; !reduce && xAt(t) > x0; t -= 2_000) {
           const x = Math.round(xAt(t)) + 0.5;
           ctx.strokeStyle = rgba(GRID, 0.05);
           ctx.beginPath();
@@ -248,14 +249,15 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
       }
       const cur = meter.cur;
       const oy = yAt(original);
-      const pts = meter.points.filter((p) => xAt(p.t) >= x0 - dx);
+      const pts = reduce ? [] : meter.points.filter((p) => xAt(p.t) >= x0 - dx);
 
-      // The refined line, and the gap between it and the original level.
-      if (pts.length) {
+      // The refined line (with reduced motion, just its level), and the gap between it and the original level.
+      {
         const line = new Path2D();
         pts.forEach((p, i) => (i ? line.lineTo(xAt(p.t), yAt(p.v)) : line.moveTo(Math.max(x0, xAt(p.t)), yAt(p.v))));
+        if (!pts.length) line.moveTo(x0, yAt(cur));
         line.lineTo(x1, yAt(cur));
-        const firstX = Math.max(x0, xAt(pts[0].t));
+        const firstX = pts.length ? Math.max(x0, xAt(pts[0].t)) : x0;
         const gap = new Path2D(line);
         gap.lineTo(x1, oy);
         gap.lineTo(firstX, oy);
@@ -298,7 +300,7 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
       ctx.setLineDash([]);
 
       // Each drop: a flash where it happened and its size, rising and fading.
-      if (!compact) {
+      if (!compact && !reduce) {
         for (const d of meter.drops) {
           const age = now - d.t;
           if (age > 1_600 || age < 0) continue;
@@ -319,7 +321,7 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
 
       // Speed streaks behind the head while it falls.
       const hy = yAt(cur);
-      const falling = meter.settled ? 0 : Math.max(0, meter.level - meter.target);
+      const falling = meter.settled || reduce ? 0 : Math.max(0, meter.level - meter.target);
       if (falling > 0.002) {
         const s = Math.min(1, falling / 0.012);
         for (let k = 0; k < 4; k++) {
@@ -356,11 +358,13 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
         tag(cur, ty, PURPLE, meter.settled ? 0 : 1);
       }
 
-      const phase = meter.settled ? 0 : (now % 1_100) / 1_100;
-      ctx.fillStyle = rgba(PURPLE, 0.4 * (1 - phase));
-      ctx.beginPath();
-      ctx.arc(x1, hy, 3 + phase * 10, 0, Math.PI * 2);
-      ctx.fill();
+      if (!reduce && !meter.settled) {
+        const phase = (now % 1_100) / 1_100;
+        ctx.fillStyle = rgba(PURPLE, 0.4 * (1 - phase));
+        ctx.beginPath();
+        ctx.arc(x1, hy, 3 + phase * 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = "#f4f0ff";
       ctx.shadowColor = rgba(PURPLE, 1);
       ctx.shadowBlur = 12;
@@ -374,6 +378,6 @@ export function RefineChart({ meter, compact, className }: { meter: RefineMeter;
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [meter, compact]);
+  }, [meter, compact, reduce]);
   return <canvas ref={canvas} aria-hidden className={cn("block h-full w-full font-mono", className)} />;
 }
