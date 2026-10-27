@@ -3,7 +3,7 @@ import { RefineScanPreview } from "./preview";
 /**
  * Design preview of the live rewrite (Writing Refinement), with a made-up essay, made-up ratings and made-up
  * suggestions. Not part of the product and not linked from navigation. ?speed=4 runs it faster, ?skip=1 skips the
- * opening sequence, ?late=1 makes the suggestions arrive late (to see the reader wait and the rewrite catch up).
+ * opening sequence, ?late=1 makes the first suggestions arrive late (to see the rewrite catch up with the reader).
  */
 export default async function RefineScanPreviewPage({ searchParams }: PageProps<"/preview/refine-scan">) {
   const sp = await searchParams;

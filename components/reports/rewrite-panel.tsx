@@ -5,7 +5,7 @@ import { Check, Copy, PenLine, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { reviseText, type Decision, type ReportRewrite } from "@/lib/auto-report/rewrite";
+import { reviseText, type Decision, type ReportRewrite, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn, shortId } from "@/lib/utils";
@@ -43,7 +43,7 @@ function subscribe(onChange: () => void) {
 export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title, canSkip = false }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string; canSkip?: boolean }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
   // The live rewrite on screen: running until the suggestions are in and have been typed out.
-  const [live, setLive] = useState<{ run: number; rewrite: ReportRewrite | null } | null>(null);
+  const [live, setLive] = useState<{ run: number; rewrite: ReportRewrite | null; arrived: RewriteItem[] } | null>(null);
   const runs = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const stored = useSyncExternalStore(subscribe, () => readChoices(orderId), () => "");
@@ -73,7 +73,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
 
   async function start() {
     const run = ++runs.current;
-    setLive({ run, rewrite: null });
+    setLive({ run, rewrite: null, arrived: [] });
     setError(null);
     track("rewrite_requested");
     const fail = (message: string) => {
@@ -81,11 +81,32 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
       setError(message);
     };
     try {
-      const res = await fetch(`/api/reports/${orderId}/rewrite`, { method: "POST" });
-      const body = (await res.json().catch(() => null)) as { rewrite?: ReportRewrite; error?: string } | null;
-      const made = body?.rewrite;
-      if (res.ok && made) setLive((l) => (l && l.run === run ? { run, rewrite: made } : l));
-      else fail(body?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
+      // Streamed: each suggestion as soon as it is written, then the whole rewrite (or why there is none).
+      const res = await fetch(`/api/reports/${orderId}/rewrite?stream=1`, { method: "POST" });
+      if (!res.ok || !res.body) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        return fail(body?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
+      }
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "";
+      let last: { rewrite?: ReportRewrite; error?: string } | null = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (value) buf += value;
+        const lines = buf.split("\n");
+        buf = done ? "" : (lines.pop() ?? "");
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line) as { item?: RewriteItem; rewrite?: ReportRewrite; error?: string };
+          const item = msg.item;
+          if (item) setLive((l) => (l && l.run === run ? { ...l, arrived: [...l.arrived, item] } : l));
+          else last = msg;
+        }
+        if (done) break;
+      }
+      const made = last?.rewrite;
+      if (made) setLive((l) => (l && l.run === run ? { ...l, rewrite: made } : l));
+      else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
       fail("We couldn't write the suggestions just now. Please check your connection and try again.");
     }
@@ -154,7 +175,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
 
       {live && (
         <div className="mt-5 rounded-xl border border-[#9b7bff]/25 bg-ink-950/50 p-4">
-          <RefineScan key={live.run} result={result} rewrite={live.rewrite} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} canSkip={canSkip} />
+          <RefineScan key={live.run} result={result} rewrite={live.rewrite} arrived={live.arrived} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} canSkip={canSkip} />
         </div>
       )}
 

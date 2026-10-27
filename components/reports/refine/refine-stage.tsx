@@ -51,7 +51,6 @@ export function RefineStage({
   jobs,
   known,
   readMs,
-  resultAt,
   frontier,
   within,
   scanMs,
@@ -67,13 +66,11 @@ export function RefineStage({
   ratings: Map<number, ReportSentence>;
   /** Sentence numbers sent to the writer (pickFlagged). */
   queue: Set<number>;
-  /** The rewriter's timetable (writing times are Infinity until the suggestions are in). */
+  /** The rewriter's timetable (a sentence's writing times are Infinity until its suggestion is in). */
   jobs: RefineJob[];
-  /** Whether the suggestions are in. */
+  /** Whether all the suggestions are in. */
   known: boolean;
   readMs: number;
-  /** When the suggestions came in (scan clock), or null until then. */
-  resultAt: number | null;
   frontier: number;
   within: number;
   scanMs: number;
@@ -167,26 +164,30 @@ export function RefineStage({
     push("rewriter", out);
   }, [jobs, scanMs, push]);
 
-  // The writer's own progress, as the request reports it.
+  // The writer's own progress: each suggestion as it comes in.
+  const heard = useRef(new Set<number>());
   useEffect(() => {
-    if (!known) return;
-    const back = jobs.filter((j) => j.rewrite).length;
-    push("agents", [
-      { tone: "ok", text: `writer · ${back} suggestion${back === 1 ? "" : "s"} back · ${jobs.length - back} kept as written · all checked` },
-      { tone: "info", text: "A1 back to full pace · R1 and R2 on its tail" },
-    ]);
+    const out: LogLine[] = [];
+    for (const j of jobs) {
+      if (!j.known || heard.current.has(j.n)) continue;
+      heard.current.add(j.n);
+      out.push({ tone: j.rewrite ? "violet" : "dim", text: `writer → P${j.p} S${j.s} ${j.rewrite ? "suggestion in" : "kept as written"} · ${heard.current.size}/${jobs.length}` });
+    }
+    if (known && out.length) out.push({ tone: "ok", text: `writer · all ${jobs.length} in · R1 and R2 on A1's tail` });
+    push("agents", out);
   }, [known, jobs, push]);
   const waited = useRef(waitedSecs);
   useEffect(() => {
     waited.current = waitedSecs;
   });
+  const any = jobs.some((j) => j.known);
   useEffect(() => {
-    if (known) return;
-    const say = () => push("agents", [{ tone: "dim", text: `writer drafting ${queue.size} suggestion${queue.size === 1 ? "" : "s"} · ${waited.current}s · A1 reading slowly meanwhile` }]);
+    if (any) return;
+    const say = () => push("agents", [{ tone: "dim", text: `writer drafting ${queue.size} suggestion${queue.size === 1 ? "" : "s"} · ${waited.current}s` }]);
     say();
     const t = setInterval(say, 5_000);
     return () => clearInterval(t);
-  }, [known, queue, push]);
+  }, [any, queue, push]);
   useEffect(() => {
     if (!done) return;
     const made = jobs.filter((j) => j.rewrite).length;
@@ -195,11 +196,11 @@ export function RefineStage({
 
   // The diff card follows the sentence being rewritten, and stays a moment on the last one finished.
   const card = useMemo(() => {
-    if (done || !known) return null;
+    if (done) return null;
     let pick: RefineJob | null = null;
-    for (const j of jobs) if (scanMs >= j.start && scanMs < j.end + HOLD_MS) pick = j;
+    for (const j of jobs) if (scanMs >= j.start && scanMs < j.end + HOLD_MS && (!pick || j.start > pick.start)) pick = j;
     return pick;
-  }, [jobs, scanMs, done, known]);
+  }, [jobs, scanMs, done]);
 
   const lead = plan.sentences[Math.min(frontier, total - 1)];
   const readerLive =
@@ -237,7 +238,7 @@ export function RefineStage({
       </div>
 
       <section className="relative min-h-0 overflow-hidden rounded-2xl border border-[#9b7bff]/25 bg-ink-950/70" aria-label="Your text, being rewritten">
-        <RefineDocument plan={plan} ratings={ratings} queue={queue} jobs={jobs} meter={meter} readMs={readMs} resultAt={resultAt} frontier={frontier} within={within} scanMs={scanMs} clockRef={clockRef} reduce={reduce} done={done} />
+        <RefineDocument plan={plan} ratings={ratings} queue={queue} jobs={jobs} meter={meter} readMs={readMs} frontier={frontier} within={within} scanMs={scanMs} clockRef={clockRef} reduce={reduce} done={done} />
         <AnimatePresence>
           {card && (
             <motion.div
@@ -400,7 +401,6 @@ const RefineDocument = memo(function RefineDocument({
   jobs,
   meter,
   readMs,
-  resultAt,
   frontier,
   within,
   scanMs,
@@ -414,7 +414,6 @@ const RefineDocument = memo(function RefineDocument({
   jobs: RefineJob[];
   meter: RefineMeter;
   readMs: number;
-  resultAt: number | null;
   frontier: number;
   within: number;
   scanMs: number;
@@ -434,9 +433,9 @@ const RefineDocument = memo(function RefineDocument({
   const marks = useRef<HTMLDivElement>(null);
   const eraser = useRef<HTMLDivElement>(null);
   const pen = useRef<HTMLDivElement>(null);
-  const live = useRef({ frontier, within, done, jobs, resultAt });
+  const live = useRef({ frontier, within, done, jobs });
   useLayoutEffect(() => {
-    live.current = { frontier, within, done, jobs, resultAt };
+    live.current = { frontier, within, done, jobs };
   });
   const userScrolledAt = useRef(-Infinity);
 
@@ -592,7 +591,7 @@ const RefineDocument = memo(function RefineDocument({
     let lastFocus: { el: HTMLElement; at: number } | null = null;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const { jobs: list, frontier: f, done: finished, resultAt: at } = live.current;
+      const { jobs: list, frontier: f, done: finished } = live.current;
       const t = clockNow(clockRef.current);
       const now = performance.now();
       let erasing: HTMLElement | null = null;
@@ -657,7 +656,7 @@ const RefineDocument = memo(function RefineDocument({
       if (!reduce) {
         let trail: HTMLElement | null = null;
         if (!erasing && !finished && f < total) {
-          const p = scanPosition(plan, readerAt(Math.max(0, t - TRAIL_MS), readMs, at));
+          const p = scanPosition(plan, readerAt(Math.max(0, t - TRAIL_MS), readMs));
           const ws = words.current[Math.min(p.index, total - 1)];
           trail = ws?.[Math.max(0, Math.min(ws.length - 1, Math.floor(p.within * ws.length)))] ?? null;
         }
@@ -690,7 +689,7 @@ const RefineDocument = memo(function RefineDocument({
 
   return (
     <div className="flex flex-col max-lg:h-[50dvh] lg:h-full">
-      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} known={resultAt !== null} scanMs={scanMs} done={done} />
+      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} scanMs={scanMs} done={done} />
       <div
         ref={scroller}
         className="scan-doc relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-10 sm:py-7"
@@ -771,7 +770,6 @@ function AgentBar({
   frontier,
   within,
   jobs,
-  known,
   scanMs,
   done,
 }: {
@@ -780,7 +778,6 @@ function AgentBar({
   frontier: number;
   within: number;
   jobs: RefineJob[];
-  known: boolean;
   scanMs: number;
   done: boolean;
 }) {
@@ -790,17 +787,19 @@ function AgentBar({
   const ahead = plan.sentences[f + 1];
   const over = done || frontier >= total;
   const flagged = plan.sentences.slice(0, frontier).filter((s) => queue.has(s.n)).length;
-  const active = jobs.find((j) => scanMs >= j.start && scanMs < j.end) ?? null;
-  const ph = active ? jobPhase(active, scanMs) : null;
-  const marked = jobs.filter((j) => jobPhase(j, scanMs).phase === "marked").length;
+  const erasing = jobs.find((j) => jobPhase(j, scanMs).phase === "erasing") ?? null;
+  const er = erasing ? jobPhase(erasing, scanMs) : null;
+  const typing = jobs.find((j) => jobPhase(j, scanMs).phase === "typing") ?? null;
+  const ty = typing ? jobPhase(typing, scanMs) : null;
+  const waiting = jobs.find((j) => !j.known && jobPhase(j, scanMs).phase === "marked") ?? null;
   const checked = jobs.filter((j) => scanMs >= j.end);
   const passed = checked.filter((j) => j.rewrite).length;
   const target = [
-    x && !over ? `P${x.p} S${x.s} · w${Math.max(1, Math.ceil(within * x.words.length))}/${x.words.length}${known ? "" : " · slow"}` : "done",
+    x && !over ? `P${x.p} S${x.s} · w${Math.max(1, Math.ceil(within * x.words.length))}/${x.words.length}` : "done",
     ahead && !over ? `P${ahead.p} S${ahead.s}` : over ? "done" : "last line",
     `${flagged}/${queue.size} locked`,
-    active && ph?.phase === "erasing" ? `P${active.p} S${active.s} · −${active.original.length - ph.left}` : done ? "done" : known ? "on A1's tail" : `${marked} marked`,
-    active?.rewrite && ph?.phase === "typing" ? `P${active.p} S${active.s} · ${ph.typed}/${active.rewrite.length}` : done ? "done" : known ? "standing by" : "waiting for suggestions",
+    erasing && er?.phase === "erasing" ? `P${erasing.p} S${erasing.s} · −${erasing.original.length - er.left}` : done ? "done" : "on A1's tail",
+    typing?.rewrite && ty?.phase === "typing" ? `P${typing.p} S${typing.s} · ${ty.typed}/${typing.rewrite.length}` : done ? "done" : waiting ? `waiting for P${waiting.p} S${waiting.s}` : "standing by",
     `${passed} passed${checked.length > passed ? ` · ${checked.length - passed} kept` : ""}`,
     `${clearedBy(jobs, scanMs)} sent to the chart`,
   ];

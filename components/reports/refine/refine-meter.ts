@@ -15,7 +15,7 @@ export interface RefineMeterInput {
   target: number;
   /** The report's own score. */
   original: number;
-  /** Steps so far (a counted sentence encoded, or its suggestion typed): each one marks the drop since the last. */
+  /** Counted sentences rewritten so far: each one marks the drop since the last. */
   marks: number;
   done: boolean;
   reduce: boolean;
@@ -80,8 +80,9 @@ export class RefineMeter {
       this.marks = input.marks;
       this.markedAt = at;
     }
-    this.target = input.target;
-    this.level = input.reduce ? input.target : this.level + (input.target - this.level) * (input.done ? 0.3 : 0.16);
+    // Only ever down while it works (an estimate can rise a little when a sentence turns out kept); at the end, the real figure.
+    this.target = input.done ? input.target : Math.min(this.target, input.target);
+    this.level = input.reduce ? this.target : this.level + (this.target - this.level) * (input.done ? 0.3 : 0.16);
     this.noise = input.done ? this.noise * 0.5 : this.noise * 0.85 + (input.reduce ? 0 : 0.0012) * gauss();
     if (input.done && Math.abs(this.level - input.target) < 0.0004 && Math.abs(this.noise) < 0.0004) {
       this.level = input.target;
