@@ -137,12 +137,12 @@ const count = (s: string, re: RegExp) => s.match(re)?.length ?? 0;
 const wordsOf = (s: string) => s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
 
 /** Numbers as written ("1998", "3.5", "12,000"), without a trailing full stop. */
-function numbersIn(s: string): string[] {
+export function numbersIn(s: string): string[] {
   return (s.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((x) => x.replace(/[,.]$/, ""));
 }
 
 /** Text that must survive word for word: bracketed citations and quotations. */
-function lockedIn(s: string): string[] {
+export function lockedIn(s: string): string[] {
   const citations = s.match(/\([^()]*\b\d{4}[a-z]?\b[^()]*\)/g) ?? [];
   const quotes = [...s.matchAll(/[“"]([^”"]{3,})[”"]/g)].map((m) => m[1]);
   return [...citations, ...quotes];

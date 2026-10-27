@@ -1,15 +1,15 @@
 "use client";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Check, Copy, PenLine, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { WaitingAnimation } from "@/components/ui/waiting";
 import { reviseText, type Decision, type ReportRewrite } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
-import { cn } from "@/lib/utils";
+import { cn, shortId } from "@/lib/utils";
+import { RefineScan } from "./refine/refine-scan";
 
 type Decisions = Record<number, Decision | undefined>;
 
@@ -37,11 +37,14 @@ function subscribe(onChange: () => void) {
 /**
  * Writing Refinement, an add-on after a finished report ("Fix flagged phrasing, keep your meaning"): paid in credits, once per report. After a finished report, suggests a rewrite for each flagged sentence,
  * made from the reviewer's reason. The student sees their own sentence beside the suggestion and accepts or keeps
- * theirs one by one. Nothing is scored again here, and nothing changes the report above it.
+ * theirs one by one. Nothing is scored again here, and nothing changes the report above it. While the suggestions
+ * are written the customer watches them being typed over their text (RefineScan).
  */
-export function RewritePanel({ orderId, result, initial, sourceText, credits, balance }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number }) {
+export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
-  const [busy, setBusy] = useState(false);
+  // The live rewrite on screen: running until the suggestions are in and have been typed out.
+  const [live, setLive] = useState<{ run: number; rewrite: ReportRewrite | null } | null>(null);
+  const runs = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const stored = useSyncExternalStore(subscribe, () => readChoices(orderId), () => "");
   const [local, setLocal] = useState<Decisions | null>(null);
@@ -69,19 +72,30 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   };
 
   async function start() {
-    setBusy(true);
+    const run = ++runs.current;
+    setLive({ run, rewrite: null });
     setError(null);
     track("rewrite_requested");
+    const fail = (message: string) => {
+      setLive(null);
+      setError(message);
+    };
     try {
       const res = await fetch(`/api/reports/${orderId}/rewrite`, { method: "POST" });
       const body = (await res.json().catch(() => null)) as { rewrite?: ReportRewrite; error?: string } | null;
-      if (res.ok && body?.rewrite) setRewrite(body.rewrite);
-      else setError(body?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
+      const made = body?.rewrite;
+      if (res.ok && made) setLive((l) => (l && l.run === run ? { run, rewrite: made } : l));
+      else fail(body?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
-      setError("We couldn't write the suggestions just now. Please check your connection and try again.");
-    } finally {
-      setBusy(false);
+      fail("We couldn't write the suggestions just now. Please check your connection and try again.");
     }
+  }
+
+  // The live rewrite is over: show the suggestions to choose from.
+  function reveal() {
+    if (live?.rewrite) setRewrite(live.rewrite);
+    setLive(null);
+    requestAnimationFrame(() => document.getElementById("writing-refinement")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   const shown = useMemo(() => rewrite?.items.filter((i) => i.rewrite) ?? [], [rewrite]);
@@ -119,7 +133,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
         For each flagged sentence we suggest a rewrite that answers the reviewer&rsquo;s reason and keeps what you said: your facts, numbers, names, quotations and citations stay as they are. You choose, sentence by sentence.
       </p>
 
-      {!rewrite && !busy && (
+      {!rewrite && !live && (
         <div className="mt-4">
           {balance < credits ? (
             <>
@@ -138,12 +152,10 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
         </div>
       )}
 
-      {busy && (
-        <WaitingAnimation
-          title="Writing your suggestions"
-          steps={["Reading why each sentence was flagged", "Keeping your facts, names and citations", "Checking every suggestion against your original"]}
-          stepMs={2600}
-        />
+      {live && (
+        <div className="mt-5 rounded-xl border border-[#9b7bff]/25 bg-ink-950/50 p-4">
+          <RefineScan key={live.run} result={result} rewrite={live.rewrite} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} />
+        </div>
       )}
 
       {error && <p className="mt-3 rounded-xl border border-warn/30 bg-warn/10 p-3 text-[13px] text-warn" role="alert">{error}</p>}

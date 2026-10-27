@@ -272,7 +272,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
       )}
 
       {rewriteDemo && !rewrite && <RewriteDemo />}
-      {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} />}
+      {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} title={title} />}
 
       <div className="space-y-3">
         <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>
