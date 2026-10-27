@@ -100,10 +100,17 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
     }
   }
 
-  if (flagged === 0) return null;
+  if (flagged === 0) {
+    return (
+      <Card id="writing-refinement" className="scroll-mt-24 p-5 sm:p-6 print:hidden">
+        <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: fix flagged phrasing, keep your meaning</h3>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">This add-on suggests rewrites for the sentences a report flags. This report has no flagged sentences, so there is nothing to rewrite and nothing to pay.</p>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="p-5 sm:p-6 print:hidden">
+    <Card id="writing-refinement" className="scroll-mt-24 p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: fix flagged phrasing, keep your meaning</h3>
         <Badge tone="info">{rewrite ? "Done for this report" : credits === 0 ? "Add-on · free for you" : `Add-on · ${credits} ${credits === 1 ? "credit" : "credits"}`}</Badge>
@@ -210,6 +217,36 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
           </p>
         </div>
       )}
+    </Card>
+  );
+}
+
+/** A fixed example of the Writing Refinement add-on for the sample report: nothing here is clickable or charged. */
+export function RewriteDemo() {
+  return (
+    <Card className="p-5 sm:p-6 print:hidden">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: fix flagged phrasing, keep your meaning</h3>
+        <Badge tone="info">Add-on · same price as the report</Badge>
+      </div>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">
+        After a finished report, you can ask for a suggested rewrite of each flagged sentence. Each one answers the reviewer&rsquo;s reason and keeps what you said: your facts, numbers, names, quotations and citations stay as they are. You choose, sentence by sentence. Credits are taken only when suggestions are ready.
+      </p>
+      <div className="mt-4 rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
+        <span className="font-mono text-[11px] text-fg-subtle">Example sentence</span>
+        <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: stock transition and an even, polished rhythm.</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-[var(--line)] p-3">
+            <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Your sentence</p>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">Furthermore, it is important to note that urban noise has a significant impact on residents&rsquo; sleep.</p>
+          </div>
+          <div className="rounded-lg border border-accent/25 bg-accent/[0.05] p-3">
+            <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#a9c1ff]">Suggested</p>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-fg">Urban noise also affects how well residents sleep.</p>
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">Example only. Suggestions are not corrections, and they do not guarantee any result in any checker. You find this card at the bottom of your own finished report, above &ldquo;Paragraph by paragraph&rdquo;.</p>
     </Card>
   );
 }

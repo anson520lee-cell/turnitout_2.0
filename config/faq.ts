@@ -64,4 +64,8 @@ export const faq: FaqItem[] = [
     q: "What is the daily free report?",
     a: `Every signed-in account gets ${freeReport.dailyLimit} full report a day for free, for texts of up to ${freeReport.maxChars.toLocaleString("en-HK")} characters. It is the same automatic report as a paid one: the live scan, the AI score, every sentence rated with its reason, the paragraph map and a PDF. It resets at midnight Hong Kong time. To stop one person making many accounts, free reports are also counted by a one-way hash of the network address, so the address itself is never stored.`,
   },
+  {
+    q: "What is Writing Refinement?",
+    a: "An optional add-on you can use once on a finished report. It suggests a rewrite for each flagged sentence, answering the reviewer's reason while keeping your facts, numbers, names, quotations and citations. You see your sentence beside the suggestion and choose one by one. It is charged in credits at the same price as the report, only when suggestions are ready, and it does not guarantee any result in any checker. Find it at the bottom of your finished report page.",
+  },
 ];

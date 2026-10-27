@@ -28,7 +28,7 @@ export default function SampleReportPage() {
           Example only. The text and ratings below are made up to show the layout; they are not a real customer&rsquo;s result. A real
           report is made from your own text and has a Download PDF button.
         </p>
-        <AutoReportView title="Example: Sociology essay, final draft" finishedAt="30 Sep 2026, 10:40" result={sampleReport} />
+        <AutoReportView title="Example: Sociology essay, final draft" finishedAt="30 Sep 2026, 10:40" result={sampleReport} rewriteDemo />
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
             Get a report
