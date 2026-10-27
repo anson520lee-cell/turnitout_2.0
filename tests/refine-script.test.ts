@@ -6,6 +6,9 @@ import { pickFlagged, type ReportRewrite } from "../lib/auto-report/rewrite";
 import {
   CHASE_MS,
   type Arrival,
+  draftStrokes,
+  strokesAt,
+  strokesMs,
   REFINE_INTRO_MS,
   clearedBy,
   jobPhase,
@@ -180,4 +183,38 @@ test("the projected rate steps down evenly, one equal step per counted sentence"
     const want = k + 1 === total ? final : rate.original + ((final - rate.original) * (k + 1)) / total;
     assert.ok(Math.abs(projectedAt(rate, jobs, j.end) - want) < 1e-9, `step ${k + 1} of ${total}`);
   });
+});
+
+test("R2 types like a person: second thoughts taken back, ending exactly on the suggestion", () => {
+  const original = "Furthermore, the benefits of accessible neighbourhoods extend beyond convenience for everyone involved.";
+  const rewrite = "Neighbourhoods where things are close by give you more than convenience, and that matters to everyone.";
+  const strokes = draftStrokes(original, rewrite, 7);
+  assert.deepEqual(strokes, draftStrokes(original, rewrite, 7), "the same sentence is always typed the same way");
+  assert.equal(strokes[strokes.length - 1].text, rewrite);
+  assert.ok(strokes.some((x) => x.kind === "delete"), "it takes something back");
+  const keyMs = strokes[0].ms / strokes[0].text.length;
+  assert.ok(strokesMs(strokes) > rewrite.length * keyMs * 1.3, "it takes longer than typing straight through, at the same keystroke pace");
+  let prev = "";
+  let wrong = false;
+  for (let t = 0; t <= strokesMs(strokes); t += 5) {
+    const { text } = strokesAt(strokes, t);
+    assert.ok(Math.abs(text.length - prev.length) <= 40, "no jumps");
+    if (!rewrite.startsWith(text)) wrong = true;
+    prev = text;
+  }
+  assert.ok(wrong, "a second thought shows on screen");
+  assert.equal(strokesAt(strokes, Infinity).text, rewrite);
+});
+
+test("a sentence being typed only moves the rate forward, even while R2 takes something back", () => {
+  const plan = refinePlan(result);
+  const readMs = refineReadMs(plan.chars);
+  const [j] = refineJobs(plan, result, arrive(rewriteOf(), 0), readMs);
+  let prev = -1;
+  for (let t = j.typeAt; t <= j.end; t += 10) {
+    const ph = jobPhase(j, t);
+    if (ph.phase !== "typing") continue;
+    assert.ok(ph.f >= prev);
+    prev = ph.f;
+  }
 });

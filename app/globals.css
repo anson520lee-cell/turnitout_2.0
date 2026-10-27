@@ -1888,6 +1888,12 @@ html.ent-pre :is(.depth-title, h1, h2) {
 .scan-sent.rf-sent[data-rf="type"] { background: rgb(124 108 255 / 0.13); color: #f3efff; text-decoration: none; text-shadow: 0 0 14px rgb(155 123 255 / 0.85); box-shadow: none; animation: none; }
 /* R2's ink: a lilac line under what it has typed so far. */
 .scan-sent.rf-sent[data-rf="type"] .rf-txt { background: linear-gradient(90deg, rgb(205 190 255 / 0.15), rgb(205 190 255 / 0.85)) 0 100% / 100% 2px no-repeat; }
+/* R2 taking something back: the caret turns pink and the second thought it deletes is struck through. */
+.scan-sent.rf-sent[data-rf="revise"] { background: rgb(124 108 255 / 0.13); color: #f3efff; text-decoration: none; text-shadow: 0 0 14px rgb(155 123 255 / 0.85); box-shadow: none; animation: none; }
+.scan-sent.rf-sent[data-rf="revise"] .rf-txt { background: linear-gradient(90deg, rgb(205 190 255 / 0.15), rgb(205 190 255 / 0.85)) 0 100% / 100% 2px no-repeat; }
+.rf-draft { color: #ffb3e6; background: rgb(255 123 213 / 0.14); border-radius: 2px; text-shadow: 0 0 10px rgb(255 123 213 / 0.7); }
+.rf-sent[data-rf="revise"] .rf-draft { text-decoration: line-through 1.5px rgb(255 123 213 / 0.9); }
+.rf-sent[data-rf="revise"] .rf-caret { background: #ff9bdc; box-shadow: 0 0 10px #ff7bd5, 0 0 2px #fff; }
 .scan-sent.rf-sent[data-rf="done"] { background: transparent; color: var(--color-fg); text-decoration: underline 1.5px rgb(155 123 255 / 0.75); text-shadow: none; box-shadow: none; animation: none; }
 .scan-sent.rf-sent[data-rf="done"] .rf-txt { border-radius: 3px; animation: rf-cool 1.8s ease-out both; }
 @keyframes rf-cool {

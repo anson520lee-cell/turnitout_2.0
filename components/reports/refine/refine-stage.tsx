@@ -325,13 +325,13 @@ function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject
       raf = requestAnimationFrame(frame);
       const ph = jobPhase(job, clockNow(clockRef.current));
       const left = ph.phase === "erasing" ? ph.left : ph.phase === "typing" || (ph.phase === "done" && job.rewrite) ? 0 : job.original.length;
-      const n = ph.phase === "typing" ? ph.typed : ph.phase === "done" ? (job.rewrite?.length ?? 0) : 0;
-      const key = `${ph.phase}:${left}:${n}`;
+      const shown = ph.phase === "typing" ? ph.text : ph.phase === "done" ? (job.rewrite ?? "") : "";
+      const key = `${ph.phase}:${left}:${shown}`;
       if (key === last || !keep.current || !gone.current || !card.current) return;
       last = key;
       keep.current.textContent = job.original.slice(0, left);
       gone.current.textContent = job.original.slice(left);
-      if (typed.current && job.rewrite) typed.current.textContent = job.rewrite.slice(0, n);
+      if (typed.current && job.rewrite) typed.current.textContent = shown;
       card.current.dataset.ph = job.rewrite ? ph.phase : ph.phase === "done" ? "kept" : "inspect";
     };
     raf = requestAnimationFrame(frame);
@@ -609,7 +609,7 @@ const RefineDocument = memo(function RefineDocument({
         if (!reduce && caret && ph.phase === "typing") typing = caret;
         if (ph.phase === "erasing" || ph.phase === "typing") [focus, focusSent] = [!reduce && caret ? caret : sent, sent];
         if (ph.phase === "checking") [focus, focusSent] = [sent, sent];
-        const key = ph.phase === "erasing" ? `e${ph.left}` : ph.phase === "typing" ? `t${ph.typed}` : ph.phase;
+        const key = ph.phase === "erasing" ? `e${ph.left}` : ph.phase === "typing" ? `t${ph.deleting ? "-" : "+"}${ph.text}` : ph.phase;
         const was = shown.get(j.i);
         if (was === key) continue;
         shown.set(j.i, key);
@@ -634,13 +634,17 @@ const RefineDocument = memo(function RefineDocument({
         wrap.hidden = true;
         box.hidden = false;
         const txt = box.firstElementChild as HTMLElement | null;
+        const draft = txt?.nextElementSibling as HTMLElement | null;
+        if (draft && ph.phase !== "typing") draft.textContent = "";
         if (!txt || !j.rewrite) continue;
         if (ph.phase === "erasing") {
           sent.dataset.rf = "erase";
           txt.textContent = j.original.slice(0, ph.left);
         } else if (ph.phase === "typing") {
-          sent.dataset.rf = "type";
-          txt.textContent = j.rewrite.slice(0, ph.typed);
+          // What R2 has right so far, then its second thought (if one is on screen), being typed or taken back.
+          sent.dataset.rf = ph.deleting ? "revise" : "type";
+          txt.textContent = ph.text.slice(0, ph.typed);
+          if (draft) draft.textContent = ph.text.slice(ph.typed);
         } else {
           sent.dataset.rf = "done";
           txt.textContent = j.rewrite;
@@ -752,6 +756,7 @@ const Text = memo(function Text({
               {queue.has(x.n) && (
                 <span ref={(el) => void (lives.current[i] = el)} hidden>
                   <span className="rf-txt" />
+                  <span className="rf-draft" />
                   <span className="rf-caret" aria-hidden />
                 </span>
               )}

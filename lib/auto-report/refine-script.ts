@@ -91,6 +91,8 @@ export interface RefineJob {
   /** R2 starts typing: as soon as it is erased, or once R2 has finished the sentence before. */
   typeAt: number;
   end: number;
+  /** How R2 types the suggestion, with its second thoughts (see draftStrokes); empty for a kept sentence. */
+  strokes: Stroke[];
 }
 
 /** A suggestion as it came in: when (ms on the scan clock) and what. */
@@ -136,6 +138,7 @@ export function refineJobs(plan: ScanPlan, result: AutoReportResult, arrivals: R
       erased: Infinity,
       typeAt: Infinity,
       end: Infinity,
+      strokes: it?.rewrite ? draftStrokes(it.original, it.rewrite, n) : [],
     };
   });
   // Work through the sentences in the order they become ready (reader past it and suggestion in). R1 and R2 are a
@@ -149,7 +152,7 @@ export function refineJobs(plan: ScanPlan, result: AutoReportResult, arrivals: R
     if (j.rewrite) {
       j.erased = j.start + (j.original.length * ERASE_SHARE * REFINE_MS_PER_CHAR) / fast;
       j.typeAt = Math.max(j.erased, r2);
-      j.end = j.typeAt + (j.rewrite.length * TYPE_SHARE * REFINE_MS_PER_CHAR) / fast;
+      j.end = j.typeAt + strokesMs(j.strokes) / fast;
       r1 = j.erased + GAP_MS;
       r2 = j.end + GAP_MS;
     } else {
@@ -172,7 +175,12 @@ export type JobPhase =
   | { phase: "marked" }
   /** Characters of the original still standing. */
   | { phase: "erasing"; left: number }
-  | { phase: "typing"; typed: number }
+  /**
+   * R2 at work: `text` is what stands now (with its second thoughts, so not always a prefix of the suggestion),
+   * `typed` how much of the suggestion stands, `deleting` whether it is taking something back, `f` how far through
+   * the sentence it is (0 to 1, only ever up).
+   */
+  | { phase: "typing"; typed: number; text: string; deleting: boolean; f: number }
   /** A kept sentence, being checked. */
   | { phase: "checking" }
   | { phase: "done" };
@@ -189,8 +197,138 @@ export function jobPhase(job: RefineJob, t: number): JobPhase {
   }
   // Erased, R2 still on the sentence before.
   if (t < job.typeAt) return { phase: "erasing", left: 0 };
-  const f = (t - job.typeAt) / Math.max(1, job.end - job.typeAt);
-  return { phase: "typing", typed: Math.min(job.rewrite.length, Math.floor(job.rewrite.length * f)) };
+  const f = Math.min(1, (t - job.typeAt) / Math.max(1, job.end - job.typeAt));
+  const { text, deleting } = strokesAt(job.strokes, f * strokesMs(job.strokes));
+  let typed = 0;
+  while (typed < text.length && text[typed] === job.rewrite[typed]) typed++;
+  return { phase: "typing", typed, text, deleting, f };
+}
+
+/* ------------------------------------------------------------------
+   How R2 types a suggestion: like a person, with second thoughts. Now and
+   then it types a phrase from the original sentence and takes it back for
+   the new wording, hits a wrong key and corrects it, or deletes the last
+   word or two and types them again. Keystrokes stay fast; the sentence just
+   takes longer. Every stroke ends on the suggestion exactly.
+   ------------------------------------------------------------------ */
+
+/** One step: the text goes from what the previous step left to `text`, over `ms`. */
+export interface Stroke {
+  kind: "type" | "delete" | "hold";
+  text: string;
+  ms: number;
+}
+
+const KEY_MS = TYPE_SHARE * REFINE_MS_PER_CHAR;
+const BACKSPACE_MS = ERASE_SHARE * REFINE_MS_PER_CHAR;
+/** A second thought stays on screen this long before it is taken back. */
+const SEE_MS = 240;
+const TYPO_SEE_MS = 130;
+/** About one second thought per this many words, at least one and at most MAX_THOUGHTS. */
+const WORDS_PER_THOUGHT = 4;
+const MAX_THOUGHTS = 6;
+
+/** A small seeded random source, so a sentence is always typed the same way. */
+function seeded(seed: number) {
+  let x = (seed * 2654435761) >>> 0 || 1;
+  return () => {
+    x ^= x << 13;
+    x >>>= 0;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    x >>>= 0;
+    return x / 4294967296;
+  };
+}
+
+const NEAR_KEYS = "qwertyuiopasdfghjklzxcvbnm";
+function wrongKey(c: string): string {
+  const k = NEAR_KEYS.indexOf(c.toLowerCase());
+  if (k < 0) return "e";
+  return NEAR_KEYS[(k + 1) % NEAR_KEYS.length];
+}
+
+/** R2's strokes for one suggestion (seeded by the sentence number). */
+export function draftStrokes(original: string, rewrite: string, seed: number): Stroke[] {
+  const words = rewrite.match(/\S+\s*/g) ?? [rewrite];
+  const theirs = original.match(/\S+\s*/g) ?? [];
+  const rand = seeded(seed);
+  const out: Stroke[] = [];
+  let cur = "";
+  const type = (add: string) => {
+    if (!add) return;
+    cur += add;
+    out.push({ kind: "type", text: cur, ms: add.length * KEY_MS });
+  };
+  const back = (k: number) => {
+    if (k <= 0) return;
+    cur = cur.slice(0, cur.length - k);
+    out.push({ kind: "delete", text: cur, ms: k * BACKSPACE_MS });
+  };
+  const hold = (ms: number) => out.push({ kind: "hold", text: cur, ms });
+
+  // Where the second thoughts go: word boundaries spread through the sentence, never at its very start or end.
+  const want = Math.max(1, Math.min(MAX_THOUGHTS, Math.round(words.length / WORDS_PER_THOUGHT)));
+  const at = new Set<number>();
+  for (let k = 0; k < want * 4 && at.size < want && words.length > 2; k++) at.add(1 + Math.floor(rand() * (words.length - 2)));
+  let kind = Math.floor(rand() * 3);
+  words.forEach((word, w) => {
+    if (at.has(w)) {
+      kind = (kind + 1 + Math.floor(rand() * 2)) % 3;
+      const from = theirs.length ? Math.min(theirs.length - 1, Math.floor((w / words.length) * theirs.length)) : -1;
+      const phrase = from >= 0 ? theirs.slice(from, from + 1 + Math.floor(rand() * 2)).join("") : "";
+      if (kind === 0 && phrase && !rewrite.slice(cur.length).startsWith(phrase)) {
+        // The original wording first, then the new one.
+        const draft = /\s$/.test(phrase) ? phrase : `${phrase} `;
+        type(draft);
+        hold(SEE_MS);
+        back(draft.length);
+      } else if (kind === 1 && word.trim().length > 3) {
+        // A wrong key, caught at once.
+        const k = 1 + Math.floor(rand() * Math.min(3, word.trim().length - 2));
+        type(word.slice(0, k));
+        type(wrongKey(word[k]));
+        hold(TYPO_SEE_MS);
+        back(1);
+        type(word.slice(k));
+        return;
+      } else if (w >= 2) {
+        // The last word or two again.
+        const n = 1 + Math.floor(rand() * 2);
+        const again = words.slice(Math.max(0, w - n), w).join("");
+        back(again.length);
+        hold(SEE_MS / 2);
+        type(again);
+      }
+    }
+    type(word);
+  });
+  if (cur !== rewrite) {
+    back(cur.length);
+    type(rewrite);
+  }
+  return out;
+}
+
+export function strokesMs(strokes: Stroke[]): number {
+  return strokes.reduce((sum, x) => sum + x.ms, 0);
+}
+
+/** What stands `ms` into the strokes, and whether a stroke is taking something back. */
+export function strokesAt(strokes: Stroke[], ms: number): { text: string; deleting: boolean } {
+  let prev = "";
+  let t = Math.max(0, ms);
+  for (const x of strokes) {
+    if (t < x.ms) {
+      const f = t / Math.max(1e-9, x.ms);
+      if (x.kind === "type") return { text: x.text.slice(0, prev.length + Math.floor((x.text.length - prev.length) * f)), deleting: false };
+      if (x.kind === "delete") return { text: prev.slice(0, prev.length - Math.floor((prev.length - x.text.length) * f)), deleting: true };
+      return { text: prev, deleting: false };
+    }
+    t -= x.ms;
+    prev = x.text;
+  }
+  return { text: prev, deleting: false };
 }
 
 /** Of a counted sentence's drop, the share shown once its original is erased; the rest comes as the suggestion is typed. */
@@ -206,7 +344,7 @@ export function clearedShare(job: RefineJob, t: number): number {
   const ph = jobPhase(job, t);
   if (ph.phase === "done") return 1;
   if (ph.phase === "erasing") return ERASED_SHARE * (1 - ph.left / Math.max(1, job.original.length));
-  if (ph.phase === "typing") return ERASED_SHARE + (1 - ERASED_SHARE) * (ph.typed / Math.max(1, job.rewrite.length));
+  if (ph.phase === "typing") return ERASED_SHARE + (1 - ERASED_SHARE) * ph.f;
   return 0;
 }
 
