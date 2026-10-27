@@ -4,10 +4,13 @@ import { stitchReport } from "../lib/auto-report/stitch";
 import { SCAN_MS_PER_CHAR, scanDurationMs } from "../lib/auto-report/scan-script";
 import { pickFlagged, type ReportRewrite } from "../lib/auto-report/rewrite";
 import {
+  CHASE_MS,
+  DRAFT_SHARE,
   REFINE_INTRO_MS,
   clearedBy,
   jobPhase,
   passedAt,
+  projectedAt,
   projectedScore,
   refineEndMs,
   refineJobs,
@@ -45,61 +48,102 @@ test("the plan numbers sentences as the report does", () => {
   assert.equal(plan.paragraphs.length, 3);
 });
 
-test("each sentence is erased then retyped after the reader passes it, one at a time", () => {
+test("R1 encodes each flagged sentence on the reader's tail, before the suggestions are in", () => {
   const plan = refinePlan(result);
   const readMs = refineReadMs(plan.chars);
-  const jobs = refineJobs(plan, result, rewriteOf(), 0, readMs);
-  assert.deepEqual(jobs.map((j) => j.n), [2, 6, 15]);
+  const pending = refineJobs(plan, result, null, null, readMs);
+  assert.deepEqual(pending.map((j) => j.n), [2, 6, 15]);
   let free = 0;
-  for (const j of jobs) {
-    assert.ok(j.start >= passedAt(plan, j.i, readMs), "not before the reader has read it");
-    assert.ok(j.start >= free, "one sentence at a time");
-    assert.ok(j.start < j.erased && j.erased < j.end);
-    free = j.end;
+  for (const j of pending) {
+    assert.ok(j.start >= passedAt(plan, j.i, readMs) + CHASE_MS, "after the reader has read it");
+    assert.ok(j.start >= free, "R1 one sentence at a time");
+    assert.ok(j.start < j.erased);
+    assert.equal(j.known, false);
+    assert.equal(j.write, Infinity);
+    assert.equal(jobPhase(j, j.erased + 1).phase, "drafting");
+    free = j.erased;
   }
-  assert.equal(refineEndMs(jobs, readMs), Math.max(readMs, jobs[2].end));
+  assert.equal(refineEndMs(pending, readMs), Infinity);
 });
 
-test("erasing counts down the original and typing counts up the suggestion", () => {
+test("what was already shown doesn't change when the suggestions arrive", () => {
+  const plan = refinePlan(result);
+  const readMs = refineReadMs(plan.chars);
+  const pending = refineJobs(plan, result, null, null, readMs);
+  const at = pending[1].erased + 10;
+  const jobs = refineJobs(plan, result, rewriteOf(), at, readMs);
+  for (let k = 0; k < 2; k++) {
+    assert.equal(jobs[k].start, pending[k].start);
+    assert.equal(jobs[k].erased, pending[k].erased);
+    assert.ok(jobs[k].write >= at, "no writing before the suggestions are in");
+  }
+  for (let t = 0; t < at; t += 25) for (let k = 0; k < jobs.length; k++) assert.deepEqual(jobPhase(jobs[k], t), jobPhase(pending[k], t));
+});
+
+test("encoding counts up the original and typing counts up the suggestion", () => {
   const plan = refinePlan(result);
   const [j] = refineJobs(plan, result, rewriteOf(), 0);
   assert.deepEqual(jobPhase(j, j.start - 1), { phase: "waiting" });
-  assert.deepEqual(jobPhase(j, j.start), { phase: "erasing", left: j.original.length });
+  assert.deepEqual(jobPhase(j, j.start), { phase: "erasing", encoded: 0 });
   const mid = jobPhase(j, (j.start + j.erased) / 2);
-  assert.equal(mid.phase, "erasing");
-  assert.ok(mid.phase === "erasing" && mid.left > 0 && mid.left < j.original.length);
-  assert.deepEqual(jobPhase(j, j.erased), { phase: "typing", typed: 0 });
-  const typing = jobPhase(j, (j.erased + j.end) / 2);
+  assert.ok(mid.phase === "erasing" && mid.encoded > 0 && mid.encoded < j.original.length);
+  assert.deepEqual(jobPhase(j, j.write), { phase: "typing", typed: 0 });
+  const typing = jobPhase(j, (j.write + j.end) / 2);
   assert.ok(typing.phase === "typing" && typing.typed > 0 && typing.typed < (j.rewrite?.length ?? 0));
   assert.deepEqual(jobPhase(j, j.end), { phase: "done" });
 });
 
-test("suggestions that arrive late are caught up faster", () => {
+test("suggestions that arrive late are written side by side, and faster", () => {
   const plan = refinePlan(result);
   const readMs = refineReadMs(plan.chars);
   const onTime = refineJobs(plan, result, rewriteOf(), 0, readMs);
   const late = refineJobs(plan, result, rewriteOf(), readMs, readMs);
-  assert.ok(late.every((j) => j.start >= readMs));
-  const span = (j: (typeof late)[number]) => j.end - j.start;
+  assert.ok(late.every((j) => j.write >= readMs));
+  assert.deepEqual(late.slice(0, 2).map((j) => j.lane), [0, 1], "more than one writer at once");
+  assert.ok(late[1].write < late[0].end, "they overlap");
+  const span = (j: (typeof late)[number]) => j.end - j.write;
   assert.ok(span(late[0]) < span(onTime[0]), "a late start works faster");
-  assert.ok(span(late[0]) >= span(onTime[0]) / 4 - 1, "at most four times");
+  assert.ok(span(late[0]) >= span(onTime[0]) / 1.5 - 1, "at most 1.5 times as fast: the writers share the work instead");
 });
 
-test("the projected rate starts at the report's score and only falls as counted sentences are rewritten", () => {
+test("the projected rate falls steadily with the rewrite and lands on the real projection", () => {
   const plan = refinePlan(result);
   const rate = refineRate(result);
+  const readMs = refineReadMs(plan.chars);
   assert.equal(projectedScore(rate, 0), rate.original);
-  const jobs = refineJobs(plan, result, rewriteOf([15]), 0);
-  const end = refineEndMs(jobs, refineReadMs(plan.chars));
+  const jobs = refineJobs(plan, result, rewriteOf([15]), 0, readMs);
+  const end = refineEndMs(jobs, readMs);
+  const [j] = jobs;
+  // Part of the way once encoded, the rest as it is typed.
+  assert.ok(projectedAt(rate, jobs, j.erased) < rate.original);
+  assert.ok(projectedAt(rate, jobs, j.erased) > projectedAt(rate, jobs, j.end));
   let prev = rate.original;
   for (let t = 0; t <= end; t += 50) {
-    const v = projectedScore(rate, clearedBy(jobs, t));
-    assert.ok(v <= prev + 1e-12, "never rises");
+    const v = projectedAt(rate, jobs, t);
+    assert.ok(v <= prev + 1e-12, "never rises when the suggestions are in on time");
     prev = v;
   }
   // Sentence 2 (High) counts; 6 is a Medium that doesn't count toward the score; 15 kept its own wording.
   assert.equal(clearedBy(jobs, end), 1, "only rewritten sentences that count move the rate");
+  assert.equal(projectedAt(rate, jobs, end), projectedScore(rate, 1), "ends exactly on the projection");
   assert.ok(prev < rate.original);
   assert.ok(prev > 0);
   assert.equal(projectedScore(rate, rate.counted), 0);
+});
+
+test("while the writer drafts, the rate falls part of the way and no further", () => {
+  const plan = refinePlan(result);
+  const rate = refineRate(result);
+  const readMs = refineReadMs(plan.chars);
+  const pending = refineJobs(plan, result, null, null, readMs);
+  // Sentences 2 and 15 count (6 doesn't): long into drafting, each shows DRAFT_SHARE of its drop.
+  const long = projectedAt(rate, pending, readMs * 10);
+  assert.ok(long < rate.original && long > projectedScore(rate, 2), "a share of the drop, not all of it");
+  assert.ok(Math.abs(long - projectedScore(rate, 2 * DRAFT_SHARE)) < 1e-3);
+  // A sentence encoded before it turned out to be kept gives its share back, so the end is still exact.
+  const jobs = refineJobs(plan, result, rewriteOf([2]), readMs, readMs);
+  const end = refineEndMs(jobs, readMs);
+  assert.equal(jobs[0].kept, "the number was changed");
+  assert.equal(jobPhase(jobs[0], (jobs[0].write + jobs[0].end) / 2).phase, "restoring");
+  assert.equal(projectedAt(rate, jobs, end), projectedScore(rate, 1), "only sentence 15 cleared");
 });

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { WRITERS } from "@/lib/auto-report/refine-script";
 import { SCORE_BANDS } from "@/lib/auto-report/scan-script";
 import { cn } from "@/lib/utils";
 import { REFINE_POINT_MS, type RefineMeter } from "./refine-meter";
@@ -25,6 +26,9 @@ export interface RefineCounts {
   rewritten: number;
   total: number;
   kept: number;
+  /** Sentences R1 has encoded, and writers typing right now. */
+  encoded: number;
+  writing: number;
   /** Counted sentences still in the text as written. */
   counted: number;
   /** How far through the whole run, 0 to 1. */
@@ -80,10 +84,13 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
       </div>
 
       <dl className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
+        <Cell k="Encoded" v={`${counts.encoded}/${counts.total}`} tone="text-[#c99bff]" />
         <Cell k="Rewritten" v={`${counts.rewritten}/${counts.total}`} tone="text-[#cdbdff]" />
         <Cell k="Kept" v={String(counts.kept)} />
         <Cell k="Counted" v={String(counts.counted)} tone="text-[#a9c1ff]" />
         <Cell k="Drop" v={<DropValue meter={meter} original={original} />} tone="text-[#cdbdff]" />
+        <Cell k="Writers" v={`${counts.writing}/${WRITERS}`} tone={counts.writing ? "text-[#e9e3ff]" : undefined} />
+        <Cell k="Agents" v="9" />
         <Cell k="Pace" v="1.2×" />
         <Cell k="Progress" v={`${Math.round(counts.progress * 100)}%`} />
       </dl>

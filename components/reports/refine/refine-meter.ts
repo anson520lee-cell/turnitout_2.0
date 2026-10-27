@@ -1,7 +1,8 @@
 /**
- * The projected AI rate during a live rewrite, as a ticking series. It starts on the report's own score and drops,
- * fast, each time a counted sentence's suggestion is typed (see projectedScore); a small tremor on top keeps the
- * line alive between drops. When the rewrite is over it settles exactly on the projected figure and stops.
+ * The projected AI rate during a live rewrite, as a ticking series. It starts on the report's own score and follows
+ * the rewrite down smoothly (see projectedAt): a share of each counted sentence's drop as R1 encodes it, the rest
+ * as its suggestion is typed. A faint tremor keeps the line alive while it works. When the rewrite is over it
+ * settles exactly on the projected figure and stops.
  *
  * Kept outside React like the report scan's RateMeter: it ticks 20 times a second and its readers (the number and
  * the chart) draw themselves when it changes.
@@ -14,6 +15,8 @@ export interface RefineMeterInput {
   target: number;
   /** The report's own score. */
   original: number;
+  /** Steps so far (a counted sentence encoded, or its suggestion typed): each one marks the drop since the last. */
+  marks: number;
   done: boolean;
   reduce: boolean;
 }
@@ -23,7 +26,7 @@ export interface RefinePoint {
   v: number;
 }
 
-/** One sentence's drop, for the chart's flash and label. */
+/** The drop since the previous step, for the chart's flash and label. */
 export interface RefineDrop {
   t: number;
   from: number;
@@ -48,8 +51,10 @@ export class RefineMeter {
   drops: RefineDrop[] = [];
   settled = false;
   settledAt: number | null = null;
-  /** The level under the tremor: it eases down to the target after each drop. */
+  /** The level under the tremor: it glides after the target. */
   level = 0;
+  private marks = 0;
+  private markedAt: number | null = null;
   private noise = 0;
   private lastPoint = 0;
   private listeners = new Set<() => void>();
@@ -67,14 +72,17 @@ export class RefineMeter {
       this.target = input.target;
       this.lastPoint = now - POINT_MS;
     }
-    if (input.target < this.target - 1e-6) {
-      this.drops.push({ t: now, from: this.target, to: input.target });
+    if (input.marks > this.marks) {
+      const at = this.cur ?? this.level;
+      const from = this.markedAt ?? input.original;
+      if (from - at > 0.0005) this.drops.push({ t: now, from, to: at });
       if (this.drops.length > 40) this.drops.shift();
+      this.marks = input.marks;
+      this.markedAt = at;
     }
     this.target = input.target;
-    // A quick fall to each new level, so every rewritten sentence shows as a sharp step down.
-    this.level = input.reduce ? input.target : this.level + (input.target - this.level) * (input.done ? 0.3 : 0.24);
-    this.noise = input.done ? this.noise * 0.5 : this.noise * 0.82 + (input.reduce ? 0 : 0.0032) * gauss();
+    this.level = input.reduce ? input.target : this.level + (input.target - this.level) * (input.done ? 0.3 : 0.16);
+    this.noise = input.done ? this.noise * 0.5 : this.noise * 0.85 + (input.reduce ? 0 : 0.0012) * gauss();
     if (input.done && Math.abs(this.level - input.target) < 0.0004 && Math.abs(this.noise) < 0.0004) {
       this.level = input.target;
       this.noise = 0;

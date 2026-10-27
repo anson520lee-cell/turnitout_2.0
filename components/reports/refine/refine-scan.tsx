@@ -6,14 +6,14 @@ import { ArrowRight, Maximize2, Minimize2, PenLine, Sparkles } from "lucide-reac
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
-import { REFINE_INTRO_MS, clearedBy, projectedScore, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs } from "@/lib/auto-report/refine-script";
+import { REFINE_INTRO_MS, clearedBy, jobPhase, projectedAt, projectedScore, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs } from "@/lib/auto-report/refine-script";
 import { pickFlagged, type ReportRewrite } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RefineIntro } from "./refine-intro";
 import { RefineMeter, type RefineMeterInput } from "./refine-meter";
 import { RefineRatePanel, type RefineCounts } from "./refine-rate";
-import { RefineStage, type RefineClock } from "./refine-stage";
+import { RefineStage, clockNow, type RefineClock } from "./refine-stage";
 
 /**
  * What a customer watches while Writing Refinement writes their suggestions, full screen like the report scan:
@@ -21,8 +21,9 @@ import { RefineStage, type RefineClock } from "./refine-stage";
  * 2. the live rewrite over their own text, at 1.2 times the report scan's pace per character.
  *
  * The suggestions are made in the background meanwhile (one request, `rewrite` is null until it answers). The
- * reader goes through the text at its own pace; each flagged sentence is erased and its real suggestion typed
- * only once the suggestions are in. If they are late the reader waits near the end and the rewrite catches up.
+ * reader goes through the text at its own pace and R1 encodes each flagged sentence right behind it; the writers
+ * type each real suggestion in once the suggestions are in. If they are late the reader waits near the end and
+ * three writers catch up side by side. The projected rate falls with all of it, and ends on the real projection.
  */
 
 const FINALE_MS = 7_000;
@@ -89,23 +90,28 @@ export function RefineScan({
   const scanMs = Math.max(0, elapsed - introMs) * speed;
 
   if (rewrite && resultAt === null) setResultAt(scanMs);
-  const jobs = useMemo(() => (rewrite && resultAt !== null ? refineJobs(plan, result, rewrite, resultAt, readMs) : null), [rewrite, resultAt, plan, result, readMs]);
-  const endMs = jobs ? refineEndMs(jobs, readMs) : Infinity;
-  const fraction = jobs ? scanMs / readMs : Math.min(scanMs / readMs, 0.97);
+  const known = Boolean(rewrite) && resultAt !== null;
+  const jobs = useMemo(() => refineJobs(plan, result, rewrite, resultAt, readMs), [rewrite, resultAt, plan, result, readMs]);
+  const endMs = refineEndMs(jobs, readMs);
+  const fraction = known ? scanMs / readMs : Math.min(scanMs / readMs, 0.97);
   const pos = scanPosition(plan, fraction);
-  const frontier = jobs && fraction >= 1 ? total : pos.index;
-  const done = Boolean(jobs) && scanMs >= endMs;
+  const frontier = known && fraction >= 1 ? total : pos.index;
+  const done = known && scanMs >= endMs;
   if (done && doneAt === null) setDoneAt(now);
 
-  const cleared = jobs ? clearedBy(jobs, scanMs) : 0;
-  const target = projectedScore(rate, cleared);
-  const final = jobs ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
+  const cleared = clearedBy(jobs, scanMs);
+  const final = known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
   const counts: RefineCounts = {
-    rewritten: jobs ? jobs.filter((j) => j.rewrite && scanMs >= j.end).length : 0,
+    rewritten: jobs.filter((j) => j.rewrite && scanMs >= j.end).length,
     total: queue.size,
-    kept: jobs ? jobs.filter((j) => !j.rewrite && scanMs >= j.end).length : 0,
+    kept: jobs.filter((j) => j.known && !j.rewrite && scanMs >= j.end).length,
+    encoded: jobs.filter((j) => j.erased > j.start && scanMs >= j.erased).length,
+    writing: jobs.filter((j) => {
+      const ph = jobPhase(j, scanMs).phase;
+      return ph === "typing" || ph === "restoring";
+    }).length,
     counted: Math.max(0, rate.counted - cleared),
-    progress: jobs ? Math.min(1, scanMs / endMs) : Math.min(0.97, scanMs / readMs) * 0.9,
+    progress: known ? Math.min(1, scanMs / endMs) : Math.min(0.97, scanMs / readMs) * 0.9,
   };
 
   // The clock the animation runs on between renders.
@@ -114,16 +120,28 @@ export function RefineScan({
     clockRef.current = { at: scanMs, wall: now, speed, held: inIntro || !mounted };
   });
 
-  // The projected rate ticks on its own clock, following the real projection.
+  // The projected rate ticks on its own clock, following the rewrite as the animation shows it.
   const [meter] = useState(() => new RefineMeter());
-  const input = useRef<RefineMeterInput>({ ready: false, target: rate.original, original: rate.original, done: false, reduce });
+  const live = useRef({ ready: false, jobs, final, done: false, reduce });
   useLayoutEffect(() => {
-    input.current = { ready: mounted && !inIntro, target: done ? final : target, original: rate.original, done, reduce };
+    live.current = { ready: mounted && !inIntro, jobs, final, done, reduce };
   });
   useEffect(() => {
-    const t = setInterval(() => meter.step(input.current, performance.now()), 50);
+    const t = setInterval(() => {
+      const l = live.current;
+      const at = clockNow(clockRef.current);
+      const input: RefineMeterInput = {
+        ready: l.ready,
+        target: l.done ? l.final : projectedAt(rate, l.jobs, at),
+        original: rate.original,
+        marks: l.jobs.reduce((n, j) => n + (j.counts ? Number(j.erased > j.start && at >= j.erased) + Number(at >= j.end) : 0), 0),
+        done: l.done,
+        reduce: l.reduce,
+      };
+      meter.step(input, performance.now());
+    }, 50);
     return () => clearInterval(t);
-  }, [meter]);
+  }, [meter, rate]);
 
   useEffect(() => {
     // Suggestions without a sentence to show them on (should not happen): just show them.
@@ -162,8 +180,8 @@ export function RefineScan({
   );
 
   const secs = Math.floor(elapsed / 1000);
-  const left = jobs && !inIntro && !done ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
-  const made = jobs ? jobs.filter((j) => j.rewrite).length : 0;
+  const left = known && !inIntro && !done ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
+  const made = jobs.filter((j) => j.rewrite).length;
 
   const view = (
     <motion.div
@@ -224,6 +242,8 @@ export function RefineScan({
                 ratings={ratings}
                 queue={queue}
                 jobs={jobs}
+                known={known}
+                readMs={readMs}
                 frontier={frontier}
                 within={pos.within}
                 scanMs={scanMs}
@@ -240,7 +260,7 @@ export function RefineScan({
         </AnimatePresence>
 
         <AnimatePresence>
-          {done && jobs && (
+          {done && (
             <motion.div key="finale" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-30 grid place-items-center bg-ink-950/55 p-4 backdrop-blur-[3px]">
               <motion.div
                 initial={{ opacity: 0, y: 24, scale: 0.94, rotateX: 12 }}
