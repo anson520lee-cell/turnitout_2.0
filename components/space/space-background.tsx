@@ -1,74 +1,22 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { CLASS_NAMES, INPUT_NAMES, NET_LAYERS, classColor, createTrainer } from "./trainer";
 
 /**
- * The signed-in backdrop: deep space.
+ * The backdrop: deep space.
  *
- * One fixed canvas behind the app, drawn back to front:
+ * One fixed canvas behind every page, drawn back to front:
  *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
  *    (slow scroll parallax)
- *  - the neural field: a loose 3D mesh of neurons the page flies through as
- *    it scrolls; the faster the scroll, the brighter the mesh and the more
- *    signals race along it (and the central network computes faster)
- *  - the network: a real multilayer perceptron being trained in the page
- *    (see ./trainer), laid dim across the whole viewport so text stays
- *    readable. The neurons are small steady points; the motion is in the
- *    strands, which show the actual weights and carry signals threading
- *    the weave: forward along strong strands (cyan), backward along the ones
- *    whose gradient is large (violet). Scrolling trains it faster
- *  - a loss landscape in perspective along the bottom: it flows toward the
- *    viewer over time and as the page scrolls
- *  - meteors that fall at random, now and then in showers
+ *  - a wave grid in perspective along the bottom that rises and falls like
+ *    the open sea
  *  - a thin scroll-progress line on the top edge
  *
  * It never takes pointer events, pauses while the tab is hidden, and draws a
  * single still frame when the visitor prefers reduced motion.
  */
 
-const WAVE_SPEED = 2.4; // layers a signal crosses per second
-const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-
-interface Meteor { x: number; y: number; vx: number; vy: number; len: number; age: number; max: number; w: number; violet: boolean }
-/** Where a neuron sits: fractions of the viewport, a depth for parallax, a phase for its drift. */
-interface NetNode { l: number; i: number; fx: number; fy: number; z: number; ph: number }
-/** A connection: its two neurons, its place in the trainer's weight arrays, and how its strand bows. */
-interface NetEdge { a: number; b: number; l: number; q: number; c: number; ph: number }
-
-const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-
-
-/** Lays the trainer's network out across the whole viewport: layers left to right, each spread top to bottom. */
-function makeNet() {
-  const nodes: NetNode[] = [];
-  const first: number[] = [];
-  const L = NET_LAYERS.length;
-  NET_LAYERS.forEach((n, l) => {
-    first.push(nodes.length);
-    for (let i = 0; i < n; i++) {
-      nodes.push({
-        l,
-        i,
-        fx: 0.055 + (0.89 * l) / (L - 1) + rand(-0.012, 0.012),
-        fy: 0.1 + (0.8 * (i + 0.5)) / n + rand(-0.012, 0.012),
-        z: rand(-1, 1),
-        ph: Math.random() * Math.PI * 2,
-      });
-    }
-  });
-  const edges: NetEdge[] = [];
-  for (let l = 0; l < L - 1; l++) {
-    const b = NET_LAYERS[l + 1];
-    for (let i = 0; i < NET_LAYERS[l]; i++) {
-      for (let j = 0; j < b; j++) {
-        edges.push({ a: first[l] + i, b: first[l + 1] + j, l, q: i * b + j, c: rand(-0.16, 0.16), ph: Math.random() });
-      }
-    }
-  }
-  return { nodes, edges, first };
-}
 
 /** A cloud texture: domain-warped fractal noise coloured blue → violet → magenta with cyan filaments. Built once. */
 function makeNebula(): HTMLCanvasElement {
@@ -258,38 +206,6 @@ function makeGalaxy(): HTMLCanvasElement {
   return cvs;
 }
 
-/**
- * The neural field: a loose 3D mesh of neurons the page flies through as it
- * scrolls. Each neuron is wired to its nearest neighbours.
- */
-interface FieldNode { x: number; y: number; z: number; hue: number }
-const FIELD_DEPTH = 3.2;
-const FIELD_NEAR = 0.22;
-
-function makeField(n: number) {
-  const nodes: FieldNode[] = Array.from({ length: n }, () => ({
-    x: rand(-1.75, 1.75),
-    y: rand(-1.05, 1.05),
-    z: rand(0, FIELD_DEPTH),
-    hue: Math.random() < 0.4 ? 262 : 192,
-  }));
-  const edges: [number, number][] = [];
-  const seen = new Set<number>();
-  nodes.forEach((a, i) => {
-    const near = nodes
-      .map((b, j) => ({ j, d: j === i ? Infinity : (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + ((a.z - b.z) * 1.4) ** 2 }))
-      .sort((p, q) => p.d - q.d)
-      .slice(0, 2);
-    for (const { j } of near) {
-      const key = Math.min(i, j) * 1000 + Math.max(i, j);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      edges.push([i, j]);
-    }
-  });
-  return { nodes, edges };
-}
-
 /** Signed-in areas get the full show; public pages keep it quieter behind their own visuals. */
 const APP_ROUTES = /^\/(dashboard|scan|orders|services|billing|settings|admin)(\/|$)/;
 
@@ -313,12 +229,6 @@ export function SpaceBackground() {
     let h = 0;
     let dpr = 1;
     let small = false;
-    const meteors: Meteor[] = [];
-    const queued: number[] = []; // seconds until a queued shower meteor appears
-    const net = makeNet();
-    const trainer = createTrainer();
-    let trainDebt = 0; // fractional training steps owed
-    let holdFor = 0; // seconds a finished run is left on screen before the next starts
     // The two textures take a moment to paint, so they are built just after
     // the first frame instead of holding it up.
     let nebula: HTMLCanvasElement | null = null;
@@ -327,7 +237,7 @@ export function SpaceBackground() {
       nebula = makeNebula();
       galaxy = makeGalaxy();
       skyAge = 99;
-      if (reduce) draw(0, 0);
+      if (reduce) draw(0);
     }, 80);
     // The clouds drift slowly, so they are painted into a half-resolution
     // layer every few frames and that layer is blitted, instead of blending
@@ -335,33 +245,15 @@ export function SpaceBackground() {
     const sky = document.createElement("canvas");
     const skyCtx = sky.getContext("2d");
     let skyAge = 99;
-    let field = makeField(110);
-    let fx = new Float32Array(0);
-    let fy = new Float32Array(0);
-    let fz = new Float32Array(0);
-    let fa = new Float32Array(0);
-    const fieldPulses: { e: number; u: number; sp: number; rev: boolean }[] = [];
-    let energy = 0; // 0…1, how hard the page is being scrolled
-    let netPhase = 0; // the network's clock: it runs faster while scrolling
-    const px = new Float32Array(net.nodes.length);
-    const py = new Float32Array(net.nodes.length);
     let lx = new Float32Array(0);
     let ly = new Float32Array(0);
-    const ex = new Float32Array(net.edges.length);
-    let lastPass = -1;
 
     let scrollY = window.scrollY;
-    let lastScrollY = scrollY;
-    let vel = 0;
     let docH = document.documentElement.scrollHeight;
-    let mx = 0.5;
-    let mxSmooth = 0.5;
-    let nextMeteor = 1.2;
     let raf = 0;
     let last = performance.now();
     let t = 0;
     let frame = 0;
-    let acc = 0;
 
     function resize() {
       small = window.innerWidth < 760;
@@ -371,34 +263,11 @@ export function SpaceBackground() {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      field = makeField(small ? 16 : 40);
-      fx = new Float32Array(field.nodes.length);
-      fy = new Float32Array(field.nodes.length);
-      fz = new Float32Array(field.nodes.length);
-      fa = new Float32Array(field.nodes.length);
-      fieldPulses.length = 0;
       sky.width = Math.max(2, Math.round(w / 2));
       sky.height = Math.max(2, Math.round(h / 2));
       skyAge = 99;
       docH = document.documentElement.scrollHeight;
-      if (reduce) draw(0, 0);
-    }
-
-    function spawnMeteor(fromScroll = false) {
-      const ang = rand(2.35, 2.75); // radians; heading down and to the left
-      const speed = rand(650, 1250);
-      const fromTop = Math.random() < 0.65;
-      meteors.push({
-        x: fromTop ? rand(w * 0.25, w * 1.15) : w + 20,
-        y: fromTop ? -30 : rand(0, h * 0.55),
-        vx: Math.cos(ang) * speed,
-        vy: Math.sin(ang) * speed,
-        len: rand(120, 320) * (fromScroll ? 0.8 : 1),
-        age: 0,
-        max: 3,
-        w: rand(1.1, 2.3),
-        violet: Math.random() < 0.28,
-      });
+      if (reduce) draw(0);
     }
 
     function drawNebula(time: number, off: number) {
@@ -451,107 +320,16 @@ export function SpaceBackground() {
       c.restore();
     }
 
-    // ── the neural field. Scrolling flies the camera through it: neurons rush
-    // past, and the harder the page is scrolled the brighter the mesh burns
-    // and the more signals race along it.
-    function drawField(time: number, dt: number, still: boolean) {
-      const F = h * 0.9;
-      const zOff = scrollY * 0.0019 + time * 0.03;
-      const nodes = field.nodes;
-      for (let i = 0; i < nodes.length; i++) {
-        const n = nodes[i];
-        let zz = (n.z - zOff) % FIELD_DEPTH;
-        if (zz < 0) zz += FIELD_DEPTH;
-        zz += FIELD_NEAR;
-        const k = F / zz;
-        fx[i] = w / 2 + n.x * (w / h) * 0.58 * k;
-        fy[i] = h / 2 + n.y * k;
-        fz[i] = zz;
-        // fade in from the distance, and out just before a neuron passes the eye
-        fa[i] = clamp((FIELD_NEAR + FIELD_DEPTH - zz) / 1.1) * clamp((zz - FIELD_NEAR) / 0.3);
-      }
-      const lit = energy * 0.5; // nothing at all while the page is still
-      c.save();
-      c.globalCompositeOperation = "lighter";
-      c.lineCap = "round";
-      for (let e = 0; e < field.edges.length; e++) {
-        const a = field.edges[e][0];
-        const b = field.edges[e][1];
-        if (Math.abs(fz[a] - fz[b]) > 1.3) continue; // the pair straddles the wrap
-        const al = Math.min(fa[a], fa[b]) * lit;
-        if (al < 0.012) continue;
-        const zm = (fz[a] + fz[b]) / 2;
-        c.strokeStyle = `hsla(${nodes[a].hue},95%,74%,${al.toFixed(3)})`;
-        c.lineWidth = Math.min(1.7, 0.3 + 0.42 / zm);
-        c.beginPath();
-        // a bowed link: the midpoint pushed sideways, alternately one way and the other
-        const bow = (e % 2 ? 0.2 : -0.2) + ((e % 5) - 2) * 0.03;
-        c.moveTo(fx[a], fy[a]);
-        c.quadraticCurveTo((fx[a] + fx[b]) / 2 - (fy[b] - fy[a]) * bow, (fy[a] + fy[b]) / 2 + (fx[b] - fx[a]) * bow, fx[b], fy[b]);
-        c.stroke();
-      }
-      // signals: scrolling fires them along the mesh
-      if (!still) {
-        if (fieldPulses.length < 90 && Math.random() < energy * 1.6) {
-          fieldPulses.push({ e: Math.floor(Math.random() * field.edges.length), u: 0, sp: rand(1.2, 2.6), rev: Math.random() < 0.5 });
-        }
-        for (let i = fieldPulses.length - 1; i >= 0; i--) {
-          const p = fieldPulses[i];
-          p.u += p.sp * dt * (1 + energy * 1.5);
-          if (p.u >= 1 || p.e >= field.edges.length) {
-            fieldPulses.splice(i, 1);
-            continue;
-          }
-          const a = field.edges[p.e][p.rev ? 1 : 0];
-          const b = field.edges[p.e][p.rev ? 0 : 1];
-          if (Math.abs(fz[a] - fz[b]) > 1.3) continue;
-          const al = Math.min(fa[a], fa[b]);
-          // along the same bow as the link it rides
-          const bow = (p.e % 2 ? 0.2 : -0.2) + ((p.e % 5) - 2) * 0.03;
-          const sgn = p.rev ? -1 : 1;
-          const mxq = (fx[a] + fx[b]) / 2 - (fy[b] - fy[a]) * bow * sgn;
-          const myq = (fy[a] + fy[b]) / 2 + (fx[b] - fx[a]) * bow * sgn;
-          const v = 1 - p.u;
-          const x = v * v * fx[a] + 2 * v * p.u * mxq + p.u * p.u * fx[b];
-          const y = v * v * fy[a] + 2 * v * p.u * myq + p.u * p.u * fy[b];
-          const r = Math.min(3.2, 0.9 + 0.8 / ((fz[a] + fz[b]) / 2));
-          c.fillStyle = `rgba(215,245,255,${(al * (0.5 + energy * 0.5)).toFixed(3)})`;
-          c.beginPath();
-          c.arc(x, y, r, 0, Math.PI * 2);
-          c.fill();
-          c.fillStyle = `hsla(${nodes[a].hue},95%,70%,${(al * 0.22).toFixed(3)})`;
-          c.beginPath();
-          c.arc(x, y, r * 3.4, 0, Math.PI * 2);
-          c.fill();
-        }
-      }
-      for (let i = 0; i < nodes.length; i++) {
-        if (fa[i] < 0.02 || fx[i] < -40 || fx[i] > w + 40 || fy[i] < -40 || fy[i] > h + 40) continue;
-        if (energy < 0.06) break; // at rest the field shows no neurons at all
-        const r = Math.min(5.5, 0.7 + 1.1 / fz[i]);
-        const al = fa[i] * energy;
-        if (energy > 0.12) {
-          c.fillStyle = `hsla(${nodes[i].hue},95%,70%,${(al * 0.16).toFixed(3)})`;
-          c.beginPath();
-          c.arc(fx[i], fy[i], r * 4.5, 0, Math.PI * 2);
-          c.fill();
-        }
-        c.fillStyle = `hsla(${nodes[i].hue},95%,82%,${al.toFixed(3)})`;
-        c.beginPath();
-        c.arc(fx[i], fy[i], r, 0, Math.PI * 2);
-        c.fill();
-      }
-      c.restore();
-    }
-
-    // ── the loss landscape: a surface in perspective under the page. It flows
-    // toward the viewer over time and when the page scrolls.
-    function landscape(x: number, z: number, time: number, flow: number) {
+    // ── the sea: a wave grid in perspective under the page. Swells of different
+    // lengths roll in from slightly different directions, so the surface keeps
+    // rising and falling like open water; scrolling nudges it along a little.
+    function sea(x: number, z: number, time: number, flow: number) {
       const zz = z + flow;
       return (
-        0.27 * Math.sin(x * 1.2 + time * 0.2) * Math.cos(zz * 0.85) +
-        0.13 * Math.sin(x * 2.5 - zz * 1.6 + time * 0.3) -
-        0.44 * Math.exp(-((x - 0.3) * (x - 0.3) + (z - 4.3) * (z - 4.3)) / 2.4)
+        0.15 * Math.sin(zz * 0.8 + x * 0.12 + time * 0.5) + // the long swell, rolling toward the viewer
+        0.09 * Math.sin(x * 0.65 - zz * 0.45 + time * 0.38) + // a cross swell
+        0.055 * Math.sin(x * 1.5 + zz * 1.25 + time * 0.78) +
+        0.03 * Math.sin(x * 2.7 - zz * 2.1 + time * 1.05) // chop
       );
     }
 
@@ -568,7 +346,7 @@ export function SpaceBackground() {
       // page, so scale by width and sit the nearest edge on the bottom instead.
       const f = Math.min(h * 0.85, w * 0.95);
       const hor = small ? h - f * (camY / Z0 + 0.04) : h * 0.6;
-      const flow = time * 0.22 + scrollY * 0.0042;
+      const flow = scrollY * 0.0025;
       const A = inApp.current ? 0.3 : 0.26;
 
       // horizon glow
@@ -591,7 +369,7 @@ export function SpaceBackground() {
           const x = (i / COLS - 0.5) * 2 * X;
           const o = j * (COLS + 1) + i;
           lx[o] = w / 2 + x * k;
-          ly[o] = hor + (camY - landscape(x, z, time, flow)) * k;
+          ly[o] = hor + (camY - sea(x, z, time, flow)) * k;
         }
       }
       c.lineWidth = 0.7;
@@ -663,234 +441,6 @@ export function SpaceBackground() {
       c.restore();
     }
 
-    function drawMeteors(dt: number) {
-      for (let i = meteors.length - 1; i >= 0; i--) {
-        const m = meteors[i];
-        m.age += dt;
-        m.x += m.vx * dt;
-        m.y += m.vy * dt;
-        if (m.y > h + 60 || m.x < -300 || m.age > m.max) {
-          meteors.splice(i, 1);
-          continue;
-        }
-        const sp = Math.hypot(m.vx, m.vy);
-        const tx = m.x - (m.vx / sp) * m.len;
-        const ty = m.y - (m.vy / sp) * m.len;
-        const core = m.violet ? "200,180,255" : "190,235,255";
-        const tail = m.violet ? "154,123,255" : "95,216,245";
-        const g = c.createLinearGradient(m.x, m.y, tx, ty);
-        g.addColorStop(0, `rgba(${core},0.95)`);
-        g.addColorStop(0.25, `rgba(${tail},0.45)`);
-        g.addColorStop(1, `rgba(${tail},0)`);
-        c.strokeStyle = g;
-        c.lineWidth = m.w;
-        c.lineCap = "round";
-        c.beginPath();
-        c.moveTo(m.x, m.y);
-        c.lineTo(tx, ty);
-        c.stroke();
-        const hg = c.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.w * 5);
-        hg.addColorStop(0, `rgba(${core},0.9)`);
-        hg.addColorStop(1, `rgba(${core},0)`);
-        c.fillStyle = hg;
-        c.beginPath();
-        c.arc(m.x, m.y, m.w * 5, 0, Math.PI * 2);
-        c.fill();
-      }
-      c.lineCap = "butt";
-    }
-
-    // ── the network. It is the trainer's actual model, laid across the whole
-    // viewport and kept dim so the page stays readable. What is drawn is what
-    // is happening: a strand's weight sets how visible it is (cyan positive,
-    // violet negative), strands whose gradient is large brighten as they are
-    // corrected, and signals thread the weave: forward along the strong
-    // strands, backward along the ones being corrected.
-    function drawNet(time: number, dt: number, still: boolean) {
-      const L = NET_LAYERS.length;
-      // training: about 30 steps a second, several times that while scrolling
-      if (!still) {
-        if (trainer.done) {
-          holdFor += dt;
-          if (holdFor > 3.5) {
-            holdFor = 0;
-            trainer.reset();
-          }
-        } else {
-          trainDebt += dt * 30 * (1 + energy * 5);
-          const n = Math.min(8, Math.floor(trainDebt));
-          if (n > 0) {
-            trainDebt -= n;
-            trainer.train(n);
-          }
-        }
-      }
-
-      // ── where every neuron is: its slot, a slow drift, and a parallax by depth
-      const sway = (mxSmooth - 0.5) * 46;
-      const lift = Math.sin(scrollY * 0.0011) * 26;
-      for (let i = 0; i < net.nodes.length; i++) {
-        const n = net.nodes[i];
-        px[i] = n.fx * w + n.z * sway + Math.sin(time * 0.21 + n.ph) * 7;
-        py[i] = n.fy * h + n.z * lift + Math.cos(time * 0.17 + n.ph * 1.7) * 7;
-      }
-      // Every strand is an S-curve: it leaves its neuron level, sweeps across,
-      // and arrives level, so strands run together like fibres instead of
-      // criss-crossing as straight lines. ex is where the sweep happens.
-      for (let i = 0; i < net.edges.length; i++) {
-        const e = net.edges[i];
-        ex[i] = (px[e.a] + px[e.b]) / 2 + (px[e.b] - px[e.a]) * e.c;
-      }
-
-      // every few seconds a new sample is followed through the network
-      const pass = Math.floor(netPhase / 6);
-      if (pass !== lastPass && !still) {
-        lastPass = pass;
-        trainer.probe();
-      }
-
-      const dim = (small ? 0.75 : 1) * (inApp.current ? 0.9 : 0.8);
-      c.save();
-      c.lineCap = "round";
-
-      // ── the weave: weight magnitude decides how visible a strand is
-      const wmax = new Float32Array(L - 1);
-      const gmax = new Float32Array(L - 1);
-      for (let l = 0; l < L - 1; l++) {
-        const ww = trainer.W[l];
-        const gg = trainer.G[l];
-        let m = 1e-6;
-        let g = 1e-9;
-        for (let q = 0; q < ww.length; q++) {
-          if (Math.abs(ww[q]) > m) m = Math.abs(ww[q]);
-          if (gg[q] > g) g = gg[q];
-        }
-        wmax[l] = m;
-        gmax[l] = g;
-      }
-      // only the stronger half of the weights is drawn at all: fewer, clearer strands
-      c.lineWidth = 0.5;
-      for (const sign of [1, -1]) {
-        for (let bucket = 1; bucket < 3; bucket++) {
-          c.strokeStyle = `rgba(${sign > 0 ? "110,215,245" : "165,140,255"},${((bucket === 1 ? 0.028 : 0.058) * dim).toFixed(3)})`;
-          c.beginPath();
-          for (let i = 0; i < net.edges.length; i++) {
-            const e = net.edges[i];
-            const wv = trainer.W[e.l][e.q];
-            if (wv * sign <= 0) continue;
-            const m = Math.abs(wv) / wmax[e.l];
-            if ((m < 0.4 ? 0 : m < 0.7 ? 1 : 2) !== bucket) continue;
-            c.moveTo(px[e.a], py[e.a]);
-            c.bezierCurveTo(ex[i], py[e.a], ex[i], py[e.b], px[e.b], py[e.b]);
-          }
-          c.stroke();
-        }
-      }
-      // strands being corrected hardest right now (largest gradients)
-      if (!still && !trainer.done) {
-        c.strokeStyle = `rgba(235,242,255,${(0.075 * dim).toFixed(3)})`;
-        c.lineWidth = 0.6;
-        c.beginPath();
-        for (let i = 0; i < net.edges.length; i++) {
-          const e = net.edges[i];
-          if (trainer.G[e.l][e.q] / gmax[e.l] < 0.7) continue;
-          c.moveTo(px[e.a], py[e.a]);
-          c.bezierCurveTo(ex[i], py[e.a], ex[i], py[e.b], px[e.b], py[e.b]);
-        }
-        c.stroke();
-      }
-
-      // ── the traffic. This is what the eye should follow: signals threading
-      // the weave. Each strong strand carries a comet of light forward (cyan),
-      // each strand whose weight is being corrected hard carries the error
-      // back the other way (violet). Every strand keeps its own beat, so the
-      // whole network is always in motion rather than flashing in step.
-      if (!still) {
-        for (let i = 0; i < net.edges.length; i++) {
-          const e = net.edges[i];
-          const m = Math.abs(trainer.W[e.l][e.q]) / wmax[e.l];
-          const g = trainer.done ? 0 : trainer.G[e.l][e.q] / gmax[e.l];
-          const back = g > 0.55 && e.ph > 0.7;
-          if (!back && (m < 0.45 || e.ph > 0.42)) continue;
-          // where the comet's head is along the strand; it rests between runs
-          const beat = (netPhase * (back ? 0.3 : 0.24) + e.ph * 7.3 + e.l * 0.31) % 1.7;
-          if (beat > 1.3) continue;
-          const head = Math.min(1, beat);
-          const tail = Math.max(0, beat - 0.34);
-          if (tail >= head) continue;
-          const a = back ? e.b : e.a;
-          const b = back ? e.a : e.b;
-          const x0 = px[a];
-          const y0 = py[a];
-          const x3 = px[b];
-          const y3 = py[b];
-          const xm = ex[i];
-          // points along the strand from tail to head (cubic: level out, sweep, level in)
-          const SEG = 7;
-          let hx = x0;
-          let hy = y0;
-          let sx = x0;
-          let sy = y0;
-          c.beginPath();
-          for (let k = 0; k <= SEG; k++) {
-            const t = tail + ((head - tail) * k) / SEG;
-            const u = 1 - t;
-            const bx = u * u * u * x0 + 3 * u * u * t * xm + 3 * u * t * t * xm + t * t * t * x3;
-            const by = u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y3 + t * t * t * y3;
-            if (k === 0) {
-              sx = bx;
-              sy = by;
-              c.moveTo(bx, by);
-            } else c.lineTo(bx, by);
-            hx = bx;
-            hy = by;
-          }
-          const col = back ? "178,150,255" : "120,228,255";
-          const al = (back ? 0.36 : 0.2 + m * 0.22) * dim;
-          const grad = c.createLinearGradient(sx, sy, hx, hy);
-          grad.addColorStop(0, `rgba(${col},0)`);
-          grad.addColorStop(1, `rgba(${col},${al.toFixed(3)})`);
-          c.strokeStyle = grad;
-          c.lineWidth = 0.9;
-          c.stroke();
-          if (beat < 1) {
-            c.fillStyle = `rgba(235,248,255,${Math.min(0.85, al * 1.7).toFixed(3)})`;
-            c.beginPath();
-            c.arc(hx, hy, 1.05, 0, Math.PI * 2);
-            c.fill();
-          }
-        }
-      }
-
-      // ── neurons: small, steady points. They mark where strands meet; they do not flash.
-      c.font = `9px ${MONO}`;
-      const r = small ? 1.2 : 1.5;
-      c.fillStyle = `rgba(160,180,240,${(0.2 * dim).toFixed(3)})`;
-      c.beginPath();
-      for (let i = 0; i < net.nodes.length; i++) {
-        c.moveTo(px[i] + r, py[i]);
-        c.arc(px[i], py[i], r, 0, Math.PI * 2);
-      }
-      c.fill();
-      // what goes in, and what the network answers for the sample being followed
-      if (!small) {
-        for (let i = 0; i < net.nodes.length; i++) {
-          const n = net.nodes[i];
-          if (n.l === 0) {
-            c.textAlign = "right";
-            c.fillStyle = `rgba(170,190,240,${(0.42 * dim).toFixed(3)})`;
-            c.fillText(INPUT_NAMES[n.i], px[i] - 8, py[i] + 3);
-          } else if (n.l === L - 1) {
-            c.textAlign = "right";
-            c.fillStyle = `rgba(${classColor(n.i)},${((trainer.probePick === n.i ? 0.8 : 0.4) * dim).toFixed(3)})`;
-            c.fillText(`${CLASS_NAMES[n.i]} ${trainer.act[L - 1][n.i].toFixed(2)}`, px[i] - 8, py[i] + 3);
-          }
-        }
-      }
-      c.textAlign = "left";
-      c.restore();
-    }
-
     function drawProgress() {
       const max = Math.max(1, docH - h);
       const p = clamp(scrollY / max);
@@ -908,16 +458,13 @@ export function SpaceBackground() {
       c.fillRect(w * p - 14, 0, 28, 16);
     }
 
-    function draw(time: number, dt: number) {
+    function draw(time: number) {
       c.clearRect(0, 0, w, h);
       const off = Math.sin(scrollY * 0.0009) * 80;
       drawNebula(time, off);
       drawGalaxy(time, off);
       drawPlanet(off);
-      drawField(time, dt, reduce);
       drawLandscape(time);
-      drawNet(time, dt, reduce);
-      if (!reduce) drawMeteors(dt);
       drawProgress();
     }
 
@@ -929,43 +476,11 @@ export function SpaceBackground() {
       frame++;
       if (frame % 90 === 0) docH = document.documentElement.scrollHeight;
       scrollY = window.scrollY;
-      const dv = scrollY - lastScrollY;
-      lastScrollY = scrollY;
-      vel += (dv - vel) * 0.18;
-      energy += (clamp(Math.abs(vel) / 24) - energy) * (Math.abs(vel) / 24 > energy ? 0.2 : 0.035);
-      netPhase += dt * WAVE_SPEED * (1 + energy * 2);
-      mxSmooth += (mx - mxSmooth) * 0.04;
       // Public pages and phones run at half rate; they have their own visuals to pay for.
-      acc += dt;
       if ((small || !inApp.current) && frame % 2 === 1) return;
-      const step = acc;
-      acc = 0;
-      // random meteors; a fast scroll shakes a few loose
-      nextMeteor -= step;
-      if (nextMeteor <= 0) {
-        if (Math.random() < 0.12) {
-          const n = 4 + Math.floor(Math.random() * 6);
-          for (let i = 0; i < n; i++) queued.push(i * rand(0.12, 0.38));
-          nextMeteor = rand(3.5, 7);
-        } else {
-          spawnMeteor();
-          nextMeteor = rand(1, 3.4);
-        }
-      }
-      if (Math.abs(vel) > 28 && Math.random() < 0.02) spawnMeteor(true);
-      for (let i = queued.length - 1; i >= 0; i--) {
-        queued[i] -= step;
-        if (queued[i] <= 0) {
-          spawnMeteor();
-          queued.splice(i, 1);
-        }
-      }
-      draw(t, step);
+      draw(t);
     }
 
-    function onMove(e: PointerEvent) {
-      mx = e.clientX / Math.max(1, window.innerWidth);
-    }
     function onVisibility() {
       cancelAnimationFrame(raf);
       if (!document.hidden && !reduce) {
@@ -978,13 +493,12 @@ export function SpaceBackground() {
     window.addEventListener("resize", resize);
     function onStillScroll() {
       scrollY = window.scrollY;
-      draw(0, 0);
+      draw(0);
     }
     if (reduce) {
       window.addEventListener("scroll", onStillScroll, { passive: true });
-      draw(0, 0);
+      draw(0);
     } else {
-      window.addEventListener("pointermove", onMove, { passive: true });
       document.addEventListener("visibilitychange", onVisibility);
       raf = requestAnimationFrame(loop);
     }
@@ -992,7 +506,6 @@ export function SpaceBackground() {
       cancelAnimationFrame(raf);
       window.clearTimeout(texTimer);
       window.removeEventListener("resize", resize);
-      window.removeEventListener("pointermove", onMove);
       window.removeEventListener("scroll", onStillScroll);
       document.removeEventListener("visibilitychange", onVisibility);
     };
