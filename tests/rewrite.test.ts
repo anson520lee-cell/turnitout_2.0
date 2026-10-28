@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, parseRewrites, pickFlagged, reviseText, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, parseRewrites, pickFlagged, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -17,21 +17,20 @@ test("numbers, citations, quotations and names must survive", () => {
   assert.match(checkRewrite(orig, orig.replace("Hong Kong", "Macau")) ?? "", /name or term/);
 });
 
-test("hedges stay, claims are not strengthened, no causal link is added", () => {
+test("the meaning may change, but no number, citation or quotation is added", () => {
   const o = "The data suggests that reading habits shape vocabulary.";
-  assert.match(checkRewrite(o, "The data shows that reading habits shape vocabulary.") ?? "", /hedge|stronger/);
-  assert.match(checkRewrite(o, "The data suggests that reading habits therefore shape vocabulary.") ?? "", /causal/);
-  assert.equal(checkRewrite(o, "The data hints that reading habits help shape vocabulary."), "a hedge was removed");
-  assert.equal(checkRewrite(o, "The data suggests that vocabulary is shaped by reading habits."), null);
+  assert.equal(checkRewrite(o, "Reading habits shape vocabulary, I think."), null);
+  assert.equal(checkRewrite(o, "Honestly, what you read shapes the words you use."), null);
+  assert.match(checkRewrite(o, "Reading habits shape about 40% of vocabulary.") ?? "", /number/);
+  assert.match(checkRewrite(o, "Reading habits shape vocabulary (Nation, 2001).") ?? "", /number|citation/);
 });
 
-test("up to three sentences, similar length, a real change, same negations", () => {
+test("up to three sentences, a length in range and a real change", () => {
   const o = "Many students do not read widely before they write their first essay.";
   assert.equal(checkRewrite(o, o), "unchanged");
   assert.equal(checkRewrite(o, "Lots of students don't read much. Then they write their first essay."), null);
   assert.equal(checkRewrite(o, "Students. They do not read much. Not widely. Then essays."), "split into too many sentences");
   assert.equal(checkRewrite(o, "Few read."), "length changed too much");
-  assert.equal(checkRewrite(o, "Many students read widely before they write their first essay, mostly."), "the meaning may have flipped");
 });
 
 test("a sentence opener is not treated as a name, but a real name is", () => {
@@ -131,4 +130,33 @@ test("the add-on is priced from the report's price, and a free report is priced 
   assert.equal(rewritePrice(0, 100), 200); // never below the report minimum
   const r = result([[sentence(1, "high")]]);
   assert.equal(rewriteCredits({ price: 300, source_text: null }, r), 3);
+});
+
+test("a later round rewrites what the re-check still counts, and keeps everything else", () => {
+  const r = result([[{ ...sentence(1, "high", true), text: "One." }, { ...sentence(2, "high", true), text: "Two." }, { n: 3, risk: "low", text: "Three." }]]);
+  const rw: ReportRewrite = {
+    version: 1,
+    model: "m",
+    createdAt: "",
+    items: [
+      { n: 1, original: "One.", rewrite: "First half. Second half.", why: "Signal 8" },
+      { n: 2, original: "Two.", rewrite: "Second rewrite." },
+    ],
+  };
+  // Not re-checked yet: no round.
+  assert.equal(needsRound(rw), false);
+  const after = result([[{ ...sentence(1, "low"), text: "First half." }, { ...sentence(2, "medium", true), text: "Second half.", why: "Signals 1, 8" }, { ...sentence(3, "low"), text: "Second rewrite." }, { ...sentence(4, "high", true), text: "Three.", why: "Signal 4" }]]);
+  const checked: ReportRewrite = { ...rw, check: { checkedAt: "", score: 0.8, stillCounted: [1], cleared: [2], result: after } };
+  assert.equal(needsRound(checked), true);
+  assert.equal(needsRound({ ...checked, round: 3 }), false);
+  assert.equal(needsRound({ ...checked, check: { ...checked.check!, score: 0.2 } }), false);
+  // The split suggestion (as it reads now) and the student's own sentence that now counts.
+  const targets = roundTargets(r, checked);
+  assert.deepEqual(targets.map((t) => [t.n, t.text, t.why]), [[1, "First half. Second half.", "Signals 1, 8"], [3, "Three.", "Signal 4"]]);
+  const merged = mergeRound(checked.items, [{ n: 1, original: "First half. Second half.", rewrite: "New one." }, { n: 3, original: "Three.", rewrite: "Third." }], r);
+  assert.deepEqual(merged, [
+    { n: 1, original: "One.", rewrite: "New one.", why: "Signal 8" },
+    { n: 2, original: "Two.", rewrite: "Second rewrite." },
+    { n: 3, original: "Three.", rewrite: "Third." },
+  ]);
 });

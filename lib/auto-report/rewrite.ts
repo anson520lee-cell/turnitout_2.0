@@ -1,18 +1,19 @@
 /**
- * "Fix flagged phrasing, keep your meaning": suggested rewrites for the sentences a finished report flagged.
+ * Writing Refinement ("lower your AI score"): suggested rewrites for the sentences a finished report flagged.
  * Pure functions, no I/O, so they can be tested (the DeepSeek calls are in rewrite-run.ts).
  *
- * Only the flagged sentences are rewritten, each into one to three sentences in a plain student voice, guided by the
- * reviewer's reason for each. The model's answer is never trusted: every suggestion is checked here against the
- * original (numbers, citations, quotations and names must survive, hedges must stay, no new causal link, similar
- * length, at most MAX_SPLIT sentences), and a suggestion that fails a check is dropped, so that sentence stays as the
- * student wrote it. Backtest 2026-10-26 (21 essays, rewrites written by Claude): rewriting only the flagged sentences
- * by the reviewer's reason cleared 44% of them against 18% for a plain re-run; an English-Chinese-English round trip
- * did nothing, so it is not used.
+ * The flagged sentences are rewritten for a lower AI score, each into one to three sentences in a plain student
+ * voice, guided by the reviewer's reason for each. Since 2026-10-28 (Neo: "不惜一切也要把 AI rate 壓下來") the score
+ * comes first: a suggestion may change what a sentence says, drop details or change how strongly a claim is made, and
+ * the customer is told so before paying, and a little of the roughness of real student writing is asked for (Neo,
+ * same day: "grammar 可以錯一點"). What is never allowed: a new number, a changed or new citation or quotation, a
+ * changed name, a misspelt word. Every suggestion is checked here against the sentence it replaces, and one that fails is dropped.
  *
- * Plain voice since 2026-10-28: a synonym swap that keeps each sentence's shape was still counted on the re-check (29
- * of 31 sentences on Neo's Gemini essay), while a plain-voice rewrite of the same essay with nothing invented dropped
- * the High sentences from 73-97% to 0-13% (/mnt/project-files/refine-recheck/results-2026-10-28.md).
+ * After the first rewrite the text is re-checked (rewrite-check.ts); while it still scores above TARGET_SCORE the
+ * sentences it still counts are rewritten again in a clearly different way (rewrite-run.ts makeRound), up to
+ * MAX_ROUNDS, and the round with the lowest re-checked score is the one kept. Why: on Neo's Gemini essay a synonym swap
+ * was still counted on 29 of 31 sentences; a plain-voice rewrite of the same essay scored 93/54/39 over three runs of
+ * the detector, so one pass is not enough (/mnt/project-files/refine-recheck/results-2026-10-28.md).
  */
 
 import { splitSentences } from "@/lib/recheck";
@@ -42,6 +43,67 @@ export interface ReportRewrite {
   items: RewriteItem[];
   /** The text with every suggestion in place, reviewed again by the same detector (rewrite-check.ts). Absent until that ran. */
   check?: RewriteCheck;
+  /** Rounds written so far: absent for the first, then one more for each round that rewrote the sentences still counted. */
+  round?: number;
+  /** The re-checked score after each round, in order (the kept round is the lowest). */
+  scores?: number[];
+  /** A round written but not re-checked yet: its items replace `items` only if the re-check scores lower. */
+  pending?: { round: number; items: RewriteItem[] };
+}
+
+/** At most this many rounds of rewriting (the first included): each later one costs a rewrite and a re-check. */
+export const MAX_ROUNDS = 3;
+/** Rounds stop once the re-checked score is under this (the green "Low" band, SCORE_BANDS.moderate). */
+export const TARGET_SCORE = 0.3;
+
+/** Whether another round should be written: re-checked, nothing waiting, still above the target and rounds left. */
+export function needsRound(rewrite: ReportRewrite): boolean {
+  return !!rewrite.check && !rewrite.pending && rewrite.check.score >= TARGET_SCORE && (rewrite.round ?? 1) < MAX_ROUNDS;
+}
+
+/** The report with each rewritten sentence's text replaced by its suggestion: the neighbours a later round sees. */
+export function currentResult(result: AutoReportResult, items: RewriteItem[]): AutoReportResult {
+  const swap = new Map(items.filter((i) => i.rewrite).map((i) => [i.n, i.rewrite as string]));
+  return { ...result, paragraphs: result.paragraphs.map((p) => ({ ...p, sentences: p.sentences.map((s) => (swap.has(s.n) ? { ...s, text: swap.get(s.n) as string } : s)) })) };
+}
+
+/**
+ * The sentences a later round rewrites: every sentence the re-check still counts, as it reads now (the suggestion, or
+ * the student's sentence when there was none), under its number in the report, with the re-check's reasons. A
+ * suggestion split into several sentences is one target, with the reasons of each part that still counts.
+ */
+export function roundTargets(result: AutoReportResult, rewrite: ReportRewrite): ReportSentence[] {
+  if (!rewrite.check) return [];
+  const originals = result.paragraphs.flatMap((p) => p.sentences);
+  const out = new Map<number, ReportSentence>();
+  for (const s of rewrite.check.result.paragraphs.flatMap((p) => p.sentences)) {
+    const t = s.text.trim();
+    if (!s.counts || !t) continue;
+    const item = rewrite.items.find((i) => i.rewrite?.includes(t));
+    const own = item ? null : originals.find((o) => o.text.trim() === t);
+    const n = item?.n ?? own?.n;
+    if (n === undefined) continue;
+    const prev = out.get(n);
+    const why = [prev?.why, s.why].filter(Boolean).join("; ");
+    out.set(n, { n, text: item?.rewrite ?? (own as ReportSentence).text, risk: s.risk, counts: true, ...(why ? { why } : {}), ...((prev?.ask ?? s.ask) ? { ask: prev?.ask ?? s.ask } : {}) });
+  }
+  return [...out.values()].sort((a, b) => a.n - b.n).slice(0, MAX_REWRITE_SENTENCES);
+}
+
+/**
+ * A later round's suggestions over the earlier ones: a sentence with a new suggestion takes it, every other keeps what
+ * it had. The student's sentence and the first reason stay with each item.
+ */
+export function mergeRound(items: RewriteItem[], fresh: RewriteItem[], result: AutoReportResult): RewriteItem[] {
+  const originals = new Map(result.paragraphs.flatMap((p) => p.sentences).map((s) => [s.n, s]));
+  const next = new Map(items.map((i) => [i.n, i]));
+  for (const f of fresh) {
+    if (!f.rewrite) continue;
+    const old = next.get(f.n);
+    const why = old?.why ?? originals.get(f.n)?.why;
+    next.set(f.n, { n: f.n, original: old?.original ?? originals.get(f.n)?.text ?? f.original, rewrite: f.rewrite, ...(why ? { why } : {}) });
+  }
+  return [...next.values()].sort((a, b) => a.n - b.n);
 }
 
 /**
@@ -112,31 +174,28 @@ export function pickFlagged(result: AutoReportResult, max = MAX_REWRITE_SENTENCE
     .sort((a, b) => a.n - b.n);
 }
 
-export const REWRITE_PROMPT = `You help a student rewrite sentences of their OWN essay that a reviewer marked as reading like model-written prose. Polishing the wording is not enough: the reviewer still flags a sentence that keeps its original shape with new synonyms, and any sentence that is smooth, formal and completely predictable. Rewrite each marked sentence the way a capable student would say the same thing in their own plain voice, as if explaining it to a classmate.
+export const REWRITE_PROMPT = `You rewrite sentences of a student's essay that an AI-writing detector flagged, so that the detector no longer reads them as AI. Getting the AI score down is the goal and comes before keeping the wording or every detail: the student has agreed that a sentence may lose a detail, change how strongly it says something, or shift in meaning. Polishing is not enough: the detector still flags a sentence that keeps its original shape with new synonyms, and any sentence that is smooth, formal and completely predictable.
 
-For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the reviewer's "reason" and "ask". If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time.
+For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the reviewer's "reason" and "ask". If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time. If the message says round 2 or later, each sentence is already a rewrite that the detector still flagged: write it again in a clearly different way (different opening, structure and length), never a light edit.
 
-Never change what the sentence says:
-- Keep the meaning, every fact, every number, every name and every in-text citation exactly as written, for example (Gabora, 1998). Keep text inside quotation marks exactly as it is. Add no new idea, example, fact, personal story or detail the essay does not give. Remove no claim.
-- Keep hedges as they are: if the sentence says "suggests", "may", "can", "often" or "seems", the rewrite must be just as careful. Never turn "suggests" into "shows" or "proves". Do not add words like "therefore", "thus", "because", "as a result" or "leads to" unless the sentence already has them.
-- Keep the tense and the sentence's job in its paragraph. You may say "we" or "you" for people in general; write "I" only if the essay already does.
-- Return one to three sentences for each input sentence, together between 60% and 150% of the original length. Never merge it with a neighbour.
+The only hard limits:
+- Never add a number, statistic, date, source or citation that is not in the sentence. Keep every in-text citation, for example (Gabora, 1998), and every quotation in quotation marks exactly as written. Keep every name.
+- No spelling mistakes, slang or emojis: it must still pass as a school essay written by a real student.
+- Return one to three sentences for each input sentence. Never merge it with a neighbour.
 
-Change how it is said:
-- Change the shape, not only the words. Never keep the original frame with synonyms swapped in. Start the sentence differently and put the main point first.
-- Everyday words. Drop stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting) and say the plain thing.
-- When the sentence is long, split it into two or three sentences of clearly different lengths; a short, blunt sentence is good. Contractions (it's, don't, we're) are fine.
-- Lists: keep every item, but never as a balanced row of matching phrases. Give the items different lengths, or spread them over clauses or sentences.
-- Drop signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion) and colon reveals. Link ideas plainly with "and", "but", "so" or "also", or not at all.
-- Drop "not X but Y", "rather than" and "neither... nor" punchlines: say the main point straight, then the contrast if it is part of the claim.
-- No neat moral, slogan or callback at the end.
-- It must still read as a sound school essay: no slang, no emojis, and never put in spelling or grammar mistakes on purpose.
-- Use the reviewer's reason. If it quotes a specific phrase, that phrase must go. Its signals mean: 1 ready-made phrases, 2 sentence frame with nouns swapped, 3 short tidy one-idea sentences in a row, 4 abstract generalisation naming nobody (be concrete only with what the essay itself says), 5 upgraded synonyms, 6 flawless textbook sentence, 7 template structure (contrast punchline, three-item list, ordinal or label openers), 8 every word the obvious next one, 9 flourish such as a colon reveal or a tidy closing line.
+Everything else may change. How to write it:
+- Say it the way a capable student would explain it to a classmate, in their own plain voice. Opinion and stance are good: "I think", "to me", "honestly", a short question to the reader.
+- Change the shape, not only the words. Start differently, put the main point first, and break a long sentence into two or three sentences of clearly different lengths. A short, blunt sentence is good. Contractions (it's, don't, we're) are good.
+- Cut what makes it sound generated: stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting), signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion), colon reveals, "not X but Y", "rather than" and "neither... nor" punchlines, and neat closing morals. Drop a hedge, a qualifier or a minor detail when it only adds polish.
+- Lists: never a balanced row of matching phrases. Keep only the items that matter, with different lengths, or spread them over clauses or sentences.
+- Pick the less obvious word a real person would use, not the most predictable one.
+- Leave in a little of the roughness real student writing has, in about one sentence in three: a slightly loose or run-on sentence, a comma where a full stop would be tidier, a repeated word, a clause that comes a bit late, starting with "And" or "But". Never so much that the meaning is unclear, and never a misspelt word.
+- Use the reviewer's reason. If it quotes a phrase, that phrase must go. Its signals mean: 1 ready-made phrases, 2 sentence frame with nouns swapped, 3 short tidy one-idea sentences in a row, 4 abstract generalisation naming nobody, 5 upgraded synonyms, 6 flawless textbook sentence, 7 template structure (contrast punchline, three-item list, ordinal or label openers), 8 every word the obvious next one, 9 flourish such as a colon reveal or a tidy closing line.
 
 Answer with JSON only, no other text, in this shape: [{"id": 12, "rewrite": "..."}]. Include every id you were given.`;
 
 /** The user message for a batch of sentences: each with its neighbours and the reviewer's reason. `redo` carries why an earlier try was refused. */
-export function rewriteInput(items: ReportSentence[], result: AutoReportResult, redo?: Map<number, string>): string {
+export function rewriteInput(items: ReportSentence[], result: AutoReportResult, redo?: Map<number, string>, round = 1): string {
   const flat = result.paragraphs.flatMap((p) => p.sentences);
   const at = new Map(flat.map((s, i) => [s.n, i]));
   const list = items.map((s) => {
@@ -152,7 +211,7 @@ export function rewriteInput(items: ReportSentence[], result: AutoReportResult, 
       ...(note ? { last_try_failed_because: note } : {}),
     };
   });
-  return ["<sentences>", JSON.stringify(list, null, 1), "</sentences>"].join("\n");
+  return [...(round > 1 ? [`Round ${round}: every sentence below is a rewrite the detector still flagged.`] : []), "<sentences>", JSON.stringify(list, null, 1), "</sentences>"].join("\n");
 }
 
 /** Reads the model's answer: a JSON array of {id, rewrite}, possibly inside a code fence. Anything unreadable is skipped. */
@@ -212,16 +271,11 @@ export function streamedRewrites(text: string): Map<number, string> {
   return out;
 }
 
-const HEDGE = /\b(may|might|can|could|suggests?|suggested|appears?|seems?|likely|perhaps|possibly|probably|tends?|often|generally|typically|somewhat|partly|arguably|sometimes)\b/i;
-const STRONG = /\b(proves?|proven|demonstrates?|undoubtedly|certainly|definitely|always|never|must|clearly shows?)\b/i;
-const CAUSAL = /\b(therefore|thus|hence|consequently|as a result|because|due to|leads? to|led to|results? in|resulting in|accordingly)\b/gi;
-const NEGATION = /\b(not|no|never|neither|nor|none|cannot)\b|n['’]t\b/gi;
 /** Capitalised words that open many sentences without being names. */
 const STARTERS = new Set(
   `the a an this that these those it its in on at for as by to of with while although however moreover furthermore overall thus therefore first second third firstly secondly thirdly finally lastly additionally also one many most some such there when if because since both each every another other they he she we i what how why who which despite given during after before from through within without among between whilst instead rather yet but and so not no all any more much being having under over across whether only even still indeed ultimately today nowadays currently recently importantly notably crucially simply clearly fact example instance`.split(/\s+/),
 );
 
-const count = (s: string, re: RegExp) => s.match(re)?.length ?? 0;
 const wordsOf = (s: string) => s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
 
 /** Numbers as written ("1998", "3.5", "12,000"), without a trailing full stop. */
@@ -257,7 +311,8 @@ const hasWord = (text: string, word: string) => new RegExp(`(?<![\\p{L}\\p{N}])$
 
 /**
  * Why a suggestion cannot be used, or null when it passes every check. The checks are the guardrails: a suggestion
- * that fails one is not shown, and the sentence stays as the student wrote it.
+ * that fails one is not shown, and the sentence stays as it was. The meaning may change (see the top of this file);
+ * what may not is a number added, a citation or quotation changed or added, or a name changed.
  */
 export function checkRewrite(original: string, rewrite: string, known: ReadonlySet<string> = new Set()): string | null {
   const o = original.trim();
@@ -266,15 +321,12 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   if (r.replace(/\s+/g, " ") === o.replace(/\s+/g, " ")) return "unchanged";
   if (/[\r\n]/.test(r) || splitSentences(r).length > MAX_SPLIT) return "split into too many sentences";
   const ratio = r.length / Math.max(1, o.length);
-  if (ratio < 0.6 || ratio > 1.5) return "length changed too much";
-  for (const n of numbersIn(o)) if (!r.includes(n)) return `the number ${n} was changed`;
+  if (ratio < 0.4 || ratio > 1.8) return "length changed too much";
+  const numbers = new Set(numbersIn(o));
+  for (const n of numbersIn(r)) if (!numbers.has(n)) return `a number (${n}) was added`;
   for (const t of lockedIn(o)) if (!r.includes(t)) return "a citation or quotation was changed";
+  for (const t of lockedIn(r)) if (!o.includes(t)) return "a citation or quotation was added";
   for (const w of namesIn(o, known)) if (!hasWord(r, w)) return `the name or term "${w}" was changed`;
-  if (HEDGE.test(o) && !HEDGE.test(r)) return "a hedge was removed";
-  if (STRONG.test(r) && !STRONG.test(o)) return "the claim was made stronger";
-  const causal = new Set((o.match(CAUSAL) ?? []).map((x) => x.toLowerCase()));
-  for (const c of r.match(CAUSAL) ?? []) if (!causal.has(c.toLowerCase())) return "a causal link was added";
-  if (count(o, NEGATION) !== count(r, NEGATION)) return "the meaning may have flipped";
   return null;
 }
 

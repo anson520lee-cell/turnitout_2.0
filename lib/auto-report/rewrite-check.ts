@@ -14,7 +14,10 @@ import { acceptAll, checkOutcome, reviseText, type ReportRewrite, type RewriteCh
 /**
  * Re-checks a Writing Refinement for real: the text with every suggestion in place is reviewed by the same detector,
  * prompt and settings as a report, and the result is kept with the rewrite (ReportRewrite.check). The live rewrite
- * then lands on this score instead of the projection. Included in the add-on's price; made once per rewrite.
+ * then lands on this score instead of the projection. Included in the add-on's price; made once per round.
+ *
+ * A later round (rewrite-run.ts makeRound) waits as `pending` until it is re-checked here: its suggestions replace the
+ * earlier ones only when the re-check scores lower, so the rewrite always keeps the best round.
  */
 
 const LEASE_MS = 120_000;
@@ -22,7 +25,7 @@ const LEASE_MS = 120_000;
 const PIECE_TIMEOUT_MS = 95_000;
 
 export type CheckOutcome =
-  | { ok: true; check: RewriteCheck }
+  | { ok: true; check: RewriteCheck; rewrite: ReportRewrite }
   | { ok: false; reason: "no_rewrite" | "busy" | "daily_limit" | "unavailable" };
 
 async function reviewPiece(text: string, prompt: string, model: string, effort: ReasoningEffort): Promise<string | null> {
@@ -49,12 +52,14 @@ export async function checkReportRewrite(orderId: string, userId: string): Promi
   const { data: report } = await db.from("auto_reports").select("status,result,rewrite").eq("order_id", orderId).maybeSingle<{ status: string; result: AutoReportResult | null; rewrite: ReportRewrite | null }>();
   const rewrite = report?.rewrite;
   if (!report?.result || !rewrite || !rewrite.items.some((i) => i.rewrite)) return { ok: false, reason: "no_rewrite" };
-  if (rewrite.check) return { ok: true, check: rewrite.check };
+  if (rewrite.check && !rewrite.pending) return { ok: true, check: rewrite.check, rewrite };
   if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
   if (await paidPieceLimitReached()) return { ok: false, reason: "daily_limit" };
 
   const { data: order } = await db.from("orders").select("source_text").eq("id", orderId).maybeSingle<{ source_text: string | null }>();
-  const text = reviseText(order?.source_text ?? null, report.result, rewrite, acceptAll(rewrite));
+  // The round being checked: the waiting one, or the first.
+  const trial: ReportRewrite = rewrite.pending ? { ...rewrite, items: rewrite.pending.items } : rewrite;
+  const text = reviseText(order?.source_text ?? null, report.result, trial, acceptAll(trial));
   const chunks = chunkText(text, PIECE_SIZE);
   if (!chunks.length) return { ok: false, reason: "no_rewrite" };
 
@@ -84,10 +89,17 @@ export async function checkReportRewrite(orderId: string, userId: string): Promi
       }
       after = { ...stitchReport(text, answers, PIECE_SIZE), reuse: { text: hash, basis } };
     }
-    const check: RewriteCheck = { checkedAt: new Date().toISOString(), score: reportScore(after.summary), ...checkOutcome(rewrite, after), result: after };
-    await db.from("auto_reports").update({ rewrite: { ...rewrite, check }, rewrite_lease: null }).eq("order_id", orderId);
-    await audit("report_rewrite_checked", { orderId, actorId: userId, detail: { score: Math.round(check.score * 100), stillCounted: check.stillCounted.length, cleared: check.cleared.length } });
-    return { ok: true, check };
+    const check: RewriteCheck = { checkedAt: new Date().toISOString(), score: reportScore(after.summary), ...checkOutcome(trial, after), result: after };
+    const round = rewrite.pending?.round ?? 1;
+    const scores = [...(rewrite.scores ?? (rewrite.check ? [rewrite.check.score] : [])), check.score];
+    // A later round is kept only when it scores lower than the best so far.
+    const better = !rewrite.check || check.score < rewrite.check.score;
+    const rest: ReportRewrite = { ...rewrite };
+    delete rest.pending;
+    const saved: ReportRewrite = better ? { ...rest, items: trial.items, check, round, scores } : { ...rest, round, scores };
+    await db.from("auto_reports").update({ rewrite: saved, rewrite_lease: null }).eq("order_id", orderId);
+    await audit("report_rewrite_checked", { orderId, actorId: userId, detail: { round, kept: better, score: Math.round(check.score * 100), stillCounted: check.stillCounted.length, cleared: check.cleared.length } });
+    return { ok: true, check: saved.check as RewriteCheck, rewrite: saved };
   } catch (e) {
     await release();
     console.error("rewrite check failed", e instanceof Error ? e.name : "error");

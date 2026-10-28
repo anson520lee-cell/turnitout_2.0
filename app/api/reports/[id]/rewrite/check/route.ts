@@ -6,8 +6,9 @@ import { uuid } from "@/lib/validation/schemas";
 
 /**
  * Re-checks a Writing Refinement for real (lib/auto-report/rewrite-check.ts): the text with every suggestion in place
- * is reviewed by the detector, once, at no extra charge. Asking again returns the saved re-check. Only the order's
- * owner (or an admin) can call it.
+ * is reviewed by the detector, once per round, at no extra charge. Asking again returns the saved re-check. The answer
+ * carries the whole rewrite too, since a later round's suggestions are kept only when they score lower. Only the
+ * order's owner (or an admin) can call it.
  */
 export const maxDuration = 120;
 
@@ -30,7 +31,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/report
     return NextResponse.json({ error: "Not found." }, { status: 404, headers: noStore });
   }
   const out = await checkReportRewrite(id, order.user_id);
-  if (out.ok) return NextResponse.json({ check: out.check }, { headers: noStore });
+  if (out.ok) return NextResponse.json({ check: out.check, rewrite: out.rewrite }, { headers: noStore });
   const status = out.reason === "busy" ? 409 : out.reason === "unavailable" ? 502 : 422;
   return NextResponse.json({ error: messages[out.reason], reason: out.reason }, { status, headers: noStore });
 }

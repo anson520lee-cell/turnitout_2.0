@@ -42,7 +42,7 @@ export function RefineIntro({ result, rewrite, reference, original, now }: { res
 
   const steps = [
     { at: 0, title: "Opening your report", lines: [`${reference} · AI score ${Math.round(original * 100)}%`, `${plural(facts.flagged, "flagged sentence")} · ${fmt(facts.picked)} to rewrite`] },
-    { at: 2_200, title: "Loading the rewrite engine", lines: ["0% Writing Refinement · plain student voice, nothing added", "every suggestion checked against your original"] },
+    { at: 2_200, title: "Loading the rewrite engine", lines: ["0% Writing Refinement · plain student voice, up to 3 rounds", "numbers, names and citations checked against your original"] },
     { at: 5_200, title: "Reading why each sentence was flagged", lines: [`${plural(facts.reasons, "reviewer reason")} loaded`, `${fmt(facts.high)} high · ${fmt(facts.medium)} medium`] },
     {
       at: 8_300,
