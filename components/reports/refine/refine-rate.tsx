@@ -7,8 +7,9 @@ import { REFINE_POINT_MS, type RefineMeter } from "./refine-meter";
 /**
  * The right-hand panel of the live rewrite, in blue and purple: the report's own AI score (blue) against the
  * projected rate as the rewrite goes (purple), a chart where the purple line falls away from the blue one, and
- * counters. The projected rate is the report's score with the rewritten sentences no longer counted: a
- * projection, labelled as one.
+ * counters. While the rewrite runs the rate is a projection (the report's score with the rewritten sentences no
+ * longer counted), labelled as one; once the rewritten text has been re-checked by the detector (`verified`) it ends
+ * on that real score instead.
  */
 
 const BLUE = "91,140,255";
@@ -31,12 +32,13 @@ export interface RefineCounts {
   progress: number;
 }
 
-export function RefineRatePanel({ meter, ready, final, original, counts, compact, reduce = false }: { meter: RefineMeter; ready: boolean; final: boolean; original: number; counts: RefineCounts; compact?: boolean; reduce?: boolean }) {
+export function RefineRatePanel({ meter, ready, final, verified = false, original, counts, compact, reduce = false }: { meter: RefineMeter; ready: boolean; final: boolean; verified?: boolean; original: number; counts: RefineCounts; compact?: boolean; reduce?: boolean }) {
+  const real = final && verified;
   if (compact) {
     return (
       <div className="flex items-center gap-3">
         <div className="shrink-0">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · projected</p>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : "projected"}</p>
           <Readout meter={meter} original={original} final={final} className="text-[26px]" unit="text-[14px]" deltaClass="text-[10px]" />
         </div>
         <div className="relative h-12 min-w-0 flex-1">
@@ -56,12 +58,12 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
     <div className="flex h-full flex-col gap-3">
       <div>
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-fg-subtle">
-          <span className="refine-live-dot" aria-hidden /> AI rate · {final ? "projected" : "refining"}
-          <span className="ml-auto rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">Projected</span>
+          <span className="refine-live-dot" aria-hidden /> AI rate · {real ? "re-checked" : final ? "projected" : "refining"}
+          <span className="ml-auto rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : "Projected"}</span>
         </p>
         <Readout meter={meter} original={original} final={final} className="mt-2 text-[50px] tracking-tight" unit="ml-0.5 text-[22px]" deltaClass="text-[12px]" />
         <p className="mt-1 text-[11.5px] leading-snug text-fg-subtle">
-          {ready ? "the report's score with the rewritten sentences no longer counted" : "starts on your report's AI score"}
+          {real ? "your text with every suggestion in place, run through the detector again" : ready ? "estimate: the report's score with the rewritten sentences no longer counted" : "starts on your report's AI score"}
         </p>
       </div>
 
@@ -87,7 +89,7 @@ export function RefineRatePanel({ meter, ready, final, original, counts, compact
         <Cell k="Left" v={String(Math.max(0, counts.total - counts.rewritten - counts.kept))} />
         <Cell k="Progress" v={`${Math.round(counts.progress * 100)}%`} />
       </dl>
-      <p className="text-[10.5px] leading-snug text-fg-subtle">A projection, not a new report: run one on your edited text to see how it reads.</p>
+      <p className="text-[10.5px] leading-snug text-fg-subtle">{real ? "The real score of the rewritten text, from the same detector as your report." : "An estimate until the rewritten text is re-checked by the detector at the end."}</p>
     </div>
   );
 }

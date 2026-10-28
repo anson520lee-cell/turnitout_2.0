@@ -7,12 +7,30 @@ import { getModelSetting } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
 import { shortId } from "@/lib/utils";
 import type { AutoReportResult, ReportSentence } from "./stitch";
-import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, pickFlagged, rewriteCredits, rewriteInput, streamedRewrites, type ReportRewrite, type RewriteItem } from "./rewrite";
+import {
+  REWRITE_BATCH,
+  REWRITE_PROMPT,
+  buildItems,
+  currentResult,
+  knownNames,
+  mergeRound,
+  needsRound,
+  parseRewrites,
+  pickFlagged,
+  rewriteCredits,
+  rewriteInput,
+  roundTargets,
+  streamedRewrites,
+  type ReportRewrite,
+  type RewriteItem,
+} from "./rewrite";
 
 /**
  * Makes the suggested rewrites for a finished report, once: the Writing Refinement add-on, paid in credits (price in
  * config/pricing.ts rewritePricing) only when suggestions were made. The report itself, its score and its band are
- * never touched, and the new text is not scored here: a fresh report is the only way to see how an edited text reads.
+ * never touched, and the new text is not scored here: rewrite-check.ts re-checks the text with every suggestion in
+ * place once the suggestions are saved. While that score is still above the target, makeRound rewrites the sentences
+ * it still counts again (no extra charge), and the re-check decides whether that round is kept.
  */
 
 const LEASE_MS = 150_000;
@@ -31,11 +49,11 @@ export type RewriteOutcome =
   | { ok: false; reason: "no_report" | "nothing_flagged" | "busy" | "daily_limit" | "unavailable" | "no_suggestions" }
   | { ok: false; reason: "insufficient"; credits: number; balance: number };
 
-async function askBatch(batch: ReportSentence[], result: AutoReportResult, model: string, redo?: Map<number, string>): Promise<Map<number, string> | null> {
+async function askBatch(batch: ReportSentence[], result: AutoReportResult, model: string, redo?: Map<number, string>, round = 1): Promise<Map<number, string> | null> {
   try {
     const res = await deepseekRun({
       system: [REWRITE_PROMPT, DRAFT_GUARD].join("\n\n"),
-      user: rewriteInput(batch, result, redo),
+      user: rewriteInput(batch, result, redo, round),
       maxTokens: 12_000,
       model,
       effort: "low",
@@ -201,6 +219,62 @@ export async function makeRewrite(orderId: string, who: { userId: string; admin:
   } catch (e) {
     await release();
     console.error("report rewrite failed", e instanceof Error ? e.name : "error");
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+export type RoundOutcome = { ok: true; rewrite: ReportRewrite } | { ok: false; reason: "no_rewrite" | "busy" | "daily_limit" | "unavailable" };
+
+/**
+ * One more round of rewriting, after a re-check that still scores above the target: the sentences it still counts
+ * are rewritten again (told that they are rewrites still flagged), checked, and saved as `pending` for the re-check to
+ * keep or drop. When nothing is left to do (target reached, rounds used up, a round already waiting) the rewrite comes
+ * back unchanged. Included in the add-on's price.
+ */
+export async function makeRound(orderId: string): Promise<RoundOutcome> {
+  const db = createAdminClient();
+  const { data: report } = await db.from("auto_reports").select("result,rewrite").eq("order_id", orderId).maybeSingle<{ result: AutoReportResult | null; rewrite: ReportRewrite | null }>();
+  const rewrite = report?.rewrite;
+  if (!report?.result || !rewrite) return { ok: false, reason: "no_rewrite" };
+  if (!needsRound(rewrite)) return { ok: true, rewrite };
+  if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
+  if (await rewriteLimitReached()) return { ok: false, reason: "daily_limit" };
+
+  const now = new Date();
+  const { data: leased } = await db
+    .from("auto_reports")
+    .update({ rewrite_lease: new Date(now.getTime() + LEASE_MS).toISOString() })
+    .eq("order_id", orderId)
+    .or(`rewrite_lease.is.null,rewrite_lease.lt.${now.toISOString()}`)
+    .select("order_id");
+  if (!leased?.length) return { ok: false, reason: "busy" };
+
+  const started = Date.now();
+  const round = (rewrite.round ?? 1) + 1;
+  try {
+    const { model } = await getModelSetting();
+    const targets = roundTargets(report.result, rewrite);
+    const context = currentResult(report.result, rewrite.items);
+    const known = knownNames(report.result);
+    const batches: ReportSentence[][] = [];
+    for (let i = 0; i < targets.length; i += REWRITE_BATCH) batches.push(targets.slice(i, i + REWRITE_BATCH));
+    const answers = new Map<number, string>();
+    for (const a of await Promise.all(batches.map((b) => askBatch(b, context, model, undefined, round)))) for (const [n, t] of a ?? []) answers.set(n, t);
+    let fresh = buildItems(targets, answers, known);
+    const redo = new Map(fresh.filter((i) => i.rewrite === null && i.kept && answers.has(i.n)).map((i) => [i.n, i.kept as string]));
+    if (redo.size && Date.now() - started < RETRY_BEFORE_MS) {
+      const again = await askBatch(targets.filter((s) => redo.has(s.n)), context, model, redo, round);
+      for (const [n, t] of again ?? []) answers.set(n, t);
+      fresh = buildItems(targets, answers, known);
+    }
+    // Nothing new to try: the round is used up and the rewrite stays as it was.
+    const next: ReportRewrite = fresh.some((i) => i.rewrite) ? { ...rewrite, pending: { round, items: mergeRound(rewrite.items, fresh, report.result) } } : { ...rewrite, round };
+    await db.from("auto_reports").update({ rewrite: next, rewrite_lease: null }).eq("order_id", orderId);
+    await audit("report_rewrite_round", { orderId, detail: { round, targets: targets.length, suggested: fresh.filter((i) => i.rewrite).length } });
+    return { ok: true, rewrite: next };
+  } catch (e) {
+    await db.from("auto_reports").update({ rewrite_lease: null }).eq("order_id", orderId);
+    console.error("report rewrite round failed", e instanceof Error ? e.name : "error");
     return { ok: false, reason: "unavailable" };
   }
 }
