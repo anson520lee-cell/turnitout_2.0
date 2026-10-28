@@ -82,12 +82,9 @@ function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: Ref
       setTimeout(() => {
         setRewrite(full);
         if (recheck === null) return;
-        // A made-up re-check: pending for a while (it runs alongside the typing on a real order), then a second round
-        // after a first re-check that scored higher, then the given score.
+        // A made-up re-check: pending for a while (it runs alongside the typing on a real order), then the given score.
         setVerify({ state: "pending" });
-        const first = Math.min(0.97, recheck / 100 + 0.35);
-        timers.push(setTimeout(() => setVerify({ state: "pending", round: 2, last: first }), 30_000 / speed));
-        timers.push(setTimeout(() => setVerify({ state: "done", check: demoCheck(full, result, recheck), rounds: 2 }), 50_000 / speed));
+        timers.push(setTimeout(() => setVerify({ state: "done", check: demoCheck(full, result, recheck) }), 40_000 / speed));
       }, (last + 1_500) / speed),
     );
     return () => timers.forEach(clearTimeout);

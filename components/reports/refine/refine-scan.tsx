@@ -7,7 +7,7 @@ import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion"
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
 import { REFINE_INTRO_MS, clearedBy, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival } from "@/lib/auto-report/refine-script";
-import { MAX_ROUNDS, pickFlagged, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
+import { pickFlagged, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RefineIntro } from "./refine-intro";
@@ -31,8 +31,7 @@ import { RefineStage, clockNow, type RefineClock } from "./refine-stage";
 const FINALE_MS = 7_000;
 
 /** The real re-check of the rewritten text (lib/auto-report/rewrite-check.ts). */
-/** `round` and `last`: a later round is being written and re-checked, after a re-check that scored `last`. */
-export type RefineVerify = { state: "pending"; round?: number; last?: number } | { state: "failed" } | { state: "done"; check: RewriteCheck; rounds?: number };
+export type RefineVerify = { state: "pending" } | { state: "failed" } | { state: "done"; check: RewriteCheck };
 
 const NO_ITEMS: RewriteItem[] = [];
 const noop = () => () => {};
@@ -127,8 +126,6 @@ export function RefineScan({
   const done = typed && !checking;
   if (done && doneAt === null) setDoneAt(now);
   const verified = verify?.state === "done" ? verify.check : null;
-  const pendingRound = verify?.state === "pending" ? (verify.round ?? 1) : 1;
-  const lastScore = verify?.state === "pending" ? verify.last : undefined;
 
   const cleared = clearedBy(jobs, scanMs);
   const final = verified ? verified.score : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
@@ -321,25 +318,11 @@ export function RefineScan({
           {checking && (
             <motion.div key="checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-30 grid place-items-center bg-ink-950/55 p-4 backdrop-blur-[3px]">
               <div className="glass-strong noise relative w-full max-w-md overflow-hidden rounded-3xl p-6 text-center sm:p-8">
-                {pendingRound > 1 ? (
-                  <>
-                    <p className="flex items-center justify-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#cdbdff]">
-                      <Loader2 className="size-4 animate-spin" /> Round {pendingRound} of {MAX_ROUNDS}
-                    </p>
-                    <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">
-                      The re-check still scored {lastScore !== undefined ? `${Math.round(lastScore * 100)}%` : "too high"}, so the sentences it still reads as AI are being rewritten again, in a different way, and re-checked. The round with the lowest score is kept.
-                    </p>
-                    <p className="mt-3 text-[11.5px] text-fg-subtle">About a minute per round.</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="flex items-center justify-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#cdbdff]">
-                      <Loader2 className="size-4 animate-spin" /> Re-checking the rewritten text
-                    </p>
-                    <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">Your text with every suggestion in place is going through the same detector as your report, so the rate you see next is a real score, not an estimate.</p>
-                    <p className="mt-3 text-[11.5px] text-fg-subtle">Usually under a minute.</p>
-                  </>
-                )}
+                <p className="flex items-center justify-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#cdbdff]">
+                  <Loader2 className="size-4 animate-spin" /> Re-checking the rewritten text
+                </p>
+                <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">Your text with every suggestion in place is going through the same detector as your report, so the rate you see next is a real score, not an estimate.</p>
+                <p className="mt-3 text-[11.5px] text-fg-subtle">This can take a few minutes.</p>
               </div>
             </motion.div>
           )}
@@ -378,7 +361,7 @@ export function RefineScan({
                 </p>
                 {verified ? (
                   <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">
-                    Re-checked by the same detector as your report{verify?.state === "done" && (verify.rounds ?? 1) > 1 ? `, best of ${verify.rounds} rounds` : ""}: {verified.stillCounted.length} of {verified.stillCounted.length + verified.cleared.length} rewritten sentence{verified.stillCounted.length + verified.cleared.length === 1 ? "" : "s"} still read{verified.stillCounted.length + verified.cleared.length === 1 ? "s" : ""} as AI.
+                    Re-checked by the same detector as your report: {verified.stillCounted.length} of {verified.stillCounted.length + verified.cleared.length} rewritten sentence{verified.stillCounted.length + verified.cleared.length === 1 ? "" : "s"} still read{verified.stillCounted.length + verified.cleared.length === 1 ? "s" : ""} as AI.
                   </p>
                 ) : (
                   <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">

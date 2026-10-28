@@ -66,6 +66,6 @@ export const faq: FaqItem[] = [
   },
   {
     q: "What is Writing Refinement?",
-    a: "An optional add-on you can use once on a finished report. It suggests a rewrite for each flagged sentence, answering the reviewer's reason while keeping your facts, numbers, names, quotations and citations. You see your sentence beside the suggestion and choose one by one. It is charged in credits at the same price as the report, only when suggestions are ready, and it does not guarantee any result in any checker. Find it at the bottom of your finished report page.",
+    a: "An optional add-on you can use once on a finished report. It rewrites each flagged sentence to bring the AI score down, re-checks the result with the same detector and rewrites what still reads as AI again. To get the score down a suggestion may change what a sentence says; numbers, names, quotations and citations are never changed. You see your sentence beside the suggestion and choose one by one. It is charged in credits at three times the price of the report, only when suggestions are ready, and it does not guarantee any result in any checker. Find it at the bottom of your finished report page.",
   },
 ];

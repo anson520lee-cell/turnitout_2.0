@@ -35,7 +35,7 @@ export default function PricingPage() {
               spaces and line breaks count once. You see the exact price before you pay, and you can pay just that one report by Alipay (no top-up, no minimum) or use credits. A new report after you revise is a new order.
             </p>
             <p className="mt-2">
-              <span className="font-medium text-fg">Writing Refinement</span> is an optional add-on after a finished report: it rewrites each flagged sentence to bring the AI score down, re-checked by the same detector, up to three rounds. A suggestion may change what a sentence says (numbers, names, quotations and citations are kept), and you choose which to use. It costs {rewritePricing.multiple === 1 ? "the same as" : `${rewritePricing.multiple} times the price of`} that report and is charged only when suggestions are made. It does not change your report and does not guarantee any result in any checker.
+              <span className="font-medium text-fg">Writing Refinement</span> is an optional add-on after a finished report: it rewrites each flagged sentence to bring the AI score down, re-checked by the same detector, with what still reads as AI rewritten again. A suggestion may change what a sentence says (numbers, names, quotations and citations are kept), and you choose which to use. It costs {rewritePricing.multiple} times the price of that report and is charged only when suggestions are made. It does not change your report and does not guarantee any result in any checker.
             </p>
             <ul className="mt-3 space-y-1 font-mono text-[12px] text-fg-subtle">
               {reportExamples.map((e) => (

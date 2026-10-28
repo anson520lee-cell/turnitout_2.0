@@ -80,10 +80,13 @@ export function reportPrice(chars: number): number {
  * Writing Refinement, the add-on after a report: suggested rewrites of the sentences the report flagged. Jordan
  * (2026-10-26): price it as the same multiple of the report's price as its cost is of the report's cost. Estimated
  * from the report's real DeepSeek use (about US$0.010 per 3,500-character piece): one rewrite pass over a report
- * costs about 0.8 to 1 times its report, so the multiple is 1. Re-measure from the model_usage log (purpose
- * "report_rewrite") and change it here. A report that was free is priced as the paid report of the same length.
+ * costs about 0.8 to 1 times its report, so the multiple was 1. Since 2026-10-28 the add-on re-checks the rewritten
+ * text and rewrites what still reads as AI again, up to three rounds (lib/auto-report/rewrite.ts MAX_ROUNDS), which
+ * costs up to about 3.3 times one rewrite pass: Neo set the multiple to 3. Re-measure from the model_usage log
+ * (purposes "report_rewrite" and "paid_report") and change it here. A report that was free is priced as the paid
+ * report of the same length.
  */
-export const rewritePricing = { multiple: 1 } as const;
+export const rewritePricing = { multiple: 3 } as const;
 
 /** Price of the add-on in cents: `reportCents` is what the report cost (0 for a free one, then the price of `chars` characters). */
 export function rewritePrice(reportCents: number, chars: number): number {
