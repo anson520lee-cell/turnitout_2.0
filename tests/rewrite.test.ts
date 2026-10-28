@@ -25,10 +25,11 @@ test("hedges stay, claims are not strengthened, no causal link is added", () => 
   assert.equal(checkRewrite(o, "The data suggests that vocabulary is shaped by reading habits."), null);
 });
 
-test("one sentence, similar length, a real change, same negations", () => {
+test("up to three sentences, similar length, a real change, same negations", () => {
   const o = "Many students do not read widely before they write their first essay.";
   assert.equal(checkRewrite(o, o), "unchanged");
-  assert.equal(checkRewrite(o, "Many students do not read widely. They write first."), "not one sentence");
+  assert.equal(checkRewrite(o, "Lots of students don't read much. Then they write their first essay."), null);
+  assert.equal(checkRewrite(o, "Students. They do not read much. Not widely. Then essays."), "split into too many sentences");
   assert.equal(checkRewrite(o, "Few read."), "length changed too much");
   assert.equal(checkRewrite(o, "Many students read widely before they write their first essay, mostly."), "the meaning may have flipped");
 });
@@ -115,6 +116,10 @@ test("the re-check finds each rewritten sentence in the revised text and says wh
   // A sentence not found by its text falls back to its number.
   const moved = result([[sentence(1, "medium"), sentence(2, "low"), sentence(3, "high", true)]]);
   assert.deepEqual(checkOutcome(rw, moved), { stillCounted: [3], cleared: [1] });
+  // A rewrite split in two still counts when either half does.
+  const split: ReportRewrite = { ...rw, items: [{ n: 1, original: "One.", rewrite: "First half. Second half." }, rw.items[2]] };
+  const halves = result([[{ ...sentence(1, "low"), text: "First half." }, { ...sentence(2, "medium", true), text: "Second half." }, sentence(3, "low"), { ...sentence(4, "low"), text: "Third rewrite." }]]);
+  assert.deepEqual(checkOutcome(split, halves), { stillCounted: [1], cleared: [3] });
 });
 
 test("the add-on is priced from the report's price, and a free report is priced as the paid report of its length", async () => {

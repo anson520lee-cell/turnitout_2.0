@@ -2,12 +2,17 @@
  * "Fix flagged phrasing, keep your meaning": suggested rewrites for the sentences a finished report flagged.
  * Pure functions, no I/O, so they can be tested (the DeepSeek calls are in rewrite-run.ts).
  *
- * Only the flagged sentences are rewritten, one sentence for one sentence, guided by the reviewer's reason for each.
- * The model's answer is never trusted: every suggestion is checked here against the original (numbers, citations,
- * quotations and names must survive, hedges must stay, no new causal link, same length range, one sentence), and a
- * suggestion that fails a check is dropped, so that sentence stays as the student wrote it. Backtest 2026-10-26
- * (21 essays, rewrites written by Claude): rewriting only the flagged sentences by the reviewer's reason cleared 44%
- * of them against 18% for a plain re-run; an English-Chinese-English round trip did nothing, so it is not used.
+ * Only the flagged sentences are rewritten, each into one to three sentences in a plain student voice, guided by the
+ * reviewer's reason for each. The model's answer is never trusted: every suggestion is checked here against the
+ * original (numbers, citations, quotations and names must survive, hedges must stay, no new causal link, similar
+ * length, at most MAX_SPLIT sentences), and a suggestion that fails a check is dropped, so that sentence stays as the
+ * student wrote it. Backtest 2026-10-26 (21 essays, rewrites written by Claude): rewriting only the flagged sentences
+ * by the reviewer's reason cleared 44% of them against 18% for a plain re-run; an English-Chinese-English round trip
+ * did nothing, so it is not used.
+ *
+ * Plain voice since 2026-10-28: a synonym swap that keeps each sentence's shape was still counted on the re-check (29
+ * of 31 sentences on Neo's Gemini essay), while a plain-voice rewrite of the same essay with nothing invented dropped
+ * the High sentences from 73-97% to 0-13% (/mnt/project-files/refine-recheck/results-2026-10-28.md).
  */
 
 import { splitSentences } from "@/lib/recheck";
@@ -63,19 +68,21 @@ export function acceptAll(rewrite: ReportRewrite): Record<number, Decision> {
 }
 
 /**
- * Which rewritten sentences the re-check still counts. A suggestion is always one sentence for one sentence, so the
- * revised text normally has the same numbering; a sentence is found by its text first, by its number otherwise.
+ * Which rewritten sentences the re-check still counts. A suggestion may be split into a few sentences, so the revised
+ * text is matched by text: a rewrite still counts when any re-checked sentence inside it counts. Only when nothing
+ * matches (the re-check split the text differently) is the sentence of the same number used.
  */
 export function checkOutcome(rewrite: ReportRewrite, after: AutoReportResult): Pick<RewriteCheck, "stillCounted" | "cleared"> {
   const sentences = after.paragraphs.flatMap((p) => p.sentences);
-  const byText = new Map(sentences.map((s) => [s.text.trim(), s]));
   const byN = new Map(sentences.map((s) => [s.n, s]));
   const stillCounted: number[] = [];
   const cleared: number[] = [];
   for (const item of rewrite.items) {
     if (!item.rewrite) continue;
-    const s = byText.get(item.rewrite.trim()) ?? byN.get(item.n);
-    (s?.counts ? stillCounted : cleared).push(item.n);
+    const text = item.rewrite;
+    const inside = sentences.filter((s) => s.text.trim() && text.includes(s.text.trim()));
+    const counts = inside.length ? inside.some((s) => s.counts) : byN.get(item.n)?.counts;
+    (counts ? stillCounted : cleared).push(item.n);
   }
   return { stillCounted, cleared };
 }
@@ -88,6 +95,8 @@ export function rewriteCredits(order: { price: number; source_text: string | nul
 
 /** The most sentences rewritten for one report (a cost and a quality limit). */
 export const MAX_REWRITE_SENTENCES = 60;
+/** The most sentences one flagged sentence may become (a long one is often better said in two or three). */
+export const MAX_SPLIT = 3;
 /** Sentences sent to the model in one call. */
 export const REWRITE_BATCH = 20;
 
@@ -103,27 +112,26 @@ export function pickFlagged(result: AutoReportResult, max = MAX_REWRITE_SENTENCE
     .sort((a, b) => a.n - b.n);
 }
 
-export const REWRITE_PROMPT = `You help a student fix sentences of their OWN essay that a reviewer marked as reading like stock model-written prose. For each marked sentence you get the reviewer's reason. Rewrite that one sentence so the problem named in the reason is gone, and keep everything the sentence says.
+export const REWRITE_PROMPT = `You help a student rewrite sentences of their OWN essay that a reviewer marked as reading like model-written prose. Polishing the wording is not enough: the reviewer still flags a sentence that keeps its original shape with new synonyms, and any sentence that is smooth, formal and completely predictable. Rewrite each marked sentence the way a capable student would say the same thing in their own plain voice, as if explaining it to a classmate.
 
 For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the reviewer's "reason" and "ask". If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time.
 
-Rules, all of them:
-- Return exactly one sentence for each input sentence. Never merge, split, drop or add sentences. Do not put a full stop followed by a new capitalised sentence inside the answer (a semicolon is fine).
-- Keep the meaning, every fact, every number, every name and every in-text citation exactly as written, for example (Gabora, 1998). Keep text inside quotation marks exactly as it is. Add no new idea, example, fact or link between ideas. Remove no claim.
+Never change what the sentence says:
+- Keep the meaning, every fact, every number, every name and every in-text citation exactly as written, for example (Gabora, 1998). Keep text inside quotation marks exactly as it is. Add no new idea, example, fact, personal story or detail the essay does not give. Remove no claim.
 - Keep hedges as they are: if the sentence says "suggests", "may", "can", "often" or "seems", the rewrite must be just as careful. Never turn "suggests" into "shows" or "proves". Do not add words like "therefore", "thus", "because", "as a result" or "leads to" unless the sentence already has them.
-- Keep the person, the tense and the sentence's job in its paragraph. Keep it between 70% and 130% of the original length.
-- Write the way an ordinary student writer would say it in everyday words. Never put in spelling or grammar mistakes on purpose.
-- Use the reviewer's reason. The signals it may name, and what to do about each:
-  1 ready-made academic phrases (plays a key role, it is worth noting) -> plain everyday wording for the same idea.
-  2 ready-made sentence frame with the nouns swapped -> say the point directly, in a sentence shape of your own.
-  3 one idea per short tidy sentence -> let the sentence carry its idea in a more connected way (commas, "so", "which"), adding no content.
-  4 abstract, neutral generalisation that names nobody -> make the wording more concrete, naming who or what is meant ONLY if the essay itself says so; invent nothing.
-  5 formal "upgraded" synonyms -> the plainer word you would normally use.
-  6 flawless textbook sentence -> loosen it into how you would explain it to a classmate.
-  7 template structure: (a) "not X, but Y" punchline -> state the point directly; (b) three-item list -> keep every item, but phrase it less like a triad; (c) First / Second / Finally opener or label-and-colon -> drop the ordinal or label and link the idea in running prose.
-  8 predictable wording (every word the obvious next one) -> choose less obvious but still correct and natural words.
-  9 plain-style flourish (colon reveal, callback line, tidy closing line) -> restate plainly, with no reveal or flourish.
-  If the reason quotes a specific phrase, fix exactly that phrase.
+- Keep the tense and the sentence's job in its paragraph. You may say "we" or "you" for people in general; write "I" only if the essay already does.
+- Return one to three sentences for each input sentence, together between 60% and 150% of the original length. Never merge it with a neighbour.
+
+Change how it is said:
+- Change the shape, not only the words. Never keep the original frame with synonyms swapped in. Start the sentence differently and put the main point first.
+- Everyday words. Drop stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting) and say the plain thing.
+- When the sentence is long, split it into two or three sentences of clearly different lengths; a short, blunt sentence is good. Contractions (it's, don't, we're) are fine.
+- Lists: keep every item, but never as a balanced row of matching phrases. Give the items different lengths, or spread them over clauses or sentences.
+- Drop signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion) and colon reveals. Link ideas plainly with "and", "but", "so" or "also", or not at all.
+- Drop "not X but Y", "rather than" and "neither... nor" punchlines: say the main point straight, then the contrast if it is part of the claim.
+- No neat moral, slogan or callback at the end.
+- It must still read as a sound school essay: no slang, no emojis, and never put in spelling or grammar mistakes on purpose.
+- Use the reviewer's reason. If it quotes a specific phrase, that phrase must go. Its signals mean: 1 ready-made phrases, 2 sentence frame with nouns swapped, 3 short tidy one-idea sentences in a row, 4 abstract generalisation naming nobody (be concrete only with what the essay itself says), 5 upgraded synonyms, 6 flawless textbook sentence, 7 template structure (contrast punchline, three-item list, ordinal or label openers), 8 every word the obvious next one, 9 flourish such as a colon reveal or a tidy closing line.
 
 Answer with JSON only, no other text, in this shape: [{"id": 12, "rewrite": "..."}]. Include every id you were given.`;
 
@@ -256,9 +264,9 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   const r = rewrite.trim();
   if (!r) return "empty";
   if (r.replace(/\s+/g, " ") === o.replace(/\s+/g, " ")) return "unchanged";
-  if (/[\r\n]/.test(r) || splitSentences(r).length !== 1) return "not one sentence";
+  if (/[\r\n]/.test(r) || splitSentences(r).length > MAX_SPLIT) return "split into too many sentences";
   const ratio = r.length / Math.max(1, o.length);
-  if (ratio < 0.7 || ratio > 1.3) return "length changed too much";
+  if (ratio < 0.6 || ratio > 1.5) return "length changed too much";
   for (const n of numbersIn(o)) if (!r.includes(n)) return `the number ${n} was changed`;
   for (const t of lockedIn(o)) if (!r.includes(t)) return "a citation or quotation was changed";
   for (const w of namesIn(o, known)) if (!hasWord(r, w)) return `the name or term "${w}" was changed`;
