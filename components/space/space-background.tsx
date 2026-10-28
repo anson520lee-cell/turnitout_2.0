@@ -8,6 +8,8 @@ import { usePathname } from "next/navigation";
  * One fixed canvas behind every page, drawn back to front:
  *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
  *    (slow scroll parallax)
+ *  - a loss landscape in perspective along the bottom: it flows toward the
+ *    viewer over time and as the page scrolls
  *  - a thin scroll-progress line on the top edge
  *
  * It never takes pointer events, pauses while the tab is hidden, and draws a
@@ -243,6 +245,8 @@ export function SpaceBackground() {
     const sky = document.createElement("canvas");
     const skyCtx = sky.getContext("2d");
     let skyAge = 99;
+    let lx = new Float32Array(0);
+    let ly = new Float32Array(0);
 
     let scrollY = window.scrollY;
     let docH = document.documentElement.scrollHeight;
@@ -316,6 +320,86 @@ export function SpaceBackground() {
       c.restore();
     }
 
+    // ── the loss landscape: a surface in perspective under the page. It flows
+    // toward the viewer over time and when the page scrolls.
+    function landscape(x: number, z: number, time: number, flow: number) {
+      const zz = z + flow;
+      return (
+        0.27 * Math.sin(x * 1.2 + time * 0.2) * Math.cos(zz * 0.85) +
+        0.13 * Math.sin(x * 2.5 - zz * 1.6 + time * 0.3) -
+        0.44 * Math.exp(-((x - 0.3) * (x - 0.3) + (z - 4.3) * (z - 4.3)) / 2.4)
+      );
+    }
+
+    function drawLandscape(time: number) {
+      const COLS = small ? 34 : 64;
+      const ROWS = small ? 14 : 22;
+      const X = 6;
+      const Z0 = 1.3;
+      const Z1 = 8.2;
+      const camY = 0.74;
+      // On a wide screen the surface fills the lower part of the viewport. On a
+      // phone the viewport is tall and narrow: scaling by height would zoom the
+      // surface in until only its middle strip showed and park it halfway up the
+      // page, so scale by width and sit the nearest edge on the bottom instead.
+      const f = Math.min(h * 0.85, w * 0.95);
+      const hor = small ? h - f * (camY / Z0 + 0.04) : h * 0.6;
+      const flow = time * 0.22 + scrollY * 0.0042;
+      const A = inApp.current ? 0.3 : 0.26;
+
+      // horizon glow
+      const hg = c.createLinearGradient(0, hor - h * 0.1, 0, hor + h * 0.16);
+      hg.addColorStop(0, "rgba(91,140,255,0)");
+      hg.addColorStop(0.45, "rgba(110,150,255,0.07)");
+      hg.addColorStop(1, "rgba(154,123,255,0)");
+      c.fillStyle = hg;
+      c.fillRect(0, hor - h * 0.1, w, h * 0.26);
+
+      const n = (COLS + 1) * ROWS;
+      if (lx.length !== n) {
+        lx = new Float32Array(n);
+        ly = new Float32Array(n);
+      }
+      for (let j = 0; j < ROWS; j++) {
+        const z = Z0 + (j / (ROWS - 1)) * (Z1 - Z0);
+        const k = f / z;
+        for (let i = 0; i <= COLS; i++) {
+          const x = (i / COLS - 0.5) * 2 * X;
+          const o = j * (COLS + 1) + i;
+          lx[o] = w / 2 + x * k;
+          ly[o] = hor + (camY - landscape(x, z, time, flow)) * k;
+        }
+      }
+      c.lineWidth = 0.7;
+      // contour rows, far to near
+      for (let j = ROWS - 1; j >= 0; j--) {
+        const d = j / (ROWS - 1);
+        c.strokeStyle = `hsla(${188 + 72 * d},92%,${70 - 8 * d}%,${(Math.pow(1 - d, 1.25) * A + 0.035).toFixed(3)})`;
+        c.beginPath();
+        let pen = false;
+        for (let i = 0; i <= COLS; i++) {
+          const o = j * (COLS + 1) + i;
+          if (lx[o] < -80 || lx[o] > w + 80) {
+            pen = false;
+            continue;
+          }
+          if (pen) c.lineTo(lx[o], ly[o]);
+          else c.moveTo(lx[o], ly[o]);
+          pen = true;
+        }
+        c.stroke();
+      }
+      // the lines running away from the viewer
+      c.strokeStyle = `rgba(140,150,255,${(A * 0.26).toFixed(3)})`;
+      c.beginPath();
+      for (let i = 0; i <= COLS; i++) {
+        if (lx[i] < -w * 0.6 || lx[i] > w * 1.6) continue;
+        c.moveTo(lx[i], ly[i]);
+        for (let j = 1; j < ROWS; j++) c.lineTo(lx[j * (COLS + 1) + i], ly[j * (COLS + 1) + i]);
+      }
+      c.stroke();
+    }
+
     function drawPlanet(off: number) {
       const r = Math.min(w, h) * (small ? 0.42 : 0.5);
       const x = w * 0.96;
@@ -378,6 +462,7 @@ export function SpaceBackground() {
       drawNebula(time, off);
       drawGalaxy(time, off);
       drawPlanet(off);
+      drawLandscape(time);
       drawProgress();
     }
 
