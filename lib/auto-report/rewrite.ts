@@ -26,6 +26,8 @@ export interface RewriteItem {
   kept?: string;
 }
 
+export type Decision = "accept" | "reject";
+
 export interface ReportRewrite {
   version: 1;
   model: string;
@@ -33,6 +35,49 @@ export interface ReportRewrite {
   /** Credits charged for it (0 for an admin's test). Absent on rewrites made before the add-on was priced. */
   credits?: number;
   items: RewriteItem[];
+  /** The text with every suggestion in place, reviewed again by the same detector (rewrite-check.ts). Absent until that ran. */
+  check?: RewriteCheck;
+}
+
+/**
+ * The real re-check of a rewrite. Until 2026-10-28 the live rewrite only showed a projection (the report's score
+ * with the rewritten sentences taken out of the count); Neo's test that day showed why that is not enough: a Gemini
+ * essay projected at 2% still scored 100% when the revised text was checked, and 29 of the 31 rewritten sentences
+ * were still counted.
+ */
+export interface RewriteCheck {
+  checkedAt: string;
+  /** The revised text's AI score, 0 to 1, read exactly as a report's. */
+  score: number;
+  /** Rewritten sentences (by their number in the report) that are still counted toward the score on the re-check. */
+  stillCounted: number[];
+  /** Rewritten sentences that no longer count. */
+  cleared: number[];
+  /** The whole re-check, as a report of the revised text: what a new report on exactly that text shows again. */
+  result: AutoReportResult;
+}
+
+/** Every suggestion accepted: the text the re-check reviews. */
+export function acceptAll(rewrite: ReportRewrite): Record<number, Decision> {
+  return Object.fromEntries(rewrite.items.filter((i) => i.rewrite).map((i) => [i.n, "accept" as const]));
+}
+
+/**
+ * Which rewritten sentences the re-check still counts. A suggestion is always one sentence for one sentence, so the
+ * revised text normally has the same numbering; a sentence is found by its text first, by its number otherwise.
+ */
+export function checkOutcome(rewrite: ReportRewrite, after: AutoReportResult): Pick<RewriteCheck, "stillCounted" | "cleared"> {
+  const sentences = after.paragraphs.flatMap((p) => p.sentences);
+  const byText = new Map(sentences.map((s) => [s.text.trim(), s]));
+  const byN = new Map(sentences.map((s) => [s.n, s]));
+  const stillCounted: number[] = [];
+  const cleared: number[] = [];
+  for (const item of rewrite.items) {
+    if (!item.rewrite) continue;
+    const s = byText.get(item.rewrite.trim()) ?? byN.get(item.n);
+    (s?.counts ? stillCounted : cleared).push(item.n);
+  }
+  return { stillCounted, cleared };
 }
 
 /** What the add-on costs for this report, in credits (see rewritePrice in config/pricing.ts). */
@@ -235,8 +280,6 @@ export function buildItems(sentences: ReportSentence[], answers: Map<number, str
     return problem ? { ...base, rewrite: null, kept: problem } : { ...base, rewrite: given };
   });
 }
-
-export type Decision = "accept" | "reject";
 
 /**
  * The student's text with the accepted suggestions in place. With the pasted text, each accepted sentence is replaced

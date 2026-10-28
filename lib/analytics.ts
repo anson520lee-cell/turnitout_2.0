@@ -23,7 +23,8 @@ export type AnalyticsEvent =
   | "report_opened"
   | "report_downloaded"
   | "rewrite_requested"
-  | "rewrite_copied";
+  | "rewrite_copied"
+  | "rewrite_checked";
 
 type Props = Record<string, string | number | boolean | null>;
 

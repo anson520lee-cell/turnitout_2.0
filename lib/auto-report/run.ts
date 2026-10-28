@@ -89,26 +89,38 @@ async function failReport(orderId: string, reason: string): Promise<void> {
 
 /**
  * The first finished report of exactly this text made by this account with the same prompt, model and settings, if
- * there is one. Only a complete report counts.
+ * there is one. Only a complete report counts. The re-check of a Writing Refinement counts too (rewrite-check.ts):
+ * it reviewed exactly the revised text, so pasting that text into a new report shows the same result again.
  */
-async function earlierResult(userId: string, orderId: string, hash: string, basis: string): Promise<AutoReportResult | null> {
+export async function earlierResult(userId: string, orderId: string, hash: string, basis: string): Promise<AutoReportResult | null> {
   const db = createAdminClient();
-  const { data: same } = await db
-    .from("auto_reports")
-    .select("order_id,result")
-    .eq("status", "done")
-    .eq("result->reuse->>text", hash)
-    .eq("result->reuse->>basis", basis)
-    .neq("order_id", orderId)
-    .not("result", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(50)
-    .returns<{ order_id: string; result: AutoReportResult }[]>();
-  if (!same?.length) return null;
+  const [{ data: same }, { data: checked }] = await Promise.all([
+    db
+      .from("auto_reports")
+      .select("order_id,result")
+      .eq("status", "done")
+      .eq("result->reuse->>text", hash)
+      .eq("result->reuse->>basis", basis)
+      .neq("order_id", orderId)
+      .not("result", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(50)
+      .returns<{ order_id: string; result: AutoReportResult }[]>(),
+    db
+      .from("auto_reports")
+      .select("order_id,rewrite")
+      .eq("rewrite->check->result->reuse->>text", hash)
+      .eq("rewrite->check->result->reuse->>basis", basis)
+      .order("created_at", { ascending: true })
+      .limit(50)
+      .returns<{ order_id: string; rewrite: { check: { result: AutoReportResult } } }[]>(),
+  ]);
+  const found = [...(same ?? []), ...(checked ?? []).map((r) => ({ order_id: r.order_id, result: r.rewrite.check.result }))];
+  if (!found.length) return null;
   // Only this account's own earlier reports count: another account never gets a result made for someone else.
-  const { data: mine } = await db.from("orders").select("id").eq("user_id", userId).in("id", same.map((r) => r.order_id)).returns<{ id: string }[]>();
+  const { data: mine } = await db.from("orders").select("id").eq("user_id", userId).in("id", found.map((r) => r.order_id)).returns<{ id: string }[]>();
   const own = new Set((mine ?? []).map((o) => o.id));
-  return same.find((r) => own.has(r.order_id) && r.result.pieces.reviewed >= r.result.pieces.total)?.result ?? null;
+  return found.find((r) => own.has(r.order_id) && r.result.pieces.reviewed >= r.result.pieces.total)?.result ?? null;
 }
 
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {

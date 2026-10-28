@@ -5,9 +5,9 @@ import { ArrowLeft, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/section";
-import { RefineScan } from "@/components/reports/refine/refine-scan";
+import { RefineScan, type RefineVerify } from "@/components/reports/refine/refine-scan";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
-import type { ReportRewrite, RewriteItem } from "@/lib/auto-report/rewrite";
+import type { ReportRewrite, RewriteCheck, RewriteItem } from "@/lib/auto-report/rewrite";
 import { refineDemoResult, refineDemoRewrite } from "./demo";
 import { ai100Result, ai100Rewrite } from "../refine-100/demo";
 
@@ -30,7 +30,7 @@ const ESSAYS: Record<RefineEssay, { result: () => AutoReportResult; rewrite: (r:
   },
 };
 
-export function RefineScanPreview({ speed, skipIntro, late, essay = "urban" }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay }) {
+export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", recheck = null }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay; recheck?: number | null }) {
   const copy = ESSAYS[essay];
   const [run, setRun] = useState(1);
   const [over, setOver] = useState(false);
@@ -51,7 +51,7 @@ export function RefineScanPreview({ speed, skipIntro, late, essay = "urban" }: {
               </Button>
             </div>
           ) : (
-            <Demo key={run} essay={essay} speed={speed} skipIntro={skipIntro} late={late} onFinish={() => setOver(true)} />
+            <Demo key={run} essay={essay} speed={speed} skipIntro={skipIntro} late={late} recheck={recheck} onFinish={() => setOver(true)} />
           )}
         </Card>
       </Container>
@@ -59,13 +59,14 @@ export function RefineScanPreview({ speed, skipIntro, late, essay = "urban" }: {
   );
 }
 
-function Demo({ essay, speed, skipIntro, late, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; onFinish: () => void }) {
+function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; recheck: number | null; onFinish: () => void }) {
   const copy = ESSAYS[essay];
   const result = useMemo(() => copy.result(), [copy]);
   // Like the real writer: batches of six asked at once, each answering sentence by sentence once it starts writing
   // (first answers after about 5 s; ?late=1 after about 25 s), then the whole rewrite with the kept ones.
   const [arrived, setArrived] = useState<RewriteItem[]>([]);
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(null);
+  const [verify, setVerify] = useState<RefineVerify | undefined>(undefined);
   useEffect(() => {
     const full = copy.rewrite(result);
     const base = late ? 25_000 : 5_000;
@@ -77,8 +78,24 @@ function Demo({ essay, speed, skipIntro, late, onFinish }: { essay: RefineEssay;
       last = Math.max(last, at);
       timers.push(setTimeout(() => setArrived((a) => [...a, item]), at / speed));
     });
-    timers.push(setTimeout(() => setRewrite(full), (last + 1_500) / speed));
+    timers.push(
+      setTimeout(() => {
+        setRewrite(full);
+        if (recheck === null) return;
+        // A made-up re-check: pending for a while (it runs alongside the typing on a real order), then the given score.
+        setVerify({ state: "pending" });
+        timers.push(setTimeout(() => setVerify({ state: "done", check: demoCheck(full, result, recheck) }), 40_000 / speed));
+      }, (last + 1_500) / speed),
+    );
     return () => timers.forEach(clearTimeout);
-  }, [copy, result, late, speed]);
-  return <RefineScan result={result} rewrite={rewrite} arrived={arrived} title={copy.title} reference="Preview session" onFinish={onFinish} speed={speed} skipIntro={skipIntro} />;
+  }, [copy, result, late, speed, recheck]);
+  return <RefineScan result={result} rewrite={rewrite} arrived={arrived} title={copy.title} reference="Preview session" onFinish={onFinish} speed={speed} skipIntro={skipIntro} verify={verify} />;
+}
+
+/** A made-up re-check at `score` percent: about that share of the rewritten sentences still count. */
+function demoCheck(rewrite: ReportRewrite, result: AutoReportResult, score: number): RewriteCheck {
+  const stillCounted: number[] = [];
+  const cleared: number[] = [];
+  rewrite.items.filter((i) => i.rewrite).forEach((i, k) => ((k * 37) % 100 < score ? stillCounted : cleared).push(i.n));
+  return { checkedAt: "", score: score / 100, stillCounted, cleared, result };
 }

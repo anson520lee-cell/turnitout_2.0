@@ -2,12 +2,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from "lucide-react";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
 import { REFINE_INTRO_MS, clearedBy, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival } from "@/lib/auto-report/refine-script";
-import { pickFlagged, type ReportRewrite, type RewriteItem } from "@/lib/auto-report/rewrite";
+import { pickFlagged, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { RefineIntro } from "./refine-intro";
@@ -23,10 +23,15 @@ import { RefineStage, clockNow, type RefineClock } from "./refine-stage";
  * The suggestions are made in the background meanwhile and come in one by one (`arrived`, streamed as the writer
  * finishes each; `rewrite` once all are in). The reader never waits: R1 marks each flagged sentence behind it, and
  * R1 and R2 erase and retype a sentence as soon as its suggestion is in. The projected rate falls as each sentence is
- * rewritten, and ends on the real projection.
+ * rewritten. With `verify`, the rewritten text is then re-checked by the detector and the rate ends on that real
+ * score (it can rise again: rewording rarely clears text the detector reads as AI throughout); without it (design
+ * previews), on the projection.
  */
 
 const FINALE_MS = 7_000;
+
+/** The real re-check of the rewritten text (lib/auto-report/rewrite-check.ts). */
+export type RefineVerify = { state: "pending" } | { state: "failed" } | { state: "done"; check: RewriteCheck };
 
 const NO_ITEMS: RewriteItem[] = [];
 const noop = () => () => {};
@@ -43,6 +48,7 @@ export function RefineScan({
   speed = 1,
   skipIntro = false,
   canSkip = false,
+  verify,
 }: {
   result: AutoReportResult;
   /** All the suggestions, once the request has answered. */
@@ -58,6 +64,8 @@ export function RefineScan({
   skipIntro?: boolean;
   /** One admin account (decided on the server): may skip the animation and wait for the suggestions. */
   canSkip?: boolean;
+  /** The re-check of the rewritten text, once asked for. */
+  verify?: RefineVerify;
 }) {
   const reduce = usePrefersReducedMotion();
   const plan = useMemo(() => refinePlan(result), [result]);
@@ -112,11 +120,15 @@ export function RefineScan({
   const fraction = readerAt(scanMs, readMs);
   const pos = scanPosition(plan, fraction);
   const frontier = fraction >= 1 ? total : pos.index;
-  const done = known && scanMs >= endMs;
+  // The rewrite has been typed out; while the re-check runs the finale waits for its score.
+  const typed = known && scanMs >= endMs;
+  const checking = typed && verify?.state === "pending";
+  const done = typed && !checking;
   if (done && doneAt === null) setDoneAt(now);
+  const verified = verify?.state === "done" ? verify.check : null;
 
   const cleared = clearedBy(jobs, scanMs);
-  const final = known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
+  const final = verified ? verified.score : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
   const counts: RefineCounts = {
     rewritten: jobs.filter((j) => j.rewrite && scanMs >= j.end).length,
     total: queue.size,
@@ -192,7 +204,7 @@ export function RefineScan({
     <div className="relative">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : "Live rewrite running"}
+          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? "Re-checking the rewritten text" : "Live rewrite running"}
         </p>
         <div className="flex flex-wrap gap-2">
           {canSkip && (
@@ -206,14 +218,14 @@ export function RefineScan({
         </div>
       </div>
       <div className="mt-4">
-        <RefineRatePanel compact meter={meter} ready={!inIntro} final={done} original={rate.original} counts={counts} reduce={reduce} />
+        <RefineRatePanel compact meter={meter} ready={!inIntro} final={done} verified={Boolean(verified)} original={rate.original} counts={counts} reduce={reduce} />
       </div>
       <p className="mt-3 text-[12px] text-fg-subtle">Your suggestions are saved as soon as they are ready, so they are here when you come back.</p>
     </div>
   );
 
   const secs = Math.floor(elapsed / 1000);
-  const left = known && !inIntro && !done ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
+  const left = known && !inIntro && !typed ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
   const made = jobs.filter((j) => j.rewrite).length;
 
   const view = (
@@ -237,7 +249,7 @@ export function RefineScan({
         </span>
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : "Live rewrite"}
+            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? "Re-checking" : "Live rewrite"}
           </p>
           <p className="truncate text-[13px] text-fg-muted">{title}</p>
         </div>
@@ -296,12 +308,24 @@ export function RefineScan({
                 waitedSecs={secs}
                 reduce={reduce}
                 done={done}
+                verified={Boolean(verified)}
               />
             </motion.div>
           )}
         </AnimatePresence>
 
         <AnimatePresence>
+          {checking && (
+            <motion.div key="checking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-30 grid place-items-center bg-ink-950/55 p-4 backdrop-blur-[3px]">
+              <div className="glass-strong noise relative w-full max-w-md overflow-hidden rounded-3xl p-6 text-center sm:p-8">
+                <p className="flex items-center justify-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#cdbdff]">
+                  <Loader2 className="size-4 animate-spin" /> Re-checking the rewritten text
+                </p>
+                <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">Your text with every suggestion in place is going through the same detector as your report, so the rate you see next is a real score, not an estimate.</p>
+                <p className="mt-3 text-[11.5px] text-fg-subtle">Usually under a minute.</p>
+              </div>
+            </motion.div>
+          )}
           {done && (
             <motion.div key="finale" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-30 grid place-items-center bg-ink-950/55 p-4 backdrop-blur-[3px]">
               <motion.div
@@ -325,7 +349,7 @@ export function RefineScan({
                   </div>
                   <ArrowRight className="mb-2 size-5 text-[#b9a8ff]" />
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#cdbdff]">Projected</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#cdbdff]">{verified ? "Re-checked" : "Projected"}</p>
                     <p className="refine-rate-num scan-rate-land mt-1 font-mono text-[60px] font-semibold leading-none tracking-tight">
                       {Math.round(final * 100)}
                       <span className="text-[26px]">%</span>
@@ -335,7 +359,15 @@ export function RefineScan({
                 <p className="relative mt-3 text-[13.5px] text-fg-muted">
                   {made} of {jobs.length} flagged sentence{jobs.length === 1 ? "" : "s"} rewritten{jobs.length > made ? ` · ${jobs.length - made} kept as you wrote ${jobs.length - made === 1 ? "it" : "them"}` : ""}
                 </p>
-                <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">Projected: your report&rsquo;s score with the rewritten sentences no longer counted. Run a new report on your edited text to check.</p>
+                {verified ? (
+                  <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">
+                    Re-checked by the same detector as your report: {verified.stillCounted.length} of {verified.stillCounted.length + verified.cleared.length} rewritten sentence{verified.stillCounted.length + verified.cleared.length === 1 ? "" : "s"} still read{verified.stillCounted.length + verified.cleared.length === 1 ? "s" : ""} as AI.
+                  </p>
+                ) : (
+                  <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">
+                    {verify?.state === "failed" ? "We couldn't re-check the rewritten text just now, so this is only an estimate: your report's score with the rewritten sentences no longer counted." : "Projected: your report\u2019s score with the rewritten sentences no longer counted. Run a new report on your edited text to check."}
+                  </p>
+                )}
                 <Button className="relative mt-6 w-full" size="lg" onClick={end}>
                   <PenLine className="size-4" /> Review your suggestions <ArrowRight className="size-4" />
                 </Button>

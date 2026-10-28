@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildItems, checkRewrite, knownNames, parseRewrites, pickFlagged, reviseText, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, parseRewrites, pickFlagged, reviseText, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -95,6 +95,26 @@ test("reviseText swaps accepted sentences inside the pasted text, or falls back 
   assert.equal(reviseText(null, r, rw, { 1: "accept" }), `NEW ONE.\n\n${s2.text}`);
   assert.equal(reviseText("something else", r, rw, { 1: "accept" }), `NEW ONE.\n\n${s2.text}`);
   assert.equal(reviseText(source, r, rw, {}), source);
+});
+
+test("the re-check finds each rewritten sentence in the revised text and says whether it still counts", () => {
+  const rw: ReportRewrite = {
+    version: 1,
+    model: "m",
+    createdAt: "",
+    items: [
+      { n: 1, original: "One.", rewrite: "First rewrite." },
+      { n: 2, original: "Two.", rewrite: null, kept: "length changed too much" },
+      { n: 3, original: "Three.", rewrite: "Third rewrite." },
+    ],
+  };
+  assert.deepEqual(acceptAll(rw), { 1: "accept", 3: "accept" });
+  // Same numbering: found by text.
+  const after = result([[{ ...sentence(1, "high", true), text: "First rewrite." }, sentence(2, "high", true), { ...sentence(3, "low"), text: "Third rewrite." }]]);
+  assert.deepEqual(checkOutcome(rw, after), { stillCounted: [1], cleared: [3] });
+  // A sentence not found by its text falls back to its number.
+  const moved = result([[sentence(1, "medium"), sentence(2, "low"), sentence(3, "high", true)]]);
+  assert.deepEqual(checkOutcome(rw, moved), { stillCounted: [3], cleared: [1] });
 });
 
 test("the add-on is priced from the report's price, and a free report is priced as the paid report of its length", async () => {

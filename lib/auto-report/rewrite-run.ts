@@ -12,7 +12,8 @@ import { REWRITE_BATCH, REWRITE_PROMPT, buildItems, knownNames, parseRewrites, p
 /**
  * Makes the suggested rewrites for a finished report, once: the Writing Refinement add-on, paid in credits (price in
  * config/pricing.ts rewritePricing) only when suggestions were made. The report itself, its score and its band are
- * never touched, and the new text is not scored here: a fresh report is the only way to see how an edited text reads.
+ * never touched, and the new text is not scored here: rewrite-check.ts re-checks the text with every suggestion in
+ * place once the suggestions are saved.
  */
 
 const LEASE_MS = 150_000;

@@ -61,6 +61,7 @@ export function RefineStage({
   waitedSecs,
   reduce,
   done,
+  verified = false,
 }: {
   plan: ScanPlan;
   ratings: Map<number, ReportSentence>;
@@ -82,6 +83,8 @@ export function RefineStage({
   waitedSecs: number;
   reduce: boolean;
   done: boolean;
+  /** The final figure is the real re-check of the rewritten text, not the projection. */
+  verified?: boolean;
 }) {
   const total = plan.sentences.length;
   const [logs, setLogs] = useState<Logs>({ reader: [], rewriter: [], agents: [] });
@@ -211,7 +214,7 @@ export function RefineStage({
       </p>
     ) : null;
 
-  const rateProps = { meter, ready: true, final: done, original, counts, reduce };
+  const rateProps = { meter, ready: true, final: done, verified, original, counts, reduce };
 
   const terminalFor = (id: TermId, mobile = false) => {
     const meta = TERMS.find((t) => t.id === id)!;
@@ -300,7 +303,7 @@ export function RefineStage({
         </div>
       </aside>
 
-      <aside className="hidden min-h-0 rounded-2xl border border-[#9b7bff]/25 bg-ink-950/80 p-4 xl:block" aria-label="AI rate, original and projected">
+      <aside className="hidden min-h-0 rounded-2xl border border-[#9b7bff]/25 bg-ink-950/80 p-4 xl:block" aria-label={verified ? "AI rate, original and re-checked" : "AI rate, original and projected"}>
         <RefineRatePanel {...rateProps} />
       </aside>
     </div>

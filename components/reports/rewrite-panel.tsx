@@ -1,15 +1,15 @@
 "use client";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Check, Copy, PenLine, Undo2 } from "lucide-react";
+import { Check, Copy, Loader2, PenLine, RotateCw, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { reviseText, type Decision, type ReportRewrite, type RewriteItem } from "@/lib/auto-report/rewrite";
-import type { AutoReportResult } from "@/lib/auto-report/stitch";
+import { reviseText, type Decision, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
+import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn, shortId } from "@/lib/utils";
-import { RefineScan } from "./refine/refine-scan";
+import { RefineScan, type RefineVerify } from "./refine/refine-scan";
 
 type Decisions = Record<number, Decision | undefined>;
 
@@ -37,8 +37,9 @@ function subscribe(onChange: () => void) {
 /**
  * Writing Refinement, an add-on after a finished report ("Fix flagged phrasing, keep your meaning"): paid in credits, once per report. After a finished report, suggests a rewrite for each flagged sentence,
  * made from the reviewer's reason. The student sees their own sentence beside the suggestion and accepts or keeps
- * theirs one by one. Nothing is scored again here, and nothing changes the report above it. While the suggestions
- * are written the customer watches them being typed over their text (RefineScan).
+ * theirs one by one. Nothing changes the report above it. While the suggestions are written the customer watches them
+ * being typed over their text (RefineScan); then the text with every suggestion in place is re-checked by the detector
+ * (free, once) and that real score is shown, with the rewritten sentences it still counts.
  */
 export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title, canSkip = false }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string; canSkip?: boolean }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
@@ -46,6 +47,11 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   const [live, setLive] = useState<{ run: number; rewrite: ReportRewrite | null; arrived: RewriteItem[] } | null>(null);
   const runs = useRef(0);
   const [error, setError] = useState<string | null>(null);
+  // The re-check of the rewritten text: saved with the rewrite once made.
+  const [check, setCheck] = useState<RewriteCheck | null>(initial?.check ?? null);
+  const [checking, setChecking] = useState<"idle" | "pending" | "failed">("idle");
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const verify: RefineVerify | undefined = check ? { state: "done", check } : checking === "pending" ? { state: "pending" } : checking === "failed" ? { state: "failed" } : undefined;
   const stored = useSyncExternalStore(subscribe, () => readChoices(orderId), () => "");
   const [local, setLocal] = useState<Decisions | null>(null);
   const remembered = useMemo<Decisions>(() => {
@@ -70,6 +76,25 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
       // Storage is blocked: the choices only last until the page is closed.
     }
   };
+
+  async function recheck() {
+    setChecking("pending");
+    setCheckError(null);
+    try {
+      const res = await fetch(`/api/reports/${orderId}/rewrite/check`, { method: "POST" });
+      const body = (await res.json().catch(() => null)) as { check?: RewriteCheck; error?: string } | null;
+      if (body?.check) {
+        setCheck(body.check);
+        setChecking("idle");
+        track("rewrite_checked");
+        return;
+      }
+      setCheckError(body?.error ?? "We couldn't re-check the rewritten text just now. Please try again in a little while.");
+    } catch {
+      setCheckError("We couldn't re-check the rewritten text just now. Please check your connection and try again.");
+    }
+    setChecking("failed");
+  }
 
   async function start() {
     const run = ++runs.current;
@@ -105,8 +130,12 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
         if (done) break;
       }
       const made = last?.rewrite;
-      if (made) setLive((l) => (l && l.run === run ? { ...l, rewrite: made } : l));
-      else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
+      if (made) {
+        setLive((l) => (l && l.run === run ? { ...l, rewrite: made } : l));
+        // The real score of the rewritten text, while the rewrite is still being typed out.
+        if (made.check) setCheck(made.check);
+        else void recheck();
+      } else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
       fail("We couldn't write the suggestions just now. Please check your connection and try again.");
     }
@@ -120,6 +149,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   }
 
   const shown = useMemo(() => rewrite?.items.filter((i) => i.rewrite) ?? [], [rewrite]);
+  const still = useMemo(() => new Set(check?.stillCounted ?? []), [check]);
   const left = (rewrite?.items.length ?? 0) - shown.length;
   const accepted = shown.filter((i) => decisions[i.n] === "accept").length;
   const revised = useMemo(() => (rewrite && accepted ? reviseText(sourceText, result, rewrite, decisions) : ""), [rewrite, accepted, sourceText, result, decisions]);
@@ -175,7 +205,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
 
       {live && (
         <div className="mt-5 rounded-xl border border-[#9b7bff]/25 bg-ink-950/50 p-4">
-          <RefineScan key={live.run} result={result} rewrite={live.rewrite} arrived={live.arrived} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} canSkip={canSkip} />
+          <RefineScan key={live.run} result={result} rewrite={live.rewrite} arrived={live.arrived} reference={`Order #${shortId(orderId)}`} title={title ?? "Writing Refinement"} onFinish={reveal} canSkip={canSkip} verify={verify} />
         </div>
       )}
 
@@ -187,6 +217,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
             <p className="text-[13px] text-fg-muted">We couldn&rsquo;t make a safe suggestion for any of the flagged sentences, so they are left as you wrote them. Rewrite them in your own everyday words.</p>
           ) : (
             <>
+              <RecheckSummary check={check} checking={checking === "pending"} error={checkError} original={reportScore(result.summary)} onRetry={recheck} />
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                 <p className="text-[12.5px] text-fg-subtle">
                   <span className="font-mono text-fg-muted">{accepted}</span> of {shown.length} suggestions used
@@ -204,6 +235,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-[11px] text-fg-subtle">Sentence {i.n}</span>
                         {d === "accept" && <Badge tone="info">Using the suggestion</Badge>}
+                        {still.has(i.n) && <Badge tone="warn">Still flagged on the re-check</Badge>}
                       </div>
                       {i.why && <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: {i.why}</p>}
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -246,11 +278,46 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
             </>
           )}
           <p className="text-[12px] leading-relaxed text-fg-subtle">
-            These are suggestions, not corrections: read each one and make sure it still says what <em>you</em> mean. Your report and its score above are unchanged, and a rewrite does not guarantee any result in any checker. To see how your edited text reads, run a new report on it.
+            These are suggestions, not corrections: read each one and make sure it still says what <em>you</em> mean. Your report and its score above are unchanged, and a rewrite does not guarantee any result in any checker. The re-check scores your text with every suggestion in place; if you keep some of your own sentences, run a new report on your edited text to see how it reads.
           </p>
         </div>
       )}
     </Card>
+  );
+}
+
+/** The real re-check of the rewritten text: its score against the report's, and how many rewritten sentences still count. */
+function RecheckSummary({ check, checking, error, original, onRetry }: { check: RewriteCheck | null; checking: boolean; error: string | null; original: number; onRetry: () => void }) {
+  if (check) {
+    const rewritten = check.stillCounted.length + check.cleared.length;
+    const high = check.score >= 0.6;
+    return (
+      <div className={cn("rounded-xl border p-4", high ? "border-warn/30 bg-warn/[0.06]" : "border-accent/30 bg-accent/[0.06]")}>
+        <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Re-checked by the same detector</p>
+        <p className="mt-1.5 text-[14px] text-fg">
+          Your text with every suggestion in place scores <span className="font-mono font-semibold">{Math.round(check.score * 100)}%</span> <span className="text-fg-muted">(your report: {Math.round(original * 100)}%)</span>.
+        </p>
+        <p className="mt-1 text-[13px] leading-relaxed text-fg-muted">
+          {check.stillCounted.length} of {rewritten} rewritten sentence{rewritten === 1 ? "" : "s"} still read{rewritten === 1 ? "s" : ""} as AI and {check.stillCounted.length === 1 ? "is" : "are"} marked below.
+          {high && " Rewording keeps the structure and rhythm of the whole piece, which the detector still reads as AI: rewrite the marked sentences in your own words, with what you actually think and saw."}
+        </p>
+      </div>
+    );
+  }
+  if (checking) {
+    return (
+      <p className="flex items-center gap-2 rounded-xl border border-[var(--line)] p-4 text-[13px] text-fg-muted">
+        <Loader2 className="size-4 animate-spin" /> Re-checking your text with every suggestion in place<span className="scan-ellipsis" />
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-4">
+      <p className="text-[13px] text-fg-muted">{error ?? "See the real score of your text with every suggestion in place, from the same detector as your report. Free, once."}</p>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        <RotateCw className="size-3.5" /> {error ? "Try again" : "Re-check the rewritten text"}
+      </Button>
+    </div>
   );
 }
 
