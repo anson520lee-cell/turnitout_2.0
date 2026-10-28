@@ -8,8 +8,8 @@ import { usePathname } from "next/navigation";
  * One fixed canvas behind every page, drawn back to front:
  *  - drifting nebula clouds, a rotating spiral galaxy, a ringed planet
  *    (slow scroll parallax)
- *  - a loss landscape in perspective along the bottom: it flows toward the
- *    viewer over time and as the page scrolls
+ *  - a wave grid in perspective along the bottom that rises and falls like
+ *    the open sea
  *  - a thin scroll-progress line on the top edge
  *
  * It never takes pointer events, pauses while the tab is hidden, and draws a
@@ -320,14 +320,16 @@ export function SpaceBackground() {
       c.restore();
     }
 
-    // ── the loss landscape: a surface in perspective under the page. It flows
-    // toward the viewer over time and when the page scrolls.
-    function landscape(x: number, z: number, time: number, flow: number) {
+    // ── the sea: a wave grid in perspective under the page. Swells of different
+    // lengths roll in from slightly different directions, so the surface keeps
+    // rising and falling like open water; scrolling nudges it along a little.
+    function sea(x: number, z: number, time: number, flow: number) {
       const zz = z + flow;
       return (
-        0.27 * Math.sin(x * 1.2 + time * 0.2) * Math.cos(zz * 0.85) +
-        0.13 * Math.sin(x * 2.5 - zz * 1.6 + time * 0.3) -
-        0.44 * Math.exp(-((x - 0.3) * (x - 0.3) + (z - 4.3) * (z - 4.3)) / 2.4)
+        0.15 * Math.sin(zz * 0.8 + x * 0.12 + time * 0.5) + // the long swell, rolling toward the viewer
+        0.09 * Math.sin(x * 0.65 - zz * 0.45 + time * 0.38) + // a cross swell
+        0.055 * Math.sin(x * 1.5 + zz * 1.25 + time * 0.78) +
+        0.03 * Math.sin(x * 2.7 - zz * 2.1 + time * 1.05) // chop
       );
     }
 
@@ -344,7 +346,7 @@ export function SpaceBackground() {
       // page, so scale by width and sit the nearest edge on the bottom instead.
       const f = Math.min(h * 0.85, w * 0.95);
       const hor = small ? h - f * (camY / Z0 + 0.04) : h * 0.6;
-      const flow = time * 0.22 + scrollY * 0.0042;
+      const flow = scrollY * 0.0025;
       const A = inApp.current ? 0.3 : 0.26;
 
       // horizon glow
@@ -367,7 +369,7 @@ export function SpaceBackground() {
           const x = (i / COLS - 0.5) * 2 * X;
           const o = j * (COLS + 1) + i;
           lx[o] = w / 2 + x * k;
-          ly[o] = hor + (camY - landscape(x, z, time, flow)) * k;
+          ly[o] = hor + (camY - sea(x, z, time, flow)) * k;
         }
       }
       c.lineWidth = 0.7;
