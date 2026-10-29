@@ -370,10 +370,9 @@ function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject
         </p>
         {job.rewrite && (
           <p className="rf-guard flex flex-wrap gap-x-2 gap-y-0.5 pt-0.5 text-[10px] text-[#cdbdff]">
-            <span>✓ facts</span>
+            <span>✓ numbers</span>
             <span>✓ names</span>
             <span>✓ citations</span>
-            <span>✓ hedges</span>
             <span className="text-fg-subtle">length {ratio}%</span>
           </p>
         )}
@@ -389,7 +388,7 @@ const AGENTS = [
   { c: "blue", name: "A3 FLAG", job: "Locks blue brackets onto each sentence your report flagged" },
   { c: "purple", name: "R1 ERASE", job: "An eraser bar on the reader's tail: backspaces each flagged sentence" },
   { c: "lilac", name: "R2 WRITE", job: "A pen right behind the eraser: types the suggestion, character by character" },
-  { c: "accent", name: "R3 GUARD", job: "Runs a green scan line over each suggestion: facts, names, citations and hedges kept" },
+  { c: "accent", name: "R3 GUARD", job: "Runs a green scan line over each suggestion: numbers, names and citations kept" },
   { c: "pink", name: "R4 SCORE", job: "Carries what each rewritten sentence took off the rate to the chart" },
 ] as const;
 
