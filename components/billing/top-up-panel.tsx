@@ -34,9 +34,11 @@ const OTHER_PRESETS = topUp.presetsOtherUsd as readonly number[];
 /**
  * Buy credits: pick an amount in US dollars (crypto: 10, 20, 100, 200, 500, or any whole
  * amount from US$10; PayPal, Alipay and card: the same plus a US$5 first step), then pay by card, PayPal, Alipay or crypto.
- * Card top-ups are credited automatically; the rest once an admin confirms.
+ * Card and crypto top-ups are credited automatically. Alipay credits are added as soon as the
+ * transaction number is sent and checked afterwards (`instantAlipay`: false when this account
+ * already has an unchecked payment, so this one waits); PayPal once an admin confirms.
  */
-export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[] }) {
+export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [], instantAlipay = false }: { stripe: boolean; reference: string; initialUsd?: number; cryptoCoins?: CryptoCoin[]; instantAlipay?: boolean }) {
   const router = useRouter();
   const auto = cryptoCoins.length > 0;
   // With automatic crypto (NOWPayments) on, the hand-confirmed crypto tabs are redundant.
@@ -49,6 +51,7 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  const [credited, setCredited] = useState(false);
 
   const crypto = tab === "crypto" || (tab !== "card" && isCryptoMethod(tab));
   const presets = crypto ? CRYPTO_PRESETS : OTHER_PRESETS;
@@ -75,6 +78,17 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
       setCustom("");
     }
   };
+
+  if (submitted && credited) {
+    return (
+      <div>
+        <FormMessage tone="success">Payment received. Your credits have been added to your balance. We check the payment against our records afterwards.</FormMessage>
+        <Button variant="ghost" size="sm" className="mx-auto mt-2 flex" onClick={() => setSubmitted(false)}>
+          Back to top-up
+        </Button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -217,11 +231,18 @@ export function TopUpPanel({ stripe, reference, initialUsd, cryptoCoins = [] }: 
               reference={reference}
               disabled={pending || Boolean(problem)}
               submit={(m, ref) => submitTopupClaim(usd ?? 0, m, ref)}
-              onSubmitted={() => {
+              onSubmitted={(added) => {
                 track("topup_claim_submitted", { method: current.id });
+                setCredited(Boolean(added));
                 setSubmitted(true);
                 router.refresh();
               }}
+              {...(current.id === "alipay" && instantAlipay
+                ? {
+                    submitLabel: "I\u2019ve paid \u00b7 add my credits",
+                    confirmNote: "Your credits are added as soon as you send the number. We check every payment against our Alipay records afterwards. Accounts that send a wrong or made-up number can no longer top up by Alipay without a manual check.",
+                  }
+                : {})}
             />
           ) : stripe && tab === "card" ? (
             <div className="rounded-2xl border border-[var(--line)] bg-ink-900/40 p-5 text-center">

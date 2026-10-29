@@ -9,7 +9,7 @@ import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { creditsHeldForMany } from "@/lib/orders/held-credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatHkdDollars } from "@/lib/payments/revenue";
-import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel } from "@/config/payments";
+import { hkdAmount, isManualPaymentMethod, manualPayments, paymentMethodLabel, PAY_FIRST_TOPUP_METHODS } from "@/config/payments";
 import { ACTIVE_STATUSES } from "@/lib/orders/status";
 import { formatDateTime } from "@/lib/utils";
 import type { PaymentClaim } from "@/types/domain";
@@ -17,14 +17,14 @@ import { recheckStableTopups } from "@/lib/payments/stable-topups";
 
 export const metadata: Metadata = { title: "Admin" };
 
-async function pendingTopups(): Promise<PendingTopup[]> {
+/** Top-ups waiting for the admin ("pending"), or, with `added`, Alipay top-ups already credited and not checked yet. */
+async function pendingTopups(added = false): Promise<PendingTopup[]> {
   const db = createAdminClient();
-  const { data } = await db
-    .from("credit_topups")
-    .select("id,usd,amount,method,payer_reference,created_at,user_id")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(100);
+  let q = db.from("credit_topups").select("id,usd,amount,method,payer_reference,created_at,user_id");
+  q = added
+    ? q.eq("status", "confirmed").in("method", [...PAY_FIRST_TOPUP_METHODS]).is("reviewed_by", null)
+    : q.eq("status", "pending");
+  const { data } = await q.order("created_at", { ascending: true }).limit(100);
   const rows = data ?? [];
   const ids = [...new Set(rows.map((r) => r.user_id as string))];
   const { data: profs } = ids.length ? await db.from("profiles").select("id,email").in("id", ids) : { data: [] };
@@ -46,7 +46,7 @@ async function pendingTopups(): Promise<PendingTopup[]> {
 export default async function AdminHome() {
   // stablecoin top-ups that have since settled on chain are credited before the lists are read
   await recheckStableTopups().catch(() => 0);
-  const [m, orders, topupRows] = await Promise.all([adminMetrics(), adminOrders(200), pendingTopups()]);
+  const [m, orders, topupRows, addedTopupRows] = await Promise.all([adminMetrics(), adminOrders(200), pendingTopups(), pendingTopups(true)]);
   const queue = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).reverse(); // oldest first
   // Customers waiting on us to find their Alipay / PayMe / bank payment come first.
   const toVerify = orders
@@ -142,6 +142,19 @@ export default async function AdminHome() {
               ) : null;
             })}
           </ul>
+        </>
+      )}
+      {addedTopupRows.length > 0 && (
+        <>
+          <h2 className="mt-10 text-[16px] font-semibold">
+            Top-ups to check <span className="text-fg-subtle">· credits already added</span>
+          </h2>
+          <p className="mt-1 text-[12.5px] text-fg-muted">
+            These Alipay top-ups were credited when the customer sent the number. Look for the payment in AlipayHK whenever there is time. If it isn&rsquo;t there, take the credits back.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {addedTopupRows.map((t) => <TopupReview key={t.id} t={t} added />)}
+          </div>
         </>
       )}
       {topupRows.length > 0 && (

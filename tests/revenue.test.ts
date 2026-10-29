@@ -35,3 +35,10 @@ test("HK$ amounts print like the rest of the admin pages", () => {
   assert.equal(formatHkdDollars(88.73), "HK$88.73");
   assert.equal(formatHkdDollars(1234.5), "HK$1,234.50");
 });
+
+test("an Alipay top-up credited before it was checked is unchecked money, not revenue yet", () => {
+  const r = revenueTotals([{ usd: 10 }, { usd: 5, unchecked: true }], []);
+  assert.equal(r.topups, 78);
+  assert.equal(r.checked, 78);
+  assert.equal(r.unchecked, 39);
+});

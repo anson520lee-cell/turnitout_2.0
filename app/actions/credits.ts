@@ -8,13 +8,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/payments/stripe";
 import { isStripeConfigured } from "@/lib/env";
 import { availableCoins, coinMinUsd, createPayment, isNowPaymentsConfigured } from "@/lib/payments/nowpayments";
-import { acceptsClaims, claimReference, isCryptoMethod, MANUAL_PAYMENT_METHODS, manualAmountText, manualPayments } from "@/config/payments";
+import { acceptsClaims, claimReference, isCryptoMethod, isPayFirstTopupMethod, MANUAL_PAYMENT_METHODS, manualAmountText, manualPayments } from "@/config/payments";
 import { formatUSD, topUp, topUpAmountError, topUpCurrency, usdToCredits } from "@/config/pricing";
 import { audit } from "@/lib/audit";
 import { notifyOwner } from "@/lib/notify";
 import { appUrl, shortId } from "@/lib/utils";
 import { autoConfirmTopup, isAutoMethod } from "@/lib/payments/stable-topups";
 import { referenceTaken } from "@/lib/payments/reference-check";
+import { looksLikeAlipayNumber } from "@/lib/payments/alipay-number";
+import { payFirstFor } from "@/lib/payments/pay-first";
+import { notifyCustomer } from "@/lib/notify-customer";
 
 type Fail = { ok: false; message: string };
 
@@ -102,8 +105,11 @@ const claimInput = z.object({
 /**
  * PayPal / Alipay / USDT / USDC / Bitcoin: the customer has paid outside the site and
  * reports the reference. USDT (TRON) and USDC (Base) are checked on chain at
- * once and credited if the transfer matches (lib/payments/stable-topups);
- * everything else, and anything that doesn't match yet, waits for an admin.
+ * once and credited if the transfer matches (lib/payments/stable-topups).
+ * Alipay is credited at once too and checked by the admin later
+ * (lib/payments/pay-first.ts), unless this account already has an unchecked
+ * payment or the number doesn't look like an Alipay receipt's. Everything else,
+ * and anything that doesn't match yet, waits for an admin.
  */
 export async function submitTopupClaim(usd: number, method: string, reference: string): Promise<{ ok: true; credited?: boolean } | Fail> {
   const user = await getSessionUser();
@@ -150,6 +156,27 @@ export async function submitTopupClaim(usd: number, method: string, reference: s
       created_at: row.created_at,
     });
     if (r.status === "ok") {
+      revalidatePath("/billing");
+      return { ok: true, credited: true };
+    }
+  }
+
+  if (isPayFirstTopupMethod(v.method) && looksLikeAlipayNumber(v.reference) && (await payFirstFor(user.id)) === "now") {
+    // Credit now, check later: same SQL path as an admin confirm, but with nobody as reviewer, which marks it unchecked.
+    const { data: balance } = await db.rpc("credit_confirm_topup", { p_topup: row.id, p_reviewer: null, p_provider_ref: null });
+    if (typeof balance === "number" && balance >= 0) {
+      await audit("topup_credited_before_check", { actorId: user.id, detail: { topup: row.id, method: v.method, usd: v.usd, credits: usdToCredits(v.usd) } });
+      notifyOwner("payment_submitted", {
+        status: "Credits already added. Check this payment when you have time.",
+        topup: shortId(row.id),
+        method: cfg.label,
+        amount: manualAmountText(v.method, v.usd),
+        credits: usdToCredits(v.usd),
+        transaction: v.reference,
+        email: user.email,
+        check: `${appUrl()}/admin`,
+      });
+      notifyCustomer(user.id, "credits_added", { credits: usdToCredits(v.usd), amount: formatUSD(v.usd), method: cfg.label });
       revalidatePath("/billing");
       return { ok: true, credited: true };
     }

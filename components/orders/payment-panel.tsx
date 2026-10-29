@@ -77,8 +77,9 @@ export function ManualMethod({
   amountSub?: string;
   reference: string;
   disabled: boolean;
-  submit: (method: string, reference: string) => Promise<{ ok: true } | { ok: false; message: string }>;
-  onSubmitted: () => void;
+  submit: (method: string, reference: string) => Promise<{ ok: true; credited?: boolean } | { ok: false; message: string }>;
+  /** `credited` is true when the credits were added straight away (checked afterwards). */
+  onSubmitted: (credited?: boolean) => void;
   /** The line under the submit button: what happens once the payment is confirmed. */
   confirmNote?: string;
   /** the submit button's text (default: submit for confirmation) */
@@ -155,7 +156,7 @@ export function ManualMethod({
             }));
             if (!res.ok) return setError(res.message);
             track("payment_claim_submitted", { method: method.id });
-            onSubmitted();
+            onSubmitted(res.credited);
           });
         }}
       >

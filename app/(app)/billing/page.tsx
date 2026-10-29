@@ -13,6 +13,7 @@ import { CREDITS_PER_USD, formatUSD, reportPrice, toCredits, topUp, topUpBonusTi
 import { reportMinimumLabel, reportRateLabel } from "@/config/services";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
+import { payFirstFor } from "@/lib/payments/pay-first";
 import Link from "next/link";
 
 export const metadata: Metadata = { title: "Billing & Credits" };
@@ -45,6 +46,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const cryptoCoins = coinList
     .map((c) => ({ ...c, minUsd: mins[c.id] ?? null }))
     .sort((a, b) => (a.minUsd ?? Infinity) - (b.minUsd ?? Infinity));
+  // Alipay credits are added as soon as the number is sent, unless this account already has an unchecked payment.
+  const instantAlipay = (await payFirstFor(user.id)) === "now";
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
   const reportCredits = toCredits(reportPrice(3000));
@@ -88,7 +91,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 className="text-[15px] font-semibold">Top up</h2>
           <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars; Alipay is paid in Hong Kong dollars at the same value.</p>
           <div className="mt-5">
-            <TopUpPanel stripe={false} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
+            <TopUpPanel instantAlipay={instantAlipay} stripe={false} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
           </div>
         </Card>
       </div>
