@@ -208,3 +208,12 @@ test("only a recent, unfinished rewrite is carried on without being asked", () =
   assert.equal(resumable({ ...rw, stalls: MAX_STALLS }, made + 60_000), false, "the runner gave up on it");
   assert.equal(resumable({ ...rw, createdAt: "" }, made), false);
 });
+
+test("checkRewrite: a later round may not grow past the student's own sentence", () => {
+  const student = "Remote work gives people more time because there is no commute.";
+  const earlier = "Without a daily commute, people get hours back, and that is the main thing remote work gives them.";
+  const longer = "Without a daily commute, people get hours back every week, and that is the main thing remote work gives them, which workers value.";
+  assert.equal(checkRewrite(earlier, longer, new Set()), null);
+  assert.equal(checkRewrite(earlier, longer, new Set(), student), "length changed too much");
+  assert.equal(checkRewrite(earlier, "Hours come back when the commute goes, and that is what working from home gives people.", new Set(), student), null);
+});

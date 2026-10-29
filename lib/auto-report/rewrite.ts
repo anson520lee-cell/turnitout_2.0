@@ -12,6 +12,11 @@
  * same day: "grammar 可以錯一點"). What is never allowed: a new number, a changed or new citation or quotation, a
  * changed name, a misspelt word. Every suggestion is checked here against the sentence it replaces, and one that fails is dropped.
  *
+ * Backtest 2026-10-29 (tools/refine-backtest, live detector prompt on Neo's five Gemini essays): the earlier prompt left
+ * the text at 96-99% after round 1 and 13-83% at best; this one reaches 5-81% after round 1 and mostly under 30% by
+ * round 2. Later rounds compound, so the length limit (MAX_GROWTH) is against the student's sentence, not the last
+ * suggestion. The detector is noisy (the same text scored 4, 91 and 94 on three runs): judge changes by several runs.
+ *
  * After the first rewrite the text is re-checked (rewrite-check.ts); while it still scores above TARGET_SCORE the
  * sentences it still counts are rewritten again in a clearly different way (rewrite-run.ts makeRound), up to
  * MAX_ROUNDS, and the round with the lowest re-checked score is the one kept. Why: on Neo's Gemini essay a synonym swap
@@ -194,6 +199,8 @@ export const MAX_SPLIT = 3;
 export const LONG_SENTENCE = 35;
 /** When a suggestion has more than one sentence, each has at least this many words: the detector flags short ones. */
 export const MIN_SPLIT_WORDS = 12;
+/** A suggestion may be at most this many times as long as the student's sentence (the whole essay must not grow much). */
+export const MAX_GROWTH = 1.5;
 /** Sentences sent to the model in one call. */
 export const REWRITE_BATCH = 20;
 
@@ -215,6 +222,7 @@ For every item you get: id, "before" and "after" (the neighbouring sentences, fo
 
 The only hard limits:
 - Never add a number, statistic, date, source or citation that is not in the sentence. Keep every in-text citation, for example (Gabora, 1998), and every quotation in quotation marks exactly as written. Keep every name.
+- Add no new claim or fact, and no remark about the essay itself ("this essay looks at…", "if I had to explain…"). Do not invent a real event, a named person or a personal experience of the student. Keep the essay's own voice: if it never says I, we or you, do not start.
 - No misspelt words, slang or emojis: it must still pass as a school essay written by a real student.
 - Return exactly one sentence for each input sentence, built from several ideas strung together (see below). Only when the input is a long sentence of 35 words or more may you return two, and then both are long (at least 12 words each). If the input is already two or three sentences, return one or two. Never merge it with a neighbour, and never split off a short sentence.
 
@@ -225,7 +233,8 @@ How this detector reads text (these are its own rules, so write against them):
 - What lowers the score: several ideas strung loosely into one long sentence with commas, so, but, which, in a run-on way rather than balanced clauses; a clumsy, unusual or non-standard word choice a language model would not pick; and a small visible slip a real student makes.
 
 How to write it:
-- One flowing sentence of about the same length as the original or longer, with its ideas joined by commas, "so", "but", "which", "and then". Lose the neat balance: let a clause come late or trail on.
+- One flowing sentence about as long as the original (at most a third longer: the whole essay must not grow), with its ideas joined by commas, "so", "but", "which", "and then". Lose the neat balance: let a clause come late or trail on. Longer is not the fix; a different, less expected way of saying it is.
+- Make it concrete. Swap an abstract phrase ("economic vitality", "social cohesion", "environmental degradation") for the plain thing it stands for, and where it helps illustrate the claim with one small ordinary image or case in generic terms (a farmer paying off a loan, a clinic that needs power, a manager answering messages at night), told as a way of showing the point, not as a real event. A specific picture is the least predictable thing a sentence can contain; two or three of these in a paragraph are plenty.
 - Put people in it. Say who does the thing and why, using only what the sentence and its neighbours already say. Replace "a group", "people", "teams", "the system" by who it really is when the text tells you.
 - Pick the less obvious word, even if it is a little awkward, instead of the standard collocation. Use the plainer word the student would really say instead of an upgraded one (money, not revenue).
 - Now and then, where it comes naturally and with no fixed rate, leave a small slip a real student makes: a missing or extra article, a plural slip ("many informations"), a wrong preposition, a verb form ("the people is"), or an odd but understandable word choice. Some sentences have one, many have none, and do not force one in. Never a misspelt word, and never so much that the meaning is unclear.
@@ -360,7 +369,7 @@ const hasWord = (text: string, word: string) => new RegExp(`(?<![\\p{L}\\p{N}])$
  * that fails one is not shown, and the sentence stays as it was. The meaning may change (see the top of this file);
  * what may not is a number added, a citation or quotation changed or added, or a name changed.
  */
-export function checkRewrite(original: string, rewrite: string, known: ReadonlySet<string> = new Set()): string | null {
+export function checkRewrite(original: string, rewrite: string, known: ReadonlySet<string> = new Set(), student?: string): string | null {
   const o = original.trim();
   const r = rewrite.trim();
   if (!r) return "empty";
@@ -373,7 +382,9 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   if (parts.length > Math.max(splitSentences(o).length, wordCount(o) >= LONG_SENTENCE ? 2 : 1)) return "split into more sentences than the original: write it as one long sentence, ideas strung with commas, so, but, which";
   if (parts.length > 1 && parts.some((x) => wordCount(x.text) < MIN_SPLIT_WORDS)) return "a short sentence was split off: the detector flags short tidy sentences, keep it in one long sentence";
   const ratio = r.length / Math.max(1, o.length);
-  if (ratio < 0.4 || ratio > 1.8) return "length changed too much";
+  // A later round rewrites an earlier suggestion, but the length limit is the student's own sentence: rounds must not compound.
+  const growth = r.length / Math.max(1, (student ?? o).trim().length);
+  if (ratio < 0.4 || growth > MAX_GROWTH) return "length changed too much";
   const numbers = new Set(numbersIn(o));
   for (const n of numbersIn(r)) if (!numbers.has(n)) return `a number (${n}) was added`;
   for (const t of lockedIn(o)) if (!r.includes(t)) return "a citation or quotation was changed";
@@ -382,13 +393,16 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   return null;
 }
 
-/** Builds the stored items from the model's answers, checking every one. `answers` maps sentence number to the suggestion. */
-export function buildItems(sentences: ReportSentence[], answers: Map<number, string>, known: ReadonlySet<string> = new Set()): RewriteItem[] {
+/**
+ * Builds the stored items from the model's answers, checking every one. `answers` maps sentence number to the suggestion.
+ * `students` maps a sentence number to the student's own sentence, for a later round whose `sentences` are earlier suggestions.
+ */
+export function buildItems(sentences: ReportSentence[], answers: Map<number, string>, known: ReadonlySet<string> = new Set(), students?: ReadonlyMap<number, string>): RewriteItem[] {
   return sentences.map((s) => {
     const base = { n: s.n, original: s.text, ...(s.why ? { why: s.why } : {}) };
     const given = answers.get(s.n);
     if (!given) return { ...base, rewrite: null, kept: "no suggestion came back" };
-    const problem = checkRewrite(s.text, given, known);
+    const problem = checkRewrite(s.text, given, known, students?.get(s.n));
     return problem ? { ...base, rewrite: null, kept: problem } : { ...base, rewrite: given };
   });
 }
