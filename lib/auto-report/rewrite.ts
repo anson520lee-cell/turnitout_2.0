@@ -194,6 +194,12 @@ Everything else may change. How to write it:
 
 Answer with JSON only, no other text, in this shape: [{"id": 12, "rewrite": "..."}]. Include every id you were given.`;
 
+/**
+ * Added to REWRITE_PROMPT in the system message. Everything the checks below can't see about a citation: the checks
+ * keep its text, this keeps what it is cited for (since 2026-10-28 a suggestion may change what a sentence says).
+ */
+export const CITATION_RULE = `One more hard limit, for sentences with a citation: "Gabora (1998)", "Gabora et al. (1998)", (Gabora, 1998), [3] and quotations in single or double quotation marks stay exactly as written, the author's name and the year included. A sentence that carries a citation is the author's finding: keep what the citation claims (who found what, and how strongly) even when you change the wording around it. Do not make the claim stronger, weaker or different, and do not attach it to a different source.`;
+
 /** The user message for a batch of sentences: each with its neighbours and the reviewer's reason. `redo` carries why an earlier try was refused. */
 export function rewriteInput(items: ReportSentence[], result: AutoReportResult, redo?: Map<number, string>, round = 1): string {
   const flat = result.paragraphs.flatMap((p) => p.sentences);
@@ -283,10 +289,23 @@ export function numbersIn(s: string): string[] {
   return (s.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((x) => x.replace(/[,.]$/, ""));
 }
 
-/** Text that must survive word for word: bracketed citations and quotations. */
+/**
+ * Citations and quotations: the one pattern for each style.
+ *  - narrative, author first: "Smith (2021)", "Smith and Lee (2021, p. 4)", "Smith et al. (2021)" (the author is part of it)
+ *  - bracketed with a year or n.d.: "(Smith, 2021)", "(Smith, 2021; Lee, 2020)", "(Smith, n.d.)", also full-width brackets
+ *  - numbered: "[1]", "[1, 2]", "[3-5]"
+ */
+const NARRATIVE = String.raw`(?<![\p{L}\p{N}])\p{Lu}[\p{L}'’-]*(?:\s+(?:and|&)\s+\p{Lu}[\p{L}'’-]*|\s+et\s+al\.?)?\s+[(（]\s*(?:\d{4}[a-z]?|n\.d\.)[^()（）]*[)）]`;
+const BRACKETED = String.raw`[(（][^()（）]*(?:\b\d{4}[a-z]?\b|\bn\.d\.)[^()（）]*[)）]`;
+const NUMBERED = String.raw`\[\s*\d+(?:\s*[,;–-]\s*\d+)*\s*\]`;
+const CITATIONS = new RegExp(`${NARRATIVE}|${BRACKETED}|${NUMBERED}`, "gu");
+/** Double quotes (straight or curly) and single quotes that open after a non-letter and close before one, so apostrophes are not quotes. */
+const QUOTES = /[“"]([^”"]{3,})[”"]|(?<![\p{L}\p{N}])['‘]([^'’‘]{3,})['’](?![\p{L}\p{N}])/gu;
+
+/** Text that must survive word for word: citations and quotations. */
 export function lockedIn(s: string): string[] {
-  const citations = s.match(/\([^()]*\b\d{4}[a-z]?\b[^()]*\)/g) ?? [];
-  const quotes = [...s.matchAll(/[“"]([^”"]{3,})[”"]/g)].map((m) => m[1]);
+  const citations = [...s.matchAll(CITATIONS)].map((m) => m[0]);
+  const quotes = [...s.matchAll(QUOTES)].map((m) => m[1] ?? m[2]);
   return [...citations, ...quotes];
 }
 
