@@ -123,7 +123,7 @@ export async function markTopupReceived(topupId: string): Promise<Result> {
  * The money for a top-up that was credited first never arrived: the number was
  * fake or wrong. The credits still on the account are taken back (what was
  * already spent on reports stays spent), the top-up no longer counts as revenue,
- * the account can no longer pay orders by Alipay, and its Alipay top-ups wait for a manual check.
+ * the account can no longer pay orders by Alipay, and its top-ups wait for a manual check.
  */
 export async function markTopupFake(topupId: string, note: string): Promise<Result> {
   const admin = await assertAdmin();
@@ -152,7 +152,7 @@ export async function markTopupFake(topupId: string, note: string): Promise<Resu
     amount: formatUSD(top.usd),
     email: await emailOf(top.user_id),
     credits: `${takeBack} of ${top.amount} taken back`,
-    account: "Blocked from paying orders by Alipay; its Alipay top-ups now wait for a manual check",
+    account: "Blocked from paying orders by Alipay; its top-ups now wait for a manual check",
   });
   refresh();
   return { ok: true };

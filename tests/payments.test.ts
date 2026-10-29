@@ -54,9 +54,9 @@ test("One order paid directly by Alipay costs its exact price, with no top-up mi
   assert.deepEqual(orderAmountParts("alipay", 800), { main: "HK$7.80", sub: "US$1 · 8 credits" });
 });
 
-test("Only Alipay top-ups are credited first and checked later; PayPal and crypto keep their own rules", () => {
-  assert.ok(isPayFirstTopupMethod("alipay"));
-  for (const m of ["paypal", "usdt", "usdc", "bitcoin", "payme", "bank_transfer", "stripe", "nowpayments"]) {
+test("Methods that can't be checked automatically are credited first and checked later; crypto and card keep their own rules", () => {
+  for (const m of ["alipay", "paypal", "payme", "bank_transfer"]) assert.ok(isPayFirstTopupMethod(m), m);
+  for (const m of ["usdt", "usdc", "bitcoin", "stripe", "nowpayments"]) {
     assert.equal(isPayFirstTopupMethod(m), false, m);
   }
 });

@@ -17,7 +17,7 @@ import { recheckStableTopups } from "@/lib/payments/stable-topups";
 
 export const metadata: Metadata = { title: "Admin" };
 
-/** Top-ups waiting for the admin ("pending"), or, with `added`, Alipay top-ups already credited and not checked yet. */
+/** Top-ups waiting for the admin ("pending"), or, with `added`, top-ups already credited and not checked yet. */
 async function pendingTopups(added = false): Promise<PendingTopup[]> {
   const db = createAdminClient();
   let q = db.from("credit_topups").select("id,usd,amount,method,payer_reference,created_at,user_id");
@@ -150,7 +150,7 @@ export default async function AdminHome() {
             Top-ups to check <span className="text-fg-subtle">· credits already added</span>
           </h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            These Alipay top-ups were credited when the customer sent the number. Look for the payment in AlipayHK whenever there is time. If it isn&rsquo;t there, take the credits back.
+            These top-ups (Alipay, PayPal) were credited when the customer sent the payment details. Look for the payment in AlipayHK or PayPal whenever there is time. If it isn&rsquo;t there, take the credits back.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {addedTopupRows.map((t) => <TopupReview key={t.id} t={t} added />)}
