@@ -19,7 +19,7 @@ export interface PendingTopup {
 
 /**
  * One manual top-up awaiting a decision: confirm adds the credits, reject asks for a note.
- * With `added` the credits are already on the account (Alipay is credited first and checked later):
+ * With `added` the credits are already on the account (Alipay, PayPal and similar are credited first and checked later):
  * the buttons are "Received" and "Not received", and not received takes the credits back.
  */
 export function TopupReview({ t, added = false }: { t: PendingTopup; added?: boolean }) {

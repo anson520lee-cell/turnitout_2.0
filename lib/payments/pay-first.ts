@@ -4,7 +4,6 @@ import { audit } from "@/lib/audit";
 import { creditsHeldFor } from "@/lib/orders/held-credits";
 import { markOrderPaid } from "@/lib/payments/fulfil";
 import { looksLikeAlipayNumber } from "@/lib/payments/alipay-number";
-import { PAY_FIRST_TOPUP_METHODS } from "@/config/payments";
 import type { Order, PaymentClaim } from "@/types/domain";
 
 /*
@@ -48,27 +47,13 @@ export async function uncheckedStartedClaims(userId: string): Promise<number> {
 }
 
 /**
- * Top-ups credited on trust whose payment nobody has checked yet: confirmed,
- * paid by a pay-first method, and not reviewed by an admin (reviewed_by is set
- * when the admin marks the payment received).
+ * One unchecked started order per account at a time. Top-ups credited on trust
+ * have no such limit (see submitTopupClaim): they only stop for an account marked fake.
  */
-export async function uncheckedTopupCount(userId: string): Promise<number> {
-  const db = createAdminClient();
-  const { count } = await db
-    .from("credit_topups")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("status", "confirmed")
-    .in("method", [...PAY_FIRST_TOPUP_METHODS])
-    .is("reviewed_by", null);
-  return count ?? 0;
-}
-
-/** One unchecked payment per account at a time: an order started on trust or a top-up credited on trust. */
 export async function payFirstFor(userId: string): Promise<PayFirst> {
-  const [fake, orders, topups] = await Promise.all([markedFake(userId), uncheckedStartedClaims(userId), uncheckedTopupCount(userId)]);
+  const [fake, orders] = await Promise.all([markedFake(userId), uncheckedStartedClaims(userId)]);
   if (fake) return "blocked";
-  return orders + topups > 0 ? "wait" : "now";
+  return orders > 0 ? "wait" : "now";
 }
 
 /** True when this claim's order was started on trust (its payment record points at the claim) and is no longer unpaid. */
