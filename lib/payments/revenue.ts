@@ -9,8 +9,9 @@ import { CREDITS_PER_USD, toCredits } from "../../config/pricing";
  * was counted when the credits were bought. Free reports, admin gifts and test
  * payments are never money. A cancelled order (refunded) doesn't count.
  *
- * An Alipay order that started before the admin found the money in AlipayHK
- * ("check later") is kept apart as `unchecked` until it is marked received.
+ * An Alipay order that started, or an Alipay top-up that was credited, before the
+ * admin found the money in AlipayHK ("check later") is kept apart as `unchecked`
+ * until it is marked received.
  */
 
 /** HK$ is pegged to the US$; Alipay amounts are worked out at the same rate. */
@@ -19,7 +20,7 @@ export const HKD_PER_USD = 7.8;
 /** Payment providers that never bring money in. */
 export const NOT_MONEY_PROVIDERS = ["dev", "admin_free", "free_daily", "credits"] as const;
 
-export type RevenueTopup = { usd: number };
+export type RevenueTopup = { usd: number; /** credited on trust, the payment not found in AlipayHK yet */ unchecked?: boolean };
 export type RevenueOrderPayment = {
   provider: string;
   /** cents, 100 = 1 credit */
@@ -39,9 +40,9 @@ export function orderHkd(cents: number): number {
 }
 
 export function revenueTotals(topups: RevenueTopup[], payments: RevenueOrderPayment[]): Revenue {
-  const topupHkd = round2(topups.reduce((s, t) => s + t.usd * HKD_PER_USD, 0));
+  const topupHkd = round2(topups.filter((t) => !t.unchecked).reduce((s, t) => s + t.usd * HKD_PER_USD, 0));
   let orders = 0;
-  let unchecked = 0;
+  let unchecked = topups.filter((t) => t.unchecked).reduce((s, t) => s + t.usd * HKD_PER_USD, 0);
   for (const p of payments) {
     if ((NOT_MONEY_PROVIDERS as readonly string[]).includes(p.provider)) continue;
     if (p.orderStatus === "cancelled" || p.orderStatus === "awaiting_payment") continue;

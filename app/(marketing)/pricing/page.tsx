@@ -49,7 +49,7 @@ export default function PricingPage() {
           <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
-              1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed; PayPal and Alipay top-ups are added after we confirm them by hand, then they are yours to spend on any report.
+              1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed; Alipay top-ups are added as soon as you send the transaction number (we check the payment afterwards), PayPal top-ups after we confirm them by hand, then they are yours to spend on any report.
             </p>
           </div>
         </div>

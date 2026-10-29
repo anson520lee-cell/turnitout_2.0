@@ -238,6 +238,19 @@ export function isDirectPayMethod(v: string): boolean {
   return (DIRECT_PAY_METHODS as readonly string[]).includes(v);
 }
 
+/**
+ * Top-up methods that credit the account as soon as the customer sends their
+ * transaction number, with the admin checking the payment later (Alipay: there
+ * is no way to look the payment up automatically). PayPal and the crypto
+ * methods keep their own rules: crypto is checked automatically, PayPal waits
+ * for an admin.
+ */
+export const PAY_FIRST_TOPUP_METHODS = ["alipay"] as const satisfies readonly ManualPaymentMethod[];
+
+export function isPayFirstTopupMethod(v: string): boolean {
+  return (PAY_FIRST_TOPUP_METHODS as readonly string[]).includes(v);
+}
+
 /** The direct-pay methods customers can use right now. */
 export function directPayMethods(): ManualPaymentConfig[] {
   return DIRECT_PAY_METHODS.map((m) => manualPayments[m]).filter(acceptsClaims);
