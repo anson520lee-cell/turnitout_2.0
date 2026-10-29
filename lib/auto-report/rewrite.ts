@@ -2,8 +2,11 @@
  * Writing Refinement ("lower your AI score"): suggested rewrites for the sentences a finished report flagged.
  * Pure functions, no I/O, so they can be tested (the DeepSeek calls are in rewrite-run.ts).
  *
- * The flagged sentences are rewritten for a lower AI score, each into one to three sentences in a plain student
- * voice, guided by the reviewer's reason for each. Since 2026-10-28 (Neo: "不惜一切也要把 AI rate 壓下來") the score
+ * The flagged sentences are rewritten for a lower AI score, guided by the detector's reason for each, in the
+ * detector's own terms (REWRITE_PROMPT): one long sentence with its ideas strung together, never a run of short tidy
+ * ones (signals 3 and 8: until 2026-10-29 the prompt asked for the split into short blunt sentences, and on Neo's
+ * 100% essay the re-check flagged 26 of the 37 sentences that made, mostly as "short predictable sentence"; Neo: that
+ * "就是一個大 bug"). Since 2026-10-28 (Neo: "不惜一切也要把 AI rate 壓下來") the score
  * comes first: a suggestion may change what a sentence says, drop details or change how strongly a claim is made, and
  * the customer is told so before paying, and a little of the roughness of real student writing is asked for (Neo,
  * same day: "grammar 可以錯一點"). What is never allowed: a new number, a changed or new citation or quotation, a
@@ -157,8 +160,12 @@ export function rewriteCredits(order: { price: number; source_text: string | nul
 
 /** The most sentences rewritten for one report (a cost and a quality limit). */
 export const MAX_REWRITE_SENTENCES = 60;
-/** The most sentences one flagged sentence may become (a long one is often better said in two or three). */
+/** The most sentences one suggestion may have (a re-checked suggestion of three short sentences is one target of a later round). */
 export const MAX_SPLIT = 3;
+/** A sentence this long (in words) may be rewritten as two; a shorter one stays one sentence. */
+export const LONG_SENTENCE = 35;
+/** When a suggestion has more than one sentence, each has at least this many words: the detector flags short ones. */
+export const MIN_SPLIT_WORDS = 12;
 /** Sentences sent to the model in one call. */
 export const REWRITE_BATCH = 20;
 
@@ -176,21 +183,27 @@ export function pickFlagged(result: AutoReportResult, max = MAX_REWRITE_SENTENCE
 
 export const REWRITE_PROMPT = `You rewrite sentences of a student's essay that an AI-writing detector flagged, so that the detector no longer reads them as AI. Getting the AI score down is the goal and comes before keeping the wording or every detail: the student has agreed that a sentence may lose a detail, change how strongly it says something, or shift in meaning. Polishing is not enough: the detector still flags a sentence that keeps its original shape with new synonyms, and any sentence that is smooth, formal and completely predictable.
 
-For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the reviewer's "reason" and "ask". If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time. If the message says round 2 or later, each sentence is already a rewrite that the detector still flagged: write it again in a clearly different way (different opening, structure and length), never a light edit.
+For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the detector's "reason" and "ask". The reason is what the detector actually said about this sentence: answer it first, point by point, before anything else in this prompt. If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time. If the message says round 2 or later, each sentence is already a rewrite that the detector still flagged: write it again in a clearly different way (different opening, structure and length), never a light edit.
 
 The only hard limits:
 - Never add a number, statistic, date, source or citation that is not in the sentence. Keep every in-text citation, for example (Gabora, 1998), and every quotation in quotation marks exactly as written. Keep every name.
-- No spelling mistakes, slang or emojis: it must still pass as a school essay written by a real student.
-- Return one to three sentences for each input sentence. Never merge it with a neighbour.
+- No misspelt words, slang or emojis: it must still pass as a school essay written by a real student.
+- Return exactly one sentence for each input sentence, built from several ideas strung together (see below). Only when the input is a long sentence of 35 words or more may you return two, and then both are long (at least 12 words each). If the input is already two or three sentences, return one or two. Never merge it with a neighbour, and never split off a short sentence.
 
-Everything else may change. How to write it:
-- Say it the way a capable student would explain it to a classmate, in their own plain voice. Opinion and stance are good: "I think", "to me", "honestly", a short question to the reader.
-- Change the shape, not only the words. Start differently, put the main point first, and break a long sentence into two or three sentences of clearly different lengths. A short, blunt sentence is good. Contractions (it's, don't, we're) are good.
-- Cut what makes it sound generated: stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting), signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion), colon reveals, "not X but Y", "rather than" and "neither... nor" punchlines, and neat closing morals. Drop a hedge, a qualifier or a minor detail when it only adds polish.
-- Lists: never a balanced row of matching phrases. Keep only the items that matter, with different lengths, or spread them over clauses or sentences.
-- Pick the less obvious word a real person would use, not the most predictable one.
-- Leave in a little of the roughness real student writing has, in about one sentence in three: a slightly loose or run-on sentence, a comma where a full stop would be tidier, a repeated word, a clause that comes a bit late, starting with "And" or "But". Never so much that the meaning is unclear, and never a misspelt word.
-- Use the reviewer's reason. If it quotes a phrase, that phrase must go. Its signals mean: 1 ready-made phrases, 2 sentence frame with nouns swapped, 3 short tidy one-idea sentences in a row, 4 abstract generalisation naming nobody, 5 upgraded synonyms, 6 flawless textbook sentence, 7 template structure (contrast punchline, three-item list, ordinal or label openers), 8 every word the obvious next one, 9 flourish such as a colon reveal or a tidy closing line.
+How this detector reads text (these are its own rules, so write against them):
+- It flags runs of short tidy sentences (subject, verb, object, full stop, again and again). Splitting a sentence into short ones is the worst thing you can do: it creates exactly what it flags. A short blunt punchline is flagged too.
+- It flags any sentence where every word is the obvious next one, even a plain, simple, casual first-person sentence ("I was tired, but in a good way."). Being plain is not enough: being unpredictable is.
+- First person, "I think", "honestly", "to me", you/we, idioms, everyday examples and personal experience do NOT lower the score on their own: rewriting tools add them and the detector knows. Use them sparingly and never as the main fix.
+- What lowers the score: several ideas strung loosely into one long sentence with commas, so, but, which, in a run-on way rather than balanced clauses; a clumsy, unusual or non-standard word choice a language model would not pick; and a small visible slip a real student makes.
+
+How to write it:
+- One flowing sentence of about the same length as the original or longer, with its ideas joined by commas, "so", "but", "which", "and then". Lose the neat balance: let a clause come late or trail on.
+- Put people in it. Say who does the thing and why, using only what the sentence and its neighbours already say. Replace "a group", "people", "teams", "the system" by who it really is when the text tells you.
+- Pick the less obvious word, even if it is a little awkward, instead of the standard collocation. Use the plainer word the student would really say instead of an upgraded one (money, not revenue).
+- In about one sentence in three, leave one small slip a real student makes: a missing or extra article, a plural slip ("many informations"), a wrong preposition, a verb form ("the people is"), or an odd but understandable word choice. Never a misspelt word, and never so much that the meaning is unclear.
+- Cut what makes it sound generated: stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting, worth a closer look), signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion; "So", "But" and "And" are fine), colon reveals, "not X but Y", "rather than" and "neither... nor" punchlines, callbacks, pairs of short parallel sentences, and neat closing morals.
+- Lists: never a balanced row of three matching phrases. Keep only the items that matter, or spread them over clauses.
+- Answer the reviewer's reason. If it quotes a phrase, that phrase must go. Its signals mean, and what to do about each: 1 ready-made phrases: say it with your own less standard words; 2 sentence frame with nouns swapped: build a different structure; 3 short tidy one-idea sentences in a row: join them into one long strung sentence; 4 abstract generalisation naming nobody: name who and why; 5 upgraded synonyms: use the plain word; 6 flawless textbook sentence: add a slip, loosen it; 7 template structure (contrast punchline, three-item list, ordinal or label openers): drop the template; 8 every word the obvious next one, or "short predictable sentence": choose unexpected words and lengthen it; 9 flourish such as a colon reveal, a callback or a tidy closing line: cut it.
 
 Answer with JSON only, no other text, in this shape: [{"id": 12, "rewrite": "..."}]. Include every id you were given.`;
 
@@ -324,7 +337,13 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   const r = rewrite.trim();
   if (!r) return "empty";
   if (r.replace(/\s+/g, " ") === o.replace(/\s+/g, " ")) return "unchanged";
-  if (/[\r\n]/.test(r) || splitSentences(r).length > MAX_SPLIT) return "split into too many sentences";
+  const parts = splitSentences(r);
+  if (/[\r\n]/.test(r) || parts.length > MAX_SPLIT) return "split into too many sentences";
+  // The detector flags runs of short tidy sentences (signal 3) and short predictable ones (8): a suggestion may not
+  // have more sentences than the original (two when the original is a long sentence), and none of its sentences may be short.
+  const wordCount = (t: string) => wordsOf(t).length;
+  if (parts.length > Math.max(splitSentences(o).length, wordCount(o) >= LONG_SENTENCE ? 2 : 1)) return "split into more sentences than the original: write it as one long sentence, ideas strung with commas, so, but, which";
+  if (parts.length > 1 && parts.some((x) => wordCount(x.text) < MIN_SPLIT_WORDS)) return "a short sentence was split off: the detector flags short tidy sentences, keep it in one long sentence";
   const ratio = r.length / Math.max(1, o.length);
   if (ratio < 0.4 || ratio > 1.8) return "length changed too much";
   const numbers = new Set(numbersIn(o));
