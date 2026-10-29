@@ -9,13 +9,17 @@
  * The suggestions come in one by one as the writer finishes them (rewrite-run.ts streams them); R1 and R2 rewrite
  * each sentence as soon as both the reader has passed it and its suggestion is in. The reader never waits.
  *
- * The falling AI rate is a projection, not a new score: the report's own score with the rewritten sentences no
- * longer counted. The text is not reviewed again here (see rewrite-run.ts), so the view says "projected".
+ * On a real order the rate shown is never an estimate: it stays on the report's score while the rewrite is typed,
+ * and then moves only to the scores the detector gives the rewritten text (rewrite-check.ts), one per round, and the
+ * view ends on the best round's real score (Neo, 2026-10-29: it had ended on a projected 1% that the re-check put at
+ * 98%). The re-check and any later round run as part of the view (recheckStartLine, recheckedLine). Only the design
+ * previews, which have no re-check, still show the projection below: the report's own score with the rewritten
+ * sentences no longer counted, labelled "projected".
  */
 
-import { aiScore, scoreBasis, type AutoReportResult, type ReportSentence, type ScoreCurve } from "./stitch";
+import { SCORE_BANDS, aiScore, scoreBasis, type AutoReportResult, type ReportSentence, type ScoreCurve } from "./stitch";
 import { INTRO_MS, SCAN_MS_PER_CHAR, isFlagged, planFromSentences, quote, type LogLine, type ScanPlan } from "./scan-script";
-import { pickFlagged, type RewriteItem } from "./rewrite";
+import { pickFlagged, type RewriteCheck, type RewriteItem } from "./rewrite";
 
 /** How much faster the rewrite runs than the report scan, per character (Neo, 2026-10-27). */
 export const REFINE_SPEEDUP = 1.2;
@@ -422,4 +426,49 @@ export function guardLine(j: RefineJob): LogLine {
 
 export function keptLine(j: RefineJob): LogLine {
   return { tone: "warn", text: `R3 GUARD · P${j.p} S${j.s} kept as you wrote it${j.kept ? ` · ${j.kept}` : ""}` };
+}
+
+/* ------------------------------------------------------------------
+   The re-check of a real order, once the rewrite is typed out: the
+   detector reviews the rewritten text, and while it still scores too high
+   the sentences it still counts are rewritten again (rewrite-run.ts
+   makeRound), round by round. What the agents say about it.
+   ------------------------------------------------------------------ */
+
+/** What runs while a real order's rewritten text is re-checked: the detector on a round, or the writer on the next round. */
+export interface RecheckStep {
+  kind: "check" | "round";
+  round: number;
+  /** When it started (performance.now()). */
+  since: number;
+}
+
+const whole = (v: number) => `${Math.round(v * 100)}%`;
+
+export function recheckStartLine(step: Pick<RecheckStep, "kind" | "round">): LogLine {
+  return step.kind === "check"
+    ? { tone: "info", text: `R4 RE-CHECK · round ${step.round} · your text with every suggestion in place → the same detector as your report` }
+    : { tone: "violet", text: `ROUND ${step.round} · R1 + R2 rewrite again what the detector still counts · kept only if it re-checks lower` };
+}
+
+/** The re-checked score of round `k + 1` (0-based `k` in `scores`), against the best round before it. */
+export function recheckedLine(scores: number[], k: number): LogLine {
+  const score = scores[k];
+  const before = scores.slice(0, k);
+  if (!before.length) return { tone: score < SCORE_BANDS.moderate ? "ok" : "warn", text: `R4 RE-CHECK · round 1 · ${whole(score)} on the same detector as your report` };
+  const best = Math.min(...before);
+  return score < best
+    ? { tone: "ok", text: `R4 RE-CHECK · round ${k + 1} · ${whole(score)} · lower than ${whole(best)}, this round is kept` }
+    : { tone: "warn", text: `R4 RE-CHECK · round ${k + 1} · ${whole(score)} · not lower than ${whole(best)}, round ${before.indexOf(best) + 1} stays` };
+}
+
+/** How many of the rewritten sentences the kept round's re-check still counts. */
+export function stillLine(check: Pick<RewriteCheck, "stillCounted" | "cleared">): LogLine {
+  const total = check.stillCounted.length + check.cleared.length;
+  return { tone: check.stillCounted.length ? "warn" : "ok", text: `R4 · ${check.stillCounted.length} of ${total} rewritten sentence${total === 1 ? "" : "s"} still read${total === 1 ? "s" : ""} as AI · ${check.cleared.length} cleared` };
+}
+
+/** Counted sentences in a re-check: the real "Counted" figure once there is one. */
+export function countedIn(check: Pick<RewriteCheck, "result">): number {
+  return check.result.paragraphs.reduce((sum, p) => sum + p.sentences.filter((s) => s.counts).length, 0);
 }

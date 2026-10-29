@@ -290,13 +290,18 @@ export function lockedIn(s: string): string[] {
   return [...citations, ...quotes];
 }
 
+/** "I" and its contractions (I'd, I'm, I've, I'll): never a name. */
+const isI = (w: string) => /^I(?:['’][a-z]+)?$/.test(w);
+
 /**
- * Names and terms: capitalised words inside the sentence, and its first word only when it is a name known from
- * elsewhere in the text (a capitalised word that turns up mid-sentence somewhere, like "Blackmore"): an ordinary
- * opener such as "Urban" may be reworded.
+ * Names and terms: capitalised words inside each sentence, and a sentence's first word only when it is a name known
+ * from elsewhere in the text (a capitalised word that turns up mid-sentence somewhere, like "Blackmore"): an ordinary
+ * opener such as "Urban" may be reworded. Read sentence by sentence, because a later round rewrites a suggestion of
+ * two or three sentences: the openers of its second and third ("That", "Honestly") are not names either. Until
+ * 2026-10-29 they were, and round 2 of Neo's 100% essay kept 3 of its 15 new suggestions.
  */
 function namesIn(s: string, known: ReadonlySet<string>): string[] {
-  return wordsOf(s).filter((w, i) => /^\p{Lu}/u.test(w) && w !== "I" && (i > 0 || (!STARTERS.has(w.toLowerCase()) && known.has(w))));
+  return splitSentences(s).flatMap((x) => wordsOf(x.text).filter((w, i) => /^\p{Lu}/u.test(w) && !isI(w) && (i > 0 || (!STARTERS.has(w.toLowerCase()) && known.has(w)))));
 }
 
 /** Capitalised words seen inside sentences (not as the first word) anywhere in the report: the names and terms of the essay. */

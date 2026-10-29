@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 import { REFINE_POINT_MS, type RefineMeter } from "./refine-meter";
 
 /**
- * The right-hand panel of the live rewrite, in blue and purple: the report's own AI score (blue) against the
- * projected rate as the rewrite goes (purple), a chart where the purple line falls away from the blue one, and
- * counters. While the rewrite runs the rate is a projection (the report's score with the rewritten sentences no
- * longer counted), labelled as one; once the rewritten text has been re-checked by the detector (`verified`) it ends
- * on that real score instead.
+ * The right-hand panel of the live rewrite, in blue and purple: the report's own AI score (blue) against the rate
+ * as the rewrite goes (purple), a chart of the two, and counters. On a real order the purple rate stays on the
+ * report's score until the detector has re-checked the rewritten text, then steps to each round's real score
+ * (`basis` "pending", then "rechecked"): no estimate is ever shown. The design previews show the projection instead
+ * (the report's score with the rewritten sentences no longer counted), labelled as one.
  */
 
 const BLUE = "91,140,255";
@@ -20,6 +20,9 @@ const GRID = "170,176,196";
 const LABEL = "154,163,184";
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 const pct = (v: number, digits = 1) => (v * 100).toFixed(digits);
+
+/** What the purple rate is: the projection (design previews), the report's score until a re-check, or a re-checked score. */
+export type RateBasis = "projected" | "pending" | "rechecked";
 
 export interface RefineCounts {
   /** Suggestions typed so far, of all sentences being rewritten. */
@@ -32,13 +35,13 @@ export interface RefineCounts {
   progress: number;
 }
 
-export function RefineRatePanel({ meter, ready, final, verified = false, original, counts, compact, reduce = false }: { meter: RefineMeter; ready: boolean; final: boolean; verified?: boolean; original: number; counts: RefineCounts; compact?: boolean; reduce?: boolean }) {
-  const real = final && verified;
+export function RefineRatePanel({ meter, ready, final, basis = "projected", original, counts, compact, reduce = false }: { meter: RefineMeter; ready: boolean; final: boolean; basis?: RateBasis; original: number; counts: RefineCounts; compact?: boolean; reduce?: boolean }) {
+  const real = basis === "rechecked";
   if (compact) {
     return (
       <div className="flex items-center gap-3">
         <div className="shrink-0">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : "projected"}</p>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : basis === "pending" ? "re-check pending" : "projected"}</p>
           <Readout meter={meter} original={original} final={final} className="text-[26px]" unit="text-[14px]" deltaClass="text-[10px]" />
         </div>
         <div className="relative h-12 min-w-0 flex-1">
@@ -58,12 +61,18 @@ export function RefineRatePanel({ meter, ready, final, verified = false, origina
     <div className="flex h-full flex-col gap-3">
       <div>
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-fg-subtle">
-          <span className="refine-live-dot" aria-hidden /> AI rate · {real ? "re-checked" : final ? "projected" : "refining"}
-          <span className="ml-auto rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : "Projected"}</span>
+          <span className="refine-live-dot" aria-hidden /> AI rate{basis === "projected" ? ` · ${final ? "projected" : "refining"}` : ""}
+          <span className="ml-auto whitespace-nowrap rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : basis === "pending" ? "Before re-check" : "Projected"}</span>
         </p>
         <Readout meter={meter} original={original} final={final} className="mt-2 text-[50px] tracking-tight" unit="ml-0.5 text-[22px]" deltaClass="text-[12px]" />
         <p className="mt-1 text-[11.5px] leading-snug text-fg-subtle">
-          {real ? "your text with every suggestion in place, run through the detector again" : ready ? "estimate: the report's score with the rewritten sentences no longer counted" : "starts on your report's AI score"}
+          {real
+            ? "your text with every suggestion in place, run through the detector again"
+            : basis === "pending"
+              ? "your report's score: it moves only once the detector has re-checked the rewritten text"
+              : ready
+                ? "estimate: the report's score with the rewritten sentences no longer counted"
+                : "starts on your report's AI score"}
         </p>
       </div>
 
@@ -85,11 +94,17 @@ export function RefineRatePanel({ meter, ready, final, verified = false, origina
         <Cell k="Rewritten" v={`${counts.rewritten}/${counts.total}`} tone="text-[#cdbdff]" />
         <Cell k="Kept" v={String(counts.kept)} />
         <Cell k="Counted" v={String(counts.counted)} tone="text-[#a9c1ff]" />
-        <Cell k="Drop" v={<DropValue meter={meter} original={original} />} tone="text-[#cdbdff]" />
+        <Cell k="Change" v={<DropValue meter={meter} original={original} />} tone="text-[#cdbdff]" />
         <Cell k="Left" v={String(Math.max(0, counts.total - counts.rewritten - counts.kept))} />
         <Cell k="Progress" v={`${Math.round(counts.progress * 100)}%`} />
       </dl>
-      <p className="text-[10.5px] leading-snug text-fg-subtle">{real ? "The real score of the rewritten text, from the same detector as your report." : "An estimate until the rewritten text is re-checked by the detector at the end."}</p>
+      <p className="text-[10.5px] leading-snug text-fg-subtle">
+        {real
+          ? "The real score of the rewritten text, from the same detector as your report."
+          : basis === "pending"
+            ? "No estimate: the rate moves only on a real re-check of the rewritten text by the same detector."
+            : "An estimate until the rewritten text is re-checked by the detector at the end."}
+      </p>
     </div>
   );
 }
@@ -103,7 +118,7 @@ function Cell({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) 
   );
 }
 
-/** Points dropped from the report's score so far, written straight to the page. */
+/** Points the rate has moved from the report's score so far (− down, + up), written straight to the page. */
 function DropValue({ meter, original }: { meter: RefineMeter; original: number }) {
   const el = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -112,7 +127,8 @@ function DropValue({ meter, original }: { meter: RefineMeter; original: number }
       const now = performance.now();
       if (!el.current || meter.cur === null || (now - last < 150 && !meter.settled)) return;
       last = now;
-      el.current.textContent = `−${pct(Math.max(0, original - meter.cur))}`;
+      const d = original - meter.cur;
+      el.current.textContent = `${d < -0.0005 ? "+" : "−"}${pct(Math.abs(d))}`;
     };
     paint();
     return meter.subscribe(paint);
@@ -120,7 +136,7 @@ function DropValue({ meter, original }: { meter: RefineMeter; original: number }
   return <span ref={el}>−0.0</span>;
 }
 
-/** The projected number, with how far it is below the report's score. */
+/** The rate, with how far it is below (or above) the report's score. */
 function Readout({ meter, original, final, className, unit, deltaClass }: { meter: RefineMeter; original: number; final: boolean; className?: string; unit?: string; deltaClass?: string }) {
   const num = useRef<HTMLSpanElement>(null);
   const delta = useRef<HTMLSpanElement>(null);
@@ -134,7 +150,7 @@ function Readout({ meter, original, final, className, unit, deltaClass }: { mete
       const v = meter.cur ?? original;
       num.current.textContent = meter.settled ? pct(v, 0) : pct(v);
       const d = (original - v) * 100;
-      delta.current.textContent = d > 0.05 ? `▼${d.toFixed(1)}` : "";
+      delta.current.textContent = d > 0.05 ? `▼${d.toFixed(1)}` : d < -0.05 ? `▲${(-d).toFixed(1)}` : "";
     };
     paint();
     return meter.subscribe(paint);
@@ -151,9 +167,9 @@ function Readout({ meter, original, final, className, unit, deltaClass }: { mete
 }
 
 /**
- * The chart: the report's score as a dashed blue level, the projected rate as a purple line that scrolls left as it
- * ticks and steps down at each rewritten sentence, the gap between them filled, and a flash with the size of each
- * drop. The scale starts at zero so the fall is shown at its real size. With reduced motion it holds still: the two
+ * The chart: the report's score as a dashed blue level, the rate as a purple line that scrolls left as it ticks and
+ * steps at each rewritten sentence (projection) or each re-checked round (real order), the gap between them filled,
+ * and a flash with the size of each step. The scale starts at zero so the fall is shown at its real size. With reduced motion it holds still: the two
  * levels and the gap between them, stepping down at each drop, with nothing scrolling or pulsing.
  */
 export function RefineChart({ meter, compact, reduce = false, className }: { meter: RefineMeter; compact?: boolean; reduce?: boolean; className?: string }) {
@@ -191,7 +207,8 @@ export function RefineChart({ meter, compact, reduce = false, className }: { met
       ctx.clearRect(0, 0, w, h);
 
       const original = meter.cur === null ? null : meter.original;
-      const top = Math.min(1, Math.max(0.1, (original ?? 0.5) * 1.18 + 0.04));
+      // A re-check can score above the report: the scale makes room for it.
+      const top = Math.min(1, Math.max(0.1, Math.max(original ?? 0.5, meter.target) * 1.18 + 0.04));
       const yAt = (v: number) => y1 - (Math.max(0, v) / top) * (y1 - y0);
 
       // Grid and band lines.
@@ -312,12 +329,12 @@ export function RefineChart({ meter, compact, reduce = false, className }: { met
           ctx.strokeStyle = rgba(LILAC, 0.5 * a);
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.moveTo(Math.round(x) + 0.5, yAt(d.from));
+          ctx.moveTo(Math.round(x) + 0.5, yAt(Math.max(d.from, d.to)));
           ctx.lineTo(Math.round(x) + 0.5, y1);
           ctx.stroke();
           ctx.fillStyle = rgba(LILAC, a);
           ctx.font = `600 11px ${font}`;
-          ctx.fillText(`▼${pct(d.from - d.to)}`, Math.min(x1 - 42, x + 6), yAt(d.from) - 6 - age * 0.018);
+          ctx.fillText(`${d.to <= d.from ? "▼" : "▲"}${pct(Math.abs(d.from - d.to))}`, Math.min(x1 - 42, x + 6), yAt(Math.max(d.from, d.to)) - 6 - age * 0.018);
         }
       }
 

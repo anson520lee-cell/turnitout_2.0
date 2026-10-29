@@ -11,16 +11,20 @@ import {
   strokesMs,
   REFINE_INTRO_MS,
   clearedBy,
+  countedIn,
   jobPhase,
   passedAt,
   projectedAt,
   projectedScore,
   readerAt,
+  recheckStartLine,
+  recheckedLine,
   refineEndMs,
   refineJobs,
   refinePlan,
   refineRate,
   refineReadMs,
+  stillLine,
 } from "../lib/auto-report/refine-script";
 
 const sentence = (n: number) => `This is sentence number ${n} of the sample, written to have a fair length.`;
@@ -217,4 +221,17 @@ test("a sentence being typed only moves the rate forward, even while R2 takes so
     assert.ok(ph.f >= prev);
     prev = ph.f;
   }
+});
+
+test("the re-check's lines give each round's real score and say which round is kept", () => {
+  assert.match(recheckStartLine({ kind: "check", round: 1 }).text, /R4 RE-CHECK · round 1/);
+  assert.match(recheckStartLine({ kind: "round", round: 2 }).text, /ROUND 2/);
+  const scores = [0.98, 0.97, 0.99];
+  assert.equal(recheckedLine(scores, 0).text, "R4 RE-CHECK · round 1 · 98% on the same detector as your report");
+  assert.equal(recheckedLine(scores, 0).tone, "warn");
+  assert.match(recheckedLine(scores, 1).text, /round 2 · 97% · lower than 98%, this round is kept/);
+  assert.match(recheckedLine(scores, 2).text, /round 3 · 99% · not lower than 97%, round 2 stays/);
+  assert.equal(recheckedLine([0.12], 0).tone, "ok");
+  assert.equal(stillLine({ stillCounted: [1, 2], cleared: [3] }).text, "R4 · 2 of 3 rewritten sentences still read as AI · 1 cleared");
+  assert.equal(countedIn({ result }), result.paragraphs.flatMap((p) => p.sentences).filter((x) => x.counts).length);
 });

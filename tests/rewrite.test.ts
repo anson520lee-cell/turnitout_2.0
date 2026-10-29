@@ -42,6 +42,18 @@ test("a sentence opener is not treated as a name, but a real name is", () => {
   assert.deepEqual([...knownNames(result([[{ ...sentence(1, "low"), text: "Early on, Blackmore (1999) wrote about London." }]]))].sort(), ["Blackmore", "London"]);
 });
 
+test("a later round may reword the openers of a suggestion's second and third sentences, and I'd is not a name", () => {
+  // Round 2 of Neo's 100% essay (2026-10-29): 12 of 15 new suggestions were refused for "That", "I'd" and the like.
+  const known = new Set(["Building", "Information", "Modelling", "BIM", "AI", "Blackmore"]);
+  const r1 = "Facility management keeps putting Building Information Modelling (BIM) together with artificial intelligence (AI). Honestly, I'd call that pairing a real change in how the job gets done.";
+  assert.equal(checkRewrite(r1, "Honestly, Building Information Modelling (BIM) and artificial intelligence (AI) keep turning up together in facility management, and to me that changes how the work is done.", known), null);
+  const r2 = "For a long time, the sector ran on separate manual workflows. That made information hard to share.";
+  assert.equal(checkRewrite(r2, "The sector ran on its own manual workflows for ages, so information got stuck between teams.", known), null);
+  // A name inside any of the sentences, or a known name opening one, still has to stay.
+  assert.match(checkRewrite(r1, "Facility management keeps putting artificial intelligence (AI) to work. To me that pairing changes how the job gets done.", known) ?? "", /Building/);
+  assert.match(checkRewrite("The idea is old. Blackmore argues that ideas spread by imitation.", "The idea is old, and ideas spread by imitation.", known) ?? "", /Blackmore/);
+});
+
 test("streamedRewrites reads each answer as soon as its object is complete, as parseRewrites would", () => {
   const full = '```json\n[{"id": 3, "rewrite": "A {brace} and a \\"quote\\" } inside."}, {"id": 5, "rewrite": " Yes. "}, {"id": 7, "rewrite": "Last one."}]\n```';
   const cut = full.indexOf('{"id": 7') + 12;
