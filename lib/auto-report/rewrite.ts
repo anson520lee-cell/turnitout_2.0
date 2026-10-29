@@ -52,12 +52,40 @@ export interface ReportRewrite {
   scores?: number[];
   /** A round written but not re-checked yet: its items replace `items` only if the re-check scores lower. */
   pending?: { round: number; items: RewriteItem[] };
+  /** Times the background runner (sweep.ts) tried a step and the model could not be reached: it gives up at MAX_STALLS. */
+  stalls?: number;
 }
 
 /** At most this many rounds of rewriting (the first included): each later one costs a rewrite and a re-check. */
 export const MAX_ROUNDS = 3;
 /** Rounds stop once the re-checked score is under this (the green "Low" band, SCORE_BANDS.moderate). */
 export const TARGET_SCORE = 0.3;
+
+/** The next thing a rewrite waits for: the detector on a round (`check`), or the writer on another round (`round`). */
+export type RewriteStep = { kind: "check" | "round"; round: number };
+
+/**
+ * What is left to do for a saved rewrite, or null when it is finished: the first round or a round written but not
+ * re-checked yet waits for the detector, and a re-checked one that is still above the target waits for another round.
+ * The page's own loop and the background runner (sweep.ts) both follow this, so either can pick up where the other
+ * stopped, and the whole run finishes without the browser.
+ */
+export function nextStep(rewrite: ReportRewrite): RewriteStep | null {
+  if (!rewrite.items.some((i) => i.rewrite)) return null;
+  if (!rewrite.check || rewrite.pending) return { kind: "check", round: rewrite.pending?.round ?? rewrite.round ?? 1 };
+  return needsRound(rewrite) ? { kind: "round", round: (rewrite.round ?? 1) + 1 } : null;
+}
+
+/** A rewrite is only followed on by itself (the page, the runner) for this long after it was made: older ones wait for a click. */
+export const RESUME_WINDOW_MS = 45 * 60_000;
+/** The runner gives up on a rewrite after this many failed tries. */
+export const MAX_STALLS = 3;
+
+/** Whether an unfinished rewrite is recent enough, and not given up on, to be carried on without being asked. */
+export function resumable(rewrite: ReportRewrite, now = Date.now()): boolean {
+  const made = Date.parse(rewrite.createdAt);
+  return nextStep(rewrite) !== null && Number.isFinite(made) && now - made < RESUME_WINDOW_MS && (rewrite.stalls ?? 0) < MAX_STALLS;
+}
 
 /** Whether another round should be written: re-checked, nothing waiting, still above the target and rounds left. */
 export function needsRound(rewrite: ReportRewrite): boolean {
