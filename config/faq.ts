@@ -30,7 +30,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: "How do credits work?",
-    a: `Everything is paid for with credits (8 credits = US$1). Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed. For PayPal or Alipay, scan the QR code, send the amount (Alipay is paid in Hong Kong dollars), then enter your PayPal or Alipay transaction ID; we confirm it by hand and add the credits as soon as it is confirmed. Larger top-ups come with bonus credits (see Pricing). Then pay for a report with one click on its order page.`,
+    a: `Everything is paid for with credits (8 credits = US$1). Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed. For PayPal or Alipay, scan the QR code, send the amount (Alipay is paid in Hong Kong dollars), then enter your PayPal or Alipay transaction ID. Alipay credits are added as soon as you send the number (we check it against our records afterwards); PayPal top-ups are confirmed by hand and added as soon as they are confirmed. Larger top-ups come with bonus credits (see Pricing). Then pay for a report with one click on its order page.`,
   },
   {
     q: "Are you affiliated with Turnitin?",

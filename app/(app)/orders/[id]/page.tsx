@@ -72,8 +72,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   // are used first and Alipay pays only the rest. It pops up by itself straight after Get report.
   const enoughCredits = shortfall === 0;
   const directMethod = unpaid && order.price > 0 && !enoughCredits ? directPayMethods()[0] ?? null : null;
-  // The report starts as soon as the transaction number is sent, unless this account has an unchecked one already
-  // (then it waits for us) or sent a fake one before (then Alipay isn't offered).
+  // The report starts as soon as the transaction number is sent, unless this account sent a fake one before
+  // (then Alipay isn't offered).
   const payFirst = directMethod ? await payFirstFor(order.user_id) : "now";
   const direct = payFirst === "blocked" ? null : directMethod;
   // Credits already taken for a payment that is being checked.
