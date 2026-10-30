@@ -27,7 +27,6 @@ import { markOrderPaid } from "@/lib/payments/fulfil";
 import { repriceUnpaid } from "@/lib/orders/reprice";
 import { referenceTaken } from "@/lib/payments/reference-check";
 import { payFirstFor } from "@/lib/payments/pay-first";
-import { looksLikeAlipayNumber } from "@/lib/payments/alipay-number";
 import { heldNote, releaseHeldCredits, returnNote } from "@/lib/orders/held-credits";
 import type { Order } from "@/types/domain";
 
@@ -469,10 +468,8 @@ async function balanceOf(userId: string): Promise<number> {
  * for one amount and charged another). No top-up minimum.
  *
  * The report starts straight away and the admin checks the payment later
- * (lib/payments/pay-first.ts), unless this account already has an unchecked
- * Alipay order: then this one waits for the admin to confirm it
- * (confirmPaymentClaim in actions/admin.ts), as before; so does a number that
- * doesn't look like an Alipay receipt's (lib/payments/alipay-number.ts). An account whose number
+ * (lib/payments/pay-first.ts), with any number of unchecked payments on the
+ * account, whatever the number looks like. An account whose number
  * was marked fake can't pay orders by Alipay. A claim rejected before its
  * order started gives the credits back.
  */
@@ -562,9 +559,7 @@ export async function submitPaymentClaim(orderId: string, method: string, refere
 
   // Start the report now; the admin checks the payment later.
   let started = false;
-  // A number that doesn't look like an Alipay receipt's waits for the admin instead of starting the report.
-  const plausible = v.method !== "alipay" || looksLikeAlipayNumber(v.reference);
-  if (payFirst === "now" && plausible) {
+  if (payFirst === "now") {
     const res = await markOrderPaid({
       orderId: order.id,
       provider: v.method,

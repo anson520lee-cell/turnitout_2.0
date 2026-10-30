@@ -421,7 +421,7 @@ export function writeLine(j: RefineJob): LogLine {
 /** R3 GUARD, when a suggestion is in: it passed every check (rewrite.ts checkRewrite), and its length against the original. */
 export function guardLine(j: RefineJob): LogLine {
   const ratio = Math.round(((j.rewrite?.length ?? 0) / Math.max(1, j.original.length)) * 100);
-  return { tone: "ok", text: `R3 GUARD · P${j.p} S${j.s} ✓ facts, names, citations, hedges kept · length ${ratio}%` };
+  return { tone: "ok", text: `R3 GUARD · P${j.p} S${j.s} ✓ numbers, names, citations kept · length ${ratio}%` };
 }
 
 export function keptLine(j: RefineJob): LogLine {

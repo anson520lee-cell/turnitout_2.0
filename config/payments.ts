@@ -238,6 +238,18 @@ export function isDirectPayMethod(v: string): boolean {
   return (DIRECT_PAY_METHODS as readonly string[]).includes(v);
 }
 
+/**
+ * Top-up methods that credit the account as soon as the customer sends their
+ * transaction number, with the admin checking the payment later: every method
+ * whose payment can't be looked up automatically. USDT and USDC are checked on
+ * chain instead (and wait for an admin only when that check doesn't match).
+ */
+export const PAY_FIRST_TOPUP_METHODS = ["alipay", "paypal", "payme", "bank_transfer"] as const satisfies readonly ManualPaymentMethod[];
+
+export function isPayFirstTopupMethod(v: string): boolean {
+  return (PAY_FIRST_TOPUP_METHODS as readonly string[]).includes(v);
+}
+
 /** The direct-pay methods customers can use right now. */
 export function directPayMethods(): ManualPaymentConfig[] {
   return DIRECT_PAY_METHODS.map((m) => manualPayments[m]).filter(acceptsClaims);

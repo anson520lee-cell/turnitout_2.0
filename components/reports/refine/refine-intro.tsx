@@ -49,7 +49,7 @@ export function RefineIntro({ result, rewrite, reference, original, now }: { res
       title: "Locking what must not change",
       lines: [
         facts.numbers || facts.locked ? `${plural(facts.numbers, "number")} · ${plural(facts.locked, "citation or quotation", "citations or quotations")} locked` : "no numbers, citations or quotations to lock",
-        "names, hedges and meaning kept as written",
+        "names kept as written; the claim behind each citation kept",
       ],
     },
     {

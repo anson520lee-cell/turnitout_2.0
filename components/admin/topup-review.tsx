@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { confirmTopup, rejectTopup } from "@/app/actions/admin-credits";
+import { confirmTopup, markTopupFake, markTopupReceived, rejectTopup } from "@/app/actions/admin-credits";
 
 export interface PendingTopup {
   id: string;
@@ -17,8 +17,12 @@ export interface PendingTopup {
   createdAt: string;
 }
 
-/** One manual top-up awaiting a decision: confirm adds the credits, reject asks for a note. */
-export function TopupReview({ t }: { t: PendingTopup }) {
+/**
+ * One manual top-up awaiting a decision: confirm adds the credits, reject asks for a note.
+ * With `added` the credits are already on the account (Alipay, PayPal and similar are credited first and checked later):
+ * the buttons are "Received" and "Not received", and not received takes the credits back.
+ */
+export function TopupReview({ t, added = false }: { t: PendingTopup; added?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +50,7 @@ export function TopupReview({ t }: { t: PendingTopup }) {
           <p className="text-[18px] font-semibold">US${t.usd.toLocaleString("en-US")}</p>
           <p className="text-[12px] text-fg-subtle">{t.amount.toLocaleString("en-US")} credits</p>
           {t.expectHkd !== null && <p className="mt-0.5 text-[12px] font-medium text-warn">Check you received HK${t.expectHkd.toLocaleString("en-HK")}</p>}
+          {added && <p className="text-[12px] text-fg-subtle">Credits already added</p>}
         </div>
       </div>
       {rejecting && (
@@ -61,13 +66,17 @@ export function TopupReview({ t }: { t: PendingTopup }) {
       <div className="mt-3 flex gap-2">
         {rejecting ? (
           <>
-            <Button size="sm" variant="danger" loading={pending} onClick={() => run(() => rejectTopup(t.id, note))}>Reject top-up</Button>
+            <Button size="sm" variant="danger" loading={pending} onClick={() => run(() => (added ? markTopupFake(t.id, note) : rejectTopup(t.id, note)))}>
+              {added ? "Not received: take credits back" : "Reject top-up"}
+            </Button>
             <Button size="sm" variant="ghost" disabled={pending} onClick={() => setRejecting(false)}>Back</Button>
           </>
         ) : (
           <>
-            <Button size="sm" loading={pending} onClick={() => run(() => confirmTopup(t.id))}>Confirm &amp; add credits</Button>
-            <Button size="sm" variant="ghost" disabled={pending} onClick={() => setRejecting(true)}>Reject</Button>
+            <Button size="sm" loading={pending} onClick={() => run(() => (added ? markTopupReceived(t.id) : confirmTopup(t.id)))}>
+              {added ? "Received" : "Confirm & add credits"}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={pending} onClick={() => setRejecting(true)}>{added ? "Not received" : "Reject"}</Button>
           </>
         )}
       </div>

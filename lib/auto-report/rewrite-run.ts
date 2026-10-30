@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { shortId } from "@/lib/utils";
 import type { AutoReportResult, ReportSentence } from "./stitch";
 import {
+  CITATION_RULE,
   REWRITE_BATCH,
   REWRITE_PROMPT,
   buildItems,
@@ -52,7 +53,7 @@ export type RewriteOutcome =
 async function askBatch(batch: ReportSentence[], result: AutoReportResult, model: string, redo?: Map<number, string>, round = 1): Promise<Map<number, string> | null> {
   try {
     const res = await deepseekRun({
-      system: [REWRITE_PROMPT, DRAFT_GUARD].join("\n\n"),
+      system: [REWRITE_PROMPT, CITATION_RULE, DRAFT_GUARD].join("\n\n"),
       user: rewriteInput(batch, result, redo, round),
       maxTokens: 12_000,
       model,
@@ -85,7 +86,7 @@ async function streamBatch(batch: ReportSentence[], result: AutoReportResult, mo
     return got;
   };
   try {
-    for await (const e of deepseekStream({ system: [REWRITE_PROMPT, DRAFT_GUARD].join("\n\n"), user: rewriteInput(batch, result), maxTokens: 12_000, model, effort: "low" })) {
+    for await (const e of deepseekStream({ system: [REWRITE_PROMPT, CITATION_RULE, DRAFT_GUARD].join("\n\n"), user: rewriteInput(batch, result), maxTokens: 12_000, model, effort: "low" })) {
       if (e.type === "delta") {
         text += e.text;
         if (e.text.includes("}")) take();

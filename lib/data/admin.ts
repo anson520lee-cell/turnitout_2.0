@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatBytes } from "@/lib/utils";
 import { assertAdmin } from "@/lib/auth/session";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+import { PAY_FIRST_TOPUP_METHODS } from "@/config/payments";
 import { NOT_MONEY_PROVIDERS, revenueTotals, type RevenueOrderPayment } from "@/lib/payments/revenue";
 import type { OrderStatus } from "@/lib/orders/status";
 import type {
@@ -48,7 +49,7 @@ export async function adminMetrics() {
       .eq("status", "succeeded")
       .not("provider", "in", `(${NOT_MONEY_PROVIDERS.join(",")})`)
       .limit(10000),
-    db.from("credit_topups").select("usd").eq("status", "confirmed").limit(10000),
+    db.from("credit_topups").select("usd,method,reviewed_by").eq("status", "confirmed").limit(10000),
     count(db.from("payment_claims").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
   // An Alipay order's payment points at its claim; a pending claim is money not found in AlipayHK yet.
@@ -59,7 +60,11 @@ export async function adminMetrics() {
     : { data: [] as { id: string; status: string }[] };
   const claimStatus = new Map((claimRows ?? []).map((c) => [c.id as string, c.status as string]));
   const revenue = revenueTotals(
-    (topups.data ?? []) as { usd: number }[],
+    ((topups.data ?? []) as { usd: number; method: string; reviewed_by: string | null }[]).map((t) => ({
+      usd: t.usd,
+      // credited on trust and not checked by an admin yet
+      unchecked: (PAY_FIRST_TOPUP_METHODS as readonly string[]).includes(t.method) && t.reviewed_by === null,
+    })),
     payRows.map<RevenueOrderPayment>((p) => ({
       provider: p.provider,
       amount: p.amount,
