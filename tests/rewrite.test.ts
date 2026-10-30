@@ -28,7 +28,7 @@ test("the meaning may change, but no number, citation or quotation is added", ()
 test("up to three sentences, a length in range and a real change", () => {
   const o = "Many students do not read widely before they write their first essay.";
   assert.equal(checkRewrite(o, o), "unchanged");
-  assert.equal(checkRewrite(o, "Lots of students don't read much. Then they write their first essay."), null);
+  assert.equal(checkRewrite(o, "Lots of students don't read much before they write their first essay, so it shows."), null);
   assert.equal(checkRewrite(o, "Students. They do not read much. Not widely. Then essays."), "split into too many sentences");
   assert.equal(checkRewrite(o, "Few read."), "length changed too much");
 });
@@ -50,7 +50,7 @@ test("a later round may reword the openers of a suggestion's second and third se
   const r2 = "For a long time, the sector ran on separate manual workflows. That made information hard to share.";
   assert.equal(checkRewrite(r2, "The sector ran on its own manual workflows for ages, so information got stuck between teams.", known), null);
   // A name inside any of the sentences, or a known name opening one, still has to stay.
-  assert.match(checkRewrite(r1, "Facility management keeps putting artificial intelligence (AI) to work. To me that pairing changes how the job gets done.", known) ?? "", /Building/);
+  assert.match(checkRewrite(r1, "Facility management keeps putting artificial intelligence (AI) to work in more and more places. To me that pairing really does change how the whole job gets done.", known) ?? "", /Building/);
   assert.match(checkRewrite("The idea is old. Blackmore argues that ideas spread by imitation.", "The idea is old, and ideas spread by imitation.", known) ?? "", /Blackmore/);
 });
 
@@ -171,4 +171,17 @@ test("a later round rewrites what the re-check still counts, and keeps everythin
     { n: 2, original: "Two.", rewrite: "Second rewrite." },
     { n: 3, original: "Three.", rewrite: "Third." },
   ]);
+});
+
+test("the detector flags short tidy sentences, so a rewrite may not split one off", () => {
+  const short = "Many students do not read widely before they write their first essay.";
+  // One sentence in, one sentence out: a split into short sentences is refused (signal 3 and 8, 2026-10-29).
+  assert.match(checkRewrite(short, "Lots of students don't read much. Then they write their first essay.") ?? "", /more sentences than the original/);
+  const long = "Machine learning architectures trained on historical maintenance records, ambient atmospheric data and vibration telemetry are capable of anticipating mechanical wear with exceptional precision, which in turn lets facility managers and their maintenance teams act early instead of reacting late.";
+  // A long sentence may become two long ones, but not one long and one short.
+  assert.equal(checkRewrite(long, "Feed a model old repair logs, local weather and the vibration readings from the machine and it starts to spot wear before anyone notices. That is how managers get to fix a part early and not after it breaks down."), null);
+  assert.match(checkRewrite(long, "Feed a model old repair logs, local weather and the vibration readings from the machine and it starts to spot wear before anyone notices, which gives managers time. That way they fix it early.") ?? "", /short sentence/);
+  // Three short sentences from a round 1 suggestion may be merged back into one.
+  const three = "Facility managers do not need a fixed calendar. Waiting for a breakdown is worse. They can fix things when the data says so.";
+  assert.equal(checkRewrite(three, "Facility managers don't have to follow a fixed calendar and waiting until something breaks is worse, so they just fix things when the data says it needs fixing."), null);
 });
