@@ -1,11 +1,11 @@
 "use client";
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Check, Copy, Loader2, PenLine, RotateCw, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { needsRound, reviseText, type Decision, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
+import { nextStep, resumable, reviseText, type Decision, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { RecheckStep } from "@/lib/auto-report/refine-script";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
@@ -44,6 +44,10 @@ function subscribe(onChange: () => void) {
  * while it still scores too high the sentences still counted are rewritten again (up to MAX_ROUNDS rounds, free), the
  * best round kept and its real score shown. The re-check starts as soon as the suggestions are saved, while they are
  * still being typed out, and the live view ends on its result: it never shows an estimate first.
+ *
+ * The page only drives the steps while it is open: the server finishes the run without it (the background runner,
+ * lib/auto-report/sweep.ts, follows the same nextStep), so a closed or backgrounded tab no longer stops it after
+ * round 2. A page opened on a run that is still going picks it up, and a step the server is already on is waited for.
  */
 export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title, canSkip = false }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string; canSkip?: boolean }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
@@ -103,34 +107,43 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
     setCheckError(null);
     const post = async (path: string) => {
       const res = await fetch(`/api/reports/${orderId}/rewrite/${path}`, { method: "POST" });
-      return (await res.json().catch(() => null)) as { check?: RewriteCheck; rewrite?: ReportRewrite; error?: string } | null;
+      const body = (await res.json().catch(() => null)) as { check?: RewriteCheck; rewrite?: ReportRewrite; error?: string } | null;
+      return { busy: res.status === 409, body };
     };
     let cur = from;
+    let waits = 0;
     try {
+      // Step by step as the saved rewrite says (nextStep), the same as the server's background runner.
       for (;;) {
-        setStep({ kind: "check", round: cur?.pending?.round ?? cur?.round ?? 1, since: performance.now() });
-        const body = await post("check");
-        if (!body?.check || !body.rewrite) {
-          setStep(null);
-          // A round that could not be re-checked leaves the best one so far standing.
-          if (cur?.check) break;
-          setCheckError(body?.error ?? "We couldn't re-check the rewritten text just now. Please try again in a little while.");
-          setChecking("failed");
-          return;
+        const step = cur ? nextStep(cur) : { kind: "check" as const, round: 1 };
+        if (!step) break;
+        setStep({ ...step, since: performance.now() });
+        const { busy, body } = await post(step.kind);
+        // The server is on this step already (the background runner took it over): wait for it, then look again.
+        if (busy && waits++ < 36) {
+          await new Promise((r) => setTimeout(r, 5_000));
+          continue;
         }
-        const now = body.rewrite;
-        cur = now;
-        setCheck(body.check);
-        setLatest(now);
-        setRewrite((r) => (r ? now : r));
-        track("rewrite_checked");
-        if (!needsRound(now)) break;
-        setStep({ kind: "round", round: (now.round ?? 1) + 1, since: performance.now() });
-        const next = await post("round");
-        // Another round could not be written: the best round so far stands. A round with no new suggestion moves on.
-        if (!next?.rewrite) break;
-        cur = next.rewrite;
-        setLatest(next.rewrite);
+        if (step.kind === "check") {
+          if (!body?.check || !body.rewrite) {
+            setStep(null);
+            // A round that could not be re-checked leaves the best one so far standing.
+            if (cur?.check) break;
+            setCheckError(body?.error ?? "We couldn't re-check the rewritten text just now. Please try again in a little while.");
+            setChecking("failed");
+            return;
+          }
+          cur = body.rewrite;
+          setCheck(body.check);
+          setLatest(body.rewrite);
+          setRewrite((r) => (r ? (body.rewrite as ReportRewrite) : r));
+          track("rewrite_checked");
+        } else {
+          // Another round could not be written: the best round so far stands.
+          if (!body?.rewrite) break;
+          cur = body.rewrite;
+          setLatest(body.rewrite);
+        }
       }
     } catch {
       if (!cur?.check) {
@@ -143,6 +156,16 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
     setStep(null);
     setChecking("idle");
   }
+
+  // A page opened on a run that is still going (the customer left, or the tab was in the background): carry it on, or
+  // wait for the server that already has. Only for a recent run (resumable): an old one waits for the button.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current || !initial || !resumable(initial)) return;
+    resumed.current = true;
+    void recheck(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function start() {
     const run = ++runs.current;
@@ -182,7 +205,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
         setLive((l) => (l && l.run === run ? { ...l, rewrite: made } : l));
         setLatest(made);
         // The real score of the rewritten text (and further rounds), while the rewrite is still being typed out.
-        if (made.check && !needsRound(made) && !made.pending) setCheck(made.check);
+        if (!nextStep(made)) setCheck(made.check ?? null);
         else void recheck(made);
       } else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
@@ -267,7 +290,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
             <p className="text-[13px] text-fg-muted">We couldn&rsquo;t make a safe suggestion for any of the flagged sentences, so they are left as you wrote them. Rewrite them in your own everyday words.</p>
           ) : (
             <>
-              <RecheckSummary check={check} checking={checking === "pending"} canContinue={!!latest && (!!latest.pending || needsRound(latest))} error={checkError} original={reportScore(result.summary)} onRetry={() => void recheck(latest)} />
+              <RecheckSummary check={check} checking={checking === "pending"} canContinue={!!latest && nextStep(latest) !== null} error={checkError} original={reportScore(result.summary)} onRetry={() => void recheck(latest)} />
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                 <p className="text-[12.5px] text-fg-subtle">
                   <span className="font-mono text-fg-muted">{accepted}</span> of {shown.length} suggestions used

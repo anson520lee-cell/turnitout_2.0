@@ -261,12 +261,13 @@ export async function makeRound(orderId: string): Promise<RoundOutcome> {
     for (let i = 0; i < targets.length; i += REWRITE_BATCH) batches.push(targets.slice(i, i + REWRITE_BATCH));
     const answers = new Map<number, string>();
     for (const a of await Promise.all(batches.map((b) => askBatch(b, context, model, undefined, round)))) for (const [n, t] of a ?? []) answers.set(n, t);
-    let fresh = buildItems(targets, answers, known);
+    const students = new Map(report.result.paragraphs.flatMap((p) => p.sentences).map((s) => [s.n, s.text]));
+    let fresh = buildItems(targets, answers, known, students);
     const redo = new Map(fresh.filter((i) => i.rewrite === null && i.kept && answers.has(i.n)).map((i) => [i.n, i.kept as string]));
     if (redo.size && Date.now() - started < RETRY_BEFORE_MS) {
       const again = await askBatch(targets.filter((s) => redo.has(s.n)), context, model, redo, round);
       for (const [n, t] of again ?? []) answers.set(n, t);
-      fresh = buildItems(targets, answers, known);
+      fresh = buildItems(targets, answers, known, students);
     }
     // Nothing new to try: the round is used up and the rewrite stays as it was.
     const next: ReportRewrite = fresh.some((i) => i.rewrite) ? { ...rewrite, pending: { round, items: mergeRound(rewrite.items, fresh, report.result) } } : { ...rewrite, round };

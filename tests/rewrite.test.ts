@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, parseRewrites, pickFlagged, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { MAX_STALLS, RESUME_WINDOW_MS, acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, nextStep, parseRewrites, pickFlagged, resumable, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -184,4 +184,36 @@ test("the detector flags short tidy sentences, so a rewrite may not split one of
   // Three short sentences from a round 1 suggestion may be merged back into one.
   const three = "Facility managers do not need a fixed calendar. Waiting for a breakdown is worse. They can fix things when the data says so.";
   assert.equal(checkRewrite(three, "Facility managers don't have to follow a fixed calendar and waiting until something breaks is worse, so they just fix things when the data says it needs fixing."), null);
+});
+
+test("nextStep says what an unfinished rewrite waits for, so the page and the server runner follow the same path", () => {
+  const at = new Date("2026-10-29T05:00:00Z");
+  const item = { n: 1, original: "A.", rewrite: "B." };
+  const check = (score: number) => ({ checkedAt: at.toISOString(), score, stillCounted: [1], cleared: [], result: {} as never });
+  const base: ReportRewrite = { version: 1, model: "m", createdAt: at.toISOString(), items: [item] };
+  assert.equal(nextStep({ ...base, items: [{ n: 1, original: "A.", rewrite: null }] }), null, "nothing was suggested");
+  assert.deepEqual(nextStep(base), { kind: "check", round: 1 }, "not re-checked yet");
+  assert.deepEqual(nextStep({ ...base, check: check(0.98), round: 1 }), { kind: "round", round: 2 }, "still too high: another round");
+  assert.deepEqual(nextStep({ ...base, check: check(0.98), round: 2, pending: { round: 2, items: [item] } }), { kind: "check", round: 2 }, "a round written, not re-checked");
+  assert.deepEqual(nextStep({ ...base, check: check(0.97), round: 2 }), { kind: "round", round: 3 });
+  assert.equal(nextStep({ ...base, check: check(0.97), round: 3 }), null, "rounds used up");
+  assert.equal(nextStep({ ...base, check: check(0.12), round: 1 }), null, "under the target");
+});
+
+test("only a recent, unfinished rewrite is carried on without being asked", () => {
+  const made = Date.parse("2026-10-29T05:00:00Z");
+  const rw: ReportRewrite = { version: 1, model: "m", createdAt: new Date(made).toISOString(), items: [{ n: 1, original: "A.", rewrite: "B." }] };
+  assert.equal(resumable(rw, made + 60_000), true);
+  assert.equal(resumable(rw, made + RESUME_WINDOW_MS + 1), false, "an old one waits for a click");
+  assert.equal(resumable({ ...rw, stalls: MAX_STALLS }, made + 60_000), false, "the runner gave up on it");
+  assert.equal(resumable({ ...rw, createdAt: "" }, made), false);
+});
+
+test("checkRewrite: a later round may not grow past the student's own sentence", () => {
+  const student = "Remote work gives people more time because there is no commute.";
+  const earlier = "Without a daily commute, people get hours back, and that is the main thing remote work gives them.";
+  const longer = "Without a daily commute, people get hours back every week, and that is the main thing remote work gives them, which workers value.";
+  assert.equal(checkRewrite(earlier, longer, new Set()), null);
+  assert.equal(checkRewrite(earlier, longer, new Set(), student), "length changed too much");
+  assert.equal(checkRewrite(earlier, "Hours come back when the commute goes, and that is what working from home gives people.", new Set(), student), null);
 });
