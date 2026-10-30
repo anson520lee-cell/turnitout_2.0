@@ -1,8 +1,10 @@
 /**
- * The projected AI rate during a live rewrite, as a ticking series. It starts on the report's own score and follows
- * the rewrite down in even steps (see projectedAt): part of each counted sentence's step as R1 erases it, the
- * rest as R2 types its suggestion. A faint tremor keeps the line alive while it works. When the rewrite is over it
- * settles exactly on the projected figure and stops.
+ * The AI rate during a live rewrite, as a ticking series. It starts on the report's own score. On a real order
+ * (`real`) it moves only to the scores the detector gives the rewritten text, one step per re-checked round, up or
+ * down; it never shows an estimate (Neo, 2026-10-29: the view showed a projected 1%, and the re-check said 98%). In
+ * the design previews it follows the projection down in even steps instead (see projectedAt): part of each counted
+ * sentence's step as R1 erases it, the rest as R2 types its suggestion. A faint tremor keeps the line alive while it
+ * works. When the rewrite is over it settles exactly on the final figure and stops.
  *
  * Kept outside React like the report scan's RateMeter: it ticks 20 times a second and its readers (the number and
  * the chart) draw themselves when it changes.
@@ -11,8 +13,10 @@
 export interface RefineMeterInput {
   /** False until the live rewrite starts. */
   ready: boolean;
-  /** The projected rate now. */
+  /** The rate now: the last re-checked score (`real`), else the projection. */
   target: number;
+  /** A real order: the target is a re-checked score and is followed up or down, each change marked on the chart. */
+  real?: boolean;
   /** The report's own score. */
   original: number;
   /** Counted sentences rewritten so far: each one marks the drop since the last. */
@@ -26,7 +30,7 @@ export interface RefinePoint {
   v: number;
 }
 
-/** The drop since the previous step, for the chart's flash and label. */
+/** The change at a step (a drop, or a rise when a re-check scores higher), for the chart's flash and label. */
 export interface RefineDrop {
   t: number;
   from: number;
@@ -72,7 +76,12 @@ export class RefineMeter {
       this.target = input.target;
       this.lastPoint = now - POINT_MS;
     }
-    if (input.marks > this.marks) {
+    if (input.real) {
+      if (this.cur !== null && Math.abs(input.target - this.target) > 0.0005) {
+        this.drops.push({ t: now, from: this.target, to: input.target });
+        if (this.drops.length > 40) this.drops.shift();
+      }
+    } else if (input.marks > this.marks) {
       const at = this.cur ?? this.level;
       const from = this.markedAt ?? input.original;
       if (from - at > 0.0005) this.drops.push({ t: now, from, to: at });
@@ -80,8 +89,9 @@ export class RefineMeter {
       this.marks = input.marks;
       this.markedAt = at;
     }
-    // Only ever down while it works (an estimate can rise a little when a sentence turns out kept); at the end, the real figure.
-    this.target = input.done ? input.target : Math.min(this.target, input.target);
+    // A projection only ever goes down while it works (an estimate can rise a little when a sentence turns out kept);
+    // a re-checked score is shown as it is, and at the end the final figure.
+    this.target = input.done || input.real ? input.target : Math.min(this.target, input.target);
     this.level = input.reduce ? this.target : this.level + (this.target - this.level) * (input.done ? 0.3 : 0.16);
     this.noise = input.done ? this.noise * 0.5 : this.noise * 0.85 + (input.reduce ? 0 : 0.0012) * gauss();
     if (input.done && Math.abs(this.level - input.target) < 0.0004 && Math.abs(this.noise) < 0.0004) {

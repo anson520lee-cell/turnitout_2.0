@@ -30,7 +30,7 @@ const ESSAYS: Record<RefineEssay, { result: () => AutoReportResult; rewrite: (r:
   },
 };
 
-export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", recheck = null }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay; recheck?: number | null }) {
+export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", recheck = null }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay; recheck?: number[] | null }) {
   const copy = ESSAYS[essay];
   const [run, setRun] = useState(1);
   const [over, setOver] = useState(false);
@@ -59,14 +59,15 @@ export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", rec
   );
 }
 
-function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; recheck: number | null; onFinish: () => void }) {
+function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; recheck: number[] | null; onFinish: () => void }) {
   const copy = ESSAYS[essay];
   const result = useMemo(() => copy.result(), [copy]);
   // Like the real writer: batches of six asked at once, each answering sentence by sentence once it starts writing
   // (first answers after about 5 s; ?late=1 after about 25 s), then the whole rewrite with the kept ones.
   const [arrived, setArrived] = useState<RewriteItem[]>([]);
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(null);
-  const [verify, setVerify] = useState<RefineVerify | undefined>(undefined);
+  // With ?recheck, a real order's run: the re-check is to come from the start.
+  const [verify, setVerify] = useState<RefineVerify | undefined>(recheck ? { state: "pending", step: null, scores: [], check: null } : undefined);
   useEffect(() => {
     const full = copy.rewrite(result);
     const base = late ? 25_000 : 5_000;
@@ -81,10 +82,26 @@ function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: Ref
     timers.push(
       setTimeout(() => {
         setRewrite(full);
-        if (recheck === null) return;
-        // A made-up re-check: pending for a while (it runs alongside the typing on a real order), then the given score.
-        setVerify({ state: "pending" });
-        timers.push(setTimeout(() => setVerify({ state: "done", check: demoCheck(full, result, recheck) }), 40_000 / speed));
+        if (!recheck) return;
+        // A made-up re-check, round by round as on a real order: about 40 s per re-check (it starts while the
+        // suggestions are still being typed) and 15 s per later round, then the given scores; the lowest is kept.
+        let at = 0;
+        const scores: number[] = [];
+        let best: RewriteCheck | null = null;
+        const later = (ms: number, next: (v: RefineVerify) => RefineVerify) => timers.push(setTimeout(() => setVerify((v) => (v ? next(v) : v)), ms / speed));
+        recheck.forEach((score, k) => {
+          if (k > 0) {
+            later(at, (v) => ({ ...v, step: { kind: "round", round: k + 1, since: performance.now() } }));
+            at += 15_000;
+          }
+          later(at, (v) => ({ ...v, step: { kind: "check", round: k + 1, since: performance.now() } }));
+          at += 40_000;
+          scores.push(score / 100);
+          if (!best || score / 100 < best.score) best = demoCheck(full, result, score);
+          const snapshot = { scores: [...scores], check: best };
+          const lastRound = k === recheck.length - 1;
+          later(at, (v) => ({ ...v, ...snapshot, ...(lastRound ? { state: "done" as const, step: null } : {}) }));
+        });
       }, (last + 1_500) / speed),
     );
     return () => timers.forEach(clearTimeout);

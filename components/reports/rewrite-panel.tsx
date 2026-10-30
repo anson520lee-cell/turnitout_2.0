@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { needsRound, reviseText, type Decision, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
+import type { RecheckStep } from "@/lib/auto-report/refine-script";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
 import { track } from "@/lib/analytics";
 import { cn, shortId } from "@/lib/utils";
@@ -41,7 +42,8 @@ function subscribe(onChange: () => void) {
  * one by one. Nothing changes the report above it. While the suggestions are written the customer watches them being
  * typed over their text (RefineScan); then the text with every suggestion in place is re-checked by the detector, and
  * while it still scores too high the sentences still counted are rewritten again (up to MAX_ROUNDS rounds, free), the
- * best round kept and its real score shown.
+ * best round kept and its real score shown. The re-check starts as soon as the suggestions are saved, while they are
+ * still being typed out, and the live view ends on its result: it never shows an estimate first.
  */
 export function RewritePanel({ orderId, result, initial, sourceText, credits, balance, title, canSkip = false }: { orderId: string; result: AutoReportResult; initial: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; title?: string; canSkip?: boolean }) {
   const [rewrite, setRewrite] = useState<ReportRewrite | null>(initial);
@@ -53,10 +55,19 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   const [check, setCheck] = useState<RewriteCheck | null>(initial?.check ?? null);
   const [checking, setChecking] = useState<"idle" | "pending" | "failed">("idle");
   const [checkError, setCheckError] = useState<string | null>(null);
-  // The rewrite as the re-checks left it (a later round may have replaced suggestions). Rounds are not shown to the
-  // customer (Neo, 2026-10-28): the live rewrite simply waits on "Re-checking" until the last one is in.
+  // The rewrite as the re-checks left it (a later round may have replaced suggestions).
   const [latest, setLatest] = useState<ReportRewrite | null>(initial);
-  const verify: RefineVerify | undefined = checking === "pending" ? { state: "pending" } : check ? { state: "done", check } : checking === "failed" ? { state: "failed" } : undefined;
+  // What the re-check is doing now, for the live rewrite: re-checking a round, or writing the next one. The live view
+  // shows each round and its real score as part of the run, and ends on the best (Neo, 2026-10-29).
+  const [step, setStep] = useState<RecheckStep | null>(null);
+  // From the start of a live run: until the suggestions are saved the re-check is simply still to come.
+  const verify: RefineVerify = {
+    state: checking === "pending" ? "pending" : check ? "done" : checking === "failed" ? "failed" : "pending",
+    step,
+    scores: latest?.scores ?? (check ? [check.score] : []),
+    check,
+    items: latest?.items,
+  };
   const stored = useSyncExternalStore(subscribe, () => readChoices(orderId), () => "");
   const [local, setLocal] = useState<Decisions | null>(null);
   const remembered = useMemo<Decisions>(() => {
@@ -85,39 +96,51 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   /**
    * Re-checks the rewritten text, then, while it still scores too high, asks for another round and re-checks that,
    * until the target or the last round. Each answer carries the whole rewrite, since a better round replaces suggestions.
+   * `from` is the rewrite as it stands, to name the round being checked.
    */
-  async function recheck() {
+  async function recheck(from: ReportRewrite | null) {
     setChecking("pending");
     setCheckError(null);
     const post = async (path: string) => {
       const res = await fetch(`/api/reports/${orderId}/rewrite/${path}`, { method: "POST" });
       return (await res.json().catch(() => null)) as { check?: RewriteCheck; rewrite?: ReportRewrite; error?: string } | null;
     };
+    let cur = from;
     try {
       for (;;) {
+        setStep({ kind: "check", round: cur?.pending?.round ?? cur?.round ?? 1, since: performance.now() });
         const body = await post("check");
         if (!body?.check || !body.rewrite) {
+          setStep(null);
+          // A round that could not be re-checked leaves the best one so far standing.
+          if (cur?.check) break;
           setCheckError(body?.error ?? "We couldn't re-check the rewritten text just now. Please try again in a little while.");
           setChecking("failed");
           return;
         }
         const now = body.rewrite;
+        cur = now;
         setCheck(body.check);
         setLatest(now);
         setRewrite((r) => (r ? now : r));
         track("rewrite_checked");
         if (!needsRound(now)) break;
+        setStep({ kind: "round", round: (now.round ?? 1) + 1, since: performance.now() });
         const next = await post("round");
         // Another round could not be written: the best round so far stands. A round with no new suggestion moves on.
         if (!next?.rewrite) break;
+        cur = next.rewrite;
+        setLatest(next.rewrite);
       }
     } catch {
-      if (!check) {
+      if (!cur?.check) {
+        setStep(null);
         setCheckError("We couldn't re-check the rewritten text just now. Please check your connection and try again.");
         setChecking("failed");
         return;
       }
     }
+    setStep(null);
     setChecking("idle");
   }
 
@@ -160,7 +183,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
         setLatest(made);
         // The real score of the rewritten text (and further rounds), while the rewrite is still being typed out.
         if (made.check && !needsRound(made) && !made.pending) setCheck(made.check);
-        else void recheck();
+        else void recheck(made);
       } else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
       fail("We couldn't write the suggestions just now. Please check your connection and try again.");
@@ -244,7 +267,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
             <p className="text-[13px] text-fg-muted">We couldn&rsquo;t make a safe suggestion for any of the flagged sentences, so they are left as you wrote them. Rewrite them in your own everyday words.</p>
           ) : (
             <>
-              <RecheckSummary check={check} checking={checking === "pending"} canContinue={!!latest && (!!latest.pending || needsRound(latest))} error={checkError} original={reportScore(result.summary)} onRetry={recheck} />
+              <RecheckSummary check={check} checking={checking === "pending"} canContinue={!!latest && (!!latest.pending || needsRound(latest))} error={checkError} original={reportScore(result.summary)} onRetry={() => void recheck(latest)} />
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                 <p className="text-[12.5px] text-fg-subtle">
                   <span className="font-mono text-fg-muted">{accepted}</span> of {shown.length} suggestions used

@@ -1,12 +1,14 @@
 "use client";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { lookaheadLine, quote, scanPosition, thinkingLine, type LogLine, type ScanPlan } from "@/lib/auto-report/scan-script";
-import { clearedBy, eraseLine, guardLine, jobPhase, keptLine, queuedLine, readerAt, writeLine, type RefineJob } from "@/lib/auto-report/refine-script";
+import { clearedBy, eraseLine, guardLine, jobPhase, keptLine, queuedLine, readerAt, recheckStartLine, recheckedLine, stillLine, writeLine, type RecheckStep, type RefineJob } from "@/lib/auto-report/refine-script";
+import type { RewriteCheck, RewriteItem } from "@/lib/auto-report/rewrite";
 import type { ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
 import { Terminal, type TermLine } from "../scan/scan-panels";
-import { RefineRatePanel, type RefineCounts } from "./refine-rate";
+import { RefineRatePanel, type RateBasis, type RefineCounts } from "./refine-rate";
 import type { RefineMeter } from "./refine-meter";
 
 /**
@@ -16,7 +18,26 @@ import type { RefineMeter } from "./refine-meter";
  * original and R2, a pen, types the real suggestion; R3 runs a green scan line over it; and R4 carries what it took
  * off the rate to the chart. A diff card follows the sentence being rewritten. Every sentence, suggestion and
  * reason shown is the real one.
+ *
+ * On a real order R4 is the re-check instead: once the rewrite is typed out, a scan line runs down the view while the
+ * detector reviews the text, each round's real score goes to the chart and the logs, the sentences it still counts are
+ * marked, and a later round that scores lower puts its suggestions in place (`recheck`).
  */
+
+/** The re-check of a real order, as the stage shows it. */
+export interface StageRecheck {
+  /** The rewrite is typed out and the re-check (or a later round) is still running. */
+  active: boolean;
+  /** What runs now (none while the suggestions are still being saved). */
+  step: RecheckStep | null;
+  /** How long it has been running, in seconds. */
+  stepSecs: number;
+  /** The re-checked scores on screen so far, in order. */
+  scores: number[];
+  /** The best round's re-check and suggestions, once its score is on screen. */
+  check: RewriteCheck | null;
+  items?: RewriteItem[];
+}
 
 /** The scan clock as of the last render; the animation carries it on between renders. */
 export interface RefineClock {
@@ -61,7 +82,8 @@ export function RefineStage({
   waitedSecs,
   reduce,
   done,
-  verified = false,
+  basis = "projected",
+  recheck,
 }: {
   plan: ScanPlan;
   ratings: Map<number, ReportSentence>;
@@ -83,10 +105,15 @@ export function RefineStage({
   waitedSecs: number;
   reduce: boolean;
   done: boolean;
-  /** The final figure is the real re-check of the rewritten text, not the projection. */
-  verified?: boolean;
+  /** What the rate shows (see RefineRatePanel). */
+  basis?: RateBasis;
+  /** A real order's re-check; absent in the design previews. */
+  recheck?: StageRecheck;
 }) {
   const total = plan.sentences.length;
+  const agents = recheck ? AGENTS_RECHECK : AGENTS;
+  // The rewrite itself is over: typed out, and (on a real order) being re-checked.
+  const over = done || Boolean(recheck?.active);
   const [logs, setLogs] = useState<Logs>({ reader: [], rewriter: [], agents: [] });
   const [open, setOpen] = useState<Record<TermId, boolean>>({ reader: false, rewriter: false, agents: false });
   const [mini, setMini] = useState<Record<TermId, boolean>>({ reader: false, rewriter: false, agents: false });
@@ -113,11 +140,11 @@ export function RefineStage({
     );
     push("agents", [
       { tone: "info", text: `rewrite started · ${total} sentences · ${queue.size} to rewrite` },
-      { tone: "dim", text: `${AGENTS.length} agents deployed: ${AGENTS.map((a) => a.name).join(" · ")}` },
+      { tone: "dim", text: `${agents.length} agents deployed: ${agents.map((a) => a.name).join(" · ")}` },
       ...(plan.sentences[1] ? [lookaheadLine(plan.sentences[1])] : []),
     ]);
     return () => timers.forEach(clearTimeout);
-  }, [push, total, plan, queue]);
+  }, [push, total, plan, queue, agents]);
 
   const toggle = (id: TermId) => {
     touched.current.add(id);
@@ -192,18 +219,49 @@ export function RefineStage({
     return () => clearInterval(t);
   }, [any, queue, push]);
   useEffect(() => {
-    if (!done) return;
+    if (!over) return;
     const made = jobs.filter((j) => j.rewrite).length;
     push("rewriter", [{ tone: "ok", text: `all ${jobs.length} sentences done · ${made} rewritten · ${jobs.length - made} kept` }]);
-  }, [done, jobs, push]);
+  }, [over, jobs, push]);
+
+  // R4 on a real order: each step of the re-check as it starts, each round's score as it comes, and a heartbeat.
+  const stepKey = recheck?.active && recheck.step ? `${recheck.step.kind}:${recheck.step.round}` : null;
+  const stepRef = useRef(recheck?.step ?? null);
+  useEffect(() => {
+    stepRef.current = recheck?.step ?? null;
+  });
+  useEffect(() => {
+    const st = stepRef.current;
+    if (!stepKey || !st) return;
+    push("agents", [recheckStartLine(st)]);
+    if (st.kind === "round") push("rewriter", [{ tone: "violet", text: `round ${st.round} · rewriting the sentences still counted` }]);
+    const t = setInterval(() => {
+      const now = stepRef.current;
+      if (now) push("agents", [{ tone: "dim", text: now.kind === "check" ? `R4 · the detector is reading your rewritten text · round ${now.round}` : `writer · round ${now.round} · drafting new suggestions` }]);
+    }, 8_000);
+    return () => clearInterval(t);
+  }, [stepKey, push]);
+  const scored = useRef(0);
+  const shownScores = recheck?.scores;
+  const bestCheck = recheck?.check ?? null;
+  useEffect(() => {
+    if (!shownScores) return;
+    const out: LogLine[] = [];
+    for (let k = scored.current; k < shownScores.length; k++) out.push(recheckedLine(shownScores, k));
+    scored.current = shownScores.length;
+    push("agents", out);
+  }, [shownScores, push]);
+  useEffect(() => {
+    if (bestCheck) push("agents", [stillLine(bestCheck)]);
+  }, [bestCheck, push]);
 
   // The diff card follows the sentence being rewritten, and stays a moment on the last one finished.
   const card = useMemo(() => {
-    if (done) return null;
+    if (over) return null;
     let pick: RefineJob | null = null;
     for (const j of jobs) if (scanMs >= j.start && scanMs < j.end + HOLD_MS && (!pick || j.start > pick.start)) pick = j;
     return pick;
-  }, [jobs, scanMs, done]);
+  }, [jobs, scanMs, over]);
 
   const lead = plan.sentences[Math.min(frontier, total - 1)];
   const readerLive =
@@ -214,7 +272,7 @@ export function RefineStage({
       </p>
     ) : null;
 
-  const rateProps = { meter, ready: true, final: done, verified, original, counts, reduce };
+  const rateProps = { meter, ready: true, final: done, basis, original, counts, reduce };
 
   const terminalFor = (id: TermId, mobile = false) => {
     const meta = TERMS.find((t) => t.id === id)!;
@@ -241,7 +299,27 @@ export function RefineStage({
       </div>
 
       <section className="relative min-h-0 overflow-hidden rounded-2xl border border-[#9b7bff]/25 bg-ink-950/70" aria-label="Your text, being rewritten">
-        <RefineDocument plan={plan} ratings={ratings} queue={queue} jobs={jobs} meter={meter} readMs={readMs} frontier={frontier} within={within} scanMs={scanMs} clockRef={clockRef} reduce={reduce} done={done} />
+        <RefineDocument
+          plan={plan}
+          ratings={ratings}
+          queue={queue}
+          jobs={jobs}
+          meter={meter}
+          readMs={readMs}
+          frontier={frontier}
+          within={within}
+          scanMs={scanMs}
+          clockRef={clockRef}
+          reduce={reduce}
+          done={over}
+          real={Boolean(recheck)}
+          check={bestCheck}
+          items={recheck?.items}
+          agents={agents}
+          recheck={recheck}
+        />
+        {recheck?.active && recheck.step?.kind !== "round" && !reduce && <div aria-hidden className="rf-sweep pointer-events-none absolute inset-x-0 z-10" />}
+        <AnimatePresence>{recheck?.active && <RecheckBanner key="recheck" recheck={recheck} />}</AnimatePresence>
         <AnimatePresence>
           {card && (
             <motion.div
@@ -303,7 +381,7 @@ export function RefineStage({
         </div>
       </aside>
 
-      <aside className="hidden min-h-0 rounded-2xl border border-[#9b7bff]/25 bg-ink-950/80 p-4 xl:block" aria-label={verified ? "AI rate, original and re-checked" : "AI rate, original and projected"}>
+      <aside className="hidden min-h-0 rounded-2xl border border-[#9b7bff]/25 bg-ink-950/80 p-4 xl:block" aria-label={basis === "projected" ? "AI rate, original and projected" : "AI rate, original and re-checked"}>
         <RefineRatePanel {...rateProps} />
       </aside>
     </div>
@@ -392,6 +470,54 @@ const AGENTS = [
   { c: "pink", name: "R4 SCORE", job: "Carries what each rewritten sentence took off the rate to the chart" },
 ] as const;
 
+/** On a real order R4 is the re-check: the rate moves only on what the detector says about the rewritten text. */
+const AGENTS_RECHECK = [...AGENTS.slice(0, 6), { c: "pink", name: "R4 RE-CHECK", job: "Runs your rewritten text through the same detector as your report and puts its real score on the chart" }] as const;
+type Agent = (typeof AGENTS_RECHECK)[number] | (typeof AGENTS)[number];
+
+/**
+ * What the re-check is doing, over the text: which round, how long it has been running, and the scores so far. In
+ * place of the old full-screen "Re-checking" card, so the view stays live while the detector works.
+ */
+function RecheckBanner({ recheck }: { recheck: StageRecheck }) {
+  const { step, stepSecs, scores } = recheck;
+  const title = !step ? "Saving your suggestions" : step.kind === "check" ? `R4 re-check · round ${step.round}` : `Round ${step.round} · rewriting again`;
+  const text = !step
+    ? "The re-check starts as soon as they are saved."
+    : step.kind === "check"
+      ? "Your text with every suggestion in place is going through the same detector as your report. The rate moves only when it answers."
+      : "The detector still reads some sentences as AI, so R1 and R2 rewrite those again. The new round is kept only if its re-check scores lower.";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      className="absolute inset-x-3 bottom-3 z-20 mx-auto max-w-[440px]"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="scan-term overflow-hidden rounded-xl border border-[#ff7bd5]/35 bg-ink-950/92 shadow-[0_24px_70px_-20px_rgb(0_0_0/0.95),0_0_40px_-12px_rgb(255_123_213/0.45)]">
+        <div className="flex items-center gap-2 border-b border-[#ff7bd5]/20 bg-[#ff7bd5]/[0.06] px-3 py-1.5">
+          <Loader2 className="size-3.5 animate-spin text-[#ffb3e6]" aria-hidden />
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#ffd1ef]">{title}</span>
+          <span className="ml-auto font-mono text-[10.5px] tabular-nums text-fg-subtle">{clock(stepSecs * 1000).slice(0, 5)}</span>
+        </div>
+        <div className="space-y-2 px-3 py-2.5">
+          <p className="text-[12px] leading-relaxed text-fg-muted">{text}</p>
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tabular-nums">
+            {scores.map((v, k) => (
+              <span key={k} className="rounded-full border border-[#9b7bff]/40 bg-[#9b7bff]/10 px-2 py-0.5 text-[#e3d8ff]">
+                Round {k + 1} · {Math.round(v * 100)}%
+              </span>
+            ))}
+            <span className="text-fg-subtle">{scores.length ? "this can take a few minutes" : "usually about a minute per round"}</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 /**
  * The text, with the reader and lookahead at the front exactly as in the report scan, and the rewrite right behind
  * them. States are written straight onto the spans, so the text is rendered by React only once.
@@ -409,6 +535,11 @@ const RefineDocument = memo(function RefineDocument({
   clockRef,
   reduce,
   done,
+  real,
+  check,
+  items,
+  agents,
+  recheck,
 }: {
   plan: ScanPlan;
   ratings: Map<number, ReportSentence>;
@@ -421,7 +552,16 @@ const RefineDocument = memo(function RefineDocument({
   scanMs: number;
   clockRef: React.RefObject<RefineClock>;
   reduce: boolean;
+  /** The rewrite is typed out. */
   done: boolean;
+  /** A real order: R4 re-checks instead of carrying projected drops to the chart. */
+  real: boolean;
+  /** The best round's re-check: the sentences it still counts are marked, the cleared ones too. */
+  check: RewriteCheck | null;
+  /** The best round's suggestions, put in place of any the first round typed differently. */
+  items?: RewriteItem[];
+  agents: readonly Agent[];
+  recheck?: StageRecheck;
 }) {
   const total = plan.sentences.length;
   const scroller = useRef<HTMLDivElement>(null);
@@ -440,6 +580,44 @@ const RefineDocument = memo(function RefineDocument({
     live.current = { frontier, within, done, jobs };
   });
   const userScrolledAt = useRef(-Infinity);
+  // Suggestions a later round put in place of the typed ones, by sentence number.
+  const swapped = useRef(new Map<number, string>());
+
+  // R4 RE-CHECK: what the kept round's re-check says about each rewritten sentence.
+  useEffect(() => {
+    const still = new Set(check?.stillCounted ?? []);
+    const clear = new Set(check?.cleared ?? []);
+    for (const j of jobs) {
+      const el = spans.current[j.i];
+      if (!el) continue;
+      const rc = still.has(j.n) ? "still" : clear.has(j.n) ? "clear" : null;
+      if (rc) el.dataset.rc = rc;
+      else delete el.dataset.rc;
+    }
+  }, [check, jobs]);
+
+  // A later round that re-checked lower: its suggestions replace the typed ones, with a flash.
+  useEffect(() => {
+    for (const it of items ?? []) {
+      const j = jobs.find((x) => x.n === it.n);
+      if (!j || !it.rewrite || it.rewrite === (swapped.current.get(j.n) ?? j.rewrite)) continue;
+      const sent = spans.current[j.i];
+      const wrap = wraps.current[j.i];
+      const box = lives.current[j.i];
+      const txt = box?.firstElementChild as HTMLElement | null;
+      if (!sent || !wrap || !box || !txt) continue;
+      swapped.current.set(j.n, it.rewrite);
+      wrap.hidden = true;
+      box.hidden = false;
+      txt.textContent = it.rewrite;
+      sent.dataset.rf = "done";
+      if (!reduce) {
+        sent.classList.remove("rf-swap");
+        void sent.offsetWidth;
+        sent.classList.add("rf-swap");
+      }
+    }
+  }, [items, jobs, reduce]);
 
   // A3 FLAG: blue brackets lock onto a flagged sentence, line by line, as the reader finishes it.
   const lockOn = useCallback((el: HTMLElement, label: string) => {
@@ -649,11 +827,12 @@ const RefineDocument = memo(function RefineDocument({
           if (draft) draft.textContent = ph.text.slice(ph.typed);
         } else {
           sent.dataset.rf = "done";
-          txt.textContent = j.rewrite;
-          // R3 and R4 only for a sentence seen being rewritten, not one already done when the view opened.
+          txt.textContent = swapped.current.get(j.n) ?? j.rewrite;
+          // R3 and R4 only for a sentence seen being rewritten, not one already done when the view opened. On a real
+          // order nothing goes to the chart until the detector has re-checked the text.
           if (was !== undefined && !reduce) {
             sent.classList.add("rf-guarded");
-            if (j.counts) fly(sent);
+            if (j.counts && !real) fly(sent);
           }
         }
       }
@@ -691,11 +870,11 @@ const RefineDocument = memo(function RefineDocument({
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [clockRef, reduce, total, plan, meter, readMs]);
+  }, [clockRef, reduce, total, plan, meter, readMs, real]);
 
   return (
     <div className="flex flex-col max-lg:h-[50dvh] lg:h-full">
-      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} scanMs={scanMs} done={done} />
+      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} scanMs={scanMs} done={done} agents={agents} recheck={recheck} />
       <div
         ref={scroller}
         className="scan-doc relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-10 sm:py-7"
@@ -779,6 +958,8 @@ function AgentBar({
   jobs,
   scanMs,
   done,
+  agents,
+  recheck,
 }: {
   plan: ScanPlan;
   queue: Set<number>;
@@ -787,6 +968,8 @@ function AgentBar({
   jobs: RefineJob[];
   scanMs: number;
   done: boolean;
+  agents: readonly Agent[];
+  recheck?: StageRecheck;
 }) {
   const total = plan.sentences.length;
   const f = Math.min(frontier, total - 1);
@@ -808,11 +991,11 @@ function AgentBar({
     erasing && er?.phase === "erasing" ? `P${erasing.p} S${erasing.s} · −${erasing.original.length - er.left}` : done ? "done" : "on A1's tail",
     typing?.rewrite && ty?.phase === "typing" ? `P${typing.p} S${typing.s} · ${ty.typed}/${typing.rewrite.length}` : done ? "done" : waiting ? `waiting for P${waiting.p} S${waiting.s}` : "standing by",
     `${passed} passed${checked.length > passed ? ` · ${checked.length - passed} kept` : ""}`,
-    `${clearedBy(jobs, scanMs)} sent to the chart`,
+    recheck ? r4Status(recheck, done) : `${clearedBy(jobs, scanMs)} sent to the chart`,
   ];
   return (
     <div className="scan-agentbar flex shrink-0 gap-1 overflow-x-auto border-b border-[#9b7bff]/20 bg-ink-950/70 px-3 py-2" aria-label="Rewrite agents">
-      {AGENTS.map((a, k) => (
+      {agents.map((a, k) => (
         <div key={a.name} title={a.job} className="scan-chip flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-1 font-mono text-[10px]" data-c={a.c}>
           <span className="scan-chip-dot" aria-hidden />
           <span className="font-semibold tracking-wider text-fg">{a.name}</span>
@@ -821,4 +1004,12 @@ function AgentBar({
       ))}
     </div>
   );
+}
+
+/** R4 RE-CHECK's chip: waiting for the rewrite, the round it is on, or the last real score. */
+function r4Status(recheck: StageRecheck, over: boolean): string {
+  const { step, scores } = recheck;
+  if (recheck.active && step) return `round ${step.round} · ${step.kind === "check" ? "re-checking" : "rewriting"} ${recheck.stepSecs}s`;
+  if (scores.length) return `round ${scores.length} · ${Math.round(scores[scores.length - 1] * 100)}%`;
+  return over ? (recheck.active ? "saving" : "not re-checked") : "waits for the rewrite";
 }
