@@ -24,6 +24,16 @@ import {
   refinePlan,
   refineRate,
   refineReadMs,
+  landLevels,
+  polishAt,
+  polishOrder,
+  polishPhase,
+  polishStrokes,
+  POLISH_SLOT_MS,
+  liveAt,
+  liveDrift,
+  liveWobble,
+  LIVE_DEPTH,
   stillLine,
 } from "../lib/auto-report/refine-script";
 
@@ -234,4 +244,91 @@ test("the re-check's lines give each round's real score and say which round is k
   assert.equal(recheckedLine([0.12], 0).tone, "ok");
   assert.equal(stillLine({ stillCounted: [1, 2], cleared: [3] }).text, "R4 · 2 of 3 rewritten sentences still read as AI · 1 cleared");
   assert.equal(countedIn({ result }), result.paragraphs.flatMap((p) => p.sentences).filter((x) => x.counts).length);
+});
+
+test("the live rate falls from the first rewritten sentence and ends part of the way to the projection", () => {
+  const plan = refinePlan(result);
+  const readMs = refineReadMs(plan.chars);
+  const jobs = refineJobs(plan, result, arrive(rewriteOf(), 0), readMs);
+  const rate = refineRate(result);
+  const counted = jobs.filter((j) => j.counts && j.rewrite).sort((a, b) => a.n - b.n);
+  assert.ok(counted.length >= 2);
+  assert.equal(liveAt(rate, jobs, 0), rate.original);
+  // Already falling once the first counted sentence is typed.
+  assert.ok(liveAt(rate, jobs, counted[0].end) < rate.original);
+  const end = rate.original - (rate.original - projectedScore(rate, counted.length)) * LIVE_DEPTH;
+  assert.ok(Math.abs(liveAt(rate, jobs, Infinity) - end) < 1e-9);
+  // Not as far as the projection: the re-check takes it the rest of the way.
+  assert.ok(liveAt(rate, jobs, Infinity) > projectedScore(rate, counted.length));
+  // The same on every render.
+  assert.equal(liveAt(rate, jobs, counted[1].end - 100), liveAt(rate, jobs, counted[1].end - 100));
+});
+
+test("while a re-check runs the rate drifts a little lower and wobbles within bounds", () => {
+  assert.equal(liveDrift(0.6, 0.05, 0), 0.6);
+  assert.ok(liveDrift(0.6, 0.05, 30_000) < 0.6);
+  assert.ok(liveDrift(0.6, 0.05, 1e9) >= 0.6 - 0.15 - 1e-9);
+  assert.equal(liveDrift(0.04, 0.05, 60_000), 0.04);
+  for (let at = 0; at < 60_000; at += 333) {
+    const w = liveWobble(at, 42, 0.6);
+    assert.ok(Math.abs(w) <= 0.018 + 1e-12);
+    assert.ok(Math.abs(liveWobble(at, 42, 0.01)) <= 0.004 + 1e-12, "small near 0");
+    assert.equal(w, liveWobble(at, 42, 0.6));
+  }
+});
+
+test("a re-check below the show walks down one rewritten sentence at a time and ends exactly on its score", () => {
+  const check = { stillCounted: [2, 6], cleared: [1, 3, 4, 5, 7] };
+  const levels = landLevels({ from: 0.55, to: 0.12, check, seen: new Set(), seed: 3 });
+  assert.equal(levels.length, 7);
+  assert.equal(levels[levels.length - 1], 0.12);
+  assert.ok(levels[0] < 0.55, "the first cleared sentence takes it down");
+  // Down at each cleared sentence, back up a little (or held) at each one still counted.
+  assert.ok(levels[2] < levels[1]);
+  assert.ok(levels[1] >= levels[0]);
+  assert.ok(levels.every((v) => v >= 0 && v <= 1));
+});
+
+test("a re-check above the show walks back up, and a later round only moves on what it newly cleared", () => {
+  const check = { stillCounted: [2, 5], cleared: [1, 3, 4] };
+  const up = landLevels({ from: 0.4, to: 0.9, check, seen: new Set(), seed: 1 });
+  assert.equal(up[up.length - 1], 0.9);
+  assert.ok(up[1] > up[0], "up at a sentence still counted");
+  const later = landLevels({ from: 0.5, to: 0.2, check, seen: new Set([1, 3]), seed: 2 });
+  // Sentences 1 and 3 were cleared before: they leave the rate where it is; 4 is the one that takes it down.
+  assert.equal(later[0], 0.5);
+  assert.equal(later[2], later[1]);
+  assert.ok(later[3] < later[2]);
+  assert.equal(later[later.length - 1], 0.2);
+  // No verdicts at hand: uneven steps, still ending on the score; and no walk when it is already there.
+  const blind = landLevels({ from: 0.5, to: 0.8, check: null, seen: new Set(), seed: 9 });
+  assert.equal(blind.length, 8);
+  assert.equal(blind[blind.length - 1], 0.8);
+  assert.deepEqual(landLevels({ from: 0.3, to: 0.302, check, seen: new Set(), seed: 0 }), [0.302]);
+});
+
+test("the polish pass takes up each rewritten sentence in turn and always ends on its own text", () => {
+  const plan = refinePlan(result);
+  const jobs = refineJobs(plan, result, arrive(rewriteOf(), 0), refineReadMs(plan.chars));
+  const order = polishOrder(jobs);
+  assert.deepEqual(order.map((j) => j.n), jobs.filter((j) => j.rewrite).map((j) => j.n).sort((a, b) => a - b));
+  assert.equal(polishAt(order, -1), null);
+  const first = polishAt(order, 10)!;
+  assert.equal(first.k, 0);
+  assert.equal(first.job.n, order[0].n);
+  // Round again once every sentence has had its turn.
+  assert.equal(polishAt(order, POLISH_SLOT_MS * order.length + 5)!.job.n, order[0].n);
+  for (const j of order) {
+    const text = j.rewrite!;
+    for (let k = 0; k < 5; k++) {
+      const strokes = polishStrokes(text, j.original, j.n * 31 + k);
+      assert.equal(strokes[strokes.length - 1].text, text);
+      assert.ok(strokesMs(strokes) > 0);
+      // Something is taken back, and it is never more than the sentence.
+      assert.ok(strokes.some((x) => x.kind === "delete"));
+      assert.ok(strokes.every((x) => text.startsWith(x.text) || x.text.length <= text.length + 40));
+      assert.equal(polishPhase(text, j.original, j.n * 31 + k, 0).phase, "typing");
+      assert.equal(polishPhase(text, j.original, j.n * 31 + k, POLISH_SLOT_MS - 1).phase, "done");
+    }
+  }
 });

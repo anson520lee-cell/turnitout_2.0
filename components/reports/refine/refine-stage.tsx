@@ -1,9 +1,8 @@
 "use client";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
 import { lookaheadLine, quote, scanPosition, thinkingLine, type LogLine, type ScanPlan } from "@/lib/auto-report/scan-script";
-import { clearedBy, eraseLine, guardLine, jobPhase, keptLine, queuedLine, readerAt, recheckStartLine, recheckedLine, stillLine, writeLine, type RecheckStep, type RefineJob } from "@/lib/auto-report/refine-script";
+import { POLISH_SLOT_MS, clearedBy, eraseLine, guardLine, jobPhase, keptLine, polishAt, polishOrder, polishPhase, queuedLine, readerAt, stillLine, writeLine, type JobPhase, type RecheckStep, type RefineJob } from "@/lib/auto-report/refine-script";
 import type { RewriteCheck, RewriteItem } from "@/lib/auto-report/rewrite";
 import type { ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
@@ -19,9 +18,10 @@ import type { RefineMeter } from "./refine-meter";
  * off the rate to the chart. A diff card follows the sentence being rewritten. Every sentence, suggestion and
  * reason shown is the real one.
  *
- * On a real order R4 is the re-check instead: once the rewrite is typed out, a scan line runs down the view while the
- * detector reviews the text, each round's real score goes to the chart and the logs, the sentences it still counts are
- * marked, and a later round that scores lower puts its suggestions in place (`recheck`).
+ * On a real order R4 is the re-check instead. Once the rewrite is typed out, R1 and R2 go on polishing the rewritten
+ * sentences one after another while the detector reviews the text (`polishFrom`, refine-script.ts polishAt), each
+ * round's real score goes to the chart and the logs, the sentences it still counts are marked, and a later round that
+ * scores lower puts its suggestions in place (`recheck`).
  */
 
 /** The re-check of a real order, as the stage shows it. */
@@ -84,6 +84,7 @@ export function RefineStage({
   done,
   basis = "projected",
   recheck,
+  polishFrom = null,
 }: {
   plan: ScanPlan;
   ratings: Map<number, ReportSentence>;
@@ -109,6 +110,8 @@ export function RefineStage({
   basis?: RateBasis;
   /** A real order's re-check; absent in the design previews. */
   recheck?: StageRecheck;
+  /** While a real order's re-check runs: the scan time the polish pass started, else null. */
+  polishFrom?: number | null;
 }) {
   const total = plan.sentences.length;
   const agents = recheck ? AGENTS_RECHECK : AGENTS;
@@ -224,44 +227,62 @@ export function RefineStage({
     push("rewriter", [{ tone: "ok", text: `all ${jobs.length} sentences done · ${made} rewritten · ${jobs.length - made} kept` }]);
   }, [over, jobs, push]);
 
-  // R4 on a real order: each step of the re-check as it starts, each round's score as it comes, and a heartbeat.
-  const stepKey = recheck?.active && recheck.step ? `${recheck.step.kind}:${recheck.step.round}` : null;
-  const stepRef = useRef(recheck?.step ?? null);
+  // R4 on a real order: when the re-check starts, a heartbeat, and the score before and after once it is in.
+  // No rounds are named: the customer sees the score before and after only (Neo, 2026-10-31).
+  const checkingNow = Boolean(recheck?.active && recheck.step);
   useEffect(() => {
-    stepRef.current = recheck?.step ?? null;
-  });
-  useEffect(() => {
-    const st = stepRef.current;
-    if (!stepKey || !st) return;
-    push("agents", [recheckStartLine(st)]);
-    if (st.kind === "round") push("rewriter", [{ tone: "violet", text: `round ${st.round} · rewriting the sentences still counted` }]);
-    const t = setInterval(() => {
-      const now = stepRef.current;
-      if (now) push("agents", [{ tone: "dim", text: now.kind === "check" ? `R4 · the detector is reading your rewritten text · round ${now.round}` : `writer · round ${now.round} · drafting new suggestions` }]);
-    }, 8_000);
+    if (!checkingNow) return;
+    push("agents", [{ tone: "info", text: "R4 RE-CHECK · your text with every suggestion in place → the same detector as your report" }]);
+    const t = setInterval(() => push("agents", [{ tone: "dim", text: "R4 · the detector is reading your rewritten text" }]), 8_000);
     return () => clearInterval(t);
-  }, [stepKey, push]);
-  const scored = useRef(0);
-  const shownScores = recheck?.scores;
+  }, [checkingNow, push]);
   const bestCheck = recheck?.check ?? null;
   useEffect(() => {
-    if (!shownScores) return;
-    const out: LogLine[] = [];
-    for (let k = scored.current; k < shownScores.length; k++) out.push(recheckedLine(shownScores, k));
-    scored.current = shownScores.length;
-    push("agents", out);
-  }, [shownScores, push]);
+    if (bestCheck) push("agents", [{ tone: bestCheck.score < original ? "ok" : "warn", text: `R4 RE-CHECK · ${Math.round(original * 100)}% → ${Math.round(bestCheck.score * 100)}% on the same detector as your report` }, stillLine(bestCheck)]);
+  }, [bestCheck, original, push]);
+
+  // The polish pass: one line per sentence R2 takes up again.
+  const order = useMemo(() => polishOrder(jobs), [jobs]);
+  const polishing = polishFrom === null ? null : polishAt(order, scanMs - polishFrom);
+  const polishK = polishing?.k ?? -1;
+  const polishRef = useRef(polishing);
   useEffect(() => {
-    if (bestCheck) push("agents", [stillLine(bestCheck)]);
-  }, [bestCheck, push]);
+    polishRef.current = polishing;
+  });
+  useEffect(() => {
+    const pol = polishRef.current;
+    if (polishK < 0 || !pol) return;
+    const j = pol.job;
+    const before = polishK ? order[(polishK - 1) % order.length] : null;
+    const pass = Math.floor(polishK / order.length) + 1;
+    const x = plan.sentences[j.i];
+    const para = plan.paragraphs.find((q) => q.first <= j.i && j.i <= q.last);
+    push("rewriter", [
+      ...(before ? [guardLine(before)] : []),
+      { tone: "violet", text: `R2 POLISH · P${j.p} S${j.s} · reworking the last words · ${quote(j.rewrite ?? "", 30)}` },
+    ]);
+    const lines: LogLine[] = [];
+    if (polishK % order.length === 0) lines.push({ tone: "info", text: `R1 + R2 · polish pass ${pass} · ${order.length} rewritten sentence${order.length === 1 ? "" : "s"}` });
+    const prev = plan.sentences[j.i - 1];
+    const next = plan.sentences[j.i + 1];
+    lines.push(
+      polishK % 2
+        ? { tone: "info", text: `R6 VOICE · P${j.p} S${j.s} · held against your own sentences in ¶${j.p}` }
+        : { tone: "info", text: `R5 FLOW · ¶${j.p} · ${prev && prev.p === j.p ? `S${prev.s} → ` : ""}S${j.s}${next && next.p === j.p ? ` → S${next.s}` : ""} read again${para ? ` · ${para.last - para.first + 1} sentences` : ""}` },
+    );
+    if (x) lines.push(thinkingLine(x));
+    push("agents", lines);
+  }, [polishK, order, plan, push]);
 
   // The diff card follows the sentence being rewritten, and stays a moment on the last one finished.
+  const polishJob = polishing?.job ?? null;
   const card = useMemo(() => {
+    if (polishJob) return polishJob;
     if (over) return null;
     let pick: RefineJob | null = null;
     for (const j of jobs) if (scanMs >= j.start && scanMs < j.end + HOLD_MS && (!pick || j.start > pick.start)) pick = j;
     return pick;
-  }, [jobs, scanMs, over]);
+  }, [jobs, scanMs, over, polishJob]);
 
   const lead = plan.sentences[Math.min(frontier, total - 1)];
   const readerLive =
@@ -317,20 +338,19 @@ export function RefineStage({
           items={recheck?.items}
           agents={agents}
           recheck={recheck}
+          polishFrom={polishFrom}
         />
-        {recheck?.active && recheck.step?.kind !== "round" && !reduce && <div aria-hidden className="rf-sweep pointer-events-none absolute inset-x-0 z-10" />}
-        <AnimatePresence>{recheck?.active && <RecheckBanner key="recheck" recheck={recheck} />}</AnimatePresence>
         <AnimatePresence>
           {card && (
             <motion.div
-              key={card.n}
+              key={`${card.n}:${polishK}`}
               initial={{ opacity: 0, x: 40, scale: 0.96 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -24, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 420, damping: 30 }}
               className="absolute bottom-3 right-3 z-20 w-[min(380px,calc(100%-24px))] max-sm:hidden"
             >
-              <DiffCard job={card} clockRef={clockRef} />
+              <DiffCard job={card} clockRef={clockRef} polish={polishJob && polishFrom !== null ? { from: polishFrom, k: polishK } : null} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -394,7 +414,7 @@ export function RefineStage({
  * appearing as R2 types it, with the reviewer's reason it answers. Once typed, R3's checks light up one by one.
  * The text is written straight to the page every frame, in step with the text itself.
  */
-function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject<RefineClock> }) {
+function DiffCard({ job, clockRef, polish }: { job: RefineJob; clockRef: React.RefObject<RefineClock>; polish: { from: number; k: number } | null }) {
   const card = useRef<HTMLDivElement>(null);
   const keep = useRef<HTMLSpanElement>(null);
   const gone = useRef<HTMLSpanElement>(null);
@@ -404,7 +424,9 @@ function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject
     let last = "";
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const ph = jobPhase(job, clockNow(clockRef.current));
+      const t = clockNow(clockRef.current);
+      // On the polish pass: the sentence as it stands, its last words taken back and typed again.
+      const ph = polish ? polishPhase(job.rewrite ?? "", job.original, job.n * 31 + polish.k, t - polish.from - polish.k * POLISH_SLOT_MS) : jobPhase(job, t);
       const left = ph.phase === "erasing" ? ph.left : ph.phase === "typing" || (ph.phase === "done" && job.rewrite) ? 0 : job.original.length;
       const shown = ph.phase === "typing" ? ph.text : ph.phase === "done" ? (job.rewrite ?? "") : "";
       const key = `${ph.phase}:${left}:${shown}`;
@@ -417,19 +439,19 @@ function DiffCard({ job, clockRef }: { job: RefineJob; clockRef: React.RefObject
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [job, clockRef]);
+  }, [job, clockRef, polish]);
   const ratio = job.rewrite ? Math.round((job.rewrite.length / Math.max(1, job.original.length)) * 100) : 0;
   return (
     <div ref={card} data-ph="waiting" className="rf-diff scan-term overflow-hidden rounded-xl border border-[#9b7bff]/40 bg-ink-950/90 shadow-[0_24px_70px_-20px_rgb(0_0_0/0.95),0_0_40px_-12px_rgb(155_123_255/0.6)]">
       <div className="flex items-center gap-2 border-b border-[#9b7bff]/20 bg-[#9b7bff]/[0.07] px-3 py-1.5">
         <span className="size-2 rounded-full bg-[#9b7bff] shadow-[0_0_8px_#9b7bff]" aria-hidden />
         <span className="font-mono text-[10.5px] tracking-[0.12em] text-fg-muted">
-          diff.log · P{job.p} S{job.s}
+          {polish ? "polish.log" : "diff.log"} · P{job.p} S{job.s}
         </span>
         <span className="rf-diff-state ml-auto font-mono text-[9.5px] uppercase tracking-[0.18em]" />
       </div>
       <div className="space-y-1.5 px-3 py-2.5 font-mono text-[11px] leading-[1.55]">
-        {job.why && <p className="line-clamp-2 text-fg-subtle max-sm:hidden">fixing · {job.why}</p>}
+        {polish ? <p className="line-clamp-2 text-fg-subtle max-sm:hidden">polish {polish.k + 1} · rhythm and word choice, same meaning</p> : job.why && <p className="line-clamp-2 text-fg-subtle max-sm:hidden">fixing · {job.why}</p>}
         <p className="line-clamp-2 break-words sm:line-clamp-3">
           <span className="mr-1.5 text-[#c99bff]">−</span>
           <span ref={keep} className="text-fg-muted" />
@@ -470,53 +492,17 @@ const AGENTS = [
   { c: "pink", name: "R4 SCORE", job: "Carries what each rewritten sentence took off the rate to the chart" },
 ] as const;
 
-/** On a real order R4 is the re-check: the rate moves only on what the detector says about the rewritten text. */
-const AGENTS_RECHECK = [...AGENTS.slice(0, 6), { c: "pink", name: "R4 RE-CHECK", job: "Runs your rewritten text through the same detector as your report and puts its real score on the chart" }] as const;
-type Agent = (typeof AGENTS_RECHECK)[number] | (typeof AGENTS)[number];
-
 /**
- * What the re-check is doing, over the text: which round, how long it has been running, and the scores so far. In
- * place of the old full-screen "Re-checking" card, so the view stays live while the detector works.
+ * On a real order R4 is the re-check, and while it runs R5 and R6 join R1, R2 and R3 on the polish pass: R5 reads each
+ * paragraph again for how its sentences join, R6 holds each rewritten sentence against the student's own.
  */
-function RecheckBanner({ recheck }: { recheck: StageRecheck }) {
-  const { step, stepSecs, scores } = recheck;
-  const title = !step ? "Saving your suggestions" : step.kind === "check" ? `R4 re-check · round ${step.round}` : `Round ${step.round} · rewriting again`;
-  const text = !step
-    ? "The re-check starts as soon as they are saved."
-    : step.kind === "check"
-      ? "Your text with every suggestion in place is going through the same detector as your report. The rate moves only when it answers."
-      : "The detector still reads some sentences as AI, so R1 and R2 rewrite those again. The new round is kept only if its re-check scores lower.";
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-      className="absolute inset-x-3 bottom-3 z-20 mx-auto max-w-[440px]"
-      role="status"
-      aria-live="polite"
-    >
-      <div className="scan-term overflow-hidden rounded-xl border border-[#ff7bd5]/35 bg-ink-950/92 shadow-[0_24px_70px_-20px_rgb(0_0_0/0.95),0_0_40px_-12px_rgb(255_123_213/0.45)]">
-        <div className="flex items-center gap-2 border-b border-[#ff7bd5]/20 bg-[#ff7bd5]/[0.06] px-3 py-1.5">
-          <Loader2 className="size-3.5 animate-spin text-[#ffb3e6]" aria-hidden />
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#ffd1ef]">{title}</span>
-          <span className="ml-auto font-mono text-[10.5px] tabular-nums text-fg-subtle">{clock(stepSecs * 1000).slice(0, 5)}</span>
-        </div>
-        <div className="space-y-2 px-3 py-2.5">
-          <p className="text-[12px] leading-relaxed text-fg-muted">{text}</p>
-          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tabular-nums">
-            {scores.map((v, k) => (
-              <span key={k} className="rounded-full border border-[#9b7bff]/40 bg-[#9b7bff]/10 px-2 py-0.5 text-[#e3d8ff]">
-                Round {k + 1} · {Math.round(v * 100)}%
-              </span>
-            ))}
-            <span className="text-fg-subtle">{scores.length ? "this can take a few minutes" : "usually about a minute per round"}</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+const AGENTS_RECHECK = [
+  ...AGENTS.slice(0, 6),
+  { c: "pink", name: "R4 RE-CHECK", job: "Runs your rewritten text through the same detector as your report and puts its real score on the chart" },
+  { c: "violet", name: "R5 FLOW", job: "Reads each paragraph again for how its sentences join, while the detector works" },
+  { c: "blue", name: "R6 VOICE", job: "Holds each rewritten sentence against your own sentences around it" },
+] as const;
+type Agent = (typeof AGENTS_RECHECK)[number] | (typeof AGENTS)[number];
 
 /**
  * The text, with the reader and lookahead at the front exactly as in the report scan, and the rewrite right behind
@@ -540,6 +526,7 @@ const RefineDocument = memo(function RefineDocument({
   items,
   agents,
   recheck,
+  polishFrom,
 }: {
   plan: ScanPlan;
   ratings: Map<number, ReportSentence>;
@@ -562,6 +549,8 @@ const RefineDocument = memo(function RefineDocument({
   items?: RewriteItem[];
   agents: readonly Agent[];
   recheck?: StageRecheck;
+  /** While a real order's re-check runs: the scan time the polish pass started, else null. */
+  polishFrom: number | null;
 }) {
   const total = plan.sentences.length;
   const scroller = useRef<HTMLDivElement>(null);
@@ -575,9 +564,9 @@ const RefineDocument = memo(function RefineDocument({
   const marks = useRef<HTMLDivElement>(null);
   const eraser = useRef<HTMLDivElement>(null);
   const pen = useRef<HTMLDivElement>(null);
-  const live = useRef({ frontier, within, done, jobs });
+  const live = useRef({ frontier, within, done, jobs, polishFrom });
   useLayoutEffect(() => {
-    live.current = { frontier, within, done, jobs };
+    live.current = { frontier, within, done, jobs, polishFrom };
   });
   const userScrolledAt = useRef(-Infinity);
   // Suggestions a later round put in place of the typed ones, by sentence number.
@@ -767,12 +756,26 @@ const RefineDocument = memo(function RefineDocument({
       el.style.height = `${at.offsetHeight + 6}px`;
       el.style.opacity = String(opacity);
     };
+    let litPara: HTMLElement | null = null;
     // The last place the rewrite worked, so the view stays on it between sentences instead of jumping to the reader.
     let lastFocus: { el: HTMLElement; at: number } | null = null;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const { jobs: list, frontier: f, done: finished } = live.current;
+      const { jobs: list, frontier: f, done: finished, polishFrom: pf } = live.current;
       const t = clockNow(clockRef.current);
+      // The polish pass while a real order is re-checked: one rewritten sentence at a time, taken up again.
+      let pol: { i: number; ph: JobPhase } | null = null;
+      if (pf !== null && !reduce) {
+        const at = polishAt(polishOrder(list), t - pf);
+        if (at) pol = { i: at.job.i, ph: polishPhase(swapped.current.get(at.job.n) ?? at.job.rewrite ?? "", at.job.original, at.job.n * 31 + at.k, at.into) };
+      }
+      // R5 FLOW: the paragraph being polished, lit.
+      const para = pol ? (spans.current[pol.i]?.closest("p") ?? null) : null;
+      if (para !== litPara) {
+        if (litPara) delete litPara.dataset.polish;
+        if (para) para.dataset.polish = "R5 FLOW";
+        litPara = para;
+      }
       const now = performance.now();
       let erasing: HTMLElement | null = null;
       let typing: HTMLElement | null = null;
@@ -783,7 +786,7 @@ const RefineDocument = memo(function RefineDocument({
         const wrap = wraps.current[j.i];
         const box = lives.current[j.i];
         if (!sent || !wrap || !box) continue;
-        const ph = jobPhase(j, t);
+        const ph = pol && pol.i === j.i ? pol.ph : jobPhase(j, t);
         const caret = box.lastElementChild as HTMLElement | null;
         if (!reduce && caret && ph.phase === "erasing") erasing = caret;
         if (!reduce && caret && ph.phase === "typing") typing = caret;
@@ -831,6 +834,9 @@ const RefineDocument = memo(function RefineDocument({
           // R3 and R4 only for a sentence seen being rewritten, not one already done when the view opened. On a real
           // order nothing goes to the chart until the detector has re-checked the text.
           if (was !== undefined && !reduce) {
+            // Again after each polish.
+            sent.classList.remove("rf-guarded");
+            void sent.offsetWidth;
             sent.classList.add("rf-guarded");
             if (j.counts && !real) fly(sent);
           }
@@ -869,12 +875,15 @@ const RefineDocument = memo(function RefineDocument({
       }
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (litPara) delete litPara.dataset.polish;
+    };
   }, [clockRef, reduce, total, plan, meter, readMs, real]);
 
   return (
     <div className="flex flex-col max-lg:h-[50dvh] lg:h-full">
-      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} scanMs={scanMs} done={done} agents={agents} recheck={recheck} />
+      <AgentBar plan={plan} queue={queue} frontier={frontier} within={within} jobs={jobs} scanMs={scanMs} done={done} agents={agents} recheck={recheck} polishFrom={polishFrom} />
       <div
         ref={scroller}
         className="scan-doc relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-10 sm:py-7"
@@ -960,6 +969,7 @@ function AgentBar({
   done,
   agents,
   recheck,
+  polishFrom,
 }: {
   plan: ScanPlan;
   queue: Set<number>;
@@ -970,6 +980,7 @@ function AgentBar({
   done: boolean;
   agents: readonly Agent[];
   recheck?: StageRecheck;
+  polishFrom: number | null;
 }) {
   const total = plan.sentences.length;
   const f = Math.min(frontier, total - 1);
@@ -993,6 +1004,18 @@ function AgentBar({
     `${passed} passed${checked.length > passed ? ` · ${checked.length - passed} kept` : ""}`,
     recheck ? r4Status(recheck, done) : `${clearedBy(jobs, scanMs)} sent to the chart`,
   ];
+  // The polish pass while the re-check runs: R1, R2 and R3 on the sentence taken up again, R5 and R6 with them.
+  const order = polishFrom === null ? [] : polishOrder(jobs);
+  const pol = polishFrom === null ? null : polishAt(order, scanMs - polishFrom);
+  if (pol) {
+    const j = pol.job;
+    const ph = polishPhase(j.rewrite ?? "", j.original, j.n * 31 + pol.k, pol.into);
+    const pass = Math.floor(pol.k / order.length) + 1;
+    target[3] = ph.phase === "typing" && ph.deleting ? `P${j.p} S${j.s} · taking back` : `polish pass ${pass}`;
+    target[4] = ph.phase === "typing" ? `P${j.p} S${j.s} · polishing` : `P${j.p} S${j.s} · ✓`;
+    target[5] = `${passed} passed · P${j.p} S${j.s} again`;
+  }
+  if (recheck) target.push(pol ? `¶${pol.job.p} · pass ${Math.floor(pol.k / order.length) + 1}` : done ? "done" : "waits for the rewrite", pol ? `P${pol.job.p} S${pol.job.s} · in your voice` : done ? "done" : "waits for the rewrite");
   return (
     <div className="scan-agentbar flex shrink-0 gap-1 overflow-x-auto border-b border-[#9b7bff]/20 bg-ink-950/70 px-3 py-2" aria-label="Rewrite agents">
       {agents.map((a, k) => (
@@ -1006,10 +1029,9 @@ function AgentBar({
   );
 }
 
-/** R4 RE-CHECK's chip: waiting for the rewrite, the round it is on, or the last real score. */
+/** R4 RE-CHECK's chip: waiting for the rewrite, at work, or the real score (no rounds named). */
 function r4Status(recheck: StageRecheck, over: boolean): string {
-  const { step, scores } = recheck;
-  if (recheck.active && step) return `round ${step.round} · ${step.kind === "check" ? "re-checking" : "rewriting"} ${recheck.stepSecs}s`;
-  if (scores.length) return `round ${scores.length} · ${Math.round(scores[scores.length - 1] * 100)}%`;
+  if (recheck.check) return `${Math.round(recheck.check.score * 100)}%`;
+  if (recheck.active && recheck.step) return "re-checking";
   return over ? (recheck.active ? "saving" : "not re-checked") : "waits for the rewrite";
 }

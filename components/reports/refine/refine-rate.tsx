@@ -6,10 +6,11 @@ import { REFINE_POINT_MS, type RefineMeter } from "./refine-meter";
 
 /**
  * The right-hand panel of the live rewrite, in blue and purple: the report's own AI score (blue) against the rate
- * as the rewrite goes (purple), a chart of the two, and counters. On a real order the purple rate stays on the
- * report's score until the detector has re-checked the rewritten text, then steps to each round's real score
- * (`basis` "pending", then "rechecked"): no estimate is ever shown. The design previews show the projection instead
- * (the report's score with the rewritten sentences no longer counted), labelled as one.
+ * as the rewrite goes (purple), a chart of the two, and counters. On a real order the purple rate is live: it falls
+ * from the first rewritten sentence and moves like a share price while the rewrite is typed and re-checked
+ * (`basis` "pending"), then walks to each round's real score and ends on the best one ("rechecked"): only that end
+ * is a result, and it is labelled so. The design previews show the projection instead (the report's score with the
+ * rewritten sentences no longer counted), labelled as one.
  */
 
 const BLUE = "91,140,255";
@@ -21,7 +22,7 @@ const LABEL = "154,163,184";
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 const pct = (v: number, digits = 1) => (v * 100).toFixed(digits);
 
-/** What the purple rate is: the projection (design previews), the report's score until a re-check, or a re-checked score. */
+/** What the purple rate is: the projection (design previews), live until a re-check is in, or a re-checked score. */
 export type RateBasis = "projected" | "pending" | "rechecked";
 
 export interface RefineCounts {
@@ -41,7 +42,7 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
     return (
       <div className="flex items-center gap-3">
         <div className="shrink-0">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : basis === "pending" ? "re-check pending" : "projected"}</p>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : basis === "pending" ? "live" : "projected"}</p>
           <Readout meter={meter} original={original} final={final} className="text-[26px]" unit="text-[14px]" deltaClass="text-[10px]" />
         </div>
         <div className="relative h-12 min-w-0 flex-1">
@@ -62,14 +63,14 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
       <div>
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-fg-subtle">
           <span className="refine-live-dot" aria-hidden /> AI rate{basis === "projected" ? ` · ${final ? "projected" : "refining"}` : ""}
-          <span className="ml-auto whitespace-nowrap rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : basis === "pending" ? "Before re-check" : "Projected"}</span>
+          <span className="ml-auto whitespace-nowrap rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : basis === "pending" ? "Live" : "Projected"}</span>
         </p>
         <Readout meter={meter} original={original} final={final} className="mt-2 text-[50px] tracking-tight" unit="ml-0.5 text-[22px]" deltaClass="text-[12px]" />
         <p className="mt-1 text-[11.5px] leading-snug text-fg-subtle">
           {real
             ? "your text with every suggestion in place, run through the detector again"
             : basis === "pending"
-              ? "your report's score: it moves only once the detector has re-checked the rewritten text"
+              ? "moves as each sentence is rewritten; it ends on the detector's real re-check of your rewritten text"
               : ready
                 ? "estimate: the report's score with the rewritten sentences no longer counted"
                 : "starts on your report's AI score"}
@@ -102,7 +103,7 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
         {real
           ? "The real score of the rewritten text, from the same detector as your report."
           : basis === "pending"
-            ? "No estimate: the rate moves only on a real re-check of the rewritten text by the same detector."
+            ? "Live while the rewrite runs. The figure it ends on is the real score of your rewritten text, from the same detector as your report."
             : "An estimate until the rewritten text is re-checked by the detector at the end."}
       </p>
     </div>

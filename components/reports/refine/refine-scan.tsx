@@ -6,7 +6,7 @@ import { ArrowRight, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
-import { REFINE_INTRO_MS, clearedBy, countedIn, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival, type RecheckStep } from "@/lib/auto-report/refine-script";
+import { REFINE_INTRO_MS, clearedBy, countedIn, landLevels, liveAt, liveDrift, liveWobble, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival, type RecheckStep } from "@/lib/auto-report/refine-script";
 import { pickFlagged, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
@@ -25,15 +25,24 @@ import { RefineStage, clockNow, type RefineClock, type StageRecheck } from "./re
  * R1 and R2 erase and retype a sentence as soon as its suggestion is in.
  *
  * On a real order (`verify`) the rewritten text is then re-checked by the detector, and rewritten again while it
- * still scores too high, as the last part of the same view: the rate stays on the report's score while the rewrite
- * is typed and moves only to each round's real score, and the view ends on the best round's. It never shows an
- * estimate (Neo, 2026-10-29: it had ended on a projected 1%, and three minutes later the re-check said 98%). The
- * design previews without a re-check show the projected rate falling as each sentence is rewritten instead.
+ * still scores too high, as the last part of the same view, while R1 and R2 go on polishing the rewritten sentences
+ * (Neo, 2026-10-31: no scan line over a still text). The rate falls from the first rewritten sentence and wobbles like
+ * a share price while the rewrite is typed and re-checked (Neo, 2026-10-31: only the end has to be real), eases toward
+ * the best score so far while a later round runs, and once every round is in walks onto the best round's real score
+ * sentence by sentence over that re-check's own verdicts: what it ends on is never an estimate. The customer sees only
+ * the score before and after, never the rounds (Neo, 2026-10-31) (Neo, 2026-10-29: it had ended on a projected
+ * 1%, and three minutes later the re-check said 98%). No extra detector run. The design previews without a re-check
+ * show the projected rate falling as each sentence is rewritten instead.
  */
 
 const FINALE_MS = 7_000;
-/** Re-checked scores that are in before the rewrite is typed out are shown one after another, this far apart. */
+/** The real score stays on the rate at least this long before the finale. */
 const SCORE_STEP_MS = 1_600;
+/** Once a round's score is in and another round runs, the rate eases toward the best score so far over about this long (scan clock). */
+const STEER_MS = 20_000;
+/** A landed re-check is walked to one rewritten sentence at a time, this long each (but the whole walk at most REPLAY_MAX_MS), scan clock. */
+const REPLAY_STEP_MS = 350;
+const REPLAY_MAX_MS = 12_000;
 
 /**
  * The real re-check of the rewritten text (lib/auto-report/rewrite-check.ts), round by round, as the Writing
@@ -139,33 +148,69 @@ export function RefineScan({
   const fraction = readerAt(scanMs, readMs);
   const pos = scanPosition(plan, fraction);
   const frontier = fraction >= 1 ? total : pos.index;
-  // The rewrite has been typed out. On a real order the re-check (and any later round) runs on in the view, its
-  // scores are shown in turn, and the finale waits for the last of them.
+  // The rewrite has been typed out. On a real order the re-check (and any later round) runs on in the view while R1
+  // and R2 polish the text, and the finale waits for the last of them.
   const typed = known && scanMs >= endMs;
   const scores = verify?.scores ?? NO_SCORES;
-  const [shown, setShown] = useState({ count: 0, at: 0 });
-  if (typed && shown.count < scores.length && now - shown.at >= SCORE_STEP_MS / speed) setShown({ count: shown.count + 1, at: now });
-  // The last score shown stays on the rate a moment before the finale lands on the best one.
-  const settling = shown.count > 0 && now - shown.at < SCORE_STEP_MS / speed;
-  const checking = typed && !!verify && (verify.state === "pending" || shown.count < scores.length || settling);
+  // The live show (a real order): `seed` keeps its wobble the same on every render, `floor` is the projection it
+  // drifts toward while a re-check runs, `liveEnd` where it stands once the rewrite is typed.
+  const seed = plan.chars + total * 7;
+  const floor = projectedScore(rate, clearedBy(jobs, Infinity));
+  const liveEnd = useMemo(() => liveAt(rate, jobs, Infinity), [rate, jobs]);
+  // A round's score that is in while another round runs: the rate eases from where it stood down toward the best score
+  // so far, wobbling, instead of jumping to it (Neo, 2026-10-31: no straight spike). Round scores are not shown one by one.
+  const [steer, setSteer] = useState<{ count: number; at: number; from: number; to: number } | null>(null);
+  // Every round is in: the walk to the best round's real score, from wherever the show stood, one step per rewritten
+  // sentence from that re-check's own verdicts (landLevels).
+  const [landing, setLanding] = useState<{ at: number; per: number; levels: number[]; hold: number } | null>(null);
+  const pending = verify?.state === "pending";
+  const wobbled = (v: number, at: number, ramp: number) => Math.max(0, Math.min(1, v + liveWobble(at, seed, v) * Math.min(1, ramp)));
+  // The rate on a real order at wall time `t`, before the finale: falling with the rewrite, drifting while the
+  // detector works, easing toward the best score so far while a later round runs, then walking onto the best.
+  const liveRate = (t: number): number => {
+    if (!typed) return wobbled(liveAt(rate, jobs, scanMs), scanMs, scanMs / 3_000);
+    if (landing) return landing.levels[Math.min(landing.levels.length - 1, Math.max(0, Math.floor(((t - landing.at) * speed) / landing.per)))];
+    if (steer) {
+      const ms = (t - steer.at) * speed;
+      return wobbled(steer.to + (steer.from - steer.to) * Math.exp(-ms / STEER_MS), scanMs, ms / 2_500);
+    }
+    return wobbled(liveDrift(liveEnd, floor, scanMs - endMs), scanMs, scanMs / 3_000);
+  };
+  if (typed && pending && scores.length > (steer?.count ?? 0)) {
+    // Down toward a lower score; a higher one is not climbed to while a later round may still beat it, the line just
+    // holds and wobbles (Neo, 2026-10-31: only the end has to be real, and no climbing back mid-way).
+    const from = liveRate(now);
+    setSteer({ count: scores.length, at: now, from, to: Math.min(from, ...scores) });
+  }
+  if (typed && verify && !pending && !landing && scores.length) {
+    const final = verify.check?.score ?? Math.min(...scores);
+    const levels = landLevels({ from: liveRate(now), to: final, check: verify.check, seen: new Set(), seed });
+    const per = Math.min(REPLAY_STEP_MS, REPLAY_MAX_MS / levels.length);
+    setLanding({ at: now, per, levels, hold: Math.max(SCORE_STEP_MS, per * levels.length + 800) });
+  }
+  // The best score stays on the rate a moment before the finale.
+  const settling = !!landing && now - landing.at < landing.hold / speed;
+  const checking = typed && !!verify && (pending || (scores.length > 0 && !landing) || settling);
   const done = typed && !checking;
   if (done && doneAt === null) setDoneAt(now);
-  const caughtUp = shown.count > 0 && shown.count === scores.length;
-  // The best round's re-check, once its score is on screen.
-  const best = caughtUp ? (verify?.check ?? null) : null;
-  // What the view says runs now: held on the round being re-checked until that round's score is on screen.
-  const runningStep = verify?.state === "pending" ? (verify.step ?? null) : null;
-  const [step, setStep] = useState<RecheckStep | null>(null);
-  if (shown.count === scores.length && step !== runningStep) setStep(runningStep);
+  const shownCount = landing ? scores.length : 0;
+  // The best round's re-check, once every round is in.
+  const best = landing ? (verify?.check ?? null) : null;
+  // What runs now.
+  const step = pending ? (verify?.step ?? null) : null;
   const stepSecs = step ? Math.max(0, Math.floor((now - step.since) / 1000)) : 0;
 
   const cleared = clearedBy(jobs, scanMs);
   // The figure the rate ends on: the best round's real score, or (design previews) the projection. A real order that
-  // could not be re-checked stays on the report's score: no estimate is shown.
+  // could not be re-checked goes back to the report's score: no estimate is shown.
   const final = verify ? (verify.check?.score ?? rate.original) : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
-  // A real order's rate now: the report's score, then the last re-checked score shown, then the best.
-  const realNow = done ? final : shown.count ? scores[shown.count - 1] : rate.original;
-  const basis: RateBasis = !verify ? "projected" : shown.count ? "rechecked" : "pending";
+  const realNow = done ? final : liveRate(now);
+  // Steps marked on the chart: each rewritten counted sentence, then each step of the walk to the best score.
+  const walked = landing ? Math.min(landing.levels.length, Math.floor(((now - landing.at) * speed) / landing.per) + 1) : 0;
+  const realMarks = (typed ? clearedBy(jobs, Infinity) : cleared) + walked;
+  // The rate is on a real score once the walk has reached it; until then it is the live show.
+  const onScore = !!landing && walked === landing.levels.length;
+  const basis: RateBasis = !verify ? "projected" : done ? (best ? "rechecked" : "pending") : onScore ? "rechecked" : "pending";
   const typing = known ? Math.min(1, scanMs / endMs) : Math.min(fraction, jobs.filter((j) => scanMs >= j.end).length / Math.max(1, jobs.length)) * 0.95;
   const counts: RefineCounts = {
     rewritten: jobs.filter((j) => j.rewrite && scanMs >= j.end).length,
@@ -173,9 +218,9 @@ export function RefineScan({
     kept: jobs.filter((j) => j.known && !j.rewrite && scanMs >= j.end).length,
     counted: verify ? (best ? countedIn(best) : rate.counted) : Math.max(0, rate.counted - cleared),
     // A real order: the rewrite is the first 70% of the bar, the re-check rounds the rest.
-    progress: !verify ? typing : done ? 1 : typed ? 0.7 + 0.3 * (1 - 0.55 ** (shown.count + 0.5)) : typing * 0.7,
+    progress: !verify ? typing : done ? 1 : typed ? 0.7 + 0.3 * (1 - 0.55 ** (scores.length + 0.5)) : typing * 0.7,
   };
-  const recheck: StageRecheck | undefined = verify ? { active: checking, step, stepSecs, scores: scores.slice(0, shown.count), check: best, items: best ? verify.items : undefined } : undefined;
+  const recheck: StageRecheck | undefined = verify ? { active: checking, step, stepSecs, scores: scores.slice(0, shownCount), check: best, items: best ? verify.items : undefined } : undefined;
 
   // The clock the animation runs on between renders.
   const clockRef = useRef<RefineClock>({ at: 0, wall: 0, speed, held: true });
@@ -185,9 +230,9 @@ export function RefineScan({
 
   // The projected rate ticks on its own clock, following the rewrite as the animation shows it.
   const [meter] = useState(() => new RefineMeter());
-  const live = useRef({ ready: false, jobs, final, done: false, reduce, real: false, realNow: rate.original });
+  const live = useRef({ ready: false, jobs, final, done: false, reduce, real: false, realNow: rate.original, realMarks: 0 });
   useLayoutEffect(() => {
-    live.current = { ready: mounted && !inIntro, jobs, final, done, reduce, real: !!verify, realNow };
+    live.current = { ready: mounted && !inIntro, jobs, final, done, reduce, real: !!verify, realNow, realMarks };
   });
   useEffect(() => {
     const t = setInterval(() => {
@@ -198,7 +243,7 @@ export function RefineScan({
         target: l.real ? l.realNow : l.done ? l.final : projectedAt(rate, l.jobs, at),
         real: l.real,
         original: rate.original,
-        marks: l.real ? 0 : clearedBy(l.jobs, at),
+        marks: l.real ? l.realMarks : clearedBy(l.jobs, at),
         done: l.done,
         reduce: l.reduce,
       };
@@ -245,7 +290,7 @@ export function RefineScan({
     <div className="relative">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}: rewriting what still reads as AI` : "Re-checking the rewritten text") : "Live rewrite running"}
+          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? "Polishing your rewrite" : "Live rewrite running"}
         </p>
         <div className="flex flex-wrap gap-2">
           {canSkip && (
@@ -269,7 +314,6 @@ export function RefineScan({
   const left = known && !inIntro && !typed ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
   // The best round may have rewritten a sentence the first round kept.
   const made = best && verify?.items ? verify.items.filter((i) => i.rewrite && queue.has(i.n)).length : jobs.filter((j) => j.rewrite).length;
-  const rounds = verify?.scores.length ?? 0;
 
   const view = (
     <motion.div
@@ -292,7 +336,7 @@ export function RefineScan({
         </span>
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}` : "Re-checking") : "Live rewrite"}
+            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? "Polishing" : "Live rewrite"}
           </p>
           <p className="truncate text-[13px] text-fg-muted">{title}</p>
         </div>
@@ -300,12 +344,6 @@ export function RefineScan({
           <span className="hidden font-mono text-[11px] tabular-nums text-fg-subtle sm:inline">
             {String(Math.floor(secs / 60)).padStart(2, "0")}:{String(secs % 60).padStart(2, "0")}
             {left !== null && <> · ~{left}s left</>}
-            {checking && step && (
-              <>
-                {" "}
-                · {step.kind === "check" ? "re-check" : "rewrite"} {step.round} · {stepSecs}s
-              </>
-            )}
           </span>
           {canSkip && (
             <button
@@ -359,6 +397,7 @@ export function RefineScan({
                 done={done}
                 basis={basis}
                 recheck={recheck}
+                polishFrom={verify && typed && checking ? endMs : null}
               />
             </motion.div>
           )}
@@ -406,19 +445,7 @@ export function RefineScan({
                 </p>
                 {best ? (
                   <>
-                    {rounds > 1 && (
-                      <p className="relative mt-2 flex flex-wrap items-center justify-center gap-1.5 font-mono text-[10.5px] tabular-nums text-fg-subtle">
-                        {verify?.scores.map((v, k) => (
-                          <span key={k} className={cn("rounded-full border px-2 py-0.5", v === final ? "border-[#9b7bff]/50 bg-[#9b7bff]/15 text-[#e3d8ff]" : "border-[var(--line)]")}>
-                            Round {k + 1} · {Math.round(v * 100)}%
-                          </span>
-                        ))}
-                        <span>best round kept</span>
-                      </p>
-                    )}
-                    <p className="relative mt-1.5 text-[11.5px] leading-snug text-fg-subtle">
-                      Re-checked by the same detector as your report: {best.stillCounted.length} of {best.stillCounted.length + best.cleared.length} rewritten sentence{best.stillCounted.length + best.cleared.length === 1 ? "" : "s"} still read{best.stillCounted.length + best.cleared.length === 1 ? "s" : ""} as AI.
-                    </p>
+                    <p className="relative mt-1.5 text-[11.5px] leading-snug text-fg-subtle">Your rewritten text, checked by the same detector as your report.</p>
                   </>
                 ) : (
                   <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">

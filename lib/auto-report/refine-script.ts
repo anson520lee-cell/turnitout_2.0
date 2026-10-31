@@ -9,12 +9,14 @@
  * The suggestions come in one by one as the writer finishes them (rewrite-run.ts streams them); R1 and R2 rewrite
  * each sentence as soon as both the reader has passed it and its suggestion is in. The reader never waits.
  *
- * On a real order the rate shown is never an estimate: it stays on the report's score while the rewrite is typed,
- * and then moves only to the scores the detector gives the rewritten text (rewrite-check.ts), one per round, and the
- * view ends on the best round's real score (Neo, 2026-10-29: it had ended on a projected 1% that the re-check put at
- * 98%). The re-check and any later round run as part of the view (recheckStartLine, recheckedLine). Only the design
- * previews, which have no re-check, still show the projection below: the report's own score with the rewritten
- * sentences no longer counted, labelled "projected".
+ * On a real order the rate falls from the first rewritten sentence, a show that wobbles like a share price (liveAt,
+ * liveDrift, liveWobble), and then walks to the scores the detector gives the rewritten text (rewrite-check.ts), one
+ * per round, sentence by sentence over the re-check's own verdicts (landLevels); the view ends on the best round's
+ * real score. Only that end is a result: the figure it ends on is never an estimate (Neo, 2026-10-29: it had ended
+ * on a projected 1% that the re-check put at 98%; 2026-10-31: the way there is only for the customer to watch). The
+ * re-check and any later round run as part of the view (recheckStartLine, recheckedLine). The design previews, which
+ * have no re-check, show the projection below instead: the report's own score with the rewritten sentences no longer
+ * counted, labelled "projected".
  */
 
 import { SCORE_BANDS, aiScore, scoreBasis, type AutoReportResult, type ReportSentence, type ScoreCurve } from "./stitch";
@@ -335,6 +337,65 @@ export function strokesAt(strokes: Stroke[], ms: number): { text: string; deleti
   return { text: prev, deleting: false };
 }
 
+/* ------------------------------------------------------------------
+   The polish pass of a real order. Once the rewrite is typed out the
+   detector re-checks the whole text (about a minute or more a round, and
+   while it still scores too high the writer rewrites again), and the view
+   waits on it. Rather than a scan line over a still text, R1 and R2 go on
+   working through the rewritten sentences, paragraph by paragraph and round
+   again: each in turn has its last few words taken back and retyped, with a
+   second thought, and R3 checks it again (Neo, 2026-10-31). The text always
+   ends on the suggestion exactly; the real changes of a later round are put
+   in by the re-check itself.
+   ------------------------------------------------------------------ */
+
+/** Each polish takes one slot: its strokes (squeezed to fit if long), then a rest while R3 checks the sentence. */
+export const POLISH_SLOT_MS = 4_200;
+const POLISH_REST_MS = 1_000;
+
+/** The sentences R1 and R2 polish, in text order: every one with a suggestion. */
+export function polishOrder(jobs: RefineJob[]): RefineJob[] {
+  return jobs.filter((j) => j.rewrite).sort((a, b) => a.n - b.n);
+}
+
+/** Which polish runs `ms` into the pass (scan clock): its number, the sentence, and how far into its slot. */
+export function polishAt(order: RefineJob[], ms: number): { k: number; job: RefineJob; into: number } | null {
+  if (!order.length || ms < 0) return null;
+  const k = Math.floor(ms / POLISH_SLOT_MS);
+  return { k, job: order[k % order.length], into: ms - k * POLISH_SLOT_MS };
+}
+
+/** R2's strokes for one polish of `text`: the last two to five words taken back, then typed again with a second thought. */
+export function polishStrokes(text: string, original: string, seed: number): Stroke[] {
+  const words = text.match(/\S+\s*/g) ?? [text];
+  const rand = seeded(seed);
+  const n = words.length < 3 ? words.length : Math.min(words.length - 1, 2 + Math.floor(rand() * 4));
+  const prefix = words.slice(0, words.length - n).join("");
+  const tail = text.slice(prefix.length);
+  const theirs = original.match(/\S+\s*/g) ?? [];
+  const from = Math.floor(theirs.length * (prefix.length / Math.max(1, text.length)));
+  const out: Stroke[] = [
+    { kind: "hold", text, ms: 260 },
+    { kind: "delete", text: prefix, ms: tail.length * BACKSPACE_MS },
+    { kind: "hold", text: prefix, ms: 200 },
+  ];
+  for (const x of draftStrokes(theirs.slice(from).join(""), tail, seed)) out.push({ ...x, text: prefix + x.text });
+  return out;
+}
+
+/** Where a polish of `text` is, `into` its slot: R2 at work on it, or done (resting while R3 checks it). */
+export function polishPhase(text: string, original: string, seed: number, into: number): JobPhase {
+  const strokes = polishStrokes(text, original, seed);
+  const ms = strokesMs(strokes);
+  const room = POLISH_SLOT_MS - POLISH_REST_MS;
+  const at = into * Math.max(1, ms / room);
+  if (at >= ms) return { phase: "done" };
+  const now = strokesAt(strokes, at);
+  let typed = 0;
+  while (typed < now.text.length && now.text[typed] === text[typed]) typed++;
+  return { phase: "typing", typed, text: now.text, deleting: now.deleting, f: at / ms };
+}
+
 /** Of a counted sentence's drop, the share shown once its original is erased; the rest comes as the suggestion is typed. */
 const ERASED_SHARE = 0.3;
 
@@ -471,4 +532,125 @@ export function stillLine(check: Pick<RewriteCheck, "stillCounted" | "cleared">)
 /** Counted sentences in a re-check: the real "Counted" figure once there is one. */
 export function countedIn(check: Pick<RewriteCheck, "result">): number {
   return check.result.paragraphs.reduce((sum, p) => sum + p.sentences.filter((s) => s.counts).length, 0);
+}
+
+/* ------------------------------------------------------------------
+   The live rate of a real order (Neo, 2026-10-31: "from the first
+   rewritten sentence the AI rate falls, like the report scan; it can move
+   like a share price; only the end has to be the real result"). No extra
+   detector run: while the rewrite is typed and re-checked the rate is a
+   show, falling with each rewritten sentence and wobbling; when a re-check
+   lands it walks to that round's real score over the re-check's own
+   verdicts, and the view ends on the best round's real score.
+   ------------------------------------------------------------------ */
+
+/**
+ * How far the live rate falls while the rewrite is typed: this share of the way from the report's score to the
+ * projection. The projection is often far below what the re-check gives (a projected 1% re-checked at 98%,
+ * 2026-10-29; re-checks of 100% essays came back at 0 to 100, about 36 on average, 2026-10-29), so the show stops
+ * well short of it and the re-check takes it the rest of the way, down or back up.
+ */
+export const LIVE_DEPTH = 0.5;
+/** While a re-check runs, the rate drifts on down by up to this share of what is left to the projection ... */
+const DRIFT_SHARE = 0.3;
+/** ... and at most this much, reaching most of it in about this long (ms, scan clock). */
+const DRIFT_MAX = 0.15;
+const DRIFT_MS = 45_000;
+/** The share-price wobble on top: at most this far either way, a new swing about this often (ms, scan clock). */
+const WOBBLE = 0.018;
+const WOBBLE_MS = 1_400;
+/** A re-check whose verdicts are not at hand (a round that did not beat the best) is walked to in this many steps. */
+const LAND_STEPS = 8;
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** A fixed pseudo-random number in [0, 1) for an integer, so the show is the same on every render. */
+export function hash01(n: number): number {
+  let x = Math.imul((n | 0) ^ 0x9e3779b9, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  x ^= x >>> 16;
+  return (x >>> 0) / 4_294_967_296;
+}
+
+/**
+ * Each rewritten counted sentence's share of the live fall: uneven, and now and then (never on the first two) one
+ * that ticks the rate back up a little, like a share price.
+ */
+function liveWeight(n: number, k: number): number {
+  return k >= 2 && hash01(n * 7 + 3) < 0.16 ? -0.4 : 0.4 + 1.4 * hash01(n * 13 + 1);
+}
+
+/**
+ * The live rate at `t` (scan clock) while the rewrite is typed, before the wobble: from the report's score, each
+ * counted sentence takes its step (liveWeight) as it is erased and typed (clearedShare), so the rate starts falling
+ * with the first rewritten sentence and ends LIVE_DEPTH of the way to the projection. While suggestions are still
+ * out it assumes each will be rewritten, like projectedAt.
+ */
+export function liveAt(rate: RefineRate, jobs: RefineJob[], t: number): number {
+  const moving = jobs.filter((j) => j.counts && (j.rewrite || !j.known)).sort((a, b) => a.n - b.n);
+  if (!moving.length) return rate.original;
+  const w = moving.map((j, k) => liveWeight(j.n, k));
+  const total = w.reduce((a, b) => a + b, 0);
+  const end = rate.original - (rate.original - projectedScore(rate, moving.length)) * LIVE_DEPTH;
+  const done = moving.reduce((sum, j, k) => sum + w[k] * clearedShare(j, t), 0);
+  return clamp01(rate.original + ((end - rate.original) * done) / total);
+}
+
+/**
+ * The live rate `ms` (scan clock) into a wait for a re-check, before the wobble: from `base` it keeps drifting down
+ * toward `floor` (the projection), a little and ever slower, so the line never just stops while the detector works.
+ */
+export function liveDrift(base: number, floor: number, ms: number): number {
+  const depth = Math.min(DRIFT_MAX, Math.max(0, base - floor) * DRIFT_SHARE);
+  return clamp01(base - depth * (1 - Math.exp(-Math.max(0, ms) / DRIFT_MS)));
+}
+
+/**
+ * The share-price wobble at `at` (scan clock) around a level: smooth swings between fixed random points, at most
+ * WOBBLE either way and less near 0 so a low rate is not pushed under it. Same `at` and `seed`, same wobble.
+ */
+export function liveWobble(at: number, seed: number, level: number): number {
+  const x = Math.max(0, at) / WOBBLE_MS;
+  const i = Math.floor(x);
+  const f = x - i;
+  const s = f * f * (3 - 2 * f);
+  const a = hash01(seed * 131 + i) * 2 - 1;
+  const b = hash01(seed * 131 + i + 1) * 2 - 1;
+  return (a + (b - a) * s) * Math.min(WOBBLE, level * 0.4);
+}
+
+/**
+ * The rate walking from where the show stands (`from`) to a round's real score (`to`) when its re-check lands, one
+ * rewritten sentence at a time in text order, from the re-check's own verdicts: going down, each sentence it newly
+ * cleared takes the rate down and each it still counts ticks it back up a little; going up (the re-check scored
+ * above the show), the other way round. Without the verdicts (a round that did not beat the best) it walks there in
+ * LAND_STEPS uneven steps. The last step is exactly `to`. `seen`: sentences an earlier round already cleared, which
+ * leave the rate where it is.
+ */
+export function landLevels(opts: { from: number; to: number; check: Pick<RewriteCheck, "stillCounted" | "cleared"> | null; seen: ReadonlySet<number>; seed: number }): number[] {
+  const { from, to, check, seen, seed } = opts;
+  if (Math.abs(to - from) < 0.005) return [to];
+  const down = to < from;
+  let w: number[];
+  if (check && check.cleared.length + check.stillCounted.length) {
+    const steps = [...check.cleared.map((n) => ({ n, cleared: true })), ...check.stillCounted.map((n) => ({ n, cleared: false }))].sort((a, b) => a.n - b.n);
+    w = steps.map((st, k) => {
+      const fresh = st.cleared && !seen.has(st.n);
+      const along = down ? fresh : !st.cleared;
+      const against = down ? !st.cleared : fresh;
+      return along ? 0.6 + 0.8 * hash01(seed * 977 + st.n) : against && k ? -0.25 * hash01(seed * 31 + st.n) : 0;
+    });
+  } else {
+    w = Array.from({ length: LAND_STEPS }, (_, k) => (k && hash01(seed * 53 + k) < 0.2 ? -0.3 : 0.5 + hash01(seed * 71 + k)));
+  }
+  let sum = w.reduce((a, b) => a + b, 0);
+  if (sum <= 1e-6) {
+    w = w.map(() => 1);
+    sum = w.length;
+  }
+  let acc = 0;
+  const levels = w.map((x) => clamp01(from + ((to - from) * (acc += x)) / sum));
+  levels[levels.length - 1] = to;
+  return levels;
 }
