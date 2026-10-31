@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiScore, COUNTED_CURVE, stitchReport, type AutoReportResult } from "../lib/auto-report/stitch";
+import { stitchReport } from "../lib/auto-report/stitch";
 import { SCAN_MS_PER_CHAR, scanDurationMs } from "../lib/auto-report/scan-script";
 import { pickFlagged, type ReportRewrite } from "../lib/auto-report/rewrite";
 import {
@@ -24,7 +24,11 @@ import {
   refinePlan,
   refineRate,
   refineReadMs,
-  replayLevels,
+  landLevels,
+  liveAt,
+  liveDrift,
+  liveWobble,
+  LIVE_DEPTH,
   stillLine,
 } from "../lib/auto-report/refine-script";
 
@@ -237,28 +241,63 @@ test("the re-check's lines give each round's real score and say which round is k
   assert.equal(countedIn({ result }), result.paragraphs.flatMap((p) => p.sentences).filter((x) => x.counts).length);
 });
 
-test("a re-check lands as the rate falling one cleared sentence at a time, ending on its score", () => {
-  const summary = (countedShare: number) => ({ high: 0, medium: 0, uncertain: 0, sentences: 10, words: 100, paragraphs: 1, flaggedShare: countedShare, countedShare, counted: Math.round(countedShare * 10), riskyParagraphs: 0, overall: "elevated" as const });
-  const check = { score: aiScore(0.3, COUNTED_CURVE), stillCounted: [2, 6], cleared: [1, 3, 4, 5, 7], result: { paragraphs: [], summary: summary(0.3) } as unknown as AutoReportResult };
-  const { steps, levels } = replayLevels({ fromScore: aiScore(0.9, COUNTED_CURVE), fromShare: 0.9, check, seen: new Set() });
-  assert.deepEqual(steps.map((x) => x.n), [1, 2, 3, 4, 5, 6, 7]);
-  assert.equal(levels.length, steps.length);
-  assert.equal(levels[levels.length - 1], check.score);
-  // Falls at each cleared sentence, holds on the ones still counted.
-  assert.ok(levels[0] < aiScore(0.9, COUNTED_CURVE));
-  assert.ok(levels[2] < levels[1]);
-  assert.ok(levels.every((v, i) => i === 0 || v <= levels[i - 1] + 1e-12));
+test("the live rate falls from the first rewritten sentence and ends part of the way to the projection", () => {
+  const plan = refinePlan(result);
+  const readMs = refineReadMs(plan.chars);
+  const jobs = refineJobs(plan, result, arrive(rewriteOf(), 0), readMs);
+  const rate = refineRate(result);
+  const counted = jobs.filter((j) => j.counts && j.rewrite).sort((a, b) => a.n - b.n);
+  assert.ok(counted.length >= 2);
+  assert.equal(liveAt(rate, jobs, 0), rate.original);
+  // Already falling once the first counted sentence is typed.
+  assert.ok(liveAt(rate, jobs, counted[0].end) < rate.original);
+  const end = rate.original - (rate.original - projectedScore(rate, counted.length)) * LIVE_DEPTH;
+  assert.ok(Math.abs(liveAt(rate, jobs, Infinity) - end) < 1e-9);
+  // Not as far as the projection: the re-check takes it the rest of the way.
+  assert.ok(liveAt(rate, jobs, Infinity) > projectedScore(rate, counted.length));
+  // The same on every render.
+  assert.equal(liveAt(rate, jobs, counted[1].end - 100), liveAt(rate, jobs, counted[1].end - 100));
 });
 
-test("a later round only walks what it newly cleared, and a rise or no change is not replayed", () => {
-  const result = { paragraphs: [], summary: { flaggedShare: 0.2, countedShare: 0.2 } } as unknown as AutoReportResult;
-  const check = { score: aiScore(0.2, COUNTED_CURVE), stillCounted: [2], cleared: [1, 3, 4], result };
-  const seen = new Set([1, 3]);
-  const r = replayLevels({ fromScore: aiScore(0.35, COUNTED_CURVE), fromShare: 0.35, check, seen });
-  assert.equal(r.levels.length, 4);
-  // Sentences cleared in an earlier round hold the rate; only the newly cleared one takes it down, onto the score.
-  assert.deepEqual(r.levels.slice(0, 3), [aiScore(0.35, COUNTED_CURVE), aiScore(0.35, COUNTED_CURVE), aiScore(0.35, COUNTED_CURVE)]);
-  assert.equal(r.levels[3], check.score);
-  assert.deepEqual(replayLevels({ fromScore: 0.05, fromShare: 0.1, check, seen: new Set() }).levels, []);
-  assert.deepEqual(replayLevels({ fromScore: 0.9, fromShare: 0.9, check: { ...check, cleared: [] }, seen: new Set() }).levels, []);
+test("while a re-check runs the rate drifts a little lower and wobbles within bounds", () => {
+  assert.equal(liveDrift(0.6, 0.05, 0), 0.6);
+  assert.ok(liveDrift(0.6, 0.05, 30_000) < 0.6);
+  assert.ok(liveDrift(0.6, 0.05, 1e9) >= 0.6 - 0.15 - 1e-9);
+  assert.equal(liveDrift(0.04, 0.05, 60_000), 0.04);
+  for (let at = 0; at < 60_000; at += 333) {
+    const w = liveWobble(at, 42, 0.6);
+    assert.ok(Math.abs(w) <= 0.018 + 1e-12);
+    assert.ok(Math.abs(liveWobble(at, 42, 0.01)) <= 0.004 + 1e-12, "small near 0");
+    assert.equal(w, liveWobble(at, 42, 0.6));
+  }
+});
+
+test("a re-check below the show walks down one rewritten sentence at a time and ends exactly on its score", () => {
+  const check = { stillCounted: [2, 6], cleared: [1, 3, 4, 5, 7] };
+  const levels = landLevels({ from: 0.55, to: 0.12, check, seen: new Set(), seed: 3 });
+  assert.equal(levels.length, 7);
+  assert.equal(levels[levels.length - 1], 0.12);
+  assert.ok(levels[0] < 0.55, "the first cleared sentence takes it down");
+  // Down at each cleared sentence, back up a little (or held) at each one still counted.
+  assert.ok(levels[2] < levels[1]);
+  assert.ok(levels[1] >= levels[0]);
+  assert.ok(levels.every((v) => v >= 0 && v <= 1));
+});
+
+test("a re-check above the show walks back up, and a later round only moves on what it newly cleared", () => {
+  const check = { stillCounted: [2, 5], cleared: [1, 3, 4] };
+  const up = landLevels({ from: 0.4, to: 0.9, check, seen: new Set(), seed: 1 });
+  assert.equal(up[up.length - 1], 0.9);
+  assert.ok(up[1] > up[0], "up at a sentence still counted");
+  const later = landLevels({ from: 0.5, to: 0.2, check, seen: new Set([1, 3]), seed: 2 });
+  // Sentences 1 and 3 were cleared before: they leave the rate where it is; 4 is the one that takes it down.
+  assert.equal(later[0], 0.5);
+  assert.equal(later[2], later[1]);
+  assert.ok(later[3] < later[2]);
+  assert.equal(later[later.length - 1], 0.2);
+  // No verdicts at hand: uneven steps, still ending on the score; and no walk when it is already there.
+  const blind = landLevels({ from: 0.5, to: 0.8, check: null, seen: new Set(), seed: 9 });
+  assert.equal(blind.length, 8);
+  assert.equal(blind[blind.length - 1], 0.8);
+  assert.deepEqual(landLevels({ from: 0.3, to: 0.302, check, seen: new Set(), seed: 0 }), [0.302]);
 });

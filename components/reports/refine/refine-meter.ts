@@ -1,7 +1,8 @@
 /**
  * The AI rate during a live rewrite, as a ticking series. It starts on the report's own score. On a real order
- * (`real`) it moves only to the scores the detector gives the rewritten text, one step per re-checked round, up or
- * down; it never shows an estimate (Neo, 2026-10-29: the view showed a projected 1%, and the re-check said 98%). In
+ * (`real`) it follows the live show up and down (refine-script.ts liveAt, landLevels): falling with each rewritten
+ * sentence, wobbling like a share price, then walking to each round's re-checked score, and it settles on the best
+ * round's real score (Neo, 2026-10-31). In
  * the design previews it follows the projection down in even steps instead (see projectedAt): part of each counted
  * sentence's step as R1 erases it, the rest as R2 types its suggestion. A faint tremor keeps the line alive while it
  * works. When the rewrite is over it settles exactly on the final figure and stops.
@@ -13,13 +14,13 @@
 export interface RefineMeterInput {
   /** False until the live rewrite starts. */
   ready: boolean;
-  /** The rate now: the last re-checked score (`real`), else the projection. */
+  /** The rate now: the live show (`real`), else the projection. */
   target: number;
-  /** A real order: the target is a re-checked score and is followed up or down, each change marked on the chart. */
+  /** A real order: the target is followed up or down. */
   real?: boolean;
   /** The report's own score. */
   original: number;
-  /** Counted sentences rewritten so far: each one marks the drop since the last. */
+  /** Steps taken so far (counted sentences rewritten, then each step to a re-checked score): each marks the change since the last. */
   marks: number;
   done: boolean;
   reduce: boolean;
@@ -76,21 +77,16 @@ export class RefineMeter {
       this.target = input.target;
       this.lastPoint = now - POINT_MS;
     }
-    if (input.real) {
-      if (this.cur !== null && Math.abs(input.target - this.target) > 0.0005) {
-        this.drops.push({ t: now, from: this.target, to: input.target });
-        if (this.drops.length > 40) this.drops.shift();
-      }
-    } else if (input.marks > this.marks) {
-      const at = this.cur ?? this.level;
+    if (input.marks > this.marks) {
+      const at = input.real ? input.target : (this.cur ?? this.level);
       const from = this.markedAt ?? input.original;
-      if (from - at > 0.0005) this.drops.push({ t: now, from, to: at });
+      if (Math.abs(from - at) > 0.0005) this.drops.push({ t: now, from, to: at });
       if (this.drops.length > 40) this.drops.shift();
       this.marks = input.marks;
       this.markedAt = at;
     }
     // A projection only ever goes down while it works (an estimate can rise a little when a sentence turns out kept);
-    // a re-checked score is shown as it is, and at the end the final figure.
+    // the live show is followed up and down, and at the end the final figure.
     this.target = input.done || input.real ? input.target : Math.min(this.target, input.target);
     this.level = input.reduce ? this.target : this.level + (this.target - this.level) * (input.done ? 0.3 : 0.16);
     this.noise = input.done ? this.noise * 0.5 : this.noise * 0.85 + (input.reduce ? 0 : 0.0012) * gauss();
