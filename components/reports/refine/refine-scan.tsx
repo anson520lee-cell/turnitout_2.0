@@ -29,7 +29,8 @@ import { RefineStage, clockNow, type RefineClock, type StageRecheck } from "./re
  * (Neo, 2026-10-31: no scan line over a still text). The rate falls from the first rewritten sentence and wobbles like
  * a share price while the rewrite is typed and re-checked (Neo, 2026-10-31: only the end has to be real), eases toward
  * the best score so far while a later round runs, and once every round is in walks onto the best round's real score
- * sentence by sentence over that re-check's own verdicts: what it ends on is never an estimate (Neo, 2026-10-29: it had ended on a projected
+ * sentence by sentence over that re-check's own verdicts: what it ends on is never an estimate. The customer sees only
+ * the score before and after, never the rounds (Neo, 2026-10-31) (Neo, 2026-10-29: it had ended on a projected
  * 1%, and three minutes later the re-check said 98%). No extra detector run. The design previews without a re-check
  * show the projected rate falling as each sentence is rewritten instead.
  */
@@ -289,7 +290,7 @@ export function RefineScan({
     <div className="relative">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}: rewriting what still reads as AI` : "Polishing while the detector re-checks") : "Live rewrite running"}
+          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? "Polishing your rewrite" : "Live rewrite running"}
         </p>
         <div className="flex flex-wrap gap-2">
           {canSkip && (
@@ -313,7 +314,6 @@ export function RefineScan({
   const left = known && !inIntro && !typed ? Math.max(0, Math.ceil((endMs - scanMs) / speed / 1000)) : null;
   // The best round may have rewritten a sentence the first round kept.
   const made = best && verify?.items ? verify.items.filter((i) => i.rewrite && queue.has(i.n)).length : jobs.filter((j) => j.rewrite).length;
-  const rounds = verify?.scores.length ?? 0;
 
   const view = (
     <motion.div
@@ -336,7 +336,7 @@ export function RefineScan({
         </span>
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}` : "Polishing") : "Live rewrite"}
+            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? "Polishing" : "Live rewrite"}
           </p>
           <p className="truncate text-[13px] text-fg-muted">{title}</p>
         </div>
@@ -344,12 +344,6 @@ export function RefineScan({
           <span className="hidden font-mono text-[11px] tabular-nums text-fg-subtle sm:inline">
             {String(Math.floor(secs / 60)).padStart(2, "0")}:{String(secs % 60).padStart(2, "0")}
             {left !== null && <> · ~{left}s left</>}
-            {checking && step && (
-              <>
-                {" "}
-                · {step.kind === "check" ? "re-check" : "rewrite"} {step.round} · {stepSecs}s
-              </>
-            )}
           </span>
           {canSkip && (
             <button
@@ -451,19 +445,7 @@ export function RefineScan({
                 </p>
                 {best ? (
                   <>
-                    {rounds > 1 && (
-                      <p className="relative mt-2 flex flex-wrap items-center justify-center gap-1.5 font-mono text-[10.5px] tabular-nums text-fg-subtle">
-                        {verify?.scores.map((v, k) => (
-                          <span key={k} className={cn("rounded-full border px-2 py-0.5", v === final ? "border-[#9b7bff]/50 bg-[#9b7bff]/15 text-[#e3d8ff]" : "border-[var(--line)]")}>
-                            Round {k + 1} · {Math.round(v * 100)}%
-                          </span>
-                        ))}
-                        <span>best round kept</span>
-                      </p>
-                    )}
-                    <p className="relative mt-1.5 text-[11.5px] leading-snug text-fg-subtle">
-                      Re-checked by the same detector as your report: {best.stillCounted.length} of {best.stillCounted.length + best.cleared.length} rewritten sentence{best.stillCounted.length + best.cleared.length === 1 ? "" : "s"} still read{best.stillCounted.length + best.cleared.length === 1 ? "s" : ""} as AI.
-                    </p>
+                    <p className="relative mt-1.5 text-[11.5px] leading-snug text-fg-subtle">Your rewritten text, checked by the same detector as your report.</p>
                   </>
                 ) : (
                   <p className="relative mt-1 text-[11.5px] leading-snug text-fg-subtle">

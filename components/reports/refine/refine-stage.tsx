@@ -2,7 +2,7 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { lookaheadLine, quote, scanPosition, thinkingLine, type LogLine, type ScanPlan } from "@/lib/auto-report/scan-script";
-import { POLISH_SLOT_MS, clearedBy, eraseLine, guardLine, jobPhase, keptLine, polishAt, polishOrder, polishPhase, queuedLine, readerAt, recheckStartLine, recheckedLine, stillLine, writeLine, type JobPhase, type RecheckStep, type RefineJob } from "@/lib/auto-report/refine-script";
+import { POLISH_SLOT_MS, clearedBy, eraseLine, guardLine, jobPhase, keptLine, polishAt, polishOrder, polishPhase, queuedLine, readerAt, stillLine, writeLine, type JobPhase, type RecheckStep, type RefineJob } from "@/lib/auto-report/refine-script";
 import type { RewriteCheck, RewriteItem } from "@/lib/auto-report/rewrite";
 import type { ReportSentence } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
@@ -227,36 +227,19 @@ export function RefineStage({
     push("rewriter", [{ tone: "ok", text: `all ${jobs.length} sentences done · ${made} rewritten · ${jobs.length - made} kept` }]);
   }, [over, jobs, push]);
 
-  // R4 on a real order: each step of the re-check as it starts, each round's score as it comes, and a heartbeat.
-  const stepKey = recheck?.active && recheck.step ? `${recheck.step.kind}:${recheck.step.round}` : null;
-  const stepRef = useRef(recheck?.step ?? null);
+  // R4 on a real order: when the re-check starts, a heartbeat, and the score before and after once it is in.
+  // No rounds are named: the customer sees the score before and after only (Neo, 2026-10-31).
+  const checkingNow = Boolean(recheck?.active && recheck.step);
   useEffect(() => {
-    stepRef.current = recheck?.step ?? null;
-  });
-  useEffect(() => {
-    const st = stepRef.current;
-    if (!stepKey || !st) return;
-    push("agents", [recheckStartLine(st)]);
-    if (st.kind === "round") push("rewriter", [{ tone: "violet", text: `round ${st.round} · rewriting the sentences still counted` }]);
-    const t = setInterval(() => {
-      const now = stepRef.current;
-      if (now) push("agents", [{ tone: "dim", text: now.kind === "check" ? `R4 · the detector is reading your rewritten text · round ${now.round}` : `writer · round ${now.round} · drafting new suggestions` }]);
-    }, 8_000);
+    if (!checkingNow) return;
+    push("agents", [{ tone: "info", text: "R4 RE-CHECK · your text with every suggestion in place → the same detector as your report" }]);
+    const t = setInterval(() => push("agents", [{ tone: "dim", text: "R4 · the detector is reading your rewritten text" }]), 8_000);
     return () => clearInterval(t);
-  }, [stepKey, push]);
-  const scored = useRef(0);
-  const shownScores = recheck?.scores;
+  }, [checkingNow, push]);
   const bestCheck = recheck?.check ?? null;
   useEffect(() => {
-    if (!shownScores) return;
-    const out: LogLine[] = [];
-    for (let k = scored.current; k < shownScores.length; k++) out.push(recheckedLine(shownScores, k));
-    scored.current = shownScores.length;
-    push("agents", out);
-  }, [shownScores, push]);
-  useEffect(() => {
-    if (bestCheck) push("agents", [stillLine(bestCheck)]);
-  }, [bestCheck, push]);
+    if (bestCheck) push("agents", [{ tone: bestCheck.score < original ? "ok" : "warn", text: `R4 RE-CHECK · ${Math.round(original * 100)}% → ${Math.round(bestCheck.score * 100)}% on the same detector as your report` }, stillLine(bestCheck)]);
+  }, [bestCheck, original, push]);
 
   // The polish pass: one line per sentence R2 takes up again.
   const order = useMemo(() => polishOrder(jobs), [jobs]);
@@ -1046,10 +1029,9 @@ function AgentBar({
   );
 }
 
-/** R4 RE-CHECK's chip: waiting for the rewrite, the round it is on, or the last real score. */
+/** R4 RE-CHECK's chip: waiting for the rewrite, at work, or the real score (no rounds named). */
 function r4Status(recheck: StageRecheck, over: boolean): string {
-  const { step, scores } = recheck;
-  if (recheck.active && step) return `round ${step.round} · ${step.kind === "check" ? "re-checking" : "rewriting"} ${recheck.stepSecs}s`;
-  if (scores.length) return `round ${scores.length} · ${Math.round(scores[scores.length - 1] * 100)}%`;
+  if (recheck.check) return `${Math.round(recheck.check.score * 100)}%`;
+  if (recheck.active && recheck.step) return "re-checking";
   return over ? (recheck.active ? "saving" : "not re-checked") : "waits for the rewrite";
 }
