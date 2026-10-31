@@ -7,7 +7,7 @@ import { REFINE_POINT_MS, type RefineMeter } from "./refine-meter";
 /**
  * The right-hand panel of the live rewrite, in blue and purple: the report's own AI score (blue) against the rate
  * as the rewrite goes (purple), a chart of the two, and counters. On a real order the purple rate stays on the
- * report's score until the detector has re-checked the rewritten text, then steps to each round's real score
+ * report's score until the detector has re-checked the rewritten text, then steps down sentence by sentence (a replay of that re-check's own verdicts, like the report scan) to each round's real score
  * (`basis` "pending", then "rechecked"): no estimate is ever shown. The design previews show the projection instead
  * (the report's score with the rewritten sentences no longer counted), labelled as one.
  */
@@ -69,7 +69,7 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
           {real
             ? "your text with every suggestion in place, run through the detector again"
             : basis === "pending"
-              ? "your report's score: it moves only once the detector has re-checked the rewritten text"
+              ? "your report's score: once the detector's re-check of the rewritten text is in, it steps down one rewritten sentence at a time"
               : ready
                 ? "estimate: the report's score with the rewritten sentences no longer counted"
                 : "starts on your report's AI score"}
@@ -102,7 +102,7 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
         {real
           ? "The real score of the rewritten text, from the same detector as your report."
           : basis === "pending"
-            ? "No estimate: the rate moves only on a real re-check of the rewritten text by the same detector."
+            ? "No estimate: every step is a verdict from the detector's real re-check of the rewritten text, replayed sentence by sentence like your report."
             : "An estimate until the rewritten text is re-checked by the detector at the end."}
       </p>
     </div>

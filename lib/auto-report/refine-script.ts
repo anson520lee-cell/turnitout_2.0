@@ -472,3 +472,41 @@ export function stillLine(check: Pick<RewriteCheck, "stillCounted" | "cleared">)
 export function countedIn(check: Pick<RewriteCheck, "result">): number {
   return check.result.paragraphs.reduce((sum, p) => sum + p.sentences.filter((s) => s.counts).length, 0);
 }
+
+export interface Replay {
+  /** The rewritten sentences the re-check walked, in text order, and whether each is cleared. */
+  steps: { n: number; cleared: boolean }[];
+  /** The rate after each step: it falls at each newly cleared sentence and ends exactly on the re-check's score. */
+  levels: number[];
+}
+
+/**
+ * The rate falling one rewritten sentence at a time when a re-check lands, replayed from the re-check's own verdicts
+ * (Neo, 2026-10-31: like the report scan, which replays a finished report over the text; no extra detector run).
+ * Every sentence the re-check no longer counts takes the same share off the counted share, and the score is read from
+ * that share on the report's curve, so the steps are the real score's own shape and the last is exactly the re-check's
+ * score. `fromScore` and `fromShare` are where the rate stood (the report's, or the round before's), `seen` the
+ * sentences already cleared then. Empty when nothing new was cleared (a rise, or no change): the rate just moves.
+ */
+export function replayLevels(opts: { fromScore: number; fromShare: number | null; check: Pick<RewriteCheck, "score" | "result" | "stillCounted" | "cleared">; seen: ReadonlySet<number> }): Replay {
+  const { fromScore, fromShare, check, seen } = opts;
+  const steps = [...check.cleared.map((n) => ({ n, cleared: true })), ...check.stillCounted.map((n) => ({ n, cleared: false }))].sort((a, b) => a.n - b.n);
+  const fresh = steps.filter((s) => s.cleared && !seen.has(s.n)).length;
+  if (!fresh || check.score >= fromScore) return { steps: [], levels: [] };
+  const after = scoreBasis(check.result.summary);
+  // On the share when it reproduces the score; otherwise (an older report on another curve) straight between the two scores.
+  const onShare = fromShare !== null && after.share < fromShare && Math.abs(aiScore(after.share, after.curve) - check.score) < 0.02;
+  let done = 0;
+  const levels = steps.map((s) => {
+    if (s.cleared && !seen.has(s.n)) done += 1;
+    const f = done / fresh;
+    return onShare ? aiScore((fromShare as number) + (after.share - (fromShare as number)) * f, after.curve) : fromScore + (check.score - fromScore) * f;
+  });
+  levels[levels.length - 1] = check.score;
+  return { steps, levels };
+}
+
+/** The counted share a re-check reads its score from, or null when it reads the flagged share (an older report). */
+export function checkShare(check: Pick<RewriteCheck, "result">): number | null {
+  return check.result.summary.countedShare ?? null;
+}

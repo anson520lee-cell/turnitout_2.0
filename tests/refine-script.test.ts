@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { stitchReport } from "../lib/auto-report/stitch";
+import { aiScore, COUNTED_CURVE, stitchReport, type AutoReportResult } from "../lib/auto-report/stitch";
 import { SCAN_MS_PER_CHAR, scanDurationMs } from "../lib/auto-report/scan-script";
 import { pickFlagged, type ReportRewrite } from "../lib/auto-report/rewrite";
 import {
@@ -24,6 +24,7 @@ import {
   refinePlan,
   refineRate,
   refineReadMs,
+  replayLevels,
   stillLine,
 } from "../lib/auto-report/refine-script";
 
@@ -234,4 +235,30 @@ test("the re-check's lines give each round's real score and say which round is k
   assert.equal(recheckedLine([0.12], 0).tone, "ok");
   assert.equal(stillLine({ stillCounted: [1, 2], cleared: [3] }).text, "R4 · 2 of 3 rewritten sentences still read as AI · 1 cleared");
   assert.equal(countedIn({ result }), result.paragraphs.flatMap((p) => p.sentences).filter((x) => x.counts).length);
+});
+
+test("a re-check lands as the rate falling one cleared sentence at a time, ending on its score", () => {
+  const summary = (countedShare: number) => ({ high: 0, medium: 0, uncertain: 0, sentences: 10, words: 100, paragraphs: 1, flaggedShare: countedShare, countedShare, counted: Math.round(countedShare * 10), riskyParagraphs: 0, overall: "elevated" as const });
+  const check = { score: aiScore(0.3, COUNTED_CURVE), stillCounted: [2, 6], cleared: [1, 3, 4, 5, 7], result: { paragraphs: [], summary: summary(0.3) } as unknown as AutoReportResult };
+  const { steps, levels } = replayLevels({ fromScore: aiScore(0.9, COUNTED_CURVE), fromShare: 0.9, check, seen: new Set() });
+  assert.deepEqual(steps.map((x) => x.n), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(levels.length, steps.length);
+  assert.equal(levels[levels.length - 1], check.score);
+  // Falls at each cleared sentence, holds on the ones still counted.
+  assert.ok(levels[0] < aiScore(0.9, COUNTED_CURVE));
+  assert.ok(levels[2] < levels[1]);
+  assert.ok(levels.every((v, i) => i === 0 || v <= levels[i - 1] + 1e-12));
+});
+
+test("a later round only walks what it newly cleared, and a rise or no change is not replayed", () => {
+  const result = { paragraphs: [], summary: { flaggedShare: 0.2, countedShare: 0.2 } } as unknown as AutoReportResult;
+  const check = { score: aiScore(0.2, COUNTED_CURVE), stillCounted: [2], cleared: [1, 3, 4], result };
+  const seen = new Set([1, 3]);
+  const r = replayLevels({ fromScore: aiScore(0.35, COUNTED_CURVE), fromShare: 0.35, check, seen });
+  assert.equal(r.levels.length, 4);
+  // Sentences cleared in an earlier round hold the rate; only the newly cleared one takes it down, onto the score.
+  assert.deepEqual(r.levels.slice(0, 3), [aiScore(0.35, COUNTED_CURVE), aiScore(0.35, COUNTED_CURVE), aiScore(0.35, COUNTED_CURVE)]);
+  assert.equal(r.levels[3], check.score);
+  assert.deepEqual(replayLevels({ fromScore: 0.05, fromShare: 0.1, check, seen: new Set() }).levels, []);
+  assert.deepEqual(replayLevels({ fromScore: 0.9, fromShare: 0.9, check: { ...check, cleared: [] }, seen: new Set() }).levels, []);
 });

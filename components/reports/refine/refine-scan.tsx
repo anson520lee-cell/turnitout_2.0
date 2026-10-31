@@ -6,7 +6,7 @@ import { ArrowRight, Maximize2, Minimize2, PenLine, SkipForward, Sparkles } from
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { Button } from "@/components/ui/button";
 import { ratingsBySentence, scanPosition } from "@/lib/auto-report/scan-script";
-import { REFINE_INTRO_MS, clearedBy, countedIn, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, type Arrival, type RecheckStep } from "@/lib/auto-report/refine-script";
+import { REFINE_INTRO_MS, checkShare, clearedBy, countedIn, projectedAt, projectedScore, readerAt, refineEndMs, refineJobs, refinePlan, refineRate, refineReadMs, replayLevels, type Arrival, type RecheckStep } from "@/lib/auto-report/refine-script";
 import { pickFlagged, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,8 @@ import { RefineStage, clockNow, type RefineClock, type StageRecheck } from "./re
  *
  * On a real order (`verify`) the rewritten text is then re-checked by the detector, and rewritten again while it
  * still scores too high, as the last part of the same view: the rate stays on the report's score while the rewrite
- * is typed and moves only to each round's real score, and the view ends on the best round's. It never shows an
+ * is typed and moves only to each round's real score, falling sentence by sentence as the re-check's own verdicts
+ * are replayed (like the report scan), and the view ends on the best round's. It never shows an
  * estimate (Neo, 2026-10-29: it had ended on a projected 1%, and three minutes later the re-check said 98%). The
  * design previews without a re-check show the projected rate falling as each sentence is rewritten instead.
  */
@@ -34,6 +35,9 @@ import { RefineStage, clockNow, type RefineClock, type StageRecheck } from "./re
 const FINALE_MS = 7_000;
 /** Re-checked scores that are in before the rewrite is typed out are shown one after another, this far apart. */
 const SCORE_STEP_MS = 1_600;
+/** A landed re-check is replayed one rewritten sentence at a time, this long each (but the whole replay at most REPLAY_MAX_MS). */
+const REPLAY_STEP_MS = 280;
+const REPLAY_MAX_MS = 9_000;
 
 /**
  * The real re-check of the rewritten text (lib/auto-report/rewrite-check.ts), round by round, as the Writing
@@ -143,10 +147,29 @@ export function RefineScan({
   // scores are shown in turn, and the finale waits for the last of them.
   const typed = known && scanMs >= endMs;
   const scores = verify?.scores ?? NO_SCORES;
-  const [shown, setShown] = useState({ count: 0, at: 0 });
-  if (typed && shown.count < scores.length && now - shown.at >= SCORE_STEP_MS / speed) setShown({ count: shown.count + 1, at: now });
+  // `hold`: how long the score just shown stays before the next, or the finale. `share` and `seen`: where the rate
+  // stood and which sentences were cleared by then, for replaying the next re-check from there.
+  const [shown, setShown] = useState<{ count: number; at: number; hold: number; share: number | null; seen: number[] }>(() => ({ count: 0, at: 0, hold: 0, share: result.summary.countedShare ?? null, seen: [] }));
+  // The re-check that has just landed, replayed over the rewritten sentences: the rate steps down at each one it
+  // cleared, from its own verdicts (Neo, 2026-10-31: like the report scan; no extra detector run).
+  const [replay, setReplay] = useState<{ at: number; per: number; levels: number[] } | null>(null);
+  if (typed && shown.count < scores.length && now - shown.at >= shown.hold / speed) {
+    const score = scores[shown.count];
+    const check = verify?.check;
+    // Only the kept round's verdicts are known: a round that scored higher is simply moved to.
+    const lands = check && check.score === score ? replayLevels({ fromScore: shown.count ? scores[shown.count - 1] : rate.original, fromShare: shown.share, check, seen: new Set(shown.seen) }) : null;
+    const per = lands?.levels.length ? Math.min(REPLAY_STEP_MS, REPLAY_MAX_MS / lands.levels.length) : 0;
+    setReplay(lands?.levels.length ? { at: now, per, levels: lands.levels } : null);
+    setShown({
+      count: shown.count + 1,
+      at: now,
+      hold: Math.max(SCORE_STEP_MS, per * (lands?.levels.length ?? 0) + 800),
+      share: check && check.score === score ? checkShare(check) : shown.share,
+      seen: check && check.score === score ? check.cleared : shown.seen,
+    });
+  }
   // The last score shown stays on the rate a moment before the finale lands on the best one.
-  const settling = shown.count > 0 && now - shown.at < SCORE_STEP_MS / speed;
+  const settling = shown.count > 0 && now - shown.at < shown.hold / speed;
   const checking = typed && !!verify && (verify.state === "pending" || shown.count < scores.length || settling);
   const done = typed && !checking;
   if (done && doneAt === null) setDoneAt(now);
@@ -164,7 +187,8 @@ export function RefineScan({
   // could not be re-checked stays on the report's score: no estimate is shown.
   const final = verify ? (verify.check?.score ?? rate.original) : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
   // A real order's rate now: the report's score, then the last re-checked score shown, then the best.
-  const realNow = done ? final : shown.count ? scores[shown.count - 1] : rate.original;
+  const replayed = replay && shown.count > 0 ? replay.levels[Math.min(replay.levels.length - 1, Math.floor(((now - replay.at) * speed) / replay.per))] : null;
+  const realNow = done ? final : shown.count ? (replayed ?? scores[shown.count - 1]) : rate.original;
   const basis: RateBasis = !verify ? "projected" : shown.count ? "rechecked" : "pending";
   const typing = known ? Math.min(1, scanMs / endMs) : Math.min(fraction, jobs.filter((j) => scanMs >= j.end).length / Math.max(1, jobs.length)) * 0.95;
   const counts: RefineCounts = {
