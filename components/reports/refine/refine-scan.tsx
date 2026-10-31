@@ -49,6 +49,11 @@ export interface RefineVerify {
   check: RewriteCheck | null;
   /** The best round's suggestions: a later round can replace some of those typed in the first. */
   items?: RewriteItem[];
+  /**
+   * Real scores of the text with only the first suggestions in place, as they land while the rest is written and
+   * re-checked. Each is a real detector score; the rate follows them until the first round's re-check is in.
+   */
+  live?: number[];
 }
 
 const NO_ITEMS: RewriteItem[] = [];
@@ -163,9 +168,11 @@ export function RefineScan({
   // The figure the rate ends on: the best round's real score, or (design previews) the projection. A real order that
   // could not be re-checked stays on the report's score: no estimate is shown.
   const final = verify ? (verify.check?.score ?? rate.original) : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
-  // A real order's rate now: the report's score, then the last re-checked score shown, then the best.
-  const realNow = done ? final : shown.count ? scores[shown.count - 1] : rate.original;
-  const basis: RateBasis = !verify ? "projected" : shown.count ? "rechecked" : "pending";
+  // A real order's rate now: the report's score, then each live score of the text so far, then the last re-checked
+  // score shown, then the best.
+  const liveScores = verify?.live ?? NO_SCORES;
+  const realNow = done ? final : shown.count ? scores[shown.count - 1] : liveScores.length ? liveScores[liveScores.length - 1] : rate.original;
+  const basis: RateBasis = !verify ? "projected" : shown.count ? "rechecked" : liveScores.length ? "live" : "pending";
   const typing = known ? Math.min(1, scanMs / endMs) : Math.min(fraction, jobs.filter((j) => scanMs >= j.end).length / Math.max(1, jobs.length)) * 0.95;
   const counts: RefineCounts = {
     rewritten: jobs.filter((j) => j.rewrite && scanMs >= j.end).length,

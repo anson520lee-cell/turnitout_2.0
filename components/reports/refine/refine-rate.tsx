@@ -21,8 +21,8 @@ const LABEL = "154,163,184";
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 const pct = (v: number, digits = 1) => (v * 100).toFixed(digits);
 
-/** What the purple rate is: the projection (design previews), the report's score until a re-check, or a re-checked score. */
-export type RateBasis = "projected" | "pending" | "rechecked";
+/** What the purple rate is: the projection (design previews), the report's score until a real score is in, a live score of the text so far, or a re-checked score. */
+export type RateBasis = "projected" | "pending" | "live" | "rechecked";
 
 export interface RefineCounts {
   /** Suggestions typed so far, of all sentences being rewritten. */
@@ -41,7 +41,7 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
     return (
       <div className="flex items-center gap-3">
         <div className="shrink-0">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : basis === "pending" ? "re-check pending" : "projected"}</p>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">AI rate · {real ? "re-checked" : basis === "live" ? "live check" : basis === "pending" ? "re-check pending" : "projected"}</p>
           <Readout meter={meter} original={original} final={final} className="text-[26px]" unit="text-[14px]" deltaClass="text-[10px]" />
         </div>
         <div className="relative h-12 min-w-0 flex-1">
@@ -62,17 +62,19 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
       <div>
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-fg-subtle">
           <span className="refine-live-dot" aria-hidden /> AI rate{basis === "projected" ? ` · ${final ? "projected" : "refining"}` : ""}
-          <span className="ml-auto whitespace-nowrap rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : basis === "pending" ? "Before re-check" : "Projected"}</span>
+          <span className="ml-auto whitespace-nowrap rounded-full border border-[#9b7bff]/45 bg-[#9b7bff]/12 px-2 py-0.5 text-[10px] tracking-wider text-[#cdbdff]">{real ? "Re-checked" : basis === "live" ? "Live check" : basis === "pending" ? "Before first check" : "Projected"}</span>
         </p>
         <Readout meter={meter} original={original} final={final} className="mt-2 text-[50px] tracking-tight" unit="ml-0.5 text-[22px]" deltaClass="text-[12px]" />
         <p className="mt-1 text-[11.5px] leading-snug text-fg-subtle">
           {real
             ? "your text with every suggestion in place, run through the detector again"
-            : basis === "pending"
-              ? "your report's score: it moves only once the detector has re-checked the rewritten text"
-              : ready
-                ? "estimate: the report's score with the rewritten sentences no longer counted"
-                : "starts on your report's AI score"}
+            : basis === "live"
+              ? "your text with the suggestions so far in place, run through the detector: a real score, and it can wobble"
+              : basis === "pending"
+                ? "your report's score: it moves as soon as the detector has scored the text with the first suggestions in"
+                : ready
+                  ? "estimate: the report's score with the rewritten sentences no longer counted"
+                  : "starts on your report's AI score"}
         </p>
       </div>
 
@@ -101,8 +103,8 @@ export function RefineRatePanel({ meter, ready, final, basis = "projected", orig
       <p className="text-[10.5px] leading-snug text-fg-subtle">
         {real
           ? "The real score of the rewritten text, from the same detector as your report."
-          : basis === "pending"
-            ? "No estimate: the rate moves only on a real re-check of the rewritten text by the same detector."
+          : basis === "live" || basis === "pending"
+            ? "No estimate: every figure is a real score from the same detector, taken on the text as rewritten so far, and the last one is the full re-check."
             : "An estimate until the rewritten text is re-checked by the detector at the end."}
       </p>
     </div>

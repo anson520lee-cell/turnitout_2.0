@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeRewrite, type RewriteOutcome } from "@/lib/auto-report/rewrite-run";
+import { createProbes } from "@/lib/auto-report/rewrite-probe";
 import { uuid } from "@/lib/validation/schemas";
 
 /**
@@ -10,7 +11,9 @@ import { uuid } from "@/lib/validation/schemas";
  *
  * With `?stream=1` the answer is newline-delimited JSON, so the live rewrite can show each suggestion as soon as it is
  * written: `{"item": …}` lines as they come in, then one `{"rewrite": …}` or `{"error": …, "reason": …}` line. The
- * suggestions are still saved and charged for only once all are in, exactly as without it.
+ * suggestions are still saved and charged for only once all are in, exactly as without it. Meanwhile `{"probe": {k, of,
+ * score}}` lines carry real detector scores of the text with the first k suggestions in place (rewrite-probe.ts); the
+ * stream stays open after the rewrite line until the last of them has landed, and the page reads on while it re-checks.
  */
 export const maxDuration = 120;
 
@@ -47,16 +50,31 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/reports
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (line: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
+        const send = (line: unknown) => {
+          try {
+            controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
+          } catch {
+            // The page has gone: nothing more to say to it.
+          }
+        };
         // Some browsers hold a streamed answer until about 1 KB has arrived: start with a blank line that long.
         controller.enqueue(encoder.encode(`${" ".repeat(1_100)}\n`));
+        const probes = createProbes(id, (probe) => send({ probe }));
         try {
-          const out = await makeRewrite(id, who, (item) => send({ item }));
+          const out = await makeRewrite(id, who, (item) => {
+            send({ item });
+            probes.add(item);
+          });
           send(out.ok ? { rewrite: out.rewrite } : failure(out).body);
         } catch {
           send({ error: messages.unavailable, reason: "unavailable" });
         }
-        controller.close();
+        await probes.finish();
+        try {
+          controller.close();
+        } catch {
+          // Already closed by the page leaving.
+        }
       },
     });
     return new Response(body, { headers: { ...noStore, "content-type": "application/x-ndjson; charset=utf-8", "x-accel-buffering": "no" } });
