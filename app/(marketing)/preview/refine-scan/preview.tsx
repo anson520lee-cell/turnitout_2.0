@@ -30,7 +30,7 @@ const ESSAYS: Record<RefineEssay, { result: () => AutoReportResult; rewrite: (r:
   },
 };
 
-export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", recheck = null, live = null }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay; recheck?: number[] | null; live?: number[] | null }) {
+export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", recheck = null }: { speed: number; skipIntro: boolean; late: boolean; essay?: RefineEssay; recheck?: number[] | null }) {
   const copy = ESSAYS[essay];
   const [run, setRun] = useState(1);
   const [over, setOver] = useState(false);
@@ -51,7 +51,7 @@ export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", rec
               </Button>
             </div>
           ) : (
-            <Demo key={run} essay={essay} speed={speed} skipIntro={skipIntro} late={late} recheck={recheck} live={live} onFinish={() => setOver(true)} />
+            <Demo key={run} essay={essay} speed={speed} skipIntro={skipIntro} late={late} recheck={recheck} onFinish={() => setOver(true)} />
           )}
         </Card>
       </Container>
@@ -59,7 +59,7 @@ export function RefineScanPreview({ speed, skipIntro, late, essay = "urban", rec
   );
 }
 
-function Demo({ essay, speed, skipIntro, late, recheck, live, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; recheck: number[] | null; live: number[] | null; onFinish: () => void }) {
+function Demo({ essay, speed, skipIntro, late, recheck, onFinish }: { essay: RefineEssay; speed: number; skipIntro: boolean; late: boolean; recheck: number[] | null; onFinish: () => void }) {
   const copy = ESSAYS[essay];
   const result = useMemo(() => copy.result(), [copy]);
   // Like the real writer: batches of six asked at once, each answering sentence by sentence once it starts writing
@@ -79,16 +79,6 @@ function Demo({ essay, speed, skipIntro, late, recheck, live, onFinish }: { essa
       last = Math.max(last, at);
       timers.push(setTimeout(() => setArrived((a) => [...a, item]), at / speed));
     });
-    // Made-up live scores (?live): the first once the first batch of suggestions is in, then evenly until about when
-    // the first re-check would land, as the server's partial scores do.
-    if (recheck && live) {
-      const from = base + 6_000;
-      const to = last + 1_500 + 38_000;
-      live.forEach((score, k) => {
-        const at = from + ((to - from) * k) / Math.max(1, live.length);
-        timers.push(setTimeout(() => setVerify((v) => (v ? { ...v, live: [...(v.live ?? []), score / 100] } : v)), at / speed));
-      });
-    }
     timers.push(
       setTimeout(() => {
         setRewrite(full);
@@ -115,7 +105,7 @@ function Demo({ essay, speed, skipIntro, late, recheck, live, onFinish }: { essa
       }, (last + 1_500) / speed),
     );
     return () => timers.forEach(clearTimeout);
-  }, [copy, result, late, speed, recheck, live]);
+  }, [copy, result, late, speed, recheck]);
   return <RefineScan result={result} rewrite={rewrite} arrived={arrived} title={copy.title} reference="Preview session" onFinish={onFinish} speed={speed} skipIntro={skipIntro} verify={verify} />;
 }
 

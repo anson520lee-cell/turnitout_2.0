@@ -453,12 +453,3 @@ export function reviseText(source: string | null, result: AutoReportResult, rewr
   }
   return result.paragraphs.map((p) => p.sentences.map((s) => accepted.get(s.n) ?? s.text).join(" ")).join("\n\n");
 }
-
-/** When the live rewrite is scored on the way: after this many of `of` suggestions are in (rewrite-probe.ts). */
-export function probeMarks(of: number): number[] {
-  const MIN_ITEMS = 3;
-  // A short job is over before a score could come back.
-  if (of < 8) return [];
-  const at = [0.25, 0.5, 0.75].map((f) => Math.ceil(of * f)).filter((k) => k >= MIN_ITEMS && k < of);
-  return [...new Set(at)];
-}

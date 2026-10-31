@@ -64,11 +64,6 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   // What the re-check is doing now, for the live rewrite: re-checking a round, or writing the next one. The live view
   // shows each round and its real score as part of the run, and ends on the best (Neo, 2026-10-29).
   const [step, setStep] = useState<RecheckStep | null>(null);
-  // Real scores of the text with the first k suggestions in place, as they land while the suggestions are written and
-  // re-checked (the server scores the text a few times on the way; Neo, 2026-10-31). Shown until a re-check is in.
-  const [probes, setProbes] = useState<{ k: number; score: number }[]>([]);
-  // Once a re-check of record is in, a live score still on its way is stale.
-  const landed = useRef(false);
   // From the start of a live run: until the suggestions are saved the re-check is simply still to come.
   const verify: RefineVerify = {
     state: checking === "pending" ? "pending" : check ? "done" : checking === "failed" ? "failed" : "pending",
@@ -76,7 +71,6 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
     scores: latest?.scores ?? (check ? [check.score] : []),
     check,
     items: latest?.items,
-    live: probes.map((p) => p.score),
   };
   const stored = useSyncExternalStore(subscribe, () => readChoices(orderId), () => "");
   const [local, setLocal] = useState<Decisions | null>(null);
@@ -140,7 +134,6 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
             return;
           }
           cur = body.rewrite;
-          landed.current = true;
           setCheck(body.check);
           setLatest(body.rewrite);
           setRewrite((r) => (r ? (body.rewrite as ReportRewrite) : r));
@@ -183,7 +176,6 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
       setLive(null);
       setError(message);
     };
-    let made = false;
     try {
       // Streamed: each suggestion as soon as it is written, then the whole rewrite (or why there is none).
       const res = await fetch(`/api/reports/${orderId}/rewrite?stream=1`, { method: "POST" });
@@ -193,36 +185,31 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
       }
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
-      let failed: string | null = null;
-      setProbes([]);
-      landed.current = false;
-      // The rewrite line starts the re-check at once; the stream goes on a while after it with the last live scores.
-      const take = (msg: { item?: RewriteItem; probe?: { k: number; score: number }; rewrite?: ReportRewrite; error?: string }) => {
-        const { item, probe, rewrite: done } = msg;
-        if (item) setLive((l) => (l && l.run === run ? { ...l, arrived: [...l.arrived, item] } : l));
-        else if (probe) {
-          if (!landed.current) setProbes((all) => (all.length && all[all.length - 1].k >= probe.k ? all : [...all, { k: probe.k, score: probe.score }]));
-        } else if (done) {
-          made = true;
-          setLive((l) => (l && l.run === run ? { ...l, rewrite: done } : l));
-          setLatest(done);
-          // The real score of the rewritten text (and further rounds), while the rewrite is still being typed out.
-          if (!nextStep(done)) setCheck(done.check ?? null);
-          else void recheck(done);
-        } else failed = msg.error ?? "";
-      };
+      let last: { rewrite?: ReportRewrite; error?: string } | null = null;
       for (;;) {
         const { value, done } = await reader.read();
         if (value) buf += value;
         const lines = buf.split("\n");
         buf = done ? "" : (lines.pop() ?? "");
-        for (const line of lines) if (line.trim()) take(JSON.parse(line));
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line) as { item?: RewriteItem; rewrite?: ReportRewrite; error?: string };
+          const item = msg.item;
+          if (item) setLive((l) => (l && l.run === run ? { ...l, arrived: [...l.arrived, item] } : l));
+          else last = msg;
+        }
         if (done) break;
       }
-      if (!made) fail(failed || "We couldn't write the suggestions just now. Please try again in a little while.");
+      const made = last?.rewrite;
+      if (made) {
+        setLive((l) => (l && l.run === run ? { ...l, rewrite: made } : l));
+        setLatest(made);
+        // The real score of the rewritten text (and further rounds), while the rewrite is still being typed out.
+        if (!nextStep(made)) setCheck(made.check ?? null);
+        else void recheck(made);
+      } else fail(last?.error ?? "We couldn't write the suggestions just now. Please try again in a little while.");
     } catch {
-      // A stream that breaks after the rewrite is in only loses the live scores: the re-check goes on.
-      if (!made) fail("We couldn't write the suggestions just now. Please check your connection and try again.");
+      fail("We couldn't write the suggestions just now. Please check your connection and try again.");
     }
   }
 

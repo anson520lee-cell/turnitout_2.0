@@ -12,16 +12,3 @@ export function recheckScores(param: string | undefined): number[] | null {
     .slice(0, MAX_ROUNDS);
   return scores.length ? scores : null;
 }
-
-/** ?live=80,72,60: made-up live scores of the text so far (at most 6), in percent, landing one after another before the re-check. */
-export function liveScores(param: string | undefined): number[] | null {
-  if (!param) return null;
-  const scores = param
-    .split(",")
-    .filter((x) => x.trim())
-    .map((x) => Number(x))
-    .filter((x) => Number.isFinite(x))
-    .map((x) => Math.min(100, Math.max(0, x)))
-    .slice(0, 6);
-  return scores.length ? scores : null;
-}

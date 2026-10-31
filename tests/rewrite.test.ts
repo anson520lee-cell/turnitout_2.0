@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_STALLS, RESUME_WINDOW_MS, acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, nextStep, parseRewrites, pickFlagged, probeMarks, resumable, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { MAX_STALLS, RESUME_WINDOW_MS, acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, nextStep, parseRewrites, pickFlagged, resumable, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -216,12 +216,4 @@ test("checkRewrite: a later round may not grow past the student's own sentence",
   assert.equal(checkRewrite(earlier, longer, new Set()), null);
   assert.equal(checkRewrite(earlier, longer, new Set(), student), "length changed too much");
   assert.equal(checkRewrite(earlier, "Hours come back when the commute goes, and that is what working from home gives people.", new Set(), student), null);
-});
-
-test("the live rewrite is scored a quarter, half and three quarters of the way, not for tiny jobs", () => {
-  assert.deepEqual(probeMarks(46), [12, 23, 35]);
-  assert.deepEqual(probeMarks(12), [3, 6, 9]);
-  assert.deepEqual(probeMarks(5), []);
-  assert.deepEqual(probeMarks(8), [4, 6]);
-  assert.deepEqual(probeMarks(0), []);
 });

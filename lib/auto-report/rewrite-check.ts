@@ -28,7 +28,7 @@ export type CheckOutcome =
   | { ok: true; check: RewriteCheck; rewrite: ReportRewrite }
   | { ok: false; reason: "no_rewrite" | "busy" | "daily_limit" | "unavailable" };
 
-async function reviewPiece(text: string, prompt: string, model: string, effort: ReasoningEffort, timeoutMs = PIECE_TIMEOUT_MS): Promise<string | null> {
+async function reviewPiece(text: string, prompt: string, model: string, effort: ReasoningEffort): Promise<string | null> {
   try {
     const result = await deepseekRun({
       system: [prompt, DRAFT_GUARD].join("\n\n"),
@@ -36,7 +36,7 @@ async function reviewPiece(text: string, prompt: string, model: string, effort: 
       maxTokens: 24_000,
       model,
       effort,
-      timeoutMs,
+      timeoutMs: PIECE_TIMEOUT_MS,
     });
     await logModelCall("paid_report", { ok: true, result });
     return result.truncated ? null : result.text;
@@ -45,21 +45,6 @@ async function reviewPiece(text: string, prompt: string, model: string, effort: 
     else if (!(e instanceof DeepSeekError)) console.error("rewrite check piece failed", e);
     return null;
   }
-}
-
-/**
- * The detector's real score for a text, the same way a report scores it (same prompt, model, effort and pieces), with
- * nothing saved: used for the intermediate scores of the live rewrite (rewrite-probe.ts). Null when any piece could not
- * be reviewed in `timeoutMs`.
- */
-export async function scoreText(text: string, timeoutMs = PIECE_TIMEOUT_MS): Promise<number | null> {
-  const chunks = chunkText(text, PIECE_SIZE);
-  if (!chunks.length) return null;
-  const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
-  const reports = await Promise.all(chunks.map((c) => reviewPiece(c.text, prompt, setting.model, setting.effort, timeoutMs)));
-  const answers: PieceAnswer[] = reports.flatMap((report, idx) => (report === null ? [] : [{ idx, report, ok: true, truncated: false }]));
-  if (answers.length < chunks.length) return null;
-  return reportScore(stitchReport(text, answers, PIECE_SIZE).summary);
 }
 
 export async function checkReportRewrite(orderId: string, userId: string): Promise<CheckOutcome> {
