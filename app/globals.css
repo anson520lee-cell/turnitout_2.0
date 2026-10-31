@@ -2004,13 +2004,13 @@ html.ent-pre :is(.depth-title, h1, h2) {
 /* R4 RE-CHECK on a real order: a scan line over the text while the detector reads it, then each rewritten sentence
    marked by what it said: still counted (pink, wavy) or cleared (plain text again). A later round's suggestion that
    replaces a typed one flashes in. */
-.rf-sweep {
-  top: 0; height: 72px; border-radius: 8px;
-  background: linear-gradient(180deg, transparent, rgb(255 123 213 / 0.08) 65%, rgb(255 123 213 / 0.5) 97%, transparent);
-  box-shadow: 0 12px 24px -14px rgb(255 123 213 / 0.75);
-  animation: rf-sweep 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+/* R5 FLOW: the paragraph being polished while a real order is re-checked. Paint only (no position or size), so the
+   agents placed by offsetTop stay where they are. */
+.scan-doc p.mb-5 { transition: box-shadow 0.6s ease, background-color 0.6s ease; border-radius: 10px; }
+.scan-doc p[data-polish] {
+  background-color: rgb(155 123 255 / 0.055);
+  box-shadow: -12px 0 0 -9px rgb(155 123 255 / 0.85), 0 0 0 8px rgb(155 123 255 / 0.055), 0 0 28px -6px rgb(155 123 255 / 0.35);
 }
-@keyframes rf-sweep { 0% { top: 40px; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
 .scan-sent.rf-sent[data-rf][data-rc="still"] { background: rgb(255 123 213 / 0.07); text-decoration: underline wavy 1.5px rgb(255 123 213 / 0.8); text-underline-offset: 4px; }
 .scan-sent.rf-sent[data-rf][data-rc="clear"] { text-decoration: none; }
 .scan-sent.rf-sent.rf-swap[data-rf="done"] .rf-txt { animation: rf-cool 1.8s ease-out both; }
@@ -2022,6 +2022,6 @@ html.ent-pre :is(.depth-title, h1, h2) {
 
 @media (prefers-reduced-motion: reduce) {
   .refine-live-dot, .refine-intro-warp::before, .refine-intro-warp::after, .scan-sent.rf-sent[data-rf], .rf-sent .rf-txt, .rf-diff .rf-guard > span, .rf-sent .rf-caret, .rf-lock, .rf-pen::before, .scan-sent.rf-sent::after, [data-refine-chart].rf-chart-hit { animation: none !important; }
-  .rf-lock, .rf-orb, .rf-eraser, .rf-pen, .rf-sweep { display: none; }
+  .rf-lock, .rf-orb, .rf-eraser, .rf-pen { display: none; }
   .rf-diff .rf-guard > span { opacity: 1; }
 }

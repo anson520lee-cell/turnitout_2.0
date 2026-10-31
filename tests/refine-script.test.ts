@@ -25,6 +25,11 @@ import {
   refineRate,
   refineReadMs,
   landLevels,
+  polishAt,
+  polishOrder,
+  polishPhase,
+  polishStrokes,
+  POLISH_SLOT_MS,
   liveAt,
   liveDrift,
   liveWobble,
@@ -300,4 +305,30 @@ test("a re-check above the show walks back up, and a later round only moves on w
   assert.equal(blind.length, 8);
   assert.equal(blind[blind.length - 1], 0.8);
   assert.deepEqual(landLevels({ from: 0.3, to: 0.302, check, seen: new Set(), seed: 0 }), [0.302]);
+});
+
+test("the polish pass takes up each rewritten sentence in turn and always ends on its own text", () => {
+  const plan = refinePlan(result);
+  const jobs = refineJobs(plan, result, arrive(rewriteOf(), 0), refineReadMs(plan.chars));
+  const order = polishOrder(jobs);
+  assert.deepEqual(order.map((j) => j.n), jobs.filter((j) => j.rewrite).map((j) => j.n).sort((a, b) => a - b));
+  assert.equal(polishAt(order, -1), null);
+  const first = polishAt(order, 10)!;
+  assert.equal(first.k, 0);
+  assert.equal(first.job.n, order[0].n);
+  // Round again once every sentence has had its turn.
+  assert.equal(polishAt(order, POLISH_SLOT_MS * order.length + 5)!.job.n, order[0].n);
+  for (const j of order) {
+    const text = j.rewrite!;
+    for (let k = 0; k < 5; k++) {
+      const strokes = polishStrokes(text, j.original, j.n * 31 + k);
+      assert.equal(strokes[strokes.length - 1].text, text);
+      assert.ok(strokesMs(strokes) > 0);
+      // Something is taken back, and it is never more than the sentence.
+      assert.ok(strokes.some((x) => x.kind === "delete"));
+      assert.ok(strokes.every((x) => text.startsWith(x.text) || x.text.length <= text.length + 40));
+      assert.equal(polishPhase(text, j.original, j.n * 31 + k, 0).phase, "typing");
+      assert.equal(polishPhase(text, j.original, j.n * 31 + k, POLISH_SLOT_MS - 1).phase, "done");
+    }
+  }
 });

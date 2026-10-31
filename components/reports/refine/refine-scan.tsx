@@ -25,20 +25,23 @@ import { RefineStage, clockNow, type RefineClock, type StageRecheck } from "./re
  * R1 and R2 erase and retype a sentence as soon as its suggestion is in.
  *
  * On a real order (`verify`) the rewritten text is then re-checked by the detector, and rewritten again while it
- * still scores too high, as the last part of the same view. The rate falls from the first rewritten sentence and
- * wobbles like a share price while the rewrite is typed and re-checked (Neo, 2026-10-31: only the end has to be
- * real), walks to each round's real score sentence by sentence over that re-check's own verdicts, and the view ends
- * on the best round's real score: what it ends on is never an estimate (Neo, 2026-10-29: it had ended on a projected
+ * still scores too high, as the last part of the same view, while R1 and R2 go on polishing the rewritten sentences
+ * (Neo, 2026-10-31: no scan line over a still text). The rate falls from the first rewritten sentence and wobbles like
+ * a share price while the rewrite is typed and re-checked (Neo, 2026-10-31: only the end has to be real), eases toward
+ * the best score so far while a later round runs, and once every round is in walks onto the best round's real score
+ * sentence by sentence over that re-check's own verdicts: what it ends on is never an estimate (Neo, 2026-10-29: it had ended on a projected
  * 1%, and three minutes later the re-check said 98%). No extra detector run. The design previews without a re-check
  * show the projected rate falling as each sentence is rewritten instead.
  */
 
 const FINALE_MS = 7_000;
-/** Re-checked scores that are in before the rewrite is typed out are shown one after another, this far apart. */
+/** The real score stays on the rate at least this long before the finale. */
 const SCORE_STEP_MS = 1_600;
+/** Once a round's score is in and another round runs, the rate eases toward the best score so far over about this long (scan clock). */
+const STEER_MS = 20_000;
 /** A landed re-check is walked to one rewritten sentence at a time, this long each (but the whole walk at most REPLAY_MAX_MS), scan clock. */
-const REPLAY_STEP_MS = 280;
-const REPLAY_MAX_MS = 9_000;
+const REPLAY_STEP_MS = 350;
+const REPLAY_MAX_MS = 12_000;
 
 /**
  * The real re-check of the rewritten text (lib/auto-report/rewrite-check.ts), round by round, as the Writing
@@ -144,8 +147,8 @@ export function RefineScan({
   const fraction = readerAt(scanMs, readMs);
   const pos = scanPosition(plan, fraction);
   const frontier = fraction >= 1 ? total : pos.index;
-  // The rewrite has been typed out. On a real order the re-check (and any later round) runs on in the view, its
-  // scores are shown in turn, and the finale waits for the last of them.
+  // The rewrite has been typed out. On a real order the re-check (and any later round) runs on in the view while R1
+  // and R2 polish the text, and the finale waits for the last of them.
   const typed = known && scanMs >= endMs;
   const scores = verify?.scores ?? NO_SCORES;
   // The live show (a real order): `seed` keeps its wobble the same on every render, `floor` is the projection it
@@ -153,59 +156,47 @@ export function RefineScan({
   const seed = plan.chars + total * 7;
   const floor = projectedScore(rate, clearedBy(jobs, Infinity));
   const liveEnd = useMemo(() => liveAt(rate, jobs, Infinity), [rate, jobs]);
-  // `hold`: how long the score just shown stays before the next, or the finale. `seen`: the sentences cleared by the
-  // round shown. `marks`: steps taken on the chart before the walk now shown.
-  const [shown, setShown] = useState<{ count: number; at: number; hold: number; seen: number[]; marks: number }>(() => ({ count: 0, at: 0, hold: 0, seen: [], marks: 0 }));
-  // The walk to the score that has just landed, from wherever the show stood: one step per rewritten sentence, from
-  // that re-check's own verdicts (landLevels).
-  const [replay, setReplay] = useState<{ at: number; per: number; levels: number[] } | null>(null);
+  // A round's score that is in while another round runs: the rate eases from where it stood down toward the best score
+  // so far, wobbling, instead of jumping to it (Neo, 2026-10-31: no straight spike). Round scores are not shown one by one.
+  const [steer, setSteer] = useState<{ count: number; at: number; from: number; to: number } | null>(null);
+  // Every round is in: the walk to the best round's real score, from wherever the show stood, one step per rewritten
+  // sentence from that re-check's own verdicts (landLevels).
+  const [landing, setLanding] = useState<{ at: number; per: number; levels: number[]; hold: number } | null>(null);
   const pending = verify?.state === "pending";
+  const wobbled = (v: number, at: number, ramp: number) => Math.max(0, Math.min(1, v + liveWobble(at, seed, v) * Math.min(1, ramp)));
   // The rate on a real order at wall time `t`, before the finale: falling with the rewrite, drifting while the
-  // detector works, walking to each round's score as it lands, drifting again while a later round runs.
+  // detector works, easing toward the best score so far while a later round runs, then walking onto the best.
   const liveRate = (t: number): number => {
-    if (!typed) return Math.max(0, Math.min(1, liveAt(rate, jobs, scanMs) + liveWobble(scanMs, seed, liveEnd) * Math.min(1, scanMs / 3_000)));
-    if (!shown.count || !replay) {
-      const v = liveDrift(liveEnd, floor, scanMs - endMs);
-      return Math.max(0, Math.min(1, v + liveWobble(scanMs, seed, v) * Math.min(1, scanMs / 3_000)));
+    if (!typed) return wobbled(liveAt(rate, jobs, scanMs), scanMs, scanMs / 3_000);
+    if (landing) return landing.levels[Math.min(landing.levels.length - 1, Math.max(0, Math.floor(((t - landing.at) * speed) / landing.per)))];
+    if (steer) {
+      const ms = (t - steer.at) * speed;
+      return wobbled(steer.to + (steer.from - steer.to) * Math.exp(-ms / STEER_MS), scanMs, ms / 2_500);
     }
-    const into = (t - replay.at) * speed;
-    const k = Math.floor(into / replay.per);
-    const score = replay.levels[replay.levels.length - 1];
-    if (k < replay.levels.length) return replay.levels[Math.max(0, k)];
-    // Another round is on its way: the line keeps moving from this round's score until it lands.
-    if (!pending) return score;
-    const ms = into - replay.per * replay.levels.length;
-    const v = liveDrift(score, floor, ms);
-    return Math.max(0, Math.min(1, v + liveWobble(scanMs, seed + shown.count, v) * Math.min(1, ms / 2_500)));
+    return wobbled(liveDrift(liveEnd, floor, scanMs - endMs), scanMs, scanMs / 3_000);
   };
-  if (typed && shown.count < scores.length && now - shown.at >= shown.hold / speed) {
-    const score = scores[shown.count];
-    const check = verify?.check;
-    // Only the kept round's verdicts are known: a round that scored higher is walked to without them.
-    const own = check && check.score === score ? check : null;
-    const levels = landLevels({ from: liveRate(now), to: score, check: own, seen: new Set(shown.seen), seed: seed + shown.count });
-    const per = Math.min(REPLAY_STEP_MS, REPLAY_MAX_MS / levels.length);
-    setReplay({ at: now, per, levels });
-    setShown({
-      count: shown.count + 1,
-      at: now,
-      hold: Math.max(SCORE_STEP_MS, per * levels.length + 800),
-      seen: own ? own.cleared : shown.seen,
-      marks: shown.marks + (replay?.levels.length ?? 0),
-    });
+  if (typed && pending && scores.length > (steer?.count ?? 0)) {
+    // Down toward a lower score; a higher one is not climbed to while a later round may still beat it, the line just
+    // holds and wobbles (Neo, 2026-10-31: only the end has to be real, and no climbing back mid-way).
+    const from = liveRate(now);
+    setSteer({ count: scores.length, at: now, from, to: Math.min(from, ...scores) });
   }
-  // The last score shown stays on the rate a moment before the finale lands on the best one.
-  const settling = shown.count > 0 && now - shown.at < shown.hold / speed;
-  const checking = typed && !!verify && (pending || shown.count < scores.length || settling);
+  if (typed && verify && !pending && !landing && scores.length) {
+    const final = verify.check?.score ?? Math.min(...scores);
+    const levels = landLevels({ from: liveRate(now), to: final, check: verify.check, seen: new Set(), seed });
+    const per = Math.min(REPLAY_STEP_MS, REPLAY_MAX_MS / levels.length);
+    setLanding({ at: now, per, levels, hold: Math.max(SCORE_STEP_MS, per * levels.length + 800) });
+  }
+  // The best score stays on the rate a moment before the finale.
+  const settling = !!landing && now - landing.at < landing.hold / speed;
+  const checking = typed && !!verify && (pending || (scores.length > 0 && !landing) || settling);
   const done = typed && !checking;
   if (done && doneAt === null) setDoneAt(now);
-  const caughtUp = shown.count > 0 && shown.count === scores.length;
-  // The best round's re-check, once its score is on screen.
-  const best = caughtUp ? (verify?.check ?? null) : null;
-  // What the view says runs now: held on the round being re-checked until that round's score is on screen.
-  const runningStep = pending ? (verify?.step ?? null) : null;
-  const [step, setStep] = useState<RecheckStep | null>(null);
-  if (shown.count === scores.length && step !== runningStep) setStep(runningStep);
+  const shownCount = landing ? scores.length : 0;
+  // The best round's re-check, once every round is in.
+  const best = landing ? (verify?.check ?? null) : null;
+  // What runs now.
+  const step = pending ? (verify?.step ?? null) : null;
   const stepSecs = step ? Math.max(0, Math.floor((now - step.since) / 1000)) : 0;
 
   const cleared = clearedBy(jobs, scanMs);
@@ -213,11 +204,11 @@ export function RefineScan({
   // could not be re-checked goes back to the report's score: no estimate is shown.
   const final = verify ? (verify.check?.score ?? rate.original) : known ? projectedScore(rate, clearedBy(jobs, Infinity)) : rate.original;
   const realNow = done ? final : liveRate(now);
-  // Steps marked on the chart: each rewritten counted sentence, then each step of each walk to a score.
-  const walked = replay && shown.count ? Math.min(replay.levels.length, Math.floor(((now - replay.at) * speed) / replay.per) + 1) : 0;
-  const realMarks = (typed ? clearedBy(jobs, Infinity) : cleared) + shown.marks + walked;
-  // The rate is on a real score once a walk has reached it and nothing more is coming; until then it is the live show.
-  const onScore = shown.count > 0 && !pending && shown.count === scores.length && walked === (replay?.levels.length ?? 0);
+  // Steps marked on the chart: each rewritten counted sentence, then each step of the walk to the best score.
+  const walked = landing ? Math.min(landing.levels.length, Math.floor(((now - landing.at) * speed) / landing.per) + 1) : 0;
+  const realMarks = (typed ? clearedBy(jobs, Infinity) : cleared) + walked;
+  // The rate is on a real score once the walk has reached it; until then it is the live show.
+  const onScore = !!landing && walked === landing.levels.length;
   const basis: RateBasis = !verify ? "projected" : done ? (best ? "rechecked" : "pending") : onScore ? "rechecked" : "pending";
   const typing = known ? Math.min(1, scanMs / endMs) : Math.min(fraction, jobs.filter((j) => scanMs >= j.end).length / Math.max(1, jobs.length)) * 0.95;
   const counts: RefineCounts = {
@@ -226,9 +217,9 @@ export function RefineScan({
     kept: jobs.filter((j) => j.known && !j.rewrite && scanMs >= j.end).length,
     counted: verify ? (best ? countedIn(best) : rate.counted) : Math.max(0, rate.counted - cleared),
     // A real order: the rewrite is the first 70% of the bar, the re-check rounds the rest.
-    progress: !verify ? typing : done ? 1 : typed ? 0.7 + 0.3 * (1 - 0.55 ** (shown.count + 0.5)) : typing * 0.7,
+    progress: !verify ? typing : done ? 1 : typed ? 0.7 + 0.3 * (1 - 0.55 ** (scores.length + 0.5)) : typing * 0.7,
   };
-  const recheck: StageRecheck | undefined = verify ? { active: checking, step, stepSecs, scores: scores.slice(0, shown.count), check: best, items: best ? verify.items : undefined } : undefined;
+  const recheck: StageRecheck | undefined = verify ? { active: checking, step, stepSecs, scores: scores.slice(0, shownCount), check: best, items: best ? verify.items : undefined } : undefined;
 
   // The clock the animation runs on between renders.
   const clockRef = useRef<RefineClock>({ at: 0, wall: 0, speed, held: true });
@@ -298,7 +289,7 @@ export function RefineScan({
     <div className="relative">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}: rewriting what still reads as AI` : "Re-checking the rewritten text") : "Live rewrite running"}
+          <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing your rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}: rewriting what still reads as AI` : "Polishing while the detector re-checks") : "Live rewrite running"}
         </p>
         <div className="flex flex-wrap gap-2">
           {canSkip && (
@@ -345,7 +336,7 @@ export function RefineScan({
         </span>
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#b9a8ff]">
-            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}` : "Re-checking") : "Live rewrite"}
+            <span className="refine-live-dot" aria-hidden /> {inIntro ? "Preparing rewrite" : done ? "Rewrite complete" : checking ? (step?.kind === "round" ? `Round ${step.round}` : "Polishing") : "Live rewrite"}
           </p>
           <p className="truncate text-[13px] text-fg-muted">{title}</p>
         </div>
@@ -412,6 +403,7 @@ export function RefineScan({
                 done={done}
                 basis={basis}
                 recheck={recheck}
+                polishFrom={verify && typed && checking ? endMs : null}
               />
             </motion.div>
           )}

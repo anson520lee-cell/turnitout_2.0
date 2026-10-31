@@ -337,6 +337,65 @@ export function strokesAt(strokes: Stroke[], ms: number): { text: string; deleti
   return { text: prev, deleting: false };
 }
 
+/* ------------------------------------------------------------------
+   The polish pass of a real order. Once the rewrite is typed out the
+   detector re-checks the whole text (about a minute or more a round, and
+   while it still scores too high the writer rewrites again), and the view
+   waits on it. Rather than a scan line over a still text, R1 and R2 go on
+   working through the rewritten sentences, paragraph by paragraph and round
+   again: each in turn has its last few words taken back and retyped, with a
+   second thought, and R3 checks it again (Neo, 2026-10-31). The text always
+   ends on the suggestion exactly; the real changes of a later round are put
+   in by the re-check itself.
+   ------------------------------------------------------------------ */
+
+/** Each polish takes one slot: its strokes (squeezed to fit if long), then a rest while R3 checks the sentence. */
+export const POLISH_SLOT_MS = 4_200;
+const POLISH_REST_MS = 1_000;
+
+/** The sentences R1 and R2 polish, in text order: every one with a suggestion. */
+export function polishOrder(jobs: RefineJob[]): RefineJob[] {
+  return jobs.filter((j) => j.rewrite).sort((a, b) => a.n - b.n);
+}
+
+/** Which polish runs `ms` into the pass (scan clock): its number, the sentence, and how far into its slot. */
+export function polishAt(order: RefineJob[], ms: number): { k: number; job: RefineJob; into: number } | null {
+  if (!order.length || ms < 0) return null;
+  const k = Math.floor(ms / POLISH_SLOT_MS);
+  return { k, job: order[k % order.length], into: ms - k * POLISH_SLOT_MS };
+}
+
+/** R2's strokes for one polish of `text`: the last two to five words taken back, then typed again with a second thought. */
+export function polishStrokes(text: string, original: string, seed: number): Stroke[] {
+  const words = text.match(/\S+\s*/g) ?? [text];
+  const rand = seeded(seed);
+  const n = words.length < 3 ? words.length : Math.min(words.length - 1, 2 + Math.floor(rand() * 4));
+  const prefix = words.slice(0, words.length - n).join("");
+  const tail = text.slice(prefix.length);
+  const theirs = original.match(/\S+\s*/g) ?? [];
+  const from = Math.floor(theirs.length * (prefix.length / Math.max(1, text.length)));
+  const out: Stroke[] = [
+    { kind: "hold", text, ms: 260 },
+    { kind: "delete", text: prefix, ms: tail.length * BACKSPACE_MS },
+    { kind: "hold", text: prefix, ms: 200 },
+  ];
+  for (const x of draftStrokes(theirs.slice(from).join(""), tail, seed)) out.push({ ...x, text: prefix + x.text });
+  return out;
+}
+
+/** Where a polish of `text` is, `into` its slot: R2 at work on it, or done (resting while R3 checks it). */
+export function polishPhase(text: string, original: string, seed: number, into: number): JobPhase {
+  const strokes = polishStrokes(text, original, seed);
+  const ms = strokesMs(strokes);
+  const room = POLISH_SLOT_MS - POLISH_REST_MS;
+  const at = into * Math.max(1, ms / room);
+  if (at >= ms) return { phase: "done" };
+  const now = strokesAt(strokes, at);
+  let typed = 0;
+  while (typed < now.text.length && now.text[typed] === text[typed]) typed++;
+  return { phase: "typing", typed, text: now.text, deleting: now.deleting, f: at / ms };
+}
+
 /** Of a counted sentence's drop, the share shown once its original is erased; the rest comes as the suggestion is typed. */
 const ERASED_SHARE = 0.3;
 
