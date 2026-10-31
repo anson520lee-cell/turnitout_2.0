@@ -32,6 +32,22 @@ function proseOnly(paragraph: string): string {
   return kept;
 }
 
+/**
+ * Cuts a paragraph after each . ! ? that is followed by a capital letter, quote or bracket. Written without a lookbehind:
+ * this file is in the browser bundle, and Safari before 16.4 cannot parse a lookbehind, which stops the
+ * whole script that holds it from loading.
+ */
+function splitAfterStops(para: string): string[] {
+  const parts: string[] = [];
+  let from = 0;
+  for (const m of para.matchAll(/[.!?]\s+(?=[A-Z(“"'])/g)) {
+    parts.push(para.slice(from, m.index + 1));
+    from = m.index + m[0].length;
+  }
+  parts.push(para.slice(from));
+  return parts;
+}
+
 /** Paragraphs are separated by blank lines; sentences end at . ! ? followed by a capital letter, quote or bracket. */
 export function splitSentences(text: string): Sentence[] {
   const out: Sentence[] = [];
@@ -44,7 +60,7 @@ export function splitSentences(text: string): Sentence[] {
   const prose = all.map(proseOnly).filter(Boolean);
   const paragraphs = prose.length > 0 ? prose : all;
   paragraphs.forEach((para, pi) => {
-    const parts = para.split(/(?<=[.!?])\s+(?=[A-Z(“"'])/).map((x) => x.trim()).filter(Boolean);
+    const parts = splitAfterStops(para).map((x) => x.trim()).filter(Boolean);
     parts.forEach((sentence, si) => out.push({ p: pi + 1, s: si + 1, text: sentence }));
   });
   return out;

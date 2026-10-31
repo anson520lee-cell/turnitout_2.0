@@ -344,18 +344,36 @@ export function numbersIn(s: string): string[] {
  *  - narrative, author first: "Smith (2021)", "Smith and Lee (2021, p. 4)", "Smith et al. (2021)" (the author is part of it)
  *  - bracketed with a year or n.d.: "(Smith, 2021)", "(Smith, 2021; Lee, 2020)", "(Smith, n.d.)", also full-width brackets
  *  - numbered: "[1]", "[1, 2]", "[3-5]"
+ *
+ * No lookbehinds in this file (it is in the browser bundle, and Safari before 16.4 cannot parse one, which stops the
+ * whole script that holds it from loading): "does not start inside a word" is checked by `matchesFromWordStart`.
  */
-const NARRATIVE = String.raw`(?<![\p{L}\p{N}])\p{Lu}[\p{L}'’-]*(?:\s+(?:and|&)\s+\p{Lu}[\p{L}'’-]*|\s+et\s+al\.?)?\s+[(（]\s*(?:\d{4}[a-z]?|n\.d\.)[^()（）]*[)）]`;
+const NARRATIVE = String.raw`\p{Lu}[\p{L}'’-]*(?:\s+(?:and|&)\s+\p{Lu}[\p{L}'’-]*|\s+et\s+al\.?)?\s+[(（]\s*(?:\d{4}[a-z]?|n\.d\.)[^()（）]*[)）]`;
 const BRACKETED = String.raw`[(（][^()（）]*(?:\b\d{4}[a-z]?\b|\bn\.d\.)[^()（）]*[)）]`;
 const NUMBERED = String.raw`\[\s*\d+(?:\s*[,;–-]\s*\d+)*\s*\]`;
 const CITATIONS = new RegExp(`${NARRATIVE}|${BRACKETED}|${NUMBERED}`, "gu");
 /** Double quotes (straight or curly) and single quotes that open after a non-letter and close before one, so apostrophes are not quotes. */
-const QUOTES = /[“"]([^”"]{3,})[”"]|(?<![\p{L}\p{N}])['‘]([^'’‘]{3,})['’](?![\p{L}\p{N}])/gu;
+const QUOTES = /[“"]([^”"]{3,})[”"]|['‘]([^'’‘]{3,})['’](?![\p{L}\p{N}])/gu;
+
+/**
+ * Matches of `re` in `s`, except those `insideWord` says must not start right after a letter or digit (as a lookbehind
+ * did): a refused match is retried one character further on, as the regex engine does for a failed lookbehind.
+ */
+function matchesFromWordStart(re: RegExp, s: string, insideWord: (m: RegExpExecArray) => boolean): RegExpExecArray[] {
+  const scan = new RegExp(re.source, re.flags);
+  const out: RegExpExecArray[] = [];
+  for (let m = scan.exec(s); m; m = scan.exec(s)) {
+    if (insideWord(m) && /[\p{L}\p{N}]$/u.test(s.slice(0, m.index))) scan.lastIndex = m.index + 1;
+    else out.push(m);
+  }
+  return out;
+}
 
 /** Text that must survive word for word: citations and quotations. */
 export function lockedIn(s: string): string[] {
-  const citations = [...s.matchAll(CITATIONS)].map((m) => m[0]);
-  const quotes = [...s.matchAll(QUOTES)].map((m) => m[1] ?? m[2]);
+  // The narrative pattern starts with a capital letter, the single-quote one with its quote mark (group 2).
+  const citations = matchesFromWordStart(CITATIONS, s, (m) => /^\p{Lu}/u.test(m[0])).map((m) => m[0]);
+  const quotes = matchesFromWordStart(QUOTES, s, (m) => m[2] !== undefined).map((m) => m[1] ?? m[2]);
   return [...citations, ...quotes];
 }
 
@@ -381,7 +399,7 @@ export function knownNames(result: AutoReportResult): Set<string> {
 }
 
 /** Whether `word` appears in `text` as a whole word, same capitals. */
-const hasWord = (text: string, word: string) => new RegExp(`(?<![\\p{L}\\p{N}])${word}(?![\\p{L}\\p{N}])`, "u").test(text);
+const hasWord = (text: string, word: string) => new RegExp(`(?:^|[^\\p{L}\\p{N}])${word}(?![\\p{L}\\p{N}])`, "u").test(text);
 
 /**
  * Why a suggestion cannot be used, or null when it passes every check. The checks are the guardrails: a suggestion
