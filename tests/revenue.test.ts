@@ -30,6 +30,18 @@ test("revenue counts top-ups and Alipay orders, keeps unchecked ones apart, skip
   assert.equal(r.unchecked, 4.88);
 });
 
+test("a paid Alipay order cancelled and refunded as site credits still counts once; a cancelled one with no credit refund does not", () => {
+  const r = revenueTotals([], [
+    { provider: "alipay", amount: 800, orderStatus: "cancelled", claimStatus: "confirmed", refundedToCredits: true },
+    { provider: "alipay", amount: 300, orderStatus: "cancelled", claimStatus: "confirmed", refundedToCredits: false },
+    { provider: "alipay", amount: 400, orderStatus: "cancelled", claimStatus: "pending", refundedToCredits: true },
+    { provider: "alipay", amount: 400, orderStatus: "cancelled", claimStatus: "rejected", refundedToCredits: true },
+  ]);
+  assert.equal(r.orders, 7.8);
+  assert.equal(r.checked, 7.8);
+  assert.equal(r.unchecked, 0);
+});
+
 test("HK$ amounts print like the rest of the admin pages", () => {
   assert.equal(formatHkdDollars(78), "HK$78");
   assert.equal(formatHkdDollars(88.73), "HK$88.73");
