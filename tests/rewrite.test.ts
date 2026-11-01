@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_STALLS, RESUME_WINDOW_MS, acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, mergeRound, needsRound, nextStep, parseRewrites, pickFlagged, resumable, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
+import { MAX_STALLS, RESUME_WINDOW_MS, acceptAll, buildItems, checkOutcome, checkRewrite, knownNames, passiveCount, REWRITE_PROMPT, mergeRound, needsRound, nextStep, parseRewrites, pickFlagged, resumable, reviseText, roundTargets, streamedRewrites, type ReportRewrite } from "../lib/auto-report/rewrite";
 import type { AutoReportResult, ReportSentence } from "../lib/auto-report/stitch";
 
 const orig = "Smith (2019) found that 62% of students may rely on stock phrases (Lee, 2020), which \"plays a key role\" in Hong Kong essays.";
@@ -37,7 +37,7 @@ test("a sentence opener is not treated as a name, but a real name is", () => {
   assert.equal(checkRewrite("However, the results were mixed across the three schools.", "The results were mixed across the three schools, though."), null);
   const known = new Set(["Blackmore"]);
   const o = "Blackmore argues that ideas spread by imitation among people.";
-  assert.match(checkRewrite(o, "It is argued that ideas spread by imitation among people.", known) ?? "", /Blackmore/);
+  assert.match(checkRewrite(o, "Some writers argue that ideas spread by imitation among people.", known) ?? "", /Blackmore/);
   assert.equal(checkRewrite("Urban transport has long been shaped by the pursuit of speed.", "City transport has long been shaped by the push for speed.", known), null);
   assert.deepEqual([...knownNames(result([[{ ...sentence(1, "low"), text: "Early on, Blackmore (1999) wrote about London." }]]))].sort(), ["Blackmore", "London"]);
 });
@@ -46,7 +46,7 @@ test("a later round may reword the openers of a suggestion's second and third se
   // Round 2 of Neo's 100% essay (2026-10-29): 12 of 15 new suggestions were refused for "That", "I'd" and the like.
   const known = new Set(["Building", "Information", "Modelling", "BIM", "AI", "Blackmore"]);
   const r1 = "Facility management keeps putting Building Information Modelling (BIM) together with artificial intelligence (AI). Honestly, I'd call that pairing a real change in how the job gets done.";
-  assert.equal(checkRewrite(r1, "Honestly, Building Information Modelling (BIM) and artificial intelligence (AI) keep turning up together in facility management, and to me that changes how the work is done.", known), null);
+  assert.equal(checkRewrite(r1, "Honestly, Building Information Modelling (BIM) and artificial intelligence (AI) keep turning up together in facility management, and to me that changes how people do the work.", known), null);
   const r2 = "For a long time, the sector ran on separate manual workflows. That made information hard to share.";
   assert.equal(checkRewrite(r2, "The sector ran on its own manual workflows for ages, so information got stuck between teams.", known), null);
   // A name inside any of the sentences, or a known name opening one, still has to stay.
@@ -216,4 +216,27 @@ test("checkRewrite: a later round may not grow past the student's own sentence",
   assert.equal(checkRewrite(earlier, longer, new Set()), null);
   assert.equal(checkRewrite(earlier, longer, new Set(), student), "length changed too much");
   assert.equal(checkRewrite(earlier, "Hours come back when the commute goes, and that is what working from home gives people.", new Set(), student), null);
+});
+
+test("passiveCount counts passive clauses and leaves active ones alone", () => {
+  assert.equal(passiveCount("The council cut the budget and the schools lost staff."), 0);
+  assert.equal(passiveCount("The budget was cut by the council."), 1);
+  assert.equal(passiveCount("Staff were quickly dismissed and the plan has been written off."), 2);
+  assert.equal(passiveCount("Traffic is stuck here every morning."), 1);
+  assert.equal(passiveCount("Traffic gets stuck here every morning."), 0, "get-passives are not counted");
+});
+
+test("a rewrite may not turn an active sentence passive, but may keep a passive one", () => {
+  const active = "The council cut the budget, so the schools lost staff and the pupils felt it.";
+  const flipped = "The budget was cut by the council, so staff were lost at the schools and it was felt by the pupils.";
+  assert.match(checkRewrite(active, flipped) ?? "", /passive/);
+  const activeAgain = "The council trimmed the budget, so the schools lost some staff and the pupils felt it later on.";
+  assert.equal(checkRewrite(active, activeAgain), null);
+  const passiveOrig = "The budget was cut by the council last year, and nobody asked the schools.";
+  const passiveKept = "Last year the council cut the budget, and the schools were never asked, which nobody explained.";
+  assert.equal(checkRewrite(passiveOrig, passiveKept), null);
+});
+
+test("the rewrite prompt tells the writer to keep the doer as the subject", () => {
+  assert.match(REWRITE_PROMPT, /Keep the voice of the original/);
 });
