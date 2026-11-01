@@ -45,7 +45,7 @@ export async function adminMetrics() {
     // Filtered here, not after: there are over a thousand free-report rows, and a read stops at 1,000 rows.
     db
       .from("payments")
-      .select("amount,provider,provider_payment_id,orders(status)")
+      .select("amount,provider,provider_payment_id,order_id,orders(status)")
       .eq("status", "succeeded")
       .not("provider", "in", `(${NOT_MONEY_PROVIDERS.join(",")})`)
       .limit(10000),
@@ -53,12 +53,18 @@ export async function adminMetrics() {
     count(db.from("payment_claims").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
   // An Alipay order's payment points at its claim; a pending claim is money not found in AlipayHK yet.
-  const payRows = (payments.data ?? []) as unknown as { amount: number; provider: string; provider_payment_id: string; orders: { status: string } | null }[];
+  const payRows = (payments.data ?? []) as unknown as { amount: number; provider: string; provider_payment_id: string; order_id: string; orders: { status: string } | null }[];
   const claimIds = payRows.map((p) => p.provider_payment_id).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   const { data: claimRows } = claimIds.length
     ? await db.from("payment_claims").select("id,status").in("id", claimIds)
     : { data: [] as { id: string; status: string }[] };
   const claimStatus = new Map((claimRows ?? []).map((c) => [c.id as string, c.status as string]));
+  // A cancelled order whose price went back to the customer as site credits: the money stayed with us.
+  const cancelledIds = payRows.filter((p) => p.orders?.status === "cancelled").map((p) => p.order_id);
+  const { data: refundRows } = cancelledIds.length
+    ? await db.from("credit_transactions").select("order_id").eq("kind", "refund").in("order_id", cancelledIds)
+    : { data: [] as { order_id: string }[] };
+  const refundedOrders = new Set((refundRows ?? []).map((r) => r.order_id as string));
   const revenue = revenueTotals(
     ((topups.data ?? []) as { usd: number; method: string; reviewed_by: string | null }[]).map((t) => ({
       usd: t.usd,
@@ -70,6 +76,7 @@ export async function adminMetrics() {
       amount: p.amount,
       orderStatus: p.orders?.status ?? "cancelled",
       claimStatus: claimStatus.get(p.provider_payment_id) ?? null,
+      refundedToCredits: refundedOrders.has(p.order_id),
     })),
   );
   return { users, orders, ordersToday, queued, inScreening, completed, revenue, claimsPending };

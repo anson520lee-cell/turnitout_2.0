@@ -28,6 +28,8 @@ export type RevenueOrderPayment = {
   orderStatus: string;
   /** For a manual method: the status of the claim this payment came from. */
   claimStatus?: string | null;
+  /** The order was cancelled and its price given back to the customer as site credits. */
+  refundedToCredits?: boolean;
 };
 
 export type Revenue = { checked: number; unchecked: number; topups: number; orders: number };
@@ -45,7 +47,9 @@ export function revenueTotals(topups: RevenueTopup[], payments: RevenueOrderPaym
   let unchecked = topups.filter((t) => t.unchecked).reduce((s, t) => s + t.usd * HKD_PER_USD, 0);
   for (const p of payments) {
     if ((NOT_MONEY_PROVIDERS as readonly string[]).includes(p.provider)) continue;
-    if (p.orderStatus === "cancelled" || p.orderStatus === "awaiting_payment") continue;
+    if (p.orderStatus === "awaiting_payment") continue;
+    // Cancelled: only money received and kept as credits counts (once, here), never a cash refund.
+    if (p.orderStatus === "cancelled" && !(p.claimStatus === "confirmed" && p.refundedToCredits)) continue;
     if (p.claimStatus === "rejected") continue;
     if (p.claimStatus === "pending") unchecked += orderHkd(p.amount);
     else orders += orderHkd(p.amount);
