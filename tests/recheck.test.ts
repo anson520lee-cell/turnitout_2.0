@@ -99,3 +99,15 @@ test("a short unpunctuated line is kept when it is the only text, and Chinese li
 test("short paragraphs with closing punctuation stay", () => {
   assert.equal(splitSentences("Yes.\n\nIt works. Really!").length, 3);
 });
+
+test("splitSentences cuts where the lookbehind version did", async () => {
+  const { splitSentences } = await import("../lib/recheck");
+  const old = (text: string) => text.trim().split(/(?<=[.!?])\s+(?=[A-Z(“"'])/).map((x) => x.trim()).filter(Boolean);
+  const samples = [
+    "One. Two!  Three? (Four) “Five” 'Six' seven. Eight",
+    "It cost 3.5 dollars. e.g. this stays. Dr. Smith agrees!?  Yes. Another one",
+    "No stop here and a lowercase. start stays together.",
+    "Ends with a stop. ",
+  ];
+  for (const s of samples) assert.deepEqual(splitSentences(s).map((x) => x.text), old(s), s);
+});
