@@ -293,11 +293,11 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
               <RecheckSummary check={check} checking={checking === "pending"} canContinue={!!latest && nextStep(latest) !== null} error={checkError} original={reportScore(result.summary)} onRetry={() => void recheck(latest)} />
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
                 <p className="text-[12.5px] text-fg-subtle">
-                  <span className="font-mono text-fg-muted">{accepted}</span> of {shown.length} suggestions used
+                  <span className="font-mono text-fg-muted">{accepted}</span> <span>{`of ${shown.length} suggestions used`}</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => choose(shown.map((i) => i.n), "accept")}>Use all</Button>
-                  <Button variant="ghost" size="sm" onClick={() => choose(shown.map((i) => i.n), undefined)}>Reset</Button>
+                  <Button variant="ghost" size="sm" onClick={() => choose(shown.map((i) => i.n), "accept")}><span>Use all</span></Button>
+                  <Button variant="ghost" size="sm" onClick={() => choose(shown.map((i) => i.n), undefined)}><span>Reset</span></Button>
                 </div>
               </div>
               <ul className="space-y-4">
@@ -311,7 +311,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
                         {still.has(i.n) && <Badge tone="warn">Still flagged on the re-check</Badge>}
                       </div>
                       {i.why && <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: {i.why}</p>}
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="mt-3 grid gap-3 md:grid-cols-2" translate="no">
                         <div className={cn("rounded-lg border p-3", d === "accept" ? "border-[var(--line)] opacity-60" : "border-[var(--line)]")}>
                           <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Your sentence</p>
                           <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">{i.original}</p>
@@ -323,9 +323,9 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {d === "accept" ? (
-                          <Button variant="outline" size="sm" onClick={() => choose(i.n, undefined)}><Undo2 className="size-3.5" /> Keep mine</Button>
+                          <Button variant="outline" size="sm" onClick={() => choose(i.n, undefined)}><Undo2 className="size-3.5" /> <span>Keep mine</span></Button>
                         ) : (
-                          <Button variant="primary" size="sm" onClick={() => choose(i.n, "accept")}><Check className="size-3.5" /> Use this</Button>
+                          <Button variant="primary" size="sm" onClick={() => choose(i.n, "accept")}><Check className="size-3.5" /> <span>Use this</span></Button>
                         )}
                       </div>
                     </li>
@@ -343,10 +343,10 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
                     {accepted ? `Your text with the ${accepted} suggestion${accepted === 1 ? "" : "s"} you chose.` : "Choose the suggestions you want, then copy your revised text here."}
                   </p>
                   <Button variant="secondary" size="sm" disabled={!accepted} onClick={copy}>
-                    <Copy className="size-3.5" /> {copied ? "Copied" : "Copy revised text"}
+                    <Copy className="size-3.5" /> <span>{copied ? "Copied" : "Copy revised text"}</span>
                   </Button>
                 </div>
-                {accepted > 0 && <p className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-ink-900/60 p-3 text-[13px] leading-relaxed text-fg-muted">{revised}</p>}
+                {accepted > 0 && <p translate="no" className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-ink-900/60 p-3 text-[13px] leading-relaxed text-fg-muted">{revised}</p>}
               </div>
             </>
           )}
