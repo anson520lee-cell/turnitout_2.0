@@ -218,7 +218,7 @@ export function pickFlagged(result: AutoReportResult, max = MAX_REWRITE_SENTENCE
 
 export const REWRITE_PROMPT = `You rewrite sentences of a student's essay that an AI-writing detector flagged, so that the detector no longer reads them as AI. Getting the AI score down is the goal and comes before keeping the wording or every detail: the student has agreed that a sentence may lose a detail, change how strongly it says something, or shift in meaning. Polishing is not enough: the detector still flags a sentence that keeps its original shape with new synonyms, and any sentence that is smooth, formal and completely predictable.
 
-For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the detector's "reason" and "ask". The reason is what the detector actually said about this sentence: answer it first, point by point, before anything else in this prompt. If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time. If the message says round 2 or later, each sentence is already a rewrite that the detector still flagged: write it again in a clearly different way (different opening, structure and length), never a light edit.
+For every item you get: id, "before" and "after" (the neighbouring sentences, for context only: never rewrite or repeat them), the "sentence" to rewrite, the detector's "reason" and "ask". The reason is what the detector actually said about this sentence: answer it first, point by point, before anything else in this prompt. If "last_try_failed_because" is present, your earlier rewrite of that sentence was refused for that reason: avoid it this time. If the message says round 2 or later, each sentence is already a rewrite that the detector still flagged: write it again in a clearly different way (different opening, structure and length, with the same doer as the subject and no new passive), never a light edit.
 
 The only hard limits:
 - Never add a number, statistic, date, source or citation that is not in the sentence. Keep every in-text citation, for example (Gabora, 1998), and every quotation in quotation marks exactly as written. Keep every name.
@@ -236,6 +236,7 @@ How to write it:
 - One flowing sentence about as long as the original (at most a third longer: the whole essay must not grow), with its ideas joined by commas, "so", "but", "which", "and then". Lose the neat balance: let a clause come late or trail on. Longer is not the fix; a different, less expected way of saying it is.
 - Make it concrete. Swap an abstract phrase ("economic vitality", "social cohesion", "environmental degradation") for the plain thing it stands for, and where it helps illustrate the claim with one small ordinary image or case in generic terms (a farmer paying off a loan, a clinic that needs power, a manager answering messages at night), told as a way of showing the point, not as a real event. A specific picture is the least predictable thing a sentence can contain; two or three of these in a paragraph are plenty.
 - Put people in it. Say who does the thing and why, using only what the sentence and its neighbours already say. Replace "a group", "people", "teams", "the system" by who it really is when the text tells you.
+- Keep the voice of the original. Whoever does the thing stays the subject of the sentence ("the council cut the budget" stays active; never turn it into "the budget was cut by the council"). Do not change an active sentence into a passive one to make it look different: change the words, the clauses and the order of ideas instead. If the original is already passive, you may keep it passive, but do not add more passives than it had.
 - Pick the less obvious word, even if it is a little awkward, instead of the standard collocation. Use the plainer word the student would really say instead of an upgraded one (money, not revenue).
 - Now and then, where it comes naturally and with no fixed rate, leave a small slip a real student makes: a missing or extra article, a plural slip ("many informations"), a wrong preposition, a verb form ("the people is"), or an odd but understandable word choice. Some sentences have one, many have none, and do not force one in. Never a misspelt word, and never so much that the meaning is unclear.
 - Cut what makes it sound generated: stock academic phrases (in an era of, plays a key role, profound, pervasive, fundamentally, serves as, landscape, fabric, underscores, it is worth noting, worth a closer look), signposting openers (Furthermore, Moreover, Additionally, Consequently, Ultimately, On a broader scale, In conclusion; "So", "But" and "And" are fine), colon reveals, "not X but Y", "rather than" and "neither... nor" punchlines, callbacks, pairs of short parallel sentences, and neat closing morals.
@@ -401,6 +402,19 @@ export function knownNames(result: AutoReportResult): Set<string> {
 /** Whether `word` appears in `text` as a whole word, same capitals. */
 const hasWord = (text: string, word: string) => new RegExp(`(?:^|[^\\p{L}\\p{N}])${word}(?![\\p{L}\\p{N}])`, "u").test(text);
 
+/** Past participles that do not end in -ed/-en, for the passive count below. */
+const IRREGULAR_PARTICIPLES = "made|done|seen|known|given|taken|shown|found|built|held|led|lost|paid|put|set|run|got|gotten|kept|left|sent|spent|told|thought|brought|bought|caught|taught|sold|met|read|won|drawn|grown|chosen|driven|written|begun|broken|spoken|worn|born|cut|shut|hit|hurt|let|laid|said|heard|felt|meant|understood|forgotten|stolen|hidden|ridden|risen|thrown|torn|woken|stuck|stopped|struck|sold|hung|fed|led";
+
+/**
+ * How many passive clauses a sentence has: a form of "to be" followed, with at most one adverb between,
+ * by a past participle. A rough count (an adjective in -ed such as "is tired" counts too), good enough to compare a
+ * rewrite with its own original.
+ */
+export function passiveCount(text: string): number {
+  const re = new RegExp(`\\b(?:am|is|are|was|were|be|been|being)\\s+(?:\\w+ly\\s+)?(?:\\w{3,}ed|${IRREGULAR_PARTICIPLES})\\b`, "gi");
+  return (text.match(re) ?? []).length;
+}
+
 /**
  * Why a suggestion cannot be used, or null when it passes every check. The checks are the guardrails: a suggestion
  * that fails one is not shown, and the sentence stays as it was. The meaning may change (see the top of this file);
@@ -422,6 +436,10 @@ export function checkRewrite(original: string, rewrite: string, known: ReadonlyS
   // A later round rewrites an earlier suggestion, but the length limit is the student's own sentence: rounds must not compound.
   const growth = r.length / Math.max(1, (student ?? o).trim().length);
   if (ratio < 0.4 || growth > MAX_GROWTH) return "length changed too much";
+  // The prompt asks the writer to reshape sentences, and it took the easy way out: turning the doer into an object ("the
+  // budget was cut by the council"). That is not how the student writes, so a suggestion may not have more passive clauses
+  // than the original (measured on five essays: 7 of 126 sentences passive before, 14 of 126 after the first rewrite).
+  if (passiveCount(r) > passiveCount(o)) return "it turned the sentence passive: keep the person or thing doing the action as the subject, in the active voice";
   const numbers = new Set(numbersIn(o));
   for (const n of numbersIn(r)) if (!numbers.has(n)) return `a number (${n}) was added`;
   for (const t of lockedIn(o)) if (!r.includes(t)) return "a citation or quotation was changed";
