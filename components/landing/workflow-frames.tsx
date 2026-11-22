@@ -74,11 +74,11 @@ export const workflowFrames = [
       <ScanText size={13} aria-hidden /> Sentences flagged
     </small>
     <div>
-      {paragraphs.map((p) => {
+      {paragraphs.map((p, k) => {
         const marked = p.sentences.filter((s) => s.risk === "high" || s.risk === "medium").length;
         const fraction = marked / Math.max(p.sentences.length, 1);
         return (
-          <div key={p.p} className={styles.mapColumn} data-risk={p.risk}>
+          <div key={p.p} className={styles.mapColumn} data-risk={p.risk} style={{ "--k": k } as CSSProperties}>
             <span>
               {marked}/{p.sentences.length}
             </span>

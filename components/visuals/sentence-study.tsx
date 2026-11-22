@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useCallback, useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { ArrowUpRight, FileText } from "lucide-react";
 import { sampleReport } from "@/lib/auto-report/sample";
 import { sentenceAnchor } from "@/lib/auto-report/sentence-anchor";
@@ -20,7 +20,14 @@ const xAt = (i: number) => ((i + 0.5) / sentences.length) * 100;
 const profile = sentences.map((s, i) => `${xAt(i)},${heightAt(s.words)}`).join(" ");
 
 export function SentenceStudy() {
-  const [index, setIndex] = useState(0);
+  // The readout slides in from the side the reader is moving toward.
+  const [view, setView] = useState({ index: 0, direction: 1 });
+  const setIndex = useCallback(
+    (next: number) =>
+      setView((v) => (v.index === next ? v : { index: next, direction: next > v.index ? 1 : -1 })),
+    [],
+  );
+  const { index, direction } = view;
   const id = useId();
   const held = useRef(false);
   const current = sentences[index];
@@ -100,16 +107,19 @@ export function SentenceStudy() {
               />
             </div>
           </div>
-          <div className={styles.readout}>
+          <div className={styles.readout} data-direction={direction}>
             <p className={styles.meta}>
               P{current.paragraph} · Sentence {current.n} · {current.risk} risk
             </p>
-            <blockquote id={`${id}-excerpt`}>{current.text}</blockquote>
-            <p className={styles.note}>
+            <blockquote key={`q${current.n}`} id={`${id}-excerpt`}>
+              {current.text}
+            </blockquote>
+            <p key={`n${current.n}`} className={styles.note}>
               {current.why ?? (current.risk === "low" ? "The reviewer left this sentence unmarked." : "")}
             </p>
             <a
               className={styles.source}
+              data-press
               href={`/sample-report#${sentenceAnchor(current.paragraph, current.n)}`}
             >
               Read in context <ArrowUpRight size={12} aria-hidden />

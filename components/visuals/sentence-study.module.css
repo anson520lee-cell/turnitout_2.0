@@ -126,6 +126,24 @@
   line-height: 1.48;
   color: var(--color-fg);
 }
+/* A new sentence arrives from the side the reader is moving toward. It is
+   readable at once and settles within a quarter second; the note follows. */
+.readout blockquote,
+.readout .note {
+  animation: read-in 240ms cubic-bezier(0.2, 0.76, 0.2, 1) both;
+}
+.readout .note {
+  animation-delay: 45ms;
+}
+.readout[data-direction="-1"] {
+  --read-from: -0.4rem;
+}
+@keyframes read-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(var(--read-from, 0.4rem));
+  }
+}
 .source {
   display: inline-flex;
   align-items: center;
@@ -153,6 +171,10 @@
 @media (prefers-reduced-motion: reduce) {
   .marker {
     transition: none;
+  }
+  .readout blockquote,
+  .readout .note {
+    animation: none;
   }
 }
 

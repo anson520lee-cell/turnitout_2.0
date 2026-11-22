@@ -37,37 +37,73 @@ export const steps = [
   },
 ];
 
+/** Reading focus, as a fraction of the viewport height. */
+const focusAt = (compact: boolean) => window.innerHeight * (compact ? 0.7 : 0.52);
+/** How quickly the chapters follow the page, ms. Short enough to feel attached to the scroll. */
+const FOLLOW = 120;
+
 export function HowItWorks({ heading = true }: { heading?: boolean }) {
   const list = useRef<HTMLOListElement>(null);
-  const film = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   useEffect(() => {
     const rows = list.current;
-    if (!rows) return;
+    const chapters = root.current;
+    if (!rows || !chapters) return;
     const compact = matchMedia("(max-width: 767px)");
-    let frame = 0;
-    function measure() {
-      frame = 0;
-      if (!rows) return;
-      const focusY = window.innerHeight * (compact.matches ? 0.7 : 0.52);
-      const centres = Array.from(rows.children, (row) => {
-        const rect = row.getBoundingClientRect();
-        return rect.top + rect.height / 2;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const items = Array.from(rows.children) as HTMLElement[];
+    const frames = Array.from(chapters.querySelectorAll<HTMLElement>("[data-frame]"));
+    let frame = 0,
+      last = 0,
+      target = 0,
+      shown = Number.NaN,
+      dirty = true;
+    // Where the page says the chapters should be: each step holds still while
+    // it is read, then the distance scrolled pulls the next one in. Each row's
+    // top rule also fills as the reading line passes through it.
+    function read() {
+      dirty = false;
+      const focusY = focusAt(compact.matches);
+      const rects = items.map((row) => row.getBoundingClientRect());
+      rects.forEach((rect, i) => {
+        const through = Math.max(0, Math.min(1, (focusY - rect.top) / rect.height));
+        items[i].style.setProperty("--read", through.toFixed(3));
       });
+      const centres = rects.map((rect) => rect.top + rect.height / 2);
       const ahead = centres.findIndex((centre) => centre > focusY);
-      let position = ahead < 0 ? centres.length - 1 : 0;
+      target = ahead < 0 ? centres.length - 1 : 0;
       if (ahead > 0) {
         const interval = (focusY - centres[ahead - 1]) / (centres[ahead] - centres[ahead - 1]);
-        // Give each page a stretch of stillness for reading, then let the
-        // distance scrolled pull the next page in from the side.
         const t = Math.max(0, Math.min(1, (interval - 0.23) / 0.54));
-        position = ahead - 1 + t * t * (3 - 2 * t);
+        target = ahead - 1 + t * t * (3 - 2 * t);
       }
-      film.current?.style.setProperty("--position", String(position));
+    }
+    // One position drives every layer, so text, frame, counter and thumb never disagree.
+    function paint(position: number) {
+      chapters!.style.setProperty("--position", position.toFixed(4));
+      frames.forEach((scene, i) => {
+        const offset = Math.max(-1, Math.min(1, i - position));
+        scene.style.setProperty("--offset", offset.toFixed(4));
+        scene.style.setProperty("--local", (1 - Math.abs(offset)).toFixed(4));
+      });
       setActive(Math.round(position));
     }
+    function tick(time: number) {
+      frame = 0;
+      if (dirty) read();
+      const dt = last ? Math.min(48, time - last) : 16;
+      last = time;
+      if (reduced.matches || Number.isNaN(shown)) shown = target;
+      else shown += (target - shown) * (1 - Math.exp(-dt / FOLLOW));
+      if (Math.abs(target - shown) < 0.001) shown = target;
+      paint(reduced.matches ? Math.round(shown) : shown);
+      if (shown !== target) frame = requestAnimationFrame(tick);
+      else last = 0;
+    }
     const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
+      dirty = true;
+      if (!frame) frame = requestAnimationFrame(tick);
     };
     const observer = new IntersectionObserver(([entry]) => {
       window.removeEventListener("scroll", schedule);
@@ -78,6 +114,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
     observer.observe(rows);
     size.observe(rows);
     window.addEventListener("resize", schedule);
+    reduced.addEventListener("change", schedule);
     schedule();
     return () => {
       observer.disconnect();
@@ -85,6 +122,7 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
+      reduced.removeEventListener("change", schedule);
     };
   }, []);
 
@@ -98,22 +136,36 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
             body="Every order shows its current step in your dashboard, from payment to report."
           />
         )}
-        <div className={styles.chapters} style={{ "--chapter": active } as CSSProperties}>
+        <div
+          ref={root}
+          className={styles.chapters}
+          style={{ "--chapter": active, "--count": steps.length } as CSSProperties}
+        >
           <div className={styles.stage}>
             <div className={styles.stageTop}>
               <span>Sample essay</span>
               <span>
-                Step <b>{steps[active].n}</b> / {steps.at(-1)?.n}
+                Step{" "}
+                <b className={styles.counter}>
+                  <span aria-hidden className={styles.roll}>
+                    {steps.map((s) => (
+                      <i key={s.n}>{s.n}</i>
+                    ))}
+                  </span>
+                  <span className="sr-only">{steps[active].n}</span>
+                </b>{" "}
+                / {steps.at(-1)?.n}
               </span>
             </div>
             <div className={styles.window}>
-              <div ref={film} className={styles.film}>
+              <div className={styles.film}>
                 {workflowFrames.map((scene, i) => (
                   <div
                     key={scene.key}
                     className={styles.frame}
                     aria-hidden={i !== active}
                     data-active={i === active}
+                    data-frame
                   >
                     {scene}
                   </div>

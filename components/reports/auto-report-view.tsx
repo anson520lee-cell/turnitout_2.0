@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
@@ -57,12 +57,116 @@ function Stat({ title, value, of, sub }: { title: string; value: string; of?: st
 /** Reports that mark which sentences count toward the score: a flagged sentence that doesn't count is shown lighter. */
 const uncounted = (s: ReportSentence, scored: boolean) => scored && isFlagged(s.risk) && !s.counts;
 
+const isReportAnchor = (id: string) => /^para-\d+(-sentence-\d+)?$/.test(id);
+
+/**
+ * Links within the report travel to their sentence and mark where they land.
+ * The page sets off in the frame after the click and slows as it arrives
+ * (the browser's own smooth scroll starts slowly). Once the sentence is in
+ * view it fills like a highlighter drawn along it, its paragraph's rail lights
+ * up, and focus moves there so the keyboard carries on from the sentence.
+ */
+function useLandingMarks() {
+  useEffect(() => {
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let watcher: IntersectionObserver | null = null;
+    let fallback = 0;
+    let journey = 0;
+    let marked: HTMLElement[] = [];
+    function clear() {
+      watcher?.disconnect();
+      watcher = null;
+      window.clearTimeout(fallback);
+      for (const el of marked) delete el.dataset.landing;
+      marked = [];
+    }
+    function land() {
+      clear();
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (!isReportAnchor(id)) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      const card = target.closest<HTMLElement>("[id^='para-']:not([id*='-sentence-'])");
+      if (target !== card) target.focus({ preventScroll: true });
+      const show = () => {
+        watcher?.disconnect();
+        watcher = null;
+        window.clearTimeout(fallback);
+        marked = card && card !== target ? [target, card] : [target];
+        for (const el of marked) el.dataset.landing = "";
+      };
+      watcher = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && show(), {
+        threshold: 1,
+      });
+      watcher.observe(target);
+      fallback = window.setTimeout(show, 1600);
+    }
+    function stop() {
+      cancelAnimationFrame(journey);
+      journey = 0;
+    }
+    function follow(event: MouseEvent) {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href*='#para-']") : null;
+      if (!link || link.pathname !== location.pathname || link.target) return;
+      const id = decodeURIComponent(link.hash.slice(1));
+      if (!isReportAnchor(id) || !document.getElementById(id)) return;
+      const again = link.hash === location.hash;
+      if (reduced.matches) {
+        // The browser jumps; following the same link again still lands again.
+        if (again) window.setTimeout(land);
+        return;
+      }
+      event.preventDefault();
+      stop();
+      // Let the browser place the sentence (scroll margins, sticky header),
+      // read where that is, then travel there ourselves from where we were.
+      const root = document.documentElement;
+      const from = window.scrollY;
+      const behaviour = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      if (again) document.getElementById(id)!.scrollIntoView({ block: "start" });
+      else location.hash = link.hash;
+      const to = window.scrollY;
+      window.scrollTo({ top: from, behavior: "instant" });
+      root.style.scrollBehavior = behaviour;
+      if (again) land();
+      const distance = Math.abs(to - from);
+      const duration = Math.min(720, 240 + Math.sqrt(distance) * 9);
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        window.scrollTo({ top: from + (to - from) * (1 - (1 - t) ** 3), behavior: "instant" });
+        journey = t < 1 ? requestAnimationFrame(step) : 0;
+      };
+      if (distance > 1) journey = requestAnimationFrame(step);
+    }
+    land();
+    window.addEventListener("hashchange", land);
+    document.addEventListener("click", follow);
+    // The reader's own scrolling takes over at once.
+    const interrupt = { passive: true } as const;
+    window.addEventListener("wheel", stop, interrupt);
+    window.addEventListener("touchstart", stop, interrupt);
+    window.addEventListener("keydown", stop);
+    return () => {
+      stop();
+      window.removeEventListener("hashchange", land);
+      document.removeEventListener("click", follow);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+      clear();
+    };
+  }, []);
+}
+
 function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolean }) {
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
   return (
     <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
-      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
+      <span aria-hidden className={cn(reading.rail, "absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-subtle">Paragraph {para.p}</span>
         <Badge tone={riskStyle[para.risk].tone} className={riskPrintClass[riskStyle[para.risk].tone]}>
@@ -176,7 +280,7 @@ function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
             <button type="button" aria-label="Previous paragraph" disabled={index <= 0} onClick={() => browse(index - 1)}><ArrowLeft size={15} /></button>
             <button type="button" aria-label="Next paragraph" disabled={index >= paragraphs.length - 1} onClick={() => browse(index + 1)}><ArrowRight size={15} /></button>
           </div>
-          {excerpt && <a className={reading.excerpt} href={`#${sentenceAnchor(para.p, excerpt.n)}`}>
+          {excerpt && <a className={reading.excerpt} data-press href={`#${sentenceAnchor(para.p, excerpt.n)}`}>
             <span>{excerpt.text}</span><ArrowUpRight aria-hidden size={15} className="shrink-0 self-center text-chart-mid" />
           </a>}
         </div>}
@@ -189,6 +293,7 @@ function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
 
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
 export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo }: { title: string; finishedAt: string; result: AutoReportResult; rewriteDemo?: boolean; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; canSkip?: boolean } }) {
+  useLandingMarks();
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);

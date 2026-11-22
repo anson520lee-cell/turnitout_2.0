@@ -46,6 +46,24 @@
   color: var(--color-fg);
   font-weight: 500;
 }
+/* The step number rolls with the page, so a visitor who stops between two
+   steps sees both numbers part way. */
+.counter {
+  display: inline-block;
+  height: 1.3em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.roll {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--position, var(--chapter)) * -1.3em));
+}
+.roll i {
+  height: 1.3em;
+  line-height: 1.3em;
+  font-style: normal;
+}
 .window {
   overflow: hidden;
   background:
@@ -59,7 +77,6 @@
 .film {
   display: flex;
   transform: translate3d(calc(var(--position, var(--chapter)) * -100%), 0, 0);
-  transition: transform 265ms cubic-bezier(0.19, 0.64, 0.27, 1);
 }
 .frame {
   position: relative;
@@ -72,6 +89,11 @@
   padding: 1.4rem;
   border-inline-end: 1px solid var(--line-strong);
   overflow: hidden;
+}
+/* What a frame shows travels a little further than the frame itself, and the
+   papers swing square as they arrive. */
+.frame > * {
+  translate: calc(var(--offset, 0) * 26%) 0;
 }
 .frame small,
 .paperTop,
@@ -279,8 +301,22 @@
   font-weight: 400;
 }
 .segments {
+  position: relative;
   display: flex;
   border-top: 1px solid var(--line-strong);
+}
+/* One thumb rides the segments with the page, between steps as well as on them. */
+.segments::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: calc(100% / var(--count, 5));
+  height: 2px;
+  background: var(--color-chart-mid);
+  box-shadow: 0 0 7px var(--color-accent);
+  transform: translateX(calc(var(--position, var(--chapter)) * 100%));
+  pointer-events: none;
 }
 .segments a {
   position: relative;
@@ -295,29 +331,17 @@
 .segments a + a {
   border-left: 1px solid var(--line);
 }
-.segments a::before {
-  content: "";
-  position: absolute;
-  inset: -1px 0 auto;
-  height: 2px;
-  background: var(--color-chart-mid);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.4s;
-}
 .segments a[aria-current],
 .segments a:is(:hover, :focus-visible) {
   background: var(--glass);
   color: var(--color-fg);
-}
-.segments a[aria-current]::before {
-  transform: scaleX(1);
 }
 .steps {
   grid-area: steps;
   min-width: 0;
 }
 .steps li {
+  position: relative;
   display: grid;
   align-items: center;
   min-height: clamp(9rem, 27vh, 14rem);
@@ -327,6 +351,16 @@
 }
 .steps li:last-child {
   border-bottom: 1px solid var(--line-strong);
+}
+/* Each step's rule fills as the reading line passes through the step. */
+.steps li::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 1px;
+  background: var(--color-chart-mid);
+  transform: scaleX(var(--read, 0));
+  transform-origin: left;
 }
 .stepBody {
   display: grid;
@@ -414,39 +448,44 @@
     top: auto;
   }
 }
+/* Inside each frame the drawing is scrubbed by the page too: it builds as its
+   frame arrives and comes apart as it leaves, and holds still wherever the
+   visitor stops. */
 @media (prefers-reduced-motion: no-preference) {
-  .ruler i,
-  .mapColumn i {
-    transition: transform 0.52s cubic-bezier(0.2, 0.75, 0.22, 1);
+  .proof {
+    rotate: calc(var(--offset, 0) * 7deg);
+  }
+  .receipt {
+    rotate: calc(var(--offset, 0) * -6deg);
   }
   .ruler i {
     transform-origin: left;
+    transform: scaleX(calc(0.05 + 0.95 * var(--local, 1)));
   }
   .mapColumn i {
     transform-origin: bottom;
+    transform: scaleY(clamp(0.05, calc(var(--local, 1) * 1.6 - var(--k, 0) * 0.15), 1));
   }
-  .frame[data-active="false"] .ruler i {
-    transform: scaleX(0.05);
+  .fold span:first-child {
+    translate: 0 calc((1 - var(--local, 1)) * -25%);
   }
-  .frame[data-active="false"] .mapColumn i {
-    transform: scaleY(0.05);
-  }
-  .fold span {
-    transition: translate 0.5s cubic-bezier(0.2, 0.75, 0.22, 1);
-  }
-  .frame[data-active="false"] .fold span:first-child {
-    translate: 0 -25%;
-  }
-  .frame[data-active="false"] .fold span:nth-child(2) {
-    translate: 0 25%;
+  .fold span:nth-child(2) {
+    translate: 0 calc((1 - var(--local, 1)) * 25%);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .film {
     transform: translate3d(calc(var(--chapter) * -100%), 0, 0);
   }
-  .film,
-  .segments a::before,
+  .frame > * {
+    translate: none;
+  }
+  .roll {
+    transform: translateY(calc(var(--chapter) * -1.3em));
+  }
+  .segments::after {
+    transform: translateX(calc(var(--chapter) * 100%));
+  }
   .steps h3 {
     transition: none;
   }
