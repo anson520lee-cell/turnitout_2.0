@@ -166,9 +166,8 @@ export function PasteDialog({
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
             style={{ transformPerspective: 1200 }}
-            className="glass-strong no-cursor-light noise relative overflow-hidden rounded-3xl"
+            className="glass-strong no-cursor-light orb-dialog-panel relative overflow-hidden rounded-3xl"
           >
-            <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-accent/20 blur-3xl" />
             <div className="relative flex items-start justify-between gap-4 px-5 pt-5 sm:px-7 sm:pt-6">
               <div>
                 <h2 id={titleId} className="text-[18px] font-semibold tracking-tight">{title}</h2>
@@ -179,7 +178,7 @@ export function PasteDialog({
                 onClick={onClose}
                 disabled={phase === "waiting"}
                 aria-label="Close"
-                className="grid size-8 shrink-0 place-items-center rounded-lg text-fg-subtle transition hover:bg-white/[0.06] hover:text-fg disabled:opacity-30"
+                className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-subtle transition hover:bg-white/[0.06] hover:text-fg disabled:opacity-30"
               >
                 <X className="size-4" />
               </button>

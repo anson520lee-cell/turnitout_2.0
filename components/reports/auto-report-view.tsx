@@ -58,7 +58,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
   return (
-    <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
+    <Card id={`para-${para.p}`} className="orb-paragraph relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-subtle">Paragraph {para.p}</span>
@@ -124,13 +124,21 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
   const text = overallText[overall];
   const partial = pieces.reviewed < pieces.total;
   return (
-    <div className="space-y-5">
+    <div className="orb-report space-y-5">
       <div className="hidden print:block">
         <p className="text-[20px] font-semibold">{brand.name} · AI-writing risk report</p>
         <p className="text-[12px] text-fg-subtle">{title} · {finishedAt}</p>
       </div>
 
-      <Card strong className="noise relative overflow-hidden p-6 sm:p-8">
+      <nav aria-label="Report sections" className="orb-report-nav print:hidden">
+        <a href="#report-overview">Overview</a>
+        {paragraphs.length > 0 && <a href="#paragraph-map">Paragraph map</a>}
+        {paragraphs.length > 0 && <a href="#report-paragraphs">Sentence notes</a>}
+        {(rewrite || rewriteDemo) && <a href="#writing-refinement">Writing Refinement</a>}
+        {grammar.length > 0 && <a href="#report-grammar">Grammar</a>}
+      </nav>
+
+      <Card strong id="report-overview" className="orb-report-overview relative scroll-mt-24 overflow-hidden p-6 sm:p-8">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -207,7 +215,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
         </div>
       </Card>
 
-      <Card className="p-5 sm:p-6 print:break-inside-avoid">
+      <Card id="paragraph-map" className="scroll-mt-24 p-5 sm:p-6 print:break-inside-avoid">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
           <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
@@ -216,28 +224,35 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
             ))}
           </div>
         </div>
-        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
-          {[0, 50, 100].map((g) => (
-            <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
-              <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
-            </span>
-          ))}
-          <div className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]">
-            {paragraphs.map((p) => {
-              const share = paragraphShare(p);
-              return (
-                <a
-                  key={p.p}
-                  role="listitem"
-                  href={`#para-${p.p}`}
-                  title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
-                  className="group relative flex h-full min-w-[6px] flex-1 items-end"
-                >
-                  {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
-                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
-                </a>
-              );
-            })}
+        <div className="orb-paragraph-chart-scroll mt-5">
+          <div
+            className="relative h-40"
+            role="group"
+            aria-label="Share of flagged sentences in each paragraph, in order"
+            style={{ minWidth: dense ? `${paragraphs.length * 12 + 32}px` : undefined }}
+          >
+            {[0, 50, 100].map((g) => (
+              <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
+                <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
+              </span>
+            ))}
+            <div className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]">
+              {paragraphs.map((p) => {
+                const share = paragraphShare(p);
+                return (
+                  <a
+                    key={p.p}
+                    href={`#para-${p.p}`}
+                    title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
+                    aria-label={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
+                    className="group relative flex h-full min-w-0 flex-1 items-end"
+                  >
+                    {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
+                    <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                  </a>
+                );
+              })}
+            </div>
           </div>
         </div>
         {!dense && (
@@ -274,13 +289,13 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
       {rewriteDemo && !rewrite && <RewriteDemo />}
       {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} title={title} canSkip={rewrite.canSkip} />}
 
-      <div className="space-y-3">
+      <div id="report-paragraphs" className="scroll-mt-24 space-y-3">
         <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>
         {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} scored={scored} />)}
       </div>
 
       {grammar.length > 0 && (
-        <Card className="p-5 sm:p-6 print:break-inside-avoid">
+        <Card id="report-grammar" className="scroll-mt-24 p-5 sm:p-6 print:break-inside-avoid">
           <h3 className="text-[15px] font-semibold tracking-tight">Grammar to check</h3>
           <p className="mt-1 text-[12.5px] text-fg-subtle">Where and what kind only. The fix is yours to make.</p>
           <ul className="mt-3 space-y-2 text-[13.5px] text-fg-muted">

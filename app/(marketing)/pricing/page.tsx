@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { PricingCards } from "@/components/landing/pricing-cards";
+import { ReportOffers } from "@/components/orbital/report-journey";
 import { Container } from "@/components/ui/section";
 import { FaqList } from "@/components/landing/faq-list";
 import { faq } from "@/config/faq";
@@ -25,10 +25,10 @@ export default function PricingPage() {
         body={`Every account gets ${freeReport.dailyLimit} full report a day free (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). Longer texts: the AI-writing risk report is priced by length.`}
       />
       <Container>
-        <PricingCards headingAs="h2" />
+        <ReportOffers pricingPage />
 
         <div className="mx-auto mt-14 grid max-w-4xl gap-5 md:grid-cols-2">
-          <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
+          <div className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How reports are priced</h2>
             <p className="mt-2">
               {reportRateLabel}, rounded up to the next {reportPricing.blockChars.toLocaleString("en-HK")}. {reportMinimumLabel}. {reportCycleLabel}. For texts of {reportRangeLabel}. Spaces count; runs of
@@ -46,7 +46,7 @@ export default function PricingPage() {
               ))}
             </ul>
           </div>
-          <div data-tilt="5" className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
+          <div className="glass rounded-2xl p-6 text-[14px] leading-relaxed text-fg-muted">
             <h2 className="text-[15px] font-semibold text-fg">How credits work</h2>
             <p className="mt-2">
               1 credit = HK$1. Larger top-ups get bonus credits: {topUpBonusTiers.slice().reverse().map((t) => `US$${t.minUsd}+ → +${t.percent}%`).join(", ")}. Top up on the Billing & Credits page with crypto (USDT, USDC or BTC), PayPal or Alipay. Crypto credits are added automatically once the payment is confirmed; Alipay top-ups are added as soon as you send the transaction number (we check the payment afterwards), PayPal top-ups after we confirm them by hand, then they are yours to spend on any report.

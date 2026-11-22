@@ -1,35 +1,17 @@
 # 0% design rules
 
-One visual language for the public site, the scan pages and the signed-in app. Check new work against this list.
+## Visual system
 
-## Mood
-Space + machine learning, dark and calm. The background supports the content and never competes with it: no twinkling stars, a sparse neural field, a small backdrop network. Effects are allowed only where listed below.
+The site uses a navy-black background, cool-blue writing risk signals and fine rules between surfaces. Use pale chartreuse for primary actions, active controls and section labels. Keep status and risk charts blue and grey so the accent does not change the meaning of a rating. Geist is the interface typeface, Geist Mono is for labels and counts, and Georgia is for document excerpts and italic display text.
 
-## Colour
-- Background: ink-950…ink-700. Text: `fg` (#e9edf7), `fg-muted` (#9aa3b8), `fg-subtle` (#8a92ae, the lightest grey allowed for text).
-- One accent (`accent`, blue) for actions and live data; `cyan` and `violet` only as secondary signal colours; `ok` / `warn` / `risk` only for status.
-- No new hues without a reason.
+The public layout uses the shared navigation, page headings and footer. The report workspace keeps denser typography, a persistent sidebar on desktop and a menu on small screens. Prefer flat panels with a fine border and reserve imagery for the home scene, the report request and the final home call to action. The generated orbital artwork is decorative.
 
-## Type
-- Geist for text, Geist Mono for labels, numbers and code. Georgia only where already used for document text.
-- Sizes: page title 36–48px (PageHeader, and AppHeader on public pages via `.public-shell`); app page title 24–28px; section title 30–44px; body 15–16px; secondary 13–14px; labels 11px.
-- **Nothing a user needs to read is smaller than 11px.** Smaller mono text is allowed only inside decorative visuals (terminal, document, mock dashboard) whose content is also given elsewhere in real text.
+## Interaction
 
-## Components
-- Cards: `Card` (glass) / `Card strong` (glass-strong), radius 16–24px. Don't hand-roll card backgrounds.
-- Buttons: `buttonClasses` liquid glass only. No opaque coloured buttons.
-- Page headers: `PageHeader` on marketing pages, `AppHeader` in the app and on the (scan) pages.
-- Badges for status, `Eyebrow` (mono, 11px, uppercase, accent) above section titles.
+Keep native page scrolling. The home scene follows mouse movement and scroll on fine pointers. Where supported, scroll-linked motion softly introduces section headings. The report sample has keyboard-operable tabs and buttons, and the full report has native links to the paragraph map, sentence notes and Writing Refinement. Touch and keyboard users can reach the same features without hovering. Respect reduced motion and keep all headings visible as soon as they render.
 
-## Effects: where they are allowed
-| Effect | Where |
-|---|---|
-| Particle headings (h1/h2) | Public pages only; never in the signed-in app, never in the footer |
-| Document + agent terminal | The product visual: home hero, scan page. Terminal under the document on phones |
-| 3D sphere network | Pattern Engine section only |
-| Reveal entrance | Any section |
-| Background (galaxy, nebula, field, landscape) | Global, kept dim |
-Anything else (glows, pulsing dots, rings of neurons, floating chips) needs a reason and should not cover text.
+The report request reuses the draft dialog, character and price validation, and sign-in flow. Keep document text and risk data readable in reports and their print output. Links and controls need visible focus, and chart state needs a textual label.
 
-## Honesty
-Visuals with ML metrics are illustrative and must not claim to measure the user's text. The Pattern Engine is deterministic statistics. Wording is about writing clearly, never about evading detection.
+## Product copy
+
+Identify sample text and ratings as illustrative. A risk report describes writing patterns and can flag human writing. Writing Refinement offers suggestions that the writer may choose to use. Preserve the distinctions between the site’s report, any third-party assessment, and proof of authorship.

@@ -4,7 +4,6 @@ import { AppHeader } from "@/components/layout/app-header";
 import { DailyReportCard } from "@/components/orders/daily-report-card";
 import { getFreeReportStatus } from "@/lib/free-report";
 import { ReportRequest } from "@/components/orders/report-request";
-import { Badge } from "@/components/ui/badge";
 import { reportFromLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
 
 export const metadata: Metadata = {
@@ -19,12 +18,11 @@ export default async function Page() {
   return (
     <>
       <AppHeader
-        eyebrow={<Badge tone="info" dot>Automatic · ready in a few minutes</Badge>}
+        eyebrow={<span className="orb-label"><span className="orb-indicator" /> New report</span>}
         title={serviceLabels[reportService]}
         body={
           <>
-            Paste your text and pay by length. The report reads every sentence and every paragraph, and shows where your writing could be
-            misread as AI-written: an overall level, a map of your text, the sentences to look at again and grammar spots, with a PDF to download.{" "}
+            Paste a draft to see where its writing patterns may be flagged. Your report includes a paragraph map, sentence-level reasons, and a downloadable PDF.{" "}
             <Link href="/sample-report" className="text-accent underline-offset-4 hover:underline">
               See a sample report
             </Link>

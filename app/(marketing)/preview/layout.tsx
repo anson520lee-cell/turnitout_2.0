@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Entrance } from "@/components/motion/entrance";
+import { SpaceBackground } from "@/components/space/space-background";
 
 // Design previews: reachable by link, kept out of search results.
 export const metadata: Metadata = {
@@ -7,5 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default function PreviewLayout({ children }: LayoutProps<"/preview">) {
-  return children;
+  return (
+    <>
+      <SpaceBackground />
+      {children}
+      <Entrance />
+    </>
+  );
 }

@@ -1,12 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ClipboardPaste, CornerDownLeft, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowRight, ClipboardPaste, FileCheck2, ShieldCheck } from "lucide-react";
 import { createScreeningTextOrder } from "@/app/actions/orders";
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
 import { billableChars, formatCredits, priceUsd, reportPrice, reportPricing } from "@/config/pricing";
 import { formatMoney } from "@/config/payments";
@@ -16,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
 const STEPS = [
-  { icon: ClipboardPaste, t: "Paste your text", d: `Press Get report, paste ${reportRangeLabel}, press Enter.` },
+  { icon: ClipboardPaste, t: "Paste your text", d: `Choose Paste your text, add ${reportRangeLabel}, press Enter.` },
   { icon: ShieldCheck, t: "Pay", d: "Pay just this report's exact price with Alipay, or use credits topped up with crypto (USDT, USDC or BTC), PayPal or Alipay." },
   { icon: FileCheck2, t: "Get your report here", d: "Watch a live scan of your text (about a minute for 5,000 characters), then read the report on your order page, with a PDF download." },
 ];
@@ -33,37 +32,30 @@ export function ReportRequest() {
   return (
     <>
       <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-        <Card strong id="paid-report" className="noise flex scroll-mt-24 flex-col overflow-hidden p-5 sm:p-7">
-          <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-accent/15 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-28 right-0 size-72 rounded-full bg-violet/15 blur-3xl" />
-          <ReportVisual className="relative min-h-[520px] flex-1 sm:min-h-[430px]" />
-          <div className="relative mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight">
-                {reportFromLabel}
-                <span className="mt-1 block text-[14px] font-normal text-fg-subtle">{reportRateLabel}</span>
-              </p>
-              <p className="mt-1 text-[13px] text-fg-muted">{reportLimitsLabel}. For texts of {reportRangeLabel}.</p>
-            </div>
-            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+        <Card strong id="paid-report" className="orb-paid-request relative flex scroll-mt-24 flex-col overflow-hidden p-6 sm:p-8">
+          <div className="orb-request-art" aria-hidden="true" />
+          <div className="relative">
+            <p className="orb-label"><span className="orb-indicator" /> Pay per report</p>
+            <h2 className="mt-5 max-w-sm text-balance text-3xl font-semibold tracking-tight sm:text-5xl">Review a longer draft.</h2>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-fg-muted">For drafts of {reportRangeLabel}, or when you need another report today.</p>
+          </div>
+          <div className="relative mt-auto pt-12 sm:pt-20">
+            <div className="flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
+              <div>
+                <p className="text-2xl font-semibold tracking-tight">{reportFromLabel}</p>
+                <p className="mt-1 text-[13px] text-fg-muted">{reportRateLabel}</p>
+              </div>
               <Button
                 size="lg"
-                className="h-14 px-8 text-[16px]"
                 onClick={() => {
                   track("screening_service_clicked", { from: "request_page" });
                   setOpen(true);
                 }}
               >
-                <FileCheck2 className="size-5" /> Get report <ArrowRight className="size-4 transition group-hover/btn:translate-x-0.5" />
+                Paste your text <ArrowRight className="size-4 transition group-hover/btn:translate-x-0.5" aria-hidden="true" />
               </Button>
-              <p className="flex items-center gap-1.5 text-[12px] text-fg-subtle">
-                Paste, then press
-                <kbd className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-fg">
-                  Enter <CornerDownLeft className="size-3" />
-                </kbd>
-              </p>
             </div>
+            <p className="mt-4 text-[12px] leading-relaxed text-fg-subtle">{reportLimitsLabel}.</p>
           </div>
         </Card>
 
@@ -75,7 +67,7 @@ export function ReportRequest() {
                 "An overall AI-writing risk level for your whole text",
                 "A map of every paragraph, from low to high risk",
                 "The sentences that read most like AI writing, with a question to ask yourself about each",
-                "Grammar spots: where and what kind, never a rewrite",
+                "Grammar notes and an optional Writing Refinement add-on",
                 "A PDF you can download",
               ].map((t) => (
                 <li key={t} className="flex gap-2.5">

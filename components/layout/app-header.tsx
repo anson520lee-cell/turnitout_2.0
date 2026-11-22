@@ -6,14 +6,13 @@ export function AppHeader({ title, body, actions, eyebrow }: { title: ReactNode;
     <div className="mb-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <div className="mb-2">{eyebrow ?? <HudLabel>Workspace · live</HudLabel>}</div>
+          <div className="mb-2">{eyebrow ?? <HudLabel>Workspace</HudLabel>}</div>
           <h1 className="app-h1 text-2xl font-semibold tracking-tight sm:text-[28px]">{title}</h1>
           {body && <p className="app-lead mt-1.5 max-w-2xl text-[14px] text-fg-muted">{body}</p>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {/* a synapse: a signal runs from one neuron to the other */}
-      <div aria-hidden className="synapse mt-5"><i /></div>
+      <div aria-hidden className="orb-app-heading-rule" />
     </div>
   );
 }

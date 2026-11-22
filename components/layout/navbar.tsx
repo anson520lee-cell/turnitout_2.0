@@ -1,25 +1,27 @@
 "use client";
-import { NavigationLink as Link } from "@/components/ui/navigation-link";
+
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Logo } from "@/components/ui/logo";
-import { buttonClasses } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/how-it-works", label: "How It Works" },
+  { href: "/how-it-works", label: "How it works" },
   { href: "/services", label: "Services" },
+  { href: "/sample-report", label: "Sample report" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/faq", label: "FAQ" },
 ];
 
 export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
   const [hasSession, setHasSession] = useState(false);
+  const pathname = usePathname();
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const open = menuPath === pathname;
   const signedIn = verified ?? hasSession;
+
   useEffect(() => {
-    // Public pages share static HTML. Only the account shortcut needs session state.
     if (verified !== undefined || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
@@ -29,135 +31,55 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
         setHasSession(Boolean(session));
       });
       unsubscribe = () => data.subscription.unsubscribe();
-    }).catch(() => { /* Guest navigation stays usable if auth cannot initialise. */ });
+    }).catch(() => { /* Guest links remain available if auth cannot initialize. */ });
     return () => {
       disposed = true;
       unsubscribe?.();
     };
   }, [verified]);
 
-  const [scrolled, setScrolled] = useState(false);
-  const pathname = usePathname();
-  // Menu state is tied to the path it was opened on, so navigating closes it.
-  const [openOn, setOpenOn] = useState<string | null>(null);
-  const open = openOn === pathname;
-  // Which link the glass pill sits under: the hovered one, else the current page.
-  const [hovered, setHovered] = useState<string | null>(null);
-  const pill = hovered ?? links.find((l) => l.href === pathname)?.href ?? null;
-
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (!open) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setMenuPath(null);
+      toggle.current?.focus();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
-      <nav
-        aria-label="Main"
-        className={cn(
-          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
-          scrolled || open ? "glass-strong" : "border border-transparent",
-        )}
-      >
+    <header className="orb-nav">
+      <nav className="orb-container orb-nav-inner" aria-label="Main">
         <Logo />
-        <ul className="hidden items-center gap-1 md:flex" onPointerLeave={() => setHovered(null)}>
-          {links.map((l) => (
-            <li key={l.href} className="relative">
-              {pill === l.href && (
-                <motion.span
-                  layoutId="nav-pill"
-                  aria-hidden
-                  className="absolute inset-0 rounded-lg border border-white/[0.07] bg-white/[0.05] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_6px_20px_-10px_rgb(91_140_255/0.6)]"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                />
-              )}
-              <Link
-                href={l.href}
-                onPointerEnter={() => setHovered(l.href)}
-                onFocus={() => setHovered(l.href)}
-                onBlur={() => setHovered(null)}
-                data-press
-                className={cn(
-                  "relative block rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg",
-                  pathname === l.href && "text-fg",
-                )}
-              >
-                {l.label}
-                {pathname === l.href && (
-                  <span aria-hidden className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <div className="hidden items-center gap-2 md:flex">
-          {signedIn ? (
-            <Link href="/dashboard" className={buttonClasses("primary", "sm", "px-4")}>
-              Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className={buttonClasses("ghost", "sm")}>
-                Log in
-              </Link>
-              <Link href="/signup" className={buttonClasses("primary", "sm", "px-4")}>
-                Start free
-                <ArrowRight className="size-3.5 transition-transform group-hover/btn:translate-x-0.5" />
-              </Link>
-            </>
-          )}
-        </div>
         <button
+          ref={toggle}
+          className="orb-menu-toggle"
           type="button"
-          className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
           aria-expanded={open}
-          aria-controls="mobile-menu"
+          aria-controls="site-navigation"
           aria-label={open ? "Close menu" : "Open menu"}
-          onClick={() => setOpenOn(open ? null : pathname)}
+          onClick={() => setMenuPath(open ? null : pathname)}
         >
-          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          {open ? <X size={21} aria-hidden="true" /> : <Menu size={21} aria-hidden="true" />}
         </button>
+        <div className="orb-nav-panel" id="site-navigation" data-open={open || undefined}>
+          <ul className="orb-nav-links">
+            {links.map(({ href, label }) => (
+              <li key={href}>
+                <Link href={href} aria-current={pathname === href ? "page" : undefined} onClick={() => setMenuPath(null)}>{label}</Link>
+              </li>
+            ))}
+          </ul>
+          <div className="orb-nav-actions">
+            {!signedIn && <Link className="orb-nav-login" href="/login" onClick={() => setMenuPath(null)}>Log in</Link>}
+            <Link className="orb-button orb-button-secondary" href={signedIn ? "/dashboard" : "/signup"} onClick={() => setMenuPath(null)}>
+              {signedIn ? "Dashboard" : "Start free"} <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
       </nav>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id="mobile-menu"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="glass-strong mx-auto mt-2 max-w-6xl rounded-2xl p-3 md:hidden"
-          >
-            <ul className="grid gap-1">
-              {links.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} data-press className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--line)] pt-3">
-              {signedIn ? (
-                <Link href="/dashboard" className={buttonClasses("primary", "md", "col-span-2")}>
-                  Dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link href="/login" className={buttonClasses("secondary", "md")}>
-                    Log in
-                  </Link>
-                  <Link href="/signup" className={buttonClasses("primary", "md")}>
-                    Start free
-                  </Link>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </header>
   );
 }

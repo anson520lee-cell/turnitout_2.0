@@ -19,8 +19,7 @@ export default async function ScanLayout({ children }: { children: React.ReactNo
   if (user) {
     const credits = await getCreditBalance();
     return (
-      <div className="relative min-h-dvh lg:flex">
-        <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(50%_40%_at_70%_0%,rgb(91_140_255/0.08),transparent_70%)]" />
+      <div className="orb-workspace relative min-h-dvh lg:flex">
         <AppSidebar email={user.email} isAdmin={user.profile.role === "admin"} credits={credits} />
         <main id="main" className="app-main min-w-0 flex-1 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">
           <div className="mx-auto max-w-6xl">{children}</div>
@@ -30,14 +29,13 @@ export default async function ScanLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <>
+    <div className="orb-site">
       <Navbar signedIn={false} />
       {/* public-shell: page headers here take the marketing pages' size (see .public-shell in globals.css) */}
-      <main id="main" className="public-shell relative overflow-x-clip">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(50%_60%_at_50%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
+      <main id="main" className="public-shell orb-request-shell relative overflow-x-clip">
         <Container className="relative pb-24 pt-36 sm:pt-44">{children}</Container>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

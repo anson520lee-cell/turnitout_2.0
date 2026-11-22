@@ -1,12 +1,11 @@
 "use client";
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LayoutGrid, FileStack, FileCheck2, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/app/actions/account";
 import { cn } from "@/lib/utils";
-import { NeuralMark } from "@/components/ui/neural-mark";
 
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
@@ -18,8 +17,21 @@ const nav = [
 
 export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin: boolean; credits: number }) {
   const path = usePathname();
-  const [open, setOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const open = menuPath === path;
+  const toggle = useRef<HTMLButtonElement>(null);
   const items = isAdmin ? [...nav, { href: "/admin", label: "Admin", icon: Shield }] : nav;
+
+  useEffect(() => {
+    if (!open) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setMenuPath(null);
+      toggle.current?.focus();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
 
   const list = (
     <nav aria-label="App" className="flex flex-1 flex-col">
@@ -32,7 +44,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
             <li key={href}>
               <Link
                 href={href}
-                onClick={() => setOpen(false)}
+                onClick={() => setMenuPath(null)}
                 aria-current={active ? "page" : undefined}
                 data-press
                 className={cn("glass-item group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px]", active ? "glass-item-active text-fg" : "text-fg-muted hover:text-fg")}
@@ -62,32 +74,32 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
     <>
       <aside className="sticky top-0 hidden h-dvh w-[17.5rem] shrink-0 p-3 lg:block">
         <div className="sidebar-glass relative flex h-full flex-col rounded-[28px] p-4">
-        <div className="mb-6 px-2 pt-1">
-          <Logo />
-          <p className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
-            <NeuralMark className="text-accent" />
-            Pattern Engine online
-          </p>
-        </div>
-        {list}
+          <div className="mb-6 px-2 pt-1">
+            <Logo />
+            <p className="orb-label mt-5"><span className="orb-indicator" /> Workspace</p>
+          </div>
+          {list}
         </div>
       </aside>
       <header className="sidebar-glass-bar sticky top-0 z-40 flex h-14 items-center justify-between px-4 lg:hidden">
         <Logo />
         <button
+          ref={toggle}
+          type="button"
           className="glass-item grid size-11 place-items-center rounded-xl text-fg-muted hover:text-fg"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          aria-controls="workspace-menu"
+          onClick={() => setMenuPath(open ? null : path)}
         >
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </header>
-      {open && (
-        <div className="fixed inset-x-0 top-14 bottom-0 z-40 p-3 lg:hidden">
+      <div id="workspace-menu" hidden={!open} className="fixed inset-x-0 top-14 bottom-0 z-40 p-3 lg:hidden">
+        {open && (
           <div className="sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4">{list}</div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

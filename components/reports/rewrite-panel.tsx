@@ -418,7 +418,7 @@ function Disclaimer() {
 /** A fixed example of the Writing Refinement add-on for the sample report: nothing here is clickable or charged. */
 export function RewriteDemo() {
   return (
-    <Card className="p-5 sm:p-6 print:hidden">
+    <Card id="writing-refinement" className="scroll-mt-24 p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: lower your AI score</h3>
         <Badge tone="info">Add-on · 3× the report&rsquo;s price</Badge>

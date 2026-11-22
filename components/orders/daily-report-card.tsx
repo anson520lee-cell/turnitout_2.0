@@ -20,9 +20,8 @@ export type DailyReportStatus = { mode: "guest" } | { mode: "account"; remaining
 const n = (v: number) => v.toLocaleString("en-HK");
 
 const PERKS = [
-  "The whole report: AI score, every sentence rated with its reason, paragraph map",
-  "The full live scan and every effect",
-  "PDF download",
+  "Paragraph map and sentence-level reasons",
+  "Live scan and downloadable PDF",
 ];
 
 /** "5 h 12 min" until the next Hong Kong midnight; null on the server so the first paint matches. */
@@ -104,7 +103,7 @@ export function DailyReportCard({
 
   return (
     <>
-      <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
+      <Card strong className={cn("orb-daily-request relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
         <div aria-hidden className={cn("pointer-events-none absolute -left-16 -top-20 size-64 rounded-full blur-3xl", used ? "bg-white/[0.04]" : "bg-accent/20")} />
         <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-accent/12")} />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
@@ -119,7 +118,7 @@ export function DailyReportCard({
                 )}
               >
                 {used ? <Lock className="size-3" aria-hidden /> : <Gift className="size-3" aria-hidden />}
-                {used ? "Used today" : unlimited ? "Owner · unlimited" : "1 left today"}
+                {used ? "Used today" : unlimited ? "Owner · unlimited" : "Available today"}
               </span>
             </div>
             <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
