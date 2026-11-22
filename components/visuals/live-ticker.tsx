@@ -325,8 +325,8 @@ export function LiveStage({
   let high = sent;
   while (levelOf(high) !== "high") high--;
   return (
-    <DepthStage
-      className={cn("relative w-full", className)}
+    <ReportGlass
+      className={className}
       tilt={tilt}
       overlay={
         <div className={cn("absolute inset-0 z-10", center && "flex flex-col justify-center")}>
@@ -353,7 +353,16 @@ export function LiveStage({
           )}
         </div>
       }
-    >
+    />
+  );
+}
+
+/** The existing document stage, shared by the live illustration and its interactive sample. */
+export function ReportGlass({ className, tilt, overlay, interactive = false }: {
+  className?: string; tilt: number; overlay: ReactNode; interactive?: boolean;
+}) {
+  return (
+    <DepthStage className={cn("relative w-full", className)} tilt={tilt} overlay={overlay} interactive={interactive}>
       <DepthLayer depth={-70} className="inset-x-[-1%] bottom-[-2%] top-[4%] hidden rotate-[-3deg] sm:block">
         <div className="glass size-full rounded-3xl opacity-60" />
       </DepthLayer>

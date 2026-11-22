@@ -1,7 +1,7 @@
 "use client";
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -36,6 +36,7 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
     };
   }, [verified]);
 
+  const progress = useRef<HTMLSpanElement>(null);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   // Menu state is tied to the path it was opened on, so navigating closes it.
@@ -46,21 +47,45 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
   const pill = hovered ?? links.find((l) => l.href === pathname)?.href ?? null;
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
+    const line = progress.current;
+    if (!line) return;
+    let raf = 0;
+    let distance = 0;
+    function paint() {
+      raf = 0;
+      setScrolled(window.scrollY > 12);
+      const fraction = distance > 0 ? Math.min(1, Math.max(0, window.scrollY / distance)) : 0;
+      if (line) line.style.transform = `scaleX(${fraction})`;
+    }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(paint); };
+    function measure() {
+      distance = document.documentElement.scrollHeight - window.innerHeight;
+      onScroll();
+    }
+    const size = new ResizeObserver(measure);
+    size.observe(document.body);
+    measure();
+    window.addEventListener("resize", measure);
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    return () => {
+      cancelAnimationFrame(raf); size.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [pathname]);
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
       <nav
         aria-label="Main"
         className={cn(
-          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
+          "relative mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
           scrolled || open ? "glass-strong" : "border border-transparent",
         )}
       >
+        <span aria-hidden className="pointer-events-none absolute inset-x-5 bottom-0 h-px overflow-hidden">
+          <span ref={progress} aria-hidden style={{ transform: "scaleX(0)" }} className="block h-full w-full origin-left bg-chart-mid/75" />
+        </span>
         <Logo />
         <ul className="hidden items-center gap-1 md:flex" onPointerLeave={() => setHovered(null)}>
           {links.map((l) => (

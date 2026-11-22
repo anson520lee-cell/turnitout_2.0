@@ -1,10 +1,13 @@
 "use client";
-import { Download, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { sentenceAnchor } from "@/lib/auto-report/sentence-anchor";
+import reading from "./sentence-reference.module.css";
 import { brand } from "@/config/app";
 import { reportOverall, reportScore, scoreBasis, type AutoReportResult, type Level, type Overall, type ReportParagraph, type ReportSentence } from "@/lib/auto-report/stitch";
 import { RewriteDemo, RewritePanel } from "@/components/reports/rewrite-panel";
@@ -54,12 +57,116 @@ function Stat({ title, value, of, sub }: { title: string; value: string; of?: st
 /** Reports that mark which sentences count toward the score: a flagged sentence that doesn't count is shown lighter. */
 const uncounted = (s: ReportSentence, scored: boolean) => scored && isFlagged(s.risk) && !s.counts;
 
+const isReportAnchor = (id: string) => /^para-\d+(-sentence-\d+)?$/.test(id);
+
+/**
+ * Links within the report travel to their sentence and mark where they land.
+ * The page sets off in the frame after the click and slows as it arrives
+ * (the browser's own smooth scroll starts slowly). Once the sentence is in
+ * view it fills like a highlighter drawn along it, its paragraph's rail lights
+ * up, and focus moves there so the keyboard carries on from the sentence.
+ */
+function useLandingMarks() {
+  useEffect(() => {
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let watcher: IntersectionObserver | null = null;
+    let fallback = 0;
+    let journey = 0;
+    let marked: HTMLElement[] = [];
+    function clear() {
+      watcher?.disconnect();
+      watcher = null;
+      window.clearTimeout(fallback);
+      for (const el of marked) delete el.dataset.landing;
+      marked = [];
+    }
+    function land() {
+      clear();
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (!isReportAnchor(id)) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      const card = target.closest<HTMLElement>("[id^='para-']:not([id*='-sentence-'])");
+      if (target !== card) target.focus({ preventScroll: true });
+      const show = () => {
+        watcher?.disconnect();
+        watcher = null;
+        window.clearTimeout(fallback);
+        marked = card && card !== target ? [target, card] : [target];
+        for (const el of marked) el.dataset.landing = "";
+      };
+      watcher = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && show(), {
+        threshold: 1,
+      });
+      watcher.observe(target);
+      fallback = window.setTimeout(show, 1600);
+    }
+    function stop() {
+      cancelAnimationFrame(journey);
+      journey = 0;
+    }
+    function follow(event: MouseEvent) {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href*='#para-']") : null;
+      if (!link || link.pathname !== location.pathname || link.target) return;
+      const id = decodeURIComponent(link.hash.slice(1));
+      if (!isReportAnchor(id) || !document.getElementById(id)) return;
+      const again = link.hash === location.hash;
+      if (reduced.matches) {
+        // The browser jumps; following the same link again still lands again.
+        if (again) window.setTimeout(land);
+        return;
+      }
+      event.preventDefault();
+      stop();
+      // Let the browser place the sentence (scroll margins, sticky header),
+      // read where that is, then travel there ourselves from where we were.
+      const root = document.documentElement;
+      const from = window.scrollY;
+      const behaviour = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      if (again) document.getElementById(id)!.scrollIntoView({ block: "start" });
+      else location.hash = link.hash;
+      const to = window.scrollY;
+      window.scrollTo({ top: from, behavior: "instant" });
+      root.style.scrollBehavior = behaviour;
+      if (again) land();
+      const distance = Math.abs(to - from);
+      const duration = Math.min(720, 240 + Math.sqrt(distance) * 9);
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        window.scrollTo({ top: from + (to - from) * (1 - (1 - t) ** 3), behavior: "instant" });
+        journey = t < 1 ? requestAnimationFrame(step) : 0;
+      };
+      if (distance > 1) journey = requestAnimationFrame(step);
+    }
+    land();
+    window.addEventListener("hashchange", land);
+    document.addEventListener("click", follow);
+    // The reader's own scrolling takes over at once.
+    const interrupt = { passive: true } as const;
+    window.addEventListener("wheel", stop, interrupt);
+    window.addEventListener("touchstart", stop, interrupt);
+    window.addEventListener("keydown", stop);
+    return () => {
+      stop();
+      window.removeEventListener("hashchange", land);
+      document.removeEventListener("click", follow);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+      clear();
+    };
+  }, []);
+}
+
 function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolean }) {
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
   return (
     <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
-      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
+      <span aria-hidden className={cn(reading.rail, "absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-subtle">Paragraph {para.p}</span>
         <Badge tone={riskStyle[para.risk].tone} className={riskPrintClass[riskStyle[para.risk].tone]}>
@@ -74,7 +181,8 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
         {para.sentences.map((s) => (
           <span key={s.n}>
             <span
-              className={cn("rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
+              id={sentenceAnchor(para.p, s.n)} tabIndex={-1}
+              className={cn(reading.sentence, "rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
               title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
             >
               {s.text}
@@ -88,7 +196,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
           {flagged.map((s) => (
             <li key={s.n} className="text-[13px] leading-relaxed">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[11px] text-fg-subtle">Sentence {s.n}</span>
+                <a href={`#${sentenceAnchor(para.p, s.n)}`} aria-label={`Read sentence ${s.n} in its paragraph`} className={reading.reference}>Sentence {s.n} <span aria-hidden>↗</span></a>
                 <Badge tone={riskStyle[s.risk].tone} className={riskPrintClass[riskStyle[s.risk].tone]}>{label[s.risk]}</Badge>
                 {uncounted(s, scored) && <span className="text-[11.5px] text-fg-subtle">not counted in the AI score</span>}
               </div>
@@ -108,8 +216,84 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   );
 }
 
+function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
+  const [index, select] = useState(0);
+  const plot = useRef<HTMLDivElement>(null);
+  const dense = paragraphs.length > 14;
+  const para = paragraphs[Math.min(index, paragraphs.length - 1)];
+  const excerpt = para?.sentences.find((s) => isFlagged(s.risk)) ?? para?.sentences[0];
+  function browse(next: number) {
+    select(next);
+    const scroller = plot.current;
+    const bar = scroller?.querySelector("ol")?.children[next];
+    if (!scroller || !bar) return;
+    const visible = scroller.getBoundingClientRect();
+    const bounds = bar.getBoundingClientRect();
+    if (bounds.left < visible.left) scroller.scrollLeft += bounds.left - visible.left;
+    else if (bounds.right > visible.right) scroller.scrollLeft += bounds.right - visible.right;
+  }
+  return (
+      <Card id="risk-by-paragraph" className="scroll-mt-24 p-5 sm:p-6 print:break-inside-avoid">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
+          <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
+            {(["high", "medium", "low"] as const).map((l) => (
+              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", chartBar[l])} />{label[l]}</span>
+            ))}
+          </div>
+        </div>
+        <div className={reading.plotScroll} ref={plot}>
+          <div style={{ minWidth: dense ? paragraphs.length * 11 + 32 : undefined }}>
+            <div className="relative mt-5 h-40">
+              {[0, 50, 100].map((g) => (
+                <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
+                  <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
+                </span>
+              ))}
+              <ol className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]" aria-label="Share of flagged sentences in each paragraph, in order">
+                {paragraphs.map((p, i) => {
+                  const share = paragraphShare(p);
+                  return (
+                    <li key={p.p} className="h-full min-w-0 flex-1">
+                      <a href={`#para-${p.p}`} className={reading.bar} data-selected={para === p}
+                        onPointerMove={(e) => {
+                          if (i !== index && e.pointerType !== "touch" && window.matchMedia("(any-hover: hover)").matches) select(i);
+                        }}
+                        onFocus={() => select(i)}
+                        aria-label={`Read paragraph ${p.p}, ${share}% flagged, ${label[p.risk]} risk`}>
+                        {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
+                        <span className={cn("block w-full rounded-t-[4px]", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+            {!dense && <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
+              {paragraphs.map((p) => <span key={p.p} className="min-w-0 flex-1 text-center">P{p.p}</span>)}
+            </div>}
+          </div>
+        </div>
+        {para && <div className={reading.mapNote}>
+          <div className={reading.mapControls}>
+            <span aria-live="polite" aria-atomic="true">Paragraph {para.p}{excerpt && <> · Sentence {excerpt.n}</>}</span>
+            <button type="button" aria-label="Previous paragraph" disabled={index <= 0} onClick={() => browse(index - 1)}><ArrowLeft size={15} /></button>
+            <button type="button" aria-label="Next paragraph" disabled={index >= paragraphs.length - 1} onClick={() => browse(index + 1)}><ArrowRight size={15} /></button>
+          </div>
+          {excerpt && <a className={reading.excerpt} data-press href={`#${sentenceAnchor(para.p, excerpt.n)}`}>
+            <span>{excerpt.text}</span><ArrowUpRight aria-hidden size={15} className="shrink-0 self-center text-chart-mid" />
+          </a>}
+        </div>}
+        <p className="mt-3 text-[12px] text-fg-subtle">
+          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall dark-blue bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
+        </p>
+      </Card>
+  );
+}
+
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
 export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo }: { title: string; finishedAt: string; result: AutoReportResult; rewriteDemo?: boolean; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; canSkip?: boolean } }) {
+  useLandingMarks();
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
@@ -119,7 +303,6 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
   const clear = Math.max(0, summary.sentences - flagged);
   const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
   const overall = reportOverall(summary);
-  const dense = paragraphs.length > 14;
   const first = paragraphs.filter((p) => p.risk === "high").slice(0, 5);
   const text = overallText[overall];
   const partial = pieces.reviewed < pieces.total;
@@ -207,48 +390,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
         </div>
       </Card>
 
-      <Card className="p-5 sm:p-6 print:break-inside-avoid">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
-          <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
-            {(["high", "medium", "low"] as const).map((l) => (
-              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", chartBar[l])} />{label[l]}</span>
-            ))}
-          </div>
-        </div>
-        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
-          {[0, 50, 100].map((g) => (
-            <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
-              <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
-            </span>
-          ))}
-          <div className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]">
-            {paragraphs.map((p) => {
-              const share = paragraphShare(p);
-              return (
-                <a
-                  key={p.p}
-                  role="listitem"
-                  href={`#para-${p.p}`}
-                  title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
-                  className="group relative flex h-full min-w-[6px] flex-1 items-end"
-                >
-                  {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
-                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
-                </a>
-              );
-            })}
-          </div>
-        </div>
-        {!dense && (
-          <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
-            {paragraphs.map((p) => <span key={p.p} className="min-w-[6px] flex-1 text-center">P{p.p}</span>)}
-          </div>
-        )}
-        <p className="mt-3 text-[12px] text-fg-subtle">
-          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall dark-blue bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
-        </p>
-      </Card>
+      <ParagraphMap paragraphs={paragraphs} />
 
       {first.length > 0 && (
         <Card className="p-5 sm:p-6 print:break-inside-avoid">
