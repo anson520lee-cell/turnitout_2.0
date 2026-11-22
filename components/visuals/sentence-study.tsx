@@ -1,6 +1,5 @@
 "use client";
 import { useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import Link from "next/link";
 import { ArrowUpRight, FileText } from "lucide-react";
 import { sampleReport } from "@/lib/auto-report/sample";
 import { sentenceAnchor } from "@/lib/auto-report/sentence-anchor";
@@ -107,7 +106,6 @@ export function SentenceStudy() {
                     aria-valuetext={`Sentence ${current.n}, ${current.words} words, ${current.risk} risk`}
                     onPointerMove={inspect}
                     onPointerDown={() => { held.current = true; }}
-                    onKeyDown={() => { held.current = true; }}
                     onPointerLeave={() => { held.current = false; }}
                     onChange={(e) => setIndex(e.currentTarget.valueAsNumber - 1)}
                   />
@@ -120,12 +118,12 @@ export function SentenceStudy() {
                 </p>
                 <blockquote id={`${id}-excerpt`}>{current.text}</blockquote>
                 <p className={styles.note}>{current.why ?? (current.risk === "low" ? "The reviewer left this sentence unmarked." : "")}</p>
-                <Link
+                <a
                   className={styles.source}
                   href={`/sample-report#${sentenceAnchor(current.paragraph, current.n)}`}
                 >
                   Read in context <ArrowUpRight size={12} aria-hidden />
-                </Link>
+                </a>
               </div>
             </div>
           </div>
