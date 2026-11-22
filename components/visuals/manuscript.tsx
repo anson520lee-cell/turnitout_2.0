@@ -23,6 +23,7 @@ export function Manuscript({ sentences, index, onInspect }: Props) {
   const invalidate = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    if (selection.current === index) return;
     selection.current = index;
     invalidate.current?.();
   }, [index]);
@@ -113,6 +114,7 @@ export function Manuscript({ sentences, index, onInspect }: Props) {
     function move(event: PointerEvent) {
       if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
       const next = point(event);
+      if (reduced.matches && (pinned || next < 0 || next === selection.current)) return;
       lift = 1;
       if (!pinned) inspect(next);
       request();

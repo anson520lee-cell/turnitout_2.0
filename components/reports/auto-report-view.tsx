@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
@@ -114,9 +114,20 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
 
 function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
   const [index, select] = useState(0);
+  const plot = useRef<HTMLDivElement>(null);
   const dense = paragraphs.length > 14;
   const para = paragraphs[Math.min(index, paragraphs.length - 1)];
   const excerpt = para?.sentences.find((s) => isFlagged(s.risk)) ?? para?.sentences[0];
+  function browse(next: number) {
+    select(next);
+    const scroller = plot.current;
+    const bar = scroller?.querySelector("ol")?.children[next];
+    if (!scroller || !bar) return;
+    const visible = scroller.getBoundingClientRect();
+    const bounds = bar.getBoundingClientRect();
+    if (bounds.left < visible.left) scroller.scrollLeft += bounds.left - visible.left;
+    else if (bounds.right > visible.right) scroller.scrollLeft += bounds.right - visible.right;
+  }
   return (
       <Card id="risk-by-paragraph" className="scroll-mt-24 p-5 sm:p-6 print:break-inside-avoid">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -127,7 +138,7 @@ function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
             ))}
           </div>
         </div>
-        <div className={reading.plotScroll}>
+        <div className={reading.plotScroll} ref={plot}>
           <div style={{ minWidth: dense ? paragraphs.length * 11 + 32 : undefined }}>
             <div className="relative mt-5 h-40">
               {[0, 50, 100].map((g) => (
@@ -158,9 +169,9 @@ function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
         </div>
         {para && <div className={reading.mapNote}>
           <div className={reading.mapControls}>
-            <span>Paragraph {para.p}{excerpt && <> · Sentence {excerpt.n}</>}</span>
-            <button type="button" aria-label="Previous paragraph" disabled={index <= 0} onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
-            <button type="button" aria-label="Next paragraph" disabled={index >= paragraphs.length - 1} onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+            <span aria-live="polite" aria-atomic="true">Paragraph {para.p}{excerpt && <> · Sentence {excerpt.n}</>}</span>
+            <button type="button" aria-label="Previous paragraph" disabled={index <= 0} onClick={() => browse(index - 1)}><ArrowLeft size={15} /></button>
+            <button type="button" aria-label="Next paragraph" disabled={index >= paragraphs.length - 1} onClick={() => browse(index + 1)}><ArrowRight size={15} /></button>
           </div>
           {excerpt && <a className={reading.excerpt} href={`#${sentenceAnchor(para.p, excerpt.n)}`}>
             <span>{excerpt.text}</span><ArrowUpRight aria-hidden size={15} className="shrink-0 self-center text-chart-mid" />
