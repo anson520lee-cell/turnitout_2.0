@@ -152,7 +152,10 @@ function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
                   return (
                     <li key={p.p} className="h-full min-w-0 flex-1">
                       <a href={`#para-${p.p}`} className={reading.bar} data-selected={para === p}
-                        onPointerEnter={(e) => { if (e.pointerType !== "touch") select(i); }} onFocus={() => select(i)}
+                        onPointerMove={(e) => {
+                          if (i !== index && e.pointerType !== "touch" && window.matchMedia("(any-hover: hover)").matches) select(i);
+                        }}
+                        onFocus={() => select(i)}
                         aria-label={`Read paragraph ${p.p}, ${share}% flagged, ${label[p.risk]} risk`}>
                         {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
                         <span className={cn("block w-full rounded-t-[4px]", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
