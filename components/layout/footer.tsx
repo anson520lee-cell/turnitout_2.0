@@ -34,7 +34,7 @@ const cols = [
 
 export function Footer() {
   return (
-    <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)] bg-ink-950/70">
+    <footer className="studio-footer relative overflow-hidden">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
       <Container className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:py-14 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-12">
         <div className="col-span-2 max-w-xs md:col-span-1">

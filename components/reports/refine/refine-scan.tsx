@@ -325,7 +325,7 @@ export function RefineScan({
       role="dialog"
       aria-modal="true"
       aria-label="Your suggestions are being written"
-      className="scan-overlay fixed inset-0 z-[100] flex flex-col overflow-y-auto bg-ink-950 lg:overflow-hidden"
+      className="scan-overlay studio-session fixed inset-0 z-[100] flex flex-col overflow-y-auto bg-ink-950 lg:overflow-hidden"
     >
       <div aria-hidden className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_50%_at_70%_-10%,rgb(124_108_255/0.22),transparent_70%),radial-gradient(40%_40%_at_0%_100%,rgb(91_140_255/0.14),transparent_70%)]" />
       <div aria-hidden className="scan-scanlines pointer-events-none fixed inset-0" />

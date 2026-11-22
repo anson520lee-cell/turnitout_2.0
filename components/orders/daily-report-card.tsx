@@ -104,7 +104,7 @@ export function DailyReportCard({
 
   return (
     <>
-      <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
+      <Card strong className={cn("studio-allowance relative overflow-hidden p-5 sm:p-7", used && "opacity-95", className)} id="daily-free-report">
         <div aria-hidden className={cn("pointer-events-none absolute -left-16 -top-20 size-64 rounded-full blur-3xl", used ? "bg-white/[0.04]" : "bg-accent/20")} />
         <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-accent/12")} />
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">

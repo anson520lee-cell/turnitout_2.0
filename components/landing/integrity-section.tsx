@@ -4,7 +4,7 @@ import { Reveal } from "@/components/motion/reveal";
 
 export function IntegritySection() {
   return (
-    <section className="py-16">
+    <section className="integrity-spread py-16">
       <Container>
         <Reveal tilt={3} className="glass relative overflow-hidden rounded-3xl p-8 sm:p-12">
           <div aria-hidden className="absolute -left-20 -bottom-20 size-72 rounded-full bg-violet/15 blur-3xl" />

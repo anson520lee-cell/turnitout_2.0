@@ -22,7 +22,7 @@ export default function SampleReportPage() {
         title="What you get back"
         body={`This is the page a customer sees when a report is ready, filled with example data. ${reportFromLabel}, ${reportRateLabel}.`}
       />
-      <Container className="max-w-4xl pb-24">
+      <Container className="max-w-[1120px] pb-24">
         <p className="mb-5 flex items-start gap-2.5 rounded-xl border border-warn/30 bg-warn/[0.07] px-4 py-3 text-[14px] leading-relaxed text-fg">
           <Info className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
           Example only. The text and ratings below are made up to show the layout; they are not a real customer&rsquo;s result. A real

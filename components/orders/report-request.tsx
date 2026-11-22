@@ -32,12 +32,12 @@ export function ReportRequest() {
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-        <Card strong id="paid-report" className="noise flex scroll-mt-24 flex-col overflow-hidden p-5 sm:p-7">
+      <div className="request-spread grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+        <Card strong id="paid-report" className="request-paid flex scroll-mt-24 flex-col overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-accent/15 blur-3xl" />
           <div aria-hidden className="pointer-events-none absolute -bottom-28 right-0 size-72 rounded-full bg-violet/15 blur-3xl" />
-          <ReportVisual className="relative min-h-[520px] flex-1 sm:min-h-[430px]" />
-          <div className="relative mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
+          <ReportVisual className="request-visual relative min-h-[520px] sm:min-h-[430px]" />
+          <div className="request-decision relative flex flex-wrap items-end justify-between gap-5">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
               <p className="mt-2 text-4xl font-semibold tracking-tight">

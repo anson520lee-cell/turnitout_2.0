@@ -14,7 +14,7 @@ const items = [
 
 export function PrivacySection() {
   return (
-    <section className="py-24 sm:py-32">
+    <section className="privacy-spread editorial-index py-24 sm:py-32">
       <Container>
         <SectionHeading
           eyebrow="Privacy & security"

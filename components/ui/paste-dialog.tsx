@@ -166,9 +166,9 @@ export function PasteDialog({
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
             style={{ transformPerspective: 1200 }}
-            className="glass-strong no-cursor-light noise relative overflow-hidden rounded-3xl"
+            className="draft-dialog glass-strong no-cursor-light relative overflow-hidden"
           >
-            <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-accent/20 blur-3xl" />
+
             <div className="relative flex items-start justify-between gap-4 px-5 pt-5 sm:px-7 sm:pt-6">
               <div>
                 <h2 id={titleId} className="text-[18px] font-semibold tracking-tight">{title}</h2>
@@ -208,6 +208,7 @@ export function PasteDialog({
                       placeholder={placeholder}
                       disabled={busy}
                       aria-invalid={Boolean(error) || undefined}
+                      aria-describedby={error ? titleId + "-error" : undefined}
                       className="block h-[min(40dvh,380px)] w-full resize-none rounded-2xl border border-[var(--line)] bg-ink-900/90 px-4 py-4 font-serif text-[15.5px] leading-[1.8] text-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.03)] placeholder:font-sans placeholder:text-[14px] placeholder:text-fg-subtle focus:border-accent/60 focus:outline-none focus:ring-4 focus:ring-accent/15"
                     />
                   </div>
@@ -235,7 +236,7 @@ export function PasteDialog({
                       </>
                     )}
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3" id={titleId + "-error"}>
                     <FormMessage>{error}</FormMessage>
                   </div>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
