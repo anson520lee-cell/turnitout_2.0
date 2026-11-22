@@ -1,3 +1,27 @@
+.stage {
+  position: relative;
+  isolation: isolate;
+  padding-block: 0.5rem;
+}
+.stage::before,
+.stage::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 1.5rem;
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(145deg, var(--glass-strong), var(--color-ink-850));
+  box-shadow: inset 0 1px 0 var(--line-strong);
+  pointer-events: none;
+}
+.stage::before {
+  inset: 3% 0.5% 1%;
+  transform: rotate(-2deg);
+}
+.stage::after {
+  inset: -0.4% 1.5% 0.7%;
+}
 .layout {
   position: relative;
   display: grid;
@@ -5,8 +29,7 @@
   padding: 1rem;
 }
 .chartLabel,
-.meta,
-.hint {
+.meta {
   display: block;
   font-family: var(--font-mono);
   color: var(--color-fg-subtle);
@@ -88,10 +111,6 @@
   touch-action: pan-y;
   margin: 0;
 }
-.hint {
-  margin-top: 0.4rem;
-  font-size: 11px;
-}
 .readout {
   display: flex;
   flex-direction: column;
@@ -137,4 +156,116 @@
   }
 }
 
-.note { margin: 0 0 .7rem; font-size: .75rem; line-height: 1.45; color: var(--color-fg-muted); }
+.note {
+  margin: 0 0 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-fg-muted);
+}
+
+.specimen {
+  contain: paint;
+  position: relative;
+  isolation: isolate;
+  height: clamp(13rem, 19vw, 16.5rem);
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(
+      ellipse at 53% 35%,
+      color-mix(in srgb, var(--color-chart-mid) 9%, transparent),
+      transparent 65%
+    ),
+    var(--color-ink-850);
+  background-image:
+    radial-gradient(var(--line-strong) 0.7px, transparent 1px),
+    radial-gradient(
+      ellipse at 53% 35%,
+      color-mix(in srgb, var(--color-chart-mid) 12%, transparent),
+      transparent 69%
+    );
+  background-size:
+    14px 14px,
+    100% 100%;
+}
+.specimen canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  touch-action: pan-y;
+  cursor: crosshair;
+  opacity: 0;
+}
+.specimen canvas[data-ready] {
+  opacity: 1;
+}
+.paperFallback {
+  position: absolute;
+  inset: 16% 16% 18%;
+  padding: 4% 5%;
+  color: var(--color-chart-mid);
+  background: var(--color-ink-700);
+  border: 1px solid var(--color-fg-subtle);
+  box-shadow:
+    2px 3px var(--color-ink-700),
+    3px 4px var(--line-strong),
+    5px 7px var(--color-ink-700);
+  transform: skewX(-9deg) rotate(-5deg);
+  font: 6px/1.55 var(--font-mono);
+  overflow: hidden;
+}
+.paperFallback b {
+  display: block;
+  margin-bottom: 3%;
+  font-size: 1.5em;
+  text-transform: uppercase;
+}
+.paperFallback div {
+  columns: 2;
+}
+.specimen canvas[data-ready] + .paperFallback {
+  visibility: hidden;
+}
+.figureNumber {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  font: 11px var(--font-mono);
+  color: var(--color-fg-muted);
+}
+.figureNumber {
+  top: 0.68rem;
+  left: 1rem;
+  letter-spacing: 0.1em;
+  color: var(--color-chart-mid);
+}
+.chartLabel {
+  margin: 0 0 0.5rem;
+}
+.chart {
+  height: 5rem;
+}
+@media (min-width: 640px) {
+  .readout {
+    min-height: 10.8rem;
+  }
+  .layout {
+    align-items: start;
+  }
+}
+@media (max-width: 639px) {
+  .layout {
+    gap: 0.75rem;
+  }
+  .readout {
+    min-height: 8.5rem;
+  }
+  .chart {
+    height: 2.8rem;
+  }
+  .specimen {
+    height: clamp(10.8rem, 49vw, 14.5rem);
+  }
+}

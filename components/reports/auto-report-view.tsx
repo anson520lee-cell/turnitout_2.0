@@ -1,5 +1,6 @@
 "use client";
-import { Download, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +112,67 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   );
 }
 
+function ParagraphMap({ paragraphs }: { paragraphs: ReportParagraph[] }) {
+  const [index, select] = useState(0);
+  const dense = paragraphs.length > 14;
+  const para = paragraphs[Math.min(index, paragraphs.length - 1)];
+  const excerpt = para?.sentences.find((s) => isFlagged(s.risk)) ?? para?.sentences[0];
+  return (
+      <Card id="risk-by-paragraph" className="scroll-mt-24 p-5 sm:p-6 print:break-inside-avoid">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
+          <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
+            {(["high", "medium", "low"] as const).map((l) => (
+              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", chartBar[l])} />{label[l]}</span>
+            ))}
+          </div>
+        </div>
+        <div className={reading.plotScroll}>
+          <div style={{ minWidth: dense ? paragraphs.length * 11 + 32 : undefined }}>
+            <div className="relative mt-5 h-40">
+              {[0, 50, 100].map((g) => (
+                <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
+                  <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
+                </span>
+              ))}
+              <ol className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]" aria-label="Share of flagged sentences in each paragraph, in order">
+                {paragraphs.map((p, i) => {
+                  const share = paragraphShare(p);
+                  return (
+                    <li key={p.p} className="h-full min-w-0 flex-1">
+                      <a href={`#para-${p.p}`} className={reading.bar} data-selected={para === p}
+                        onPointerEnter={(e) => { if (e.pointerType !== "touch") select(i); }} onFocus={() => select(i)}
+                        aria-label={`Read paragraph ${p.p}, ${share}% flagged, ${label[p.risk]} risk`}>
+                        {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
+                        <span className={cn("block w-full rounded-t-[4px]", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+            {!dense && <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
+              {paragraphs.map((p) => <span key={p.p} className="min-w-0 flex-1 text-center">P{p.p}</span>)}
+            </div>}
+          </div>
+        </div>
+        {para && <div className={reading.mapNote}>
+          <div className={reading.mapControls}>
+            <span>Paragraph {para.p}{excerpt && <> · Sentence {excerpt.n}</>}</span>
+            <button type="button" aria-label="Previous paragraph" disabled={index <= 0} onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
+            <button type="button" aria-label="Next paragraph" disabled={index >= paragraphs.length - 1} onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+          </div>
+          {excerpt && <a className={reading.excerpt} href={`#${sentenceAnchor(para.p, excerpt.n)}`}>
+            <span>{excerpt.text}</span><ArrowUpRight aria-hidden size={15} className="shrink-0 self-center text-chart-mid" />
+          </a>}
+        </div>}
+        <p className="mt-3 text-[12px] text-fg-subtle">
+          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall dark-blue bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
+        </p>
+      </Card>
+  );
+}
+
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
 export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo }: { title: string; finishedAt: string; result: AutoReportResult; rewriteDemo?: boolean; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; canSkip?: boolean } }) {
   const { summary, paragraphs, grammar, pieces } = result;
@@ -122,7 +184,6 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
   const clear = Math.max(0, summary.sentences - flagged);
   const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
   const overall = reportOverall(summary);
-  const dense = paragraphs.length > 14;
   const first = paragraphs.filter((p) => p.risk === "high").slice(0, 5);
   const text = overallText[overall];
   const partial = pieces.reviewed < pieces.total;
@@ -210,48 +271,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
         </div>
       </Card>
 
-      <Card className="p-5 sm:p-6 print:break-inside-avoid">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight">Risk by paragraph</h3>
-          <div className="flex flex-wrap gap-3 text-[11.5px] text-fg-subtle">
-            {(["high", "medium", "low"] as const).map((l) => (
-              <span key={l} className="inline-flex items-center gap-1.5"><span className={cn("size-2.5 rounded-sm", chartBar[l])} />{label[l]}</span>
-            ))}
-          </div>
-        </div>
-        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
-          {[0, 50, 100].map((g) => (
-            <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
-              <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
-            </span>
-          ))}
-          <div className="absolute inset-y-0 left-8 right-0 flex items-end gap-[3px]">
-            {paragraphs.map((p) => {
-              const share = paragraphShare(p);
-              return (
-                <a
-                  key={p.p}
-                  role="listitem"
-                  href={`#para-${p.p}`}
-                  title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
-                  className="group relative flex h-full min-w-[6px] flex-1 items-end"
-                >
-                  {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
-                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
-                </a>
-              );
-            })}
-          </div>
-        </div>
-        {!dense && (
-          <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
-            {paragraphs.map((p) => <span key={p.p} className="min-w-[6px] flex-1 text-center">P{p.p}</span>)}
-          </div>
-        )}
-        <p className="mt-3 text-[12px] text-fg-subtle">
-          Each bar is the share of that paragraph&rsquo;s sentences that were flagged; the colour is the paragraph&rsquo;s risk level. Tall dark-blue bars are the places that read most like AI writing. That is the risk to fix, not a mistake in your text, and not a sign of who wrote it.
-        </p>
-      </Card>
+      <ParagraphMap paragraphs={paragraphs} />
 
       {first.length > 0 && (
         <Card className="p-5 sm:p-6 print:break-inside-avoid">

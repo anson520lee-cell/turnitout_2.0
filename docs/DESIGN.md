@@ -7,6 +7,8 @@ Space + machine learning, dark and calm. The background supports the content and
 
 When enriching an existing page, preserve its gradual darkening, space backdrop, fine linework, type and layout. Choose motion for a specific reading task, such as tracking a sentence from a report back to its paragraph.
 
+Let people discover the artwork through its response to movement and touch. Reserve visible labels for the document, its data and actual destinations. Keep keyboard controls accessible by name.
+
 ## Colour
 - Background: ink-950…ink-700. Text: `fg` (#e9edf7), `fg-muted` (#9aa3b8), `fg-subtle` (#8a92ae, the lightest grey allowed for text).
 - One accent (`accent`, blue) for actions and live data; `cyan` and `violet` only as secondary signal colours; `ok` / `warn` / `risk` only for status.
@@ -27,7 +29,9 @@ When enriching an existing page, preserve its gradual darkening, space backdrop,
 | Effect | Where |
 |---|---|
 | Particle headings (h1/h2) | Public pages only; never in the signed-in app, never in the footer |
-| Sentence reading guide | Inside the home report illustration. Input moves the guide and reveals the corresponding example sentence |
+| Sentence reading guide | The home illustration typesets the sample essay on a sheet. The paper and ink follow pointer movement, and selecting a line or using the word chart reveals its report sentence. |
+| Workflow chapters | The five report steps use native scrolling to move a horizontal strip of draft, access, allowance, optional quote and paragraph map. The same thin progress rule follows reading in the public navigation. |
+| Report paragraph map | Pointing at a bar or stepping between paragraphs reveals an excerpt from that report. The excerpt opens its source sentence. |
 | Document + agent terminal | The product visual: home hero, scan page. Terminal under the document on phones |
 | 3D sphere network | Pattern Engine section only |
 | Reveal entrance | Any section |

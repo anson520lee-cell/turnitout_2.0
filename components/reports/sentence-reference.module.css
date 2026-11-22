@@ -24,3 +24,86 @@
     display: none;
   }
 }
+
+.plotScroll {
+  overflow-x: auto;
+  padding-top: 0.1rem;
+}
+.bar {
+  position: relative;
+  display: flex;
+  align-items: end;
+  height: 100%;
+  border-bottom: 1px solid var(--line);
+}
+.bar span {
+  position: relative;
+  z-index: 1;
+}
+.bar span:first-child:not(:last-child) {
+  position: absolute;
+}
+@media screen {
+  .bar[data-selected="true"] {
+    background: linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-chart-mid) 13%, transparent),
+      transparent
+    );
+    border-bottom-color: var(--color-chart-mid);
+  }
+}
+.mapNote {
+  margin-top: 1rem;
+  padding: 0.35rem 0.85rem 0.85rem;
+  border-left: 2px solid var(--color-chart-mid);
+  background: var(--glass);
+}
+.mapControls {
+  display: flex;
+  align-items: center;
+  color: var(--color-fg-subtle);
+  font: 11px var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.mapControls > span {
+  margin-right: auto;
+}
+.mapControls button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 42px;
+  color: var(--color-chart-mid);
+  cursor: pointer;
+}
+.mapControls button:disabled {
+  color: var(--color-fg-subtle);
+  opacity: 0.35;
+  cursor: default;
+}
+.excerpt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+  color: var(--color-fg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.excerpt:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media print {
+  .mapNote {
+    display: none;
+  }
+  .plotScroll {
+    overflow: visible;
+  }
+  .plotScroll > div {
+    min-width: 0 !important;
+  }
+}

@@ -16,7 +16,7 @@ import Link from "next/link";
 /**
  * The homepage reads as one story, in three movements:
  *
- * 1. The promise and the path: hero, then the five steps from draft to
+ * 1. The promise and the path: hero, then the illustrated five steps from draft to
  *    report, then the dashboard where you follow those steps.
  * 2. How to read the result: why genuine writing can still be flagged, then
  *    what each service costs.
@@ -25,8 +25,7 @@ import Link from "next/link";
  *
  * Kept off the homepage because they repeated a neighbour: the two service
  * cards (the pricing card shows the same service, with prices and
- * buttons; the cards live on /services) and the scroll-pinned draft-to-report
- * story (the same five steps as How it works; it lives on /how-it-works).
+ * buttons; the cards live on /services). The technical scan details live on /how-it-works.
  */
 export default function HomePage() {
   return (
