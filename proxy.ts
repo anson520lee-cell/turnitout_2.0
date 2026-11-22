@@ -1,5 +1,10 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
+
+// Public, statically rendered information pages never emit account-specific HTML
+// or refresh cookies. Authenticated routes and Server Action POSTs still go through session handling.
+const publicPages = new Set(["/", "/about", "/academic-integrity", "/faq", "/how-it-works", "/pricing",
+  "/privacy", "/refunds", "/sample-report", "/services", "/terms"]);
 
 /**
  * Refreshes the Supabase session cookie and redirects signed-out visitors away
@@ -7,6 +12,9 @@ import { updateSession } from "@/lib/supabase/proxy";
  * re-checks the user (and admin role) on the server.
  */
 export async function proxy(request: NextRequest) {
+  if ((request.method === "GET" || request.method === "HEAD") && publicPages.has(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
   return updateSession(request);
 }
 

@@ -1,4 +1,5 @@
 ﻿import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Coins } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Card } from "@/components/ui/card";
@@ -34,20 +35,31 @@ const statusLabel: Record<CreditTopup["status"], string> = {
 };
 const kindLabel = { topup: "Top-up", spend: "Order payment", refund: "Refund", adjustment: "Adjustment" } as const;
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const user = await requireUser("/billing");
-  const sp = await searchParams;
-  const [balance, topups, txs] = await Promise.all([getCreditBalance(), listCreditTopups(), listCreditTransactions()]);
-  const { data: cryptoRows } = await (await createClient()).from("crypto_payments").select("id,topup_id,status").order("created_at", { ascending: false }).limit(50);
-  const cryptoByTopup = new Map((cryptoRows ?? []).map((r) => [r.topup_id as string, r.id as string]));
+async function getCryptoCoins() {
   const coinList = isNowPaymentsConfigured() ? await availableCoins() : [];
   const mins = await coinMinimums(coinList);
   // Cheapest coin first, so the pre-selected one accepts the smallest top-up.
-  const cryptoCoins = coinList
+  return coinList
     .map((c) => ({ ...c, minUsd: mins[c.id] ?? null }))
     .sort((a, b) => (a.minUsd ?? Infinity) - (b.minUsd ?? Infinity));
-  // Alipay and PayPal credits are added as soon as the payment details are sent, unless an earlier one was found missing.
-  const instantCredit = !(await markedFake(user.id));
+}
+
+async function TopUpMethods({ userId, initialUsd }: { userId: string; initialUsd?: number }) {
+  const [cryptoCoins, fakeClaim] = await Promise.all([getCryptoCoins(), markedFake(userId)]);
+  return <TopUpPanel instantCredit={!fakeClaim} stripe={false} reference={topupReference(userId)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />;
+}
+
+export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const user = await requireUser("/billing");
+  const supabase = await createClient();
+  const [sp, balance, topups, txs, { data: cryptoRows }] = await Promise.all([
+    searchParams,
+    getCreditBalance(),
+    listCreditTopups(),
+    listCreditTransactions(),
+    supabase.from("crypto_payments").select("id,topup_id,status").order("created_at", { ascending: false }).limit(50),
+  ]);
+  const cryptoByTopup = new Map((cryptoRows ?? []).map((r) => [r.topup_id as string, r.id as string]));
   const need = Number(Array.isArray(sp.need) ? sp.need[0] : sp.need);
   const initialUsd = Number.isInteger(need) && need >= topUp.minUsd && need <= topUp.maxUsd ? need : undefined;
   const reportCredits = toCredits(reportPrice(3000));
@@ -91,7 +103,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <h2 className="text-[15px] font-semibold">Top up</h2>
           <p className="mt-1 text-[13px] text-fg-muted">Choose an amount and how to pay. Prices are in US dollars; Alipay is paid in Hong Kong dollars at the same value.</p>
           <div className="mt-5">
-            <TopUpPanel instantCredit={instantCredit} stripe={false} reference={topupReference(user.id)} initialUsd={initialUsd} cryptoCoins={cryptoCoins} />
+            <Suspense fallback={<p role="status" className="text-sm text-fg-muted">Loading payment methods…</p>}>
+              <TopUpMethods userId={user.id} initialUsd={initialUsd} />
+            </Suspense>
           </div>
         </Card>
       </div>

@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { LayoutGrid, FileStack, FileCheck2, Settings, Wallet, Shield, LogOut, Menu, X } from "lucide-react";

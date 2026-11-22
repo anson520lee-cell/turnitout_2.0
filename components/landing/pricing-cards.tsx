@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Check, FileCheck2 } from "lucide-react";
 import { services, type ServiceKind } from "@/config/services";
 import { buttonClasses } from "@/components/ui/button";

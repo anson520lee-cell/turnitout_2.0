@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -33,7 +34,7 @@ export interface CreditTopup {
 }
 
 /** Current balance in credits. 0 when the account has never had credits (or the table is unreachable). */
-export async function getCreditBalance(): Promise<number> {
+export const getCreditBalance = cache(async (): Promise<number> => {
   try {
     const supabase = await createClient();
     const { data } = await supabase.from("credit_accounts").select("balance").maybeSingle<{ balance: number }>();
@@ -41,7 +42,7 @@ export async function getCreditBalance(): Promise<number> {
   } catch {
     return 0;
   }
-}
+});
 
 export async function listCreditTransactions(limit = 30): Promise<CreditTransaction[]> {
   const supabase = await createClient();
