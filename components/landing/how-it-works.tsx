@@ -1,8 +1,5 @@
-"use client";
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import type { CSSProperties } from "react";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { Reveal } from "@/components/motion/reveal";
 import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
@@ -24,48 +21,37 @@ export const steps = [
   { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
 
+/**
+ * The five steps on one thin rail. As you scroll, the rail fills down to the
+ * reading line and each step's node lights as it reaches it, so the eye
+ * always knows which step it is on. All CSS (scroll-driven, see "Steps
+ * rail" in globals.css); without scroll timelines, or with reduced motion,
+ * the rail is simply drawn and every node lit.
+ */
 export function HowItWorks({ heading = true }: { heading?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 75%", "end 55%"] });
-  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1]);
-
   return (
-    <section id="how-it-works" className="py-24 sm:py-32">
+    <section id="how-it-works" className={heading ? "py-24 sm:py-32" : "pb-24 pt-6 sm:pb-32 sm:pt-10"}>
       <Container>
         {heading && (
           <SectionHeading
             eyebrow="How it works"
-            title="Five steps, fully visible."
+            title="Five steps,"
+            outline="fully visible."
             body="Every order shows its current step in your dashboard, from payment to report."
           />
         )}
-        <div ref={ref} className="relative mt-14 pl-10 sm:pl-14">
-          <div aria-hidden className="absolute left-[15px] top-2 bottom-2 w-px bg-[var(--line)] sm:left-[23px]" />
-          <motion.div
-            aria-hidden
-            style={{ scaleY }}
-            className="absolute left-[15px] top-2 bottom-2 w-px origin-top bg-gradient-to-b from-cyan via-accent to-violet shadow-[0_0_12px_rgb(91_140_255/0.8)] sm:left-[23px]"
-          />
-          <span
-            aria-hidden
-            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(141_179_255/0.9)] sm:left-[22px]"
-          />
-          <ol className="space-y-6">
-            {steps.map((s, i) => (
-              <li key={s.n} className="relative">
-                <Reveal delay={i * 0.04}>
-                  <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[11px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
-                    {s.n}
-                  </span>
-                  <div data-tilt="6" className="glass rounded-2xl p-5 sm:p-6">
-                    <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
-                    <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
-                  </div>
-                </Reveal>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <ol className={heading ? "steps mt-14" : "steps"} aria-label="Five steps from text to report">
+          {steps.map((s, i) => (
+            <li key={s.n} className="step" style={{ "--i": i } as CSSProperties}>
+              <span aria-hidden className="step-node" />
+              <span className="step-n">{s.n}</span>
+              <div className="step-body">
+                <h3 className="step-title">{s.title}</h3>
+                <p className="step-text">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </Container>
     </section>
   );

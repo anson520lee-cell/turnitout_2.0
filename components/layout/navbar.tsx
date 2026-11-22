@@ -1,15 +1,14 @@
 "use client";
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { buttonClasses } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/how-it-works", label: "How It Works" },
+  { href: "/how-it-works", label: "How it works" },
   { href: "/services", label: "Services" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
@@ -41,9 +40,6 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
   // Menu state is tied to the path it was opened on, so navigating closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = openOn === pathname;
-  // Which link the glass pill sits under: the hovered one, else the current page.
-  const [hovered, setHovered] = useState<string | null>(null);
-  const pill = hovered ?? links.find((l) => l.href === pathname)?.href ?? null;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -52,42 +48,38 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenOn(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
       <nav
         aria-label="Main"
         className={cn(
-          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
+          "nav-bar mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
           scrolled || open ? "glass-strong" : "border border-transparent",
         )}
       >
         <Logo />
-        <ul className="hidden items-center gap-1 md:flex" onPointerLeave={() => setHovered(null)}>
-          {links.map((l) => (
-            <li key={l.href} className="relative">
-              {pill === l.href && (
-                <motion.span
-                  layoutId="nav-pill"
-                  aria-hidden
-                  className="absolute inset-0 rounded-lg border border-white/[0.07] bg-white/[0.05] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_6px_20px_-10px_rgb(91_140_255/0.6)]"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                />
-              )}
+        <ul className="hidden items-center gap-0.5 md:flex">
+          {links.map((l, i) => (
+            <li key={l.href}>
               <Link
                 href={l.href}
-                onPointerEnter={() => setHovered(l.href)}
-                onFocus={() => setHovered(l.href)}
-                onBlur={() => setHovered(null)}
-                data-press
-                className={cn(
-                  "relative block rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg",
-                  pathname === l.href && "text-fg",
-                )}
+                data-active={pathname === l.href || undefined}
+                aria-current={pathname === l.href ? "page" : undefined}
+                className="nav-link"
               >
-                {l.label}
-                {pathname === l.href && (
-                  <span aria-hidden className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
-                )}
+                <span className="nav-idx" aria-hidden>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="nav-label">{l.label}</span>
               </Link>
             </li>
           ))}
@@ -99,8 +91,8 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
             </Link>
           ) : (
             <>
-              <Link href="/login" className={buttonClasses("ghost", "sm")}>
-                Log in
+              <Link href="/login" className="nav-link">
+                <span className="nav-label">Log in</span>
               </Link>
               <Link href="/signup" className={buttonClasses("primary", "sm", "px-4")}>
                 Start free
@@ -111,53 +103,52 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
         </div>
         <button
           type="button"
-          className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
+          className="nav-burger grid size-11 place-items-center rounded-lg text-fg-muted hover:text-fg md:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? "Close menu" : "Open menu"}
+          data-open={open || undefined}
           onClick={() => setOpenOn(open ? null : pathname)}
         >
-          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          <span aria-hidden className="nav-burger-lines">
+            <i />
+            <i />
+          </span>
         </button>
       </nav>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id="mobile-menu"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="glass-strong mx-auto mt-2 max-w-6xl rounded-2xl p-3 md:hidden"
-          >
-            <ul className="grid gap-1">
-              {links.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} data-press className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--line)] pt-3">
-              {signedIn ? (
-                <Link href="/dashboard" className={buttonClasses("primary", "md", "col-span-2")}>
-                  Dashboard
+      {open && (
+        <div id="mobile-menu" className="nav-sheet glass-strong mx-auto mt-2 max-w-6xl rounded-2xl md:hidden">
+          <ul>
+            {links.map((l, i) => (
+              <li key={l.href} style={{ "--i": i } as CSSProperties}>
+                <Link href={l.href} data-press aria-current={pathname === l.href ? "page" : undefined} className="nav-sheet-link">
+                  <span className="nav-idx" aria-hidden>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="nav-sheet-label">{l.label}</span>
+                  <ArrowUpRight className="ml-auto size-4 text-fg-subtle" aria-hidden />
                 </Link>
-              ) : (
-                <>
-                  <Link href="/login" className={buttonClasses("secondary", "md")}>
-                    Log in
-                  </Link>
-                  <Link href="/signup" className={buttonClasses("primary", "md")}>
-                    Start free
-                  </Link>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </li>
+            ))}
+          </ul>
+          <div className="nav-sheet-cta grid grid-cols-2 gap-2 p-3" style={{ "--i": links.length } as CSSProperties}>
+            {signedIn ? (
+              <Link href="/dashboard" className={buttonClasses("primary", "md", "col-span-2")}>
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className={buttonClasses("secondary", "md")}>
+                  Log in
+                </Link>
+                <Link href="/signup" className={buttonClasses("primary", "md")}>
+                  Start free
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

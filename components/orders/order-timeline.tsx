@@ -1,36 +1,36 @@
-import { Check } from "lucide-react";
+import type { CSSProperties } from "react";
 import { flowFor, statusMeta, stepIndex, type OrderStatus } from "@/lib/orders/status";
 import type { ServiceType } from "@/config/pricing";
 import { cn } from "@/lib/utils";
 
+/**
+ * An order's progress on one thin line: done steps are lit dots on a lit
+ * line, the current one is a ring with a slow halo, the rest are hollow.
+ * The lit part draws in when the page opens, so the eye lands on "now".
+ */
 export function OrderTimeline({ type, status }: { type: ServiceType; status: OrderStatus }) {
   const flow = flowFor(type);
   const current = stepIndex(type, status);
   if (status === "cancelled") {
     return <p className="text-[13px] text-risk">This order was cancelled.</p>;
   }
+  const doneCount = status === "completed" ? flow.length : current;
   return (
-    <ol className={cn("relative grid gap-0", flow.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-6")} aria-label="Order progress">
+    <ol
+      className={cn("tl", flow.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-6")}
+      aria-label="Order progress"
+      style={{ "--tl-n": flow.length, "--tl-done": Math.max(0, Math.min(flow.length - 1, doneCount)) } as CSSProperties}
+    >
       {flow.map((s, i) => {
         const done = i < current || status === "completed";
         const here = i === current && status !== "completed";
         return (
-          <li key={s} className="relative flex gap-3 pb-5 sm:flex-col sm:items-center sm:pb-0 sm:text-center">
-            {i < flow.length - 1 && (
-              <span aria-hidden className={cn("absolute left-[11px] top-6 h-[calc(100%-12px)] w-px sm:left-[calc(50%+14px)] sm:top-[11px] sm:h-px sm:w-[calc(100%-28px)]", done ? "bg-accent" : "bg-[var(--line-strong)]")} />
-            )}
-            <span
-              className={cn(
-                "relative z-10 grid size-6 shrink-0 place-items-center rounded-full border text-[11px]",
-                done && "border-accent bg-accent text-white",
-                here && "border-accent bg-ink-900 text-accent shadow-[0_0_0_4px_rgb(91_140_255/0.18)]",
-                !done && !here && "border-[var(--line-strong)] bg-ink-900 text-fg-subtle",
-              )}
-              aria-current={here ? "step" : undefined}
-            >
-              {done ? <Check className="size-3.5" /> : here ? <span className="size-2 animate-pulse rounded-full bg-accent" /> : i + 1}
+          <li key={s} className="tl-step" data-done={done || undefined} data-here={here || undefined} style={{ "--i": i } as CSSProperties}>
+            <span className="tl-node" aria-current={here ? "step" : undefined}>
+              <span className="sr-only">{done ? "Done: " : here ? "Now: " : ""}</span>
             </span>
-            <span className={cn("text-[12.5px] sm:mt-2", here ? "font-medium text-fg" : done ? "text-fg-muted" : "text-fg-subtle")}>
+            <span className="tl-label">
+              <span className="nav-idx">{String(i + 1).padStart(2, "0")}</span>
               {statusMeta[s].label}
             </span>
           </li>

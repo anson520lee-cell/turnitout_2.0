@@ -1,17 +1,22 @@
 "use client";
-import { useRef, useState } from "react";
-import {
-  motion,
-  useMotionValueEvent,
-  useScroll,
-  useTransform,
-  type MotionValue,
-} from "framer-motion";
-import { Container, Eyebrow } from "@/components/ui/section";
-import { cn } from "@/lib/utils";
-import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
-import { LiveMini } from "@/components/visuals/live-ticker";
-import { TokenSpectrum } from "@/components/ml/token-spectrum";
+import { useEffect, useRef, useState } from "react";
+import { Container } from "@/components/ui/section";
+
+/**
+ * From draft to report, on one sheet. The section is pinned while you scroll
+ * through it, and the scroll drives an example text through the five stages:
+ * pasted in (the lines appear under a caret), cut into sections (hairlines
+ * and section marks), read (a scan line passes down and the detector's view
+ * shows behind it), put together (a level bar per section) and returned as a
+ * report. The list of stages beside it is also an index: press one to go to
+ * it.
+ *
+ * One scroll handler writes five numbers (--p0 … --p4, each stage's 0→1) on
+ * the pinned layer; CSS draws everything from them ("From draft to report" in
+ * globals.css). Reduced motion: nothing pins, every stage is shown complete.
+ * Illustrative: the text is written for this page and the levels are not a
+ * measurement, and both are labelled so.
+ */
 
 const stages = [
   { label: "Paste your text", body: "Press Get report, paste your text and press Enter. One full report a day is free." },
@@ -21,181 +26,190 @@ const stages = [
   { label: "Report ready", body: "An overall level, a map of your text and the sentences to look at again, in a few minutes." },
 ];
 
-const SIGNALS = [
-  { t: "Sentence variation", x: "-38%", y: "-26%" },
-  { t: "Transitions", x: "36%", y: "-12%" },
-  { t: "Phrase uniformity", x: "-36%", y: "10%" },
-  { t: "Structure", x: "34%", y: "24%" },
+type Level = "high" | "mid" | "low";
+type Part = string | { t: string; l: Exclude<Level, "low"> };
+const paragraphs: { level: Level; name: string; parts: Part[] }[] = [
+  {
+    level: "mid",
+    name: "Medium",
+    parts: [
+      "Cities that once planned around cars are turning streets back over to people. Buses, bikes and wider pavements now share the same narrow space, which is ",
+      { t: "a significant challenge", l: "mid" },
+      " for planners.",
+    ],
+  },
+  {
+    level: "high",
+    name: "High",
+    parts: [
+      { t: "It is important to note that", l: "high" },
+      " public transport ",
+      { t: "plays a vital role in modern society", l: "high" },
+      ". ",
+      { t: "Furthermore", l: "mid" },
+      ", it offers ",
+      { t: "many benefits to people", l: "mid" },
+      " in their daily lives.",
+    ],
+  },
+  {
+    level: "low",
+    name: "Low",
+    parts: ["Last winter I timed my own commute for a month. The bus beat walking on only nine of the twenty days, mostly when it rained."],
+  },
 ];
 
-function useRange(p: MotionValue<number>, a: number, b: number) {
-  return useTransform(p, [a, b], [0, 1], { clamp: true });
-}
+// where in the section's scroll (0 → 1) each stage's drawing runs
+const RANGES: [number, number][] = [
+  [0, 0.15],
+  [0.21, 0.35],
+  [0.41, 0.6],
+  [0.63, 0.76],
+  [0.82, 0.94],
+];
+const clamp = (v: number) => Math.min(1, Math.max(0, v));
+const n2 = (i: number) => String(i + 1).padStart(2, "0");
 
-function Stage({ progress }: { progress: MotionValue<number> }) {
-  const docIn = useRange(progress, 0.0, 0.12);
-  const signals = useRange(progress, 0.18, 0.32);
-  const signalsOut = useTransform(progress, [0.55, 0.65], [1, 0]);
-  const layer = useRange(progress, 0.4, 0.52);
-  const through = useRange(progress, 0.56, 0.74);
-  const report = useRange(progress, 0.78, 0.9);
-
-  const docOpacity = useTransform([docIn, report] as never, ([a, r]: number[]) => a * (1 - r));
-  const docY = useTransform(docIn, [0, 1], [60, 0]);
-  const docZ = useTransform(through, [0, 1], [0, -260]);
-  const docRotX = useTransform(through, [0, 1], [10, 24]);
-  const layerZ = useTransform(through, [0, 1], [-120, 40]);
-  const layerOpacity = useTransform([layer, report] as never, ([l, r]: number[]) => l * 0.9 * (1 - r));
-  const sigOpacity = useTransform([signals, signalsOut] as never, ([a, b]: number[]) => a * b);
-  // the spectrum is there, quietly, as soon as the document is; it comes up to full while the signals are read
-  const specOpacity = useTransform([docIn, sigOpacity, report] as never, ([d, s, r]: number[]) => d * (0.4 + 0.6 * s) * (1 - r));
-  const reportScale = useTransform(report, [0, 1], [0.92, 1]);
-  const ring = useTransform(report, [0, 1], [0, 1]);
-
+function Doc({ view }: { view?: boolean }) {
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[460px] [perspective:1100px]">
-      <div aria-hidden data-depth="-2" className="absolute inset-[-10%] rounded-full bg-[radial-gradient(closest-side,rgb(91_140_255/0.18),transparent)]" />
-      {/* Everything below leans with the cursor as one object, and its parts sit
-          at different depths (spectrum behind, document in the middle, labels and
-          report in front), so they slide against each other as it turns. The
-          wrapper carries no blur of its own, which would flatten its children. */}
-      <div data-tilt="11" className="absolute inset-0 [transform-style:preserve-3d]">
-      {/* verification field */}
-      <motion.div
-        style={{ opacity: layerOpacity, z: layerZ, rotateX: 64 }}
-        className="absolute left-[8%] right-[8%] top-[46%] h-[48%] rounded-[28px] border border-accent/40 bg-[linear-gradient(180deg,rgb(91_140_255/0.18),rgb(141_150_172/0.06))] shadow-[0_0_60px_rgb(91_140_255/0.35)] [transform-style:preserve-3d]"
-      >
-        <div className="absolute inset-0 rounded-[28px] bg-grid opacity-70" />
-        {/* stacked like the layers of a network: the document passes through each */}
-        <div className="absolute inset-0 rounded-[28px] border border-chart-low/30 bg-grid opacity-45 [transform:translateZ(-44px)]" />
-        <div className="absolute inset-0 rounded-[28px] border border-chart-mid/30 bg-grid opacity-40 [transform:translateZ(44px)]" />
-        <span className="absolute left-4 top-3 font-mono text-[9px] uppercase tracking-[0.18em] text-accent/80">layers</span>
-      </motion.div>
-      {/* round the document: a spectrum of per-token readings, strongest where the four signals are */}
-      <motion.div aria-hidden style={{ opacity: specOpacity, z: -90 }} className="absolute inset-[-13%]">
-        <TokenSpectrum className="size-full" />
-      </motion.div>
-      {/* document */}
-      <motion.div
-        style={{ opacity: docOpacity, y: docY, z: docZ, rotateX: docRotX, rotateY: -12 }}
-        className="glass-strong absolute left-[26%] top-[12%] h-[70%] w-[48%] rounded-2xl p-[5%] [transform-style:preserve-3d]"
-      >
-        <div className="absolute inset-[5%]">
-          <LiveMini />
+    <div className={view ? "story-copy story-view" : "story-copy story-plain"} aria-hidden={view || undefined}>
+      {paragraphs.map((p, i) => (
+        <div key={p.name} className="story-par" data-level={p.level}>
+          <span className="story-sec">§ {n2(i)}</span>
+          <p className="story-txt">
+            {p.parts.map((x, k) => (typeof x === "string" ? <span key={k}>{x}</span> : view ? <mark key={k} data-l={x.l}>{x.t}</mark> : <span key={k}>{x.t}</span>))}
+          </p>
+          <span className="story-meter">
+            <span className="story-meter-bar">
+              <i />
+            </span>
+            <span className="story-meter-label">{p.name}</span>
+          </span>
         </div>
-      </motion.div>
-      {/* signal labels */}
-      {SIGNALS.map((s, i) => (
-        <motion.div
-          key={s.t}
-          // Pulled toward the centre on phones so the labels stay on screen.
-          style={{ opacity: sigOpacity, z: 70 + i * 14, left: `calc(50% + ${s.x} * var(--spread))`, top: `calc(50% + ${s.y})` }}
-          className="absolute [--spread:0.55] sm:[--spread:1]"
-        >
-          <div className="glass flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-muted">
-            <span className={cn("size-1.5 rounded-full", i % 2 ? "bg-chart-low" : "bg-chart-mid")} />
-            {s.t}
-          </div>
-        </motion.div>
       ))}
-      {/* report card */}
-      <motion.div
-        style={{ opacity: report, scale: reportScale, z: 50 }}
-        className="glass-strong absolute inset-[12%] rounded-3xl p-6"
-      >
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ok">Report ready</p>
-        <div className="mt-5 grid grid-cols-2 gap-4">
-          {["Overall risk level", "Map of your text"].map((l) => (
-            <div key={l} className="rounded-2xl border border-[var(--line)] bg-ink-900/60 p-4">
-              <svg viewBox="0 0 60 60" className="size-14" aria-hidden>
-                <circle cx="30" cy="30" r="24" fill="none" stroke="rgb(170 176 196 / 0.14)" strokeWidth="6" />
-                <motion.circle
-                  cx="30" cy="30" r="24" fill="none" stroke="url(#ss-grad)" strokeWidth="6" strokeLinecap="round"
-                  style={{ pathLength: ring }} transform="rotate(-90 30 30)"
-                />
-                <defs>
-                  <linearGradient id="ss-grad"><stop offset="0" stopColor="#8db3ff" /><stop offset="1" stopColor="#3f7bff" /></linearGradient>
-                </defs>
-              </svg>
-              <p className="mt-3 text-[12px] text-fg-muted">{l}</p>
-              <div className="mt-1.5 h-2 w-12 rounded bg-white/10" />
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 space-y-2">
-          <div className="h-2 w-3/4 rounded bg-white/[0.07]" />
-          <div className="h-2 w-1/2 rounded bg-white/[0.07]" />
-        </div>
-        <p className="mt-5 text-[11px] text-fg-subtle">Illustration. Values appear only in a real report.</p>
-      </motion.div>
-      </div>
     </div>
   );
 }
 
 export function ScrollStory() {
-  const ref = useRef<HTMLDivElement>(null);
-  const reduce = usePrefersReducedMotion();
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  const ref = useRef<HTMLElement>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    setActive(Math.min(stages.length - 1, Math.floor(v * stages.length * 0.999)));
-  });
 
-  if (reduce) {
-    return (
-      <section ref={ref} className="py-24">
-        <Container>
-          <Eyebrow>From draft to report</Eyebrow>
-          <ol className="mt-8 grid gap-4 md:grid-cols-5">
-            {stages.map((s, i) => (
-              <li key={s.label} className="glass rounded-2xl p-5">
-                <span className="font-mono text-[11px] text-fg-subtle">0{i + 1}</span>
-                <h3 className="mt-2 font-semibold">{s.label}</h3>
-                <p className="mt-1 text-[13px] text-fg-muted">{s.body}</p>
-              </li>
-            ))}
-          </ol>
-        </Container>
-      </section>
-    );
-  }
+  useEffect(() => {
+    const sec = ref.current;
+    const pin = pinRef.current;
+    if (!sec || !pin) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (reduce.matches) {
+        for (let i = 0; i < 5; i++) pin.style.removeProperty(`--p${i}`);
+        setActive(4);
+        return;
+      }
+      const r = sec.getBoundingClientRect();
+      const sp = clamp(-r.top / Math.max(1, r.height - window.innerHeight));
+      RANGES.forEach(([a, b], i) => pin.style.setProperty(`--p${i}`, clamp((sp - a) / (b - a)).toFixed(4)));
+      const act = Math.min(4, Math.floor(sp * 5));
+      setActive((p) => (p === act ? p : act));
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    reduce.addEventListener("change", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      reduce.removeEventListener("change", schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // the stage list is an index: go to the point where that stage has finished drawing
+  const go = (i: number) => {
+    const sec = ref.current;
+    if (!sec) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const top = sec.getBoundingClientRect().top + window.scrollY;
+    const total = sec.offsetHeight - window.innerHeight;
+    window.scrollTo({ top: top + total * (RANGES[i][1] + 0.01), behavior: reduce ? "auto" : "smooth" });
+  };
 
   return (
-    <section ref={ref} className="relative h-[420vh]" aria-label="From draft to report">
-      <div className="sticky top-0 flex h-svh items-center overflow-hidden pt-16 lg:pt-0">
-        <Container className="grid items-center gap-4 sm:gap-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-          <div className="order-2 lg:order-1">
-            <Eyebrow>From draft to report</Eyebrow>
-            <ol className="mt-6 space-y-1">
+    <section ref={ref} className="story" aria-labelledby="story-title">
+      <div ref={pinRef} className="story-pin">
+        <Container className="story-grid">
+          <div className="story-side">
+            <p id="story-title" className="section-eyebrow">
+              <span>From draft to report</span>
+            </p>
+            <ol className="story-list">
               {stages.map((s, i) => (
-                <li key={s.label}>
-                  <motion.div
-                    animate={{ opacity: i === active ? 1 : 0.6 }}
-                    transition={{ duration: 0.4 }}
-                    className="flex gap-4 rounded-xl py-2 sm:py-3"
-                  >
-                    <span className={cn("mt-2 h-px w-6 shrink-0 transition-all duration-500", i === active ? "w-10 bg-accent" : "bg-fg-subtle/50")} />
-                    <div>
-                      <h3 className="text-lg font-semibold tracking-tight sm:text-xl">{s.label}</h3>
-                      <motion.p
-                        initial={false}
-                        animate={{ height: i === active ? "auto" : 0, opacity: i === active ? 1 : 0 }}
-                        className="overflow-hidden text-[14.5px] leading-relaxed text-fg-muted"
-                      >
-                        <span className="block pt-1.5">{s.body}</span>
-                      </motion.p>
-                    </div>
-                  </motion.div>
+                <li key={s.label} className="story-item" data-on={i === active || undefined} data-done={i < active || undefined}>
+                  <button type="button" data-press className="story-step" aria-current={i === active ? "step" : undefined} onClick={() => go(i)}>
+                    <span className="story-step-n">{n2(i)}</span>
+                    <span className="story-step-name">{s.label}</span>
+                  </button>
+                  <div className="story-step-body">
+                    <p>{s.body}</p>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
-          {/* On short phone screens the whole stage is zoomed down so it and the steps both fit. */}
-          <div className="order-1 max-lg:[@media(max-height:760px)]:[zoom:0.72] lg:order-2">
-            <Stage progress={scrollYProgress} />
+
+          <div
+            className="story-sheet glass-strong"
+            role="img"
+            aria-label="Illustration: an example text is pasted in, cut into sections, read sentence by sentence, put together, and returned as a report."
+          >
+            <p className="story-sheet-label">
+              <span>Example text</span>
+              <span>
+                {n2(active)} · {stages[active].label}
+              </span>
+            </p>
+            <div className="story-doc">
+              <Doc />
+              <Doc view />
+              <span aria-hidden className="story-caret" />
+              <span aria-hidden className="story-scan" />
+            </div>
+            <p className="story-sum">3 sections · 6 sentences · 3 to look at again</p>
+            <div className="story-report">
+              <p className="story-report-label">Report ready</p>
+              <div className="story-report-grid">
+                <div>
+                  <svg viewBox="0 0 120 66" className="story-gauge" aria-hidden>
+                    <path d="M10 60 A50 50 0 0 1 110 60" pathLength={100} className="story-gauge-track" />
+                    <path d="M10 60 A50 50 0 0 1 110 60" pathLength={100} className="story-gauge-fill" />
+                  </svg>
+                  <p className="story-report-k">Overall level</p>
+                  <p className="story-report-v">Medium</p>
+                </div>
+                <div>
+                  <p className="story-report-k">Map of your text</p>
+                  <ul className="story-map">
+                    {paragraphs.map((p, i) => (
+                      <li key={p.name} data-level={p.level}>
+                        <span>§ {n2(i)}</span>
+                        <i />
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="story-report-k mt-3">To look at again</p>
+                  <p className="story-report-v">3 sentences</p>
+                </div>
+              </div>
+            </div>
           </div>
         </Container>
+        <p className="story-note">Text written for this page; the levels are an illustration, not a measurement.</p>
       </div>
     </section>
   );

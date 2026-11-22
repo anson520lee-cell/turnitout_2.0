@@ -14,7 +14,8 @@ export default function HowItWorksPage() {
     <>
       <PageHeader
         eyebrow="How it works"
-        title="From draft to report, step by step."
+        title="From draft to report,"
+        outline="step by step."
         body="The report reads your whole text and is ready in a few minutes, while you watch a live scan of your text. Your first report each day is free."
       />
       <HowItWorks heading={false} />

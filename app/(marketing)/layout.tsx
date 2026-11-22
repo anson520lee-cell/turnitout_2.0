@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { PageScan } from "@/components/motion/page-scan";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <Footer />
+      <PageScan />
     </>
   );
 }

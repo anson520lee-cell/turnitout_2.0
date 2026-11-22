@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Info } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
@@ -19,7 +19,8 @@ export default function SampleReportPage() {
     <>
       <PageHeader
         eyebrow="Sample report"
-        title="What you get back"
+        title="What you"
+        outline="get back."
         body={`This is the page a customer sees when a report is ready, filled with example data. ${reportFromLabel}, ${reportRateLabel}.`}
       />
       <Container className="max-w-4xl pb-24">

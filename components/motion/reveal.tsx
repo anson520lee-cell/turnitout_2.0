@@ -1,128 +1,93 @@
-"use client";
-import { motion, type HTMLMotionProps } from "framer-motion";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-const ease = [0.22, 1, 0.36, 1] as const;
+type DivProps = HTMLAttributes<HTMLDivElement>;
+const tiltAttr = (tilt?: boolean | number) => (tilt ? (tilt === true ? "" : String(tilt)) : undefined);
 
-/**
- * Framer writes `transform` inline, which would override the CSS tilt from
- * `[data-tilt]`. This template prepends the tilt so both apply. It also
- * carries the lift in Z, matching the CSS rule.
+/*
+ * Entrances, in the voice of the essay sheet on the home page. All of it is
+ * CSS (see "Entrances" in globals.css): the content is in the HTML and
+ * visible before any script runs, nothing waits for hydration, and reduced
+ * motion, or a browser without scroll-driven animations, simply shows it.
+ * Below the fold the entrances follow the scroll position, so they run
+ * backwards when you scroll back up.
+ *
+ * - Reveal: a block of copy rises into place as it scrolls in
+ *   (`aboveFold`: once, on load, for content on screen at the start).
+ * - Build: one object (its first child) arrives as a 1px outline traced
+ *   round its edge, then fills from the top down.
+ * - Stagger + StaggerItem: a row of objects, each building a step after the
+ *   one before it.
+ *
+ * `tilt` is kept as the name of the hover response, which is now a lift in
+ * three beats (line, object, light), not a tilt; see "Lift" in globals.css.
  */
-const withTilt = (_: unknown, generated: string) =>
-  `perspective(1000px) rotateX(calc(var(--rx0, 0deg) + var(--rx, 0deg))) rotateY(var(--ry, 0deg)) translateZ(calc(var(--lift, 0) * 12px)) ${generated === "none" ? "" : generated}`;
-
-function tiltProps(tilt?: boolean | number) {
-  if (!tilt) return {};
-  return {
-    "data-tilt": tilt === true ? "" : String(tilt),
-    transformTemplate: withTilt,
-  };
-}
-
-/**
- * Entrances swing up out of the page: a few degrees of rotateX around the
- * bottom edge, with depth, settling flat. With reduced motion Framer skips the
- * transform and only fades.
- */
-const hidden = (y: number, flip: number) => ({
-  opacity: 0,
-  y,
-  rotateX: flip,
-  scale: 0.97,
-  transformPerspective: 1200,
-  filter: "blur(4px)",
-});
-const shown = { opacity: 1, y: 0, rotateX: 0, scale: 1, filter: "blur(0px)" };
 
 export function Reveal({
-  delay = 0,
-  y = 26,
-  flip = 14,
+  delay,
   aboveFold,
-  className,
-  children,
   tilt,
+  className,
+  style,
+  children,
   ...props
-}: HTMLMotionProps<"div"> & {
+}: DivProps & {
+  /** Seconds, for `aboveFold` entrances (a scroll entrance has no clock). */
   delay?: number;
-  y?: number;
-  flip?: number;
-  tilt?: boolean | number;
-  /**
-   * For content visible on load (hero, page headers): the server sends it
-   * visible, and only the depth swing plays once the script runs, so the
-   * first paint already shows the text.
-   */
   aboveFold?: boolean;
+  tilt?: boolean | number;
 }) {
-  const motionProps = aboveFold
-    ? {
-        initial: { y: Math.min(y, 12), rotateX: flip / 2, transformPerspective: 1200 },
-        animate: { y: 0, rotateX: 0 },
-      }
-    : { initial: hidden(y, flip), whileInView: shown, viewport: { once: true, margin: "-80px" } };
   return (
-    <motion.div
-      {...motionProps}
-      transition={{ duration: 0.9, ease, delay }}
-      className={["reveal-3d", className].filter(Boolean).join(" ")}
-      {...tiltProps(tilt)}
+    <div
+      data-reveal={aboveFold ? "intro" : ""}
+      data-tilt={tiltAttr(tilt)}
+      className={className}
+      style={delay ? ({ "--d": `${delay}s`, ...style } as CSSProperties) : style}
       {...props}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-export function Stagger({
-  className,
-  children,
-  gap = 0.08,
-}: {
-  className?: string;
-  children: React.ReactNode;
-  gap?: number;
-}) {
+/** Wrap exactly one object: the wrapper draws the outline, the child fills in. `r` is the child's corner radius. */
+export function Build({ r = 16, className, style, children, ...props }: DivProps & { r?: number }) {
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{ hidden: {}, show: { transition: { staggerChildren: gap } } }}
-    >
+    <div data-build="" className={className} style={{ "--build-r": `${r}px`, ...style } as CSSProperties} {...props}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
+export function Stagger({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div data-stagger="" className={className}>
+      {children}
+    </div>
+  );
+}
+
+/** One object in a Stagger: builds in, and lifts on hover when `tilt` is set. */
 export function StaggerItem({
   className,
+  wrapClassName,
   children,
   tilt,
-  z,
-  hoverZ,
+  r = 16,
 }: {
+  /** Classes for the object itself (glass, padding, radius). */
   className?: string;
-  children: React.ReactNode;
+  /** Classes for the grid cell around it. */
+  wrapClassName?: string;
+  children: ReactNode;
   tilt?: boolean | number;
-  /** Depth in px above its parent, when the parent keeps its children in 3D. */
-  z?: number;
-  /** Depth while hovered: the item rises toward the viewer. */
-  hoverZ?: number;
+  r?: number;
 }) {
   return (
-    <motion.div
-      className={["reveal-3d", className].filter(Boolean).join(" ")}
-      style={z !== undefined ? { z } : undefined}
-      whileHover={hoverZ !== undefined ? { z: hoverZ, transition: { type: "spring", stiffness: 260, damping: 22 } } : undefined}
-      {...tiltProps(tilt)}
-      variants={{
-        hidden: hidden(30, 22),
-        show: { ...shown, transition: { duration: 0.85, ease } },
-      }}
-    >
-      {children}
-    </motion.div>
+    <Build r={r} className={cn("h-full", wrapClassName)}>
+      <div className={cn("h-full", className)} data-tilt={tiltAttr(tilt)}>
+        {children}
+      </div>
+    </Build>
   );
 }

@@ -3,21 +3,21 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, FileCheck2, FileStack, LayoutGrid, Wallet } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { Reveal } from "@/components/motion/reveal";
+import { Build } from "@/components/motion/reveal";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
 /**
- * The dashboard, shown as a live scene instead of a flat screenshot. A glass
- * frame leans gently with the cursor, a rim of light runs round it, and its
- * parts sit a few pixels apart in depth: the cards just above the frame, the
- * order pipeline a touch higher, two floating notes in front. The depth is
- * kept shallow on purpose, so it reads as a calm product shot that is subtly
- * dimensional rather than a 3D toy. One example order walks through the
- * pipeline on a loop (paid, starting, reading, writing up, ready), and everything
- * that depends on it moves with it: the progress line, the ring, the order's
- * badge, the "reports ready" count and the note that slides in when it lands.
+ * The dashboard, shown as a live scene instead of a flat screenshot, staged
+ * like the essay sheet in the hero: the glass frame lies back and stands up
+ * as you scroll to it, arriving as a 1px outline that then fills from the
+ * top. Its cards answer a hover in three beats (edge, lift, light). One
+ * example order walks through the pipeline on a loop (paid, starting,
+ * reading, writing up, ready), a scan line crosses it while it is being
+ * read, and everything that depends on it moves with it: the progress line,
+ * the ring, the order's badge, the "reports ready" count and the note that
+ * slides in when it lands.
  *
  * Illustration with invented data, and labelled so.
  */
@@ -65,26 +65,15 @@ export function DashboardPreview() {
         <SectionHeading
           align="center"
           eyebrow="Your dashboard"
-          title="Every order in one place."
+          title="Every order"
+          outline="in one place."
           body="Your free report for today, live order status, and reports ready to open."
         />
-        <Reveal className="relative mx-auto mt-16 max-w-5xl [perspective:3200px]">
-          {/* light behind the frame */}
-          <div aria-hidden data-depth="-1" className="pointer-events-none absolute -inset-x-[8%] -inset-y-[14%]">
-            <div className="absolute left-[6%] top-[10%] size-[46%] rounded-full bg-accent/25 blur-[90px]" />
-            <div className="absolute right-[4%] top-[30%] size-[42%] rounded-full bg-chart-low/20 blur-[100px]" />
-            <div className="absolute bottom-0 left-[34%] size-[34%] rounded-full bg-chart-mid/12 blur-[90px]" />
-          </div>
-
-          <div
-            ref={root}
-            aria-hidden
-            data-tilt="2.5"
-            className="relative rounded-[28px] [--persp:2400px] [--rx0:3deg] [transform-style:preserve-3d] [transform:perspective(2400px)_rotateX(3deg)]"
-          >
-            {/* the frame: glass, and a rim of light running round it */}
+        <div className="dash-stage relative mx-auto mt-16 max-w-5xl">
+          <Build r={28} className="dash-stand">
+          <div ref={root} aria-hidden className="relative rounded-[28px] [transform-style:preserve-3d]">
+            {/* the frame */}
             <div className="glass-strong absolute inset-0 rounded-[28px]" />
-            <div className="dash-rim rounded-[28px]" />
 
             <div className="relative [transform-style:preserve-3d]">
               {/* window bar */}
@@ -164,8 +153,9 @@ export function DashboardPreview() {
                     </div>
                   </div>
 
-                  {/* the order in flight */}
-                  <div className="dash-card mt-3" style={{ ...z(22), padding: 20 }}>
+                  {/* the order in flight; a scan line crosses it while it is being read */}
+                  <div className="dash-card relative mt-3 overflow-hidden" style={{ ...z(22), padding: 20 }}>
+                    {step === 2 && <span className="dash-scan" />}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">Order in progress</p>
@@ -260,8 +250,9 @@ export function DashboardPreview() {
               </AnimatePresence>
             </div>
           </div>
+          </Build>
           <p className="mt-14 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>
-        </Reveal>
+        </div>
       </Container>
     </section>
   );

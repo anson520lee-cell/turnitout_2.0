@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
@@ -40,9 +41,9 @@ const paragraphShare = (p: ReportParagraph) => pct(p.sentences.filter((s) => isF
 
 function Stat({ title, value, of, sub }: { title: string; value: string; of?: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
+    <div className="rp-stat">
       <p className="text-[12px] text-fg-subtle">{title}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">
+      <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
         {value}
         {of && <span className="ml-1 text-[13px] font-normal text-fg-subtle">{of}</span>}
       </p>
@@ -58,7 +59,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
   return (
-    <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
+    <Card id={`para-${para.p}`} className="rp-para relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-subtle">Paragraph {para.p}</span>
@@ -74,7 +75,8 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
         {para.sentences.map((s) => (
           <span key={s.n}>
             <span
-              className={cn("rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
+              id={`s-${s.n}`}
+              className={cn("report-sentence rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
               title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
             >
               {s.text}
@@ -108,8 +110,31 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   );
 }
 
+/**
+ * A link to one sentence (#s-N, e.g. from the home page's lens) lands on it: centred, and ringed for a moment.
+ * Done here as well as with :target, because a client-side navigation does not update :target.
+ */
+function useSentenceLanding() {
+  useEffect(() => {
+    const land = () => {
+      const m = /^#s-(\d+)$/.exec(window.location.hash);
+      const el = m ? document.getElementById(`s-${m[1]}`) : null;
+      if (!el) return;
+      el.classList.remove("report-sentence-landed");
+      void el.offsetWidth;
+      el.classList.add("report-sentence-landed");
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    };
+    land();
+    window.addEventListener("hashchange", land);
+    return () => window.removeEventListener("hashchange", land);
+  }, []);
+}
+
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
 export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo }: { title: string; finishedAt: string; result: AutoReportResult; rewriteDemo?: boolean; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; canSkip?: boolean } }) {
+  useSentenceLanding();
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
@@ -162,7 +187,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
               {scored && <>, and {summary.counted} of them count toward the score</>}, so the overall band is{" "}
               <span className="font-semibold">{text.title}</span>. {text.line}
             </p>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rp-stats mt-4">
               <Stat title="Flagged sentences" value={String(flagged)} of={`of ${summary.sentences}`} sub={`${flaggedPct}%`} />
               <Stat title="High risk" value={String(summary.high)} sub={`${pct(summary.high, summary.sentences)}% of text`} />
               <Stat title="Medium risk" value={String(summary.medium)} sub={`${pct(summary.medium, summary.sentences)}% of text`} />
@@ -200,7 +225,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
             ))}
           </div>
         </div>
-        <div className="mt-4 flex h-3.5 overflow-hidden rounded-full bg-ink-900/60" role="img" aria-label={`${flaggedPct}% of sentences flagged`}>
+        <div className="rp-break mt-4 flex h-3 overflow-hidden rounded-full bg-ink-900/60" role="img" aria-label={`${flaggedPct}% of sentences flagged`}>
           {([["high", summary.high], ["medium", summary.medium], ["uncertain", summary.uncertain], ["low", lowOnly]] as const).map(([l, n]) =>
             n > 0 ? <span key={l} className={cn("h-full", chartBar[l])} style={{ width: `${(n / Math.max(1, summary.sentences)) * 100}%` }} /> : null,
           )}
@@ -216,7 +241,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
             ))}
           </div>
         </div>
-        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
+        <div className="rp-chart relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
           {[0, 50, 100].map((g) => (
             <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
               <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
@@ -234,7 +259,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
                   className="group relative flex h-full min-w-[6px] flex-1 items-end"
                 >
                   {!dense && <span className="absolute inset-x-0 text-center font-mono text-[10.5px] text-fg-muted" style={{ bottom: `calc(${Math.max(share, 3)}% + 4px)` }}>{share}%</span>}
-                  <span className={cn("block w-full rounded-t-[4px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
+                  <span className={cn("rp-bar block w-full rounded-t-[3px] opacity-90 transition group-hover:opacity-100 group-hover:brightness-125", chartBar[p.risk])} style={{ height: `${Math.max(share, 3)}%` }} />
                 </a>
               );
             })}
@@ -275,7 +300,9 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
       {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} title={title} canSkip={rewrite.canSkip} />}
 
       <div className="space-y-3">
-        <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>
+        <h3 className="section-eyebrow px-1 print:text-[#3a4258]">
+          <span>Paragraph by paragraph</span>
+        </h3>
         {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} scored={scored} />)}
       </div>
 

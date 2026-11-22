@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { Container } from "@/components/ui/section";
+import { ProseDoc } from "@/components/layout/prose-doc";
 import { brand, retention, uploads } from "@/config/app";
 import { retentionSentence } from "@/config/privacy-copy";
 import { deepseekEnabled } from "@/lib/deepseek";
@@ -16,8 +16,8 @@ export default function PrivacyPage() {
   const model = deepseekEnabled();
   return (
     <>
-      <PageHeader eyebrow="Privacy" title="Privacy policy" body="How we handle your account, your writing and your documents." />
-      <Container className="prose-doc max-w-3xl">
+      <PageHeader eyebrow="Privacy" title="Privacy" outline="policy." body="How we handle your account, your writing and your documents." />
+      <ProseDoc>
         <p><strong>Operator:</strong> {brand.operator}, {brand.jurisdiction}. Contact: <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>.</p>
         <h2>What we collect</h2>
         <ul>
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
         </ul>
         <h2>Your rights</h2>
         <p>You can request access to, correction of, or deletion of your personal data by emailing <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>.</p>
-      </Container>
+      </ProseDoc>
     </>
   );
 }

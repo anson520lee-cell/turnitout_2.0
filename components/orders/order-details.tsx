@@ -12,20 +12,20 @@ export function OrderDetails({ order, file, payments }: { order: Order; file: Or
   const paid = payments.filter((p) => p.status === "succeeded");
   return (
     <Card className="p-5 sm:p-6">
-      <h2 className="text-[15px] font-semibold">Order details</h2>
+      <h2 className="app-k">Order details</h2>
       <dl className="mt-4 grid gap-x-6 gap-y-4 text-[13.5px] sm:grid-cols-2">
-        <div><dt className="text-fg-subtle">Service</dt><dd className="mt-0.5">{serviceLabels[order.service_type]}</dd></div>
-        <div><dt className="text-fg-subtle">Price</dt><dd className="mt-0.5">{formatCredits(order.price)}</dd></div>
-        <div><dt className="text-fg-subtle">Word count</dt><dd className="mt-0.5">{order.word_count?.toLocaleString("en-HK") ?? "Counted during processing"}</dd></div>
+        <div><dt className="app-dt">Service</dt><dd className="mt-0.5">{serviceLabels[order.service_type]}</dd></div>
+        <div><dt className="app-dt">Price</dt><dd className="mt-0.5">{formatCredits(order.price)}</dd></div>
+        <div><dt className="app-dt">Word count</dt><dd className="mt-0.5">{order.word_count?.toLocaleString("en-HK") ?? "Counted during processing"}</dd></div>
         {!screeningOrder && order.source_text && (
-          <div><dt className="text-fg-subtle">Characters</dt><dd className="mt-0.5">{billableChars(order.source_text).toLocaleString("en-HK")}</dd></div>
+          <div><dt className="app-dt">Characters</dt><dd className="mt-0.5">{billableChars(order.source_text).toLocaleString("en-HK")}</dd></div>
         )}
-        {file && <div><dt className="text-fg-subtle">File</dt><dd className="mt-0.5 truncate">{file.file_name} · {formatBytes(file.file_size)}</dd></div>}
-        <div><dt className="text-fg-subtle">Payment reference</dt><dd className="mt-0.5 font-mono">{paymentReference(order.id)}</dd></div>
-        {order.paid_at && <div><dt className="text-fg-subtle">Paid</dt><dd className="mt-0.5">{formatDateTime(order.paid_at)}</dd></div>}
+        {file && <div><dt className="app-dt">File</dt><dd className="mt-0.5 truncate">{file.file_name} · {formatBytes(file.file_size)}</dd></div>}
+        <div><dt className="app-dt">Payment reference</dt><dd className="mt-0.5 font-mono">{paymentReference(order.id)}</dd></div>
+        {order.paid_at && <div><dt className="app-dt">Paid</dt><dd className="mt-0.5">{formatDateTime(order.paid_at)}</dd></div>}
         {order.instructions && (
           <div className="sm:col-span-2">
-            <dt className="text-fg-subtle">{screeningOrder ? "Notes" : "Instructions"}</dt>
+            <dt className="app-dt">{screeningOrder ? "Notes" : "Instructions"}</dt>
             <dd className="mt-0.5 whitespace-pre-wrap text-fg-muted">{order.instructions}</dd>
           </div>
         )}

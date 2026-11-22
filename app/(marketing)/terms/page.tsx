@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { PageHeader } from "@/components/layout/page-header";
-import { Container } from "@/components/ui/section";
+import { ProseDoc } from "@/components/layout/prose-doc";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <>
-      <PageHeader eyebrow="Terms" title="Terms of service" />
-      <Container className="prose-doc max-w-3xl">
+      <PageHeader eyebrow="Terms" title="Terms" outline="of service." />
+      <ProseDoc>
         <h2>1. The service</h2>
         <p>{brand.name} provides an AI-writing risk report, made automatically by this website from the text you submit (one a day is free, more are paid).</p>
         <h2>2. Independence</h2>
@@ -34,7 +34,7 @@ export default function TermsPage() {
         <p>Do not use the service to misrepresent authorship, to submit others&rsquo; work without permission, or to attempt to access other users&rsquo; data.</p>
         <h2>7. Contact</h2>
         <p><a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a></p>
-      </Container>
+      </ProseDoc>
     </>
   );
 }
