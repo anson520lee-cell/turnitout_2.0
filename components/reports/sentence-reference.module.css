@@ -1,0 +1,26 @@
+.sentence {
+  scroll-margin-top: 6.5rem;
+}
+.reference {
+  font:
+    11px var(--font-mono),
+    monospace;
+  color: var(--color-fg-subtle);
+  text-underline-offset: 3px;
+}
+.reference:is(:hover, :focus-visible) {
+  color: var(--color-chart-mid);
+  text-decoration: underline;
+}
+@media screen {
+  .sentence:target {
+    outline: 1px solid var(--color-chart-mid);
+    outline-offset: 2px;
+    color: var(--color-fg);
+  }
+}
+@media print {
+  .reference span {
+    display: none;
+  }
+}

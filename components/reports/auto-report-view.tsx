@@ -5,6 +5,8 @@ import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { sentenceAnchor } from "@/lib/auto-report/sentence-anchor";
+import reading from "./sentence-reference.module.css";
 import { brand } from "@/config/app";
 import { reportOverall, reportScore, scoreBasis, type AutoReportResult, type Level, type Overall, type ReportParagraph, type ReportSentence } from "@/lib/auto-report/stitch";
 import { RewriteDemo, RewritePanel } from "@/components/reports/rewrite-panel";
@@ -74,7 +76,8 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
         {para.sentences.map((s) => (
           <span key={s.n}>
             <span
-              className={cn("rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
+              id={sentenceAnchor(para.p, s.n)} tabIndex={-1}
+              className={cn(reading.sentence, "rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
               title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
             >
               {s.text}
@@ -88,7 +91,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
           {flagged.map((s) => (
             <li key={s.n} className="text-[13px] leading-relaxed">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[11px] text-fg-subtle">Sentence {s.n}</span>
+                <a href={`#${sentenceAnchor(para.p, s.n)}`} aria-label={`Read sentence ${s.n} in its paragraph`} className={reading.reference}>Sentence {s.n} <span aria-hidden>↗</span></a>
                 <Badge tone={riskStyle[s.risk].tone} className={riskPrintClass[riskStyle[s.risk].tone]}>{label[s.risk]}</Badge>
                 {uncounted(s, scored) && <span className="text-[11.5px] text-fg-subtle">not counted in the AI score</span>}
               </div>

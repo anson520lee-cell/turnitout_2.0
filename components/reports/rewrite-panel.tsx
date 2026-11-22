@@ -8,6 +8,9 @@ import { Card } from "@/components/ui/card";
 import { nextStep, resumable, reviseText, type Decision, type ReportRewrite, type RewriteCheck, type RewriteItem } from "@/lib/auto-report/rewrite";
 import type { RecheckStep } from "@/lib/auto-report/refine-script";
 import { reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+import { sampleReport } from "@/lib/auto-report/sample";
+import { sentenceAnchor } from "@/lib/auto-report/sentence-anchor";
+import reading from "./sentence-reference.module.css";
 import { track } from "@/lib/analytics";
 import { cn, shortId } from "@/lib/utils";
 import { RefineScan, type RefineVerify } from "./refine/refine-scan";
@@ -221,6 +224,11 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
   }
 
   const shown = useMemo(() => rewrite?.items.filter((i) => i.rewrite) ?? [], [rewrite]);
+  const sourceParagraphs = useMemo(() => {
+    const ids = new Map<number, number>();
+    for (const p of result.paragraphs) for (const sentence of p.sentences) ids.set(sentence.n, p.p);
+    return ids;
+  }, [result.paragraphs]);
   const still = useMemo(() => new Set(check?.stillCounted ?? []), [check]);
   const left = (rewrite?.items.length ?? 0) - shown.length;
   const accepted = shown.filter((i) => decisions[i.n] === "accept").length;
@@ -303,10 +311,13 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
               <ul className="space-y-4">
                 {shown.map((i) => {
                   const d = decisions[i.n];
+                  const paragraph = sourceParagraphs.get(i.n);
                   return (
                     <li key={i.n} className="rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-[11px] text-fg-subtle">Sentence {i.n}</span>
+                        {paragraph !== undefined
+                          ? <a href={`#${sentenceAnchor(paragraph, i.n)}`} className={reading.reference} aria-label={`Read sentence ${i.n} in its paragraph`}>Sentence {i.n} <span aria-hidden>↗</span></a>
+                          : <span className="font-mono text-[11px] text-fg-subtle">Sentence {i.n}</span>}
                         {d === "accept" && <Badge tone="info">Using the suggestion</Badge>}
                         {still.has(i.n) && <Badge tone="warn">Still flagged on the re-check</Badge>}
                       </div>
@@ -415,10 +426,12 @@ function Disclaimer() {
   );
 }
 
-/** A fixed example of the Writing Refinement add-on for the sample report: nothing here is clickable or charged. */
+/** A sample suggestion linked to its original passage. */
 export function RewriteDemo() {
+  const paragraph = sampleReport.paragraphs[0];
+  const sentence = paragraph.sentences[0];
   return (
-    <Card className="p-5 sm:p-6 print:hidden">
+    <Card id="writing-refinement" className="p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: lower your AI score</h3>
         <Badge tone="info">Add-on · 3× the report&rsquo;s price</Badge>
@@ -428,16 +441,16 @@ export function RewriteDemo() {
       </p>
       <Disclaimer />
       <div className="mt-4 rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
-        <span className="font-mono text-[11px] text-fg-subtle">Example sentence</span>
-        <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: stock transition and an even, polished rhythm.</p>
+        <a className={reading.reference} href={`#${sentenceAnchor(paragraph.p, sentence.n)}`}>Example sentence {sentence.n} <span aria-hidden>↗</span></a>
+        <p className="mt-1.5 text-[12.5px] text-fg-subtle">{sentence.why}</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <div className="rounded-lg border border-[var(--line)] p-3">
             <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Your sentence</p>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">Furthermore, it is important to note that urban noise has a significant impact on residents&rsquo; sleep.</p>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">{sentence.text}</p>
           </div>
           <div className="rounded-lg border border-accent/25 bg-accent/[0.05] p-3">
             <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#a9c1ff]">Suggested</p>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-fg">Urban noise also affects how well residents sleep.</p>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-fg">For years, the push to travel faster has shaped urban transport.</p>
           </div>
         </div>
       </div>

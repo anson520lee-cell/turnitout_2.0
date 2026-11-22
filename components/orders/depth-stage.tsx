@@ -27,6 +27,7 @@ export function DepthStage({
   className,
   tilt = 14,
   glare = true,
+  interactive = false,
   overlay,
 }: {
   children: ReactNode;
@@ -34,6 +35,8 @@ export function DepthStage({
   /** Degrees at the edge. */
   tilt?: number;
   glare?: boolean;
+  /** Allow an accessible control in the flat foreground. */
+  interactive?: boolean;
   /** Drawn flat over the rig, so it never turns with it. Use for text: rotated text is resampled and goes soft. */
   overlay?: ReactNode;
 }) {
@@ -59,7 +62,7 @@ export function DepthStage({
     <PointerContext.Provider value={{ x, y }}>
       <div
         ref={ref}
-        aria-hidden
+        aria-hidden={interactive ? undefined : true}
         onPointerMove={(e) => {
           if (reduce || e.pointerType !== "mouse" || !ref.current) return;
           const r = ref.current.getBoundingClientRect();

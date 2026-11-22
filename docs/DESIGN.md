@@ -5,6 +5,8 @@ One visual language for the public site, the scan pages and the signed-in app. C
 ## Mood
 Space + machine learning, dark and calm. The background supports the content and never competes with it: no twinkling stars, a sparse neural field, a small backdrop network. Effects are allowed only where listed below.
 
+When enriching an existing page, preserve its gradual darkening, space backdrop, fine linework, type and layout. Choose motion for a specific reading task, such as tracking a sentence from a report back to its paragraph.
+
 ## Colour
 - Background: ink-950…ink-700. Text: `fg` (#e9edf7), `fg-muted` (#9aa3b8), `fg-subtle` (#8a92ae, the lightest grey allowed for text).
 - One accent (`accent`, blue) for actions and live data; `cyan` and `violet` only as secondary signal colours; `ok` / `warn` / `risk` only for status.
@@ -25,6 +27,7 @@ Space + machine learning, dark and calm. The background supports the content and
 | Effect | Where |
 |---|---|
 | Particle headings (h1/h2) | Public pages only; never in the signed-in app, never in the footer |
+| Sentence reading guide | Inside the home report illustration. Input moves the guide and reveals the corresponding example sentence |
 | Document + agent terminal | The product visual: home hero, scan page. Terminal under the document on phones |
 | 3D sphere network | Pattern Engine section only |
 | Reveal entrance | Any section |
