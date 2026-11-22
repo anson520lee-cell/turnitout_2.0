@@ -24,8 +24,12 @@ function friendly(message: string): string {
 function Heading({ title, body }: { title: string; body: React.ReactNode }) {
   return (
     <div className="mb-8">
-      <h1 className="text-[28px] font-semibold tracking-tight">{title}</h1>
+      <p className="app-eyebrow">
+        <span>Account</span>
+      </p>
+      <h1 className="mt-3 text-[28px] font-semibold tracking-tight">{title}</h1>
       <p className="mt-2 text-[14px] text-fg-muted">{body}</p>
+      <div aria-hidden className="auth-rule mt-6" />
     </div>
   );
 }

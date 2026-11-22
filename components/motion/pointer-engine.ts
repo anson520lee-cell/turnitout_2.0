@@ -3,15 +3,15 @@
  * and compositor-only transforms; no React state is touched per frame.
  *
  * Every frame (only while something is still moving):
- * - A "light" follows the cursor on a soft spring. The page-wide light layers
- *   are moved with `transform`, and glass surfaces are lit from this point:
- *   anything within reach gets `--px/--py` (light position inside it, which may
- *   lie outside its box), `--lit` (0…1 by distance) and `--shx/--shy` (a cast
- *   shadow offset pointing away from the light). So edges nearest the cursor
- *   start to catch the light before you reach them.
- * - The hovered `[data-tilt]` element leans toward the cursor on a spring
- *   (`--rx/--ry` in degrees, `--lift` 0…1, `--gx/--gy` -0.5…0.5 for glare and
- *   popped layers) and springs back with a little overshoot when left.
+ * - A "light" follows the cursor on a soft spring and glass surfaces are lit
+ *   from this point: anything within reach gets `--px/--py` (light position
+ *   inside it, which may lie outside its box), `--lit` (0…1 by distance) and
+ *   `--shx/--shy` (a cast shadow offset pointing away from the light). So the
+ *   1px edges nearest the cursor start to catch the light before you reach
+ *   them. There is no page-wide light layer any more and nothing tilts: the
+ *   hover lift on `[data-tilt]` is plain CSS (see globals.css), and the
+ *   pointer's other job is the reading lens (components/motion/lens-reveal.tsx
+ *   and components/lens/), which joins this loop through `onPointerFrame`.
  * - `.magnetic` elements within reach are pulled toward the cursor
  *   (`--tx/--ty`), with `--bx/--by` for their highlight.
  * - `[data-depth]` and `[data-cursor]` elements get `--cx/--cy` (-1…1 across
@@ -25,8 +25,6 @@
  * the hover starts). Nearby surfaces use rectangles cached from an
  * IntersectionObserver, offset by the scroll position.
  */
-
-import { PRESSABLE } from "./press-effects";
 
 export interface PointerState {
   /** Raw pointer, px. */
@@ -89,17 +87,6 @@ export function pointerEngineActive() {
   return active;
 }
 
-export interface EngineLayers {
-  /** Large light behind the content. Centered on its own box. */
-  back: HTMLElement;
-  /** Grid inside `back`, counter-moved so it stays fixed to the page. */
-  backGrid?: HTMLElement | null;
-  /** Small soft glow above the content. */
-  halo: HTMLElement;
-  /** Container click ripples are appended to. */
-  ripples: HTMLElement;
-}
-
 /* ------------------------------------------------------------------ */
 
 interface Spring {
@@ -152,17 +139,6 @@ interface Tracked {
   written: string;
 }
 
-interface Tilt {
-  rect: { left: number; top: number; w: number; h: number; sx: number; sy: number };
-  hover: boolean;
-  strength: number;
-  rx: Spring;
-  ry: Spring;
-  lift: Spring;
-  /** Last CSS values written, to skip `setProperty` once they stop changing. */
-  written: string;
-}
-
 interface Magnet {
   tx: Spring;
   ty: Spring;
@@ -175,7 +151,6 @@ const LIGHT_REACH = 240;
 const MAGNET_REACH = 44;
 
 const LIT_PROPS = ["--px", "--py", "--lit", "--shx", "--shy"];
-const TILT_PROPS = ["--rx", "--ry", "--lift", "--gx", "--gy"];
 const MAGNET_PROPS = ["--tx", "--ty", "--bx", "--by"];
 
 function unset(el: HTMLElement, props: string[]) {
@@ -186,7 +161,7 @@ function unset(el: HTMLElement, props: string[]) {
  * Start the engine. Returns a stop function. Call only for a fine pointer
  * with motion allowed; the CSS effects stay inert otherwise.
  */
-export function startPointerEngine(layers: EngineLayers) {
+export function startPointerEngine() {
   const root = document.documentElement;
   root.dataset.interactive = "true";
   active = true;
@@ -196,29 +171,16 @@ export function startPointerEngine(layers: EngineLayers) {
   let moved = 0;
   let target: Element | null = null;
   let hitDirty = false;
-  let pressed = false;
-  let overControl = false;
 
   const light = { x: { x: -9999, v: 0 }, y: { x: -9999, v: 0 } };
-  const halo = { x: { x: -9999, v: 0 }, y: { x: -9999, v: 0 } };
-  const haloScale: Spring = { x: 1, v: 0 };
   const cxy = { wx: 0, wy: 0 };
-
-  // The back layer is centered on the light with negative margins; its size
-  // only changes with the viewport, so it is measured once and on resize.
-  let backHalf = layers.back.offsetWidth / 2;
-  const onResize = () => {
-    backHalf = layers.back.offsetWidth / 2;
-  };
 
   const tracked = new Map<Element, Tracked>();
   const observed = new WeakSet<Element>();
-  const tilts = new Map<HTMLElement, Tilt>();
   const magnets = new Map<HTMLElement, Magnet>();
 
   let hoverGlass: HTMLElement | null = null;
   let hoverRect = { left: 0, top: 0, w: 0, h: 0, sx: 0, sy: 0 };
-  let tiltHover: HTMLElement | null = null;
 
   const measure = (el: HTMLElement) => {
     const r = el.getBoundingClientRect();
@@ -360,52 +322,6 @@ export function startPointerEngine(layers: EngineLayers) {
     }
   };
 
-  const stepTilts = (dt: number) => {
-    let busy = false;
-    const sx = window.scrollX;
-    const sy = window.scrollY;
-    for (const [el, t] of tilts) {
-      let trx = 0;
-      let tr = 0;
-      let tl = 0;
-      if (t.hover && pointer.inside) {
-        const left = t.rect.left - (sx - t.rect.sx);
-        const top = t.rect.top - (sy - t.rect.sy);
-        const nx = clamp((pointer.x - left) / t.rect.w - 0.5, -0.5, 0.5);
-        const ny = clamp((pointer.y - top) / t.rect.h - 0.5, -0.5, 0.5);
-        trx = -ny * t.strength;
-        tr = nx * t.strength;
-        tl = 1;
-      }
-      // Slightly under-damped so the release overshoots once, like a spring.
-      step(t.rx, trx, 190, 15, dt);
-      step(t.ry, tr, 190, 15, dt);
-      step(t.lift, tl, 210, 20, dt);
-      // Settled against the CURRENT target, not always 0: while the pointer
-      // rests on a hovered card, trx/tr/tl hold steady and the spring
-      // settles there, not at rest. Comparing against 0 in that case kept
-      // `busy` (and this element) alive for as long as the mouse sat still.
-      const rest = settled(t.rx, trx, 0.02) && settled(t.ry, tr, 0.02) && settled(t.lift, tl, 0.004);
-      if (!t.hover && rest) {
-        unset(el, TILT_PROPS);
-        tilts.delete(el);
-        continue;
-      }
-      if (!rest) busy = true;
-      const written = `${t.rx.x.toFixed(2)}|${t.ry.x.toFixed(2)}|${t.lift.x.toFixed(3)}`;
-      if (written !== t.written) {
-        t.written = written;
-        const s = el.style;
-        s.setProperty("--rx", `${t.rx.x.toFixed(2)}deg`);
-        s.setProperty("--ry", `${t.ry.x.toFixed(2)}deg`);
-        s.setProperty("--lift", t.lift.x.toFixed(3));
-        s.setProperty("--gx", (t.ry.x / t.strength).toFixed(3));
-        s.setProperty("--gy", (-t.rx.x / t.strength).toFixed(3));
-      }
-    }
-    return busy;
-  };
-
   const stepMagnets = (dt: number) => {
     let busy = false;
     const sx = window.scrollX;
@@ -469,32 +385,6 @@ export function startPointerEngine(layers: EngineLayers) {
       hoverGlass = g;
       if (g) hoverRect = measure(g);
     }
-    const tl = pointer.inside ? (el?.closest<HTMLElement>("[data-tilt]") ?? null) : null;
-    if (tl !== tiltHover) {
-      if (tiltHover) {
-        const prev = tilts.get(tiltHover);
-        if (prev) prev.hover = false;
-      }
-      tiltHover = tl;
-      if (tl) {
-        const existing = tilts.get(tl);
-        const strength = clamp((Number(tl.dataset.tilt) || 8) * 1.35, 2, 16);
-        const t: Tilt = existing ?? {
-          rect: measure(tl),
-          hover: true,
-          strength,
-          rx: { x: 0, v: 0 },
-          ry: { x: 0, v: 0 },
-          lift: { x: 0, v: 0 },
-          written: "",
-        };
-        if (existing) t.rect = measure(tl);
-        t.hover = true;
-        t.strength = strength;
-        tilts.set(tl, t);
-      }
-    }
-    overControl = !!el?.closest("a[href], button, [role='button'], summary, label, input, textarea, select");
   };
 
   const frame = (now: number) => {
@@ -511,15 +401,10 @@ export function startPointerEngine(layers: EngineLayers) {
     }
     updateHover();
 
-    // Light and halo springs. The light lags noticeably; the halo barely.
+    // The light the glass edges are lit from lags the cursor a little.
     step(light.x, pointer.x, 95, 19, dt);
     step(light.y, pointer.y, 95, 19, dt);
-    step(halo.x, pointer.x, 620, 46, dt);
-    step(halo.y, pointer.y, 620, 46, dt);
-    step(haloScale, pressed ? 0.7 : overControl ? 1.5 : 1, 300, 24, dt);
     if (!settled(light.x, pointer.x, 0.1) || !settled(light.y, pointer.y, 0.1)) busy = true;
-    if (!settled(halo.x, pointer.x, 0.1) || !settled(halo.y, pointer.y, 0.1)) busy = true;
-    if (!settled(haloScale, pressed ? 0.7 : overControl ? 1.5 : 1, 0.002)) busy = true;
     pointer.lx = light.x.x;
     pointer.ly = light.y.x;
 
@@ -549,19 +434,7 @@ export function startPointerEngine(layers: EngineLayers) {
       }
     }
 
-    // Light layers: transforms only.
-    layers.back.style.transform = `translate3d(${light.x.x.toFixed(1)}px, ${light.y.x.toFixed(1)}px, 0)`;
-    if (layers.backGrid) {
-      // Keep the grid's lines fixed to the page while its window moves.
-      const cell = 48;
-      const ox = -((((light.x.x - backHalf + window.scrollX) % cell) + cell) % cell);
-      const oy = -((((light.y.x - backHalf + window.scrollY) % cell) + cell) % cell);
-      layers.backGrid.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
-    }
-    layers.halo.style.transform = `translate3d(${halo.x.x.toFixed(1)}px, ${halo.y.x.toFixed(1)}px, 0) scale(${haloScale.x.toFixed(3)})`;
-
     lightSurfaces();
-    if (stepTilts(dt)) busy = true;
     if (stepMagnets(dt)) busy = true;
 
     for (const fn of listeners) if (fn(pointer)) busy = true;
@@ -585,8 +458,8 @@ export function startPointerEngine(layers: EngineLayers) {
       pointer.inside = true;
       root.dataset.pointer = "in";
       if (light.x.x < -9000) {
-        light.x.x = halo.x.x = e.clientX;
-        light.y.x = halo.y.x = e.clientY;
+        light.x.x = e.clientX;
+        light.y.x = e.clientY;
       }
     }
     if (pointer.x > -9000) moved += Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y);
@@ -611,41 +484,20 @@ export function startPointerEngine(layers: EngineLayers) {
   };
   const onDown = (e: PointerEvent) => {
     if (e.pointerType !== "mouse" || e.button !== 0) return;
-    pressed = true;
     pointer.clickAt = pointer.time;
-    // Buttons and clickable cards show their own press ripple (press-effects.ts).
-    if (e.target instanceof Element && e.target.closest(PRESSABLE)) {
-      wakeLoop();
-      return;
-    }
-    const r = document.createElement("span");
-    r.className = "light-ripple";
-    r.style.translate = `${e.clientX}px ${e.clientY}px`;
-    r.addEventListener("animationend", () => r.remove(), { once: true });
-    layers.ripples.appendChild(r);
-    // Cap in case animationend never fires (tab hidden).
-    while (layers.ripples.childElementCount > 6) layers.ripples.firstElementChild?.remove();
-    wakeLoop();
-  };
-  const onUp = () => {
-    pressed = false;
     wakeLoop();
   };
 
   window.addEventListener("pointermove", onMove, { passive: true });
   window.addEventListener("pointerdown", onDown, { passive: true });
-  window.addEventListener("pointerup", onUp, { passive: true });
   window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", onResize);
   window.addEventListener("pointerout", onOut, { passive: true });
   window.addEventListener("blur", onLeave);
 
   return () => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerdown", onDown);
-    window.removeEventListener("pointerup", onUp);
     window.removeEventListener("scroll", onScroll);
-    window.removeEventListener("resize", onResize);
     window.removeEventListener("pointerout", onOut);
     window.removeEventListener("blur", onLeave);
     if (raf) cancelAnimationFrame(raf);
@@ -658,7 +510,6 @@ export function startPointerEngine(layers: EngineLayers) {
       if (t.lit) unset(t.el, LIT_PROPS);
       if (t.follows) unset(t.el, ["--cx", "--cy"]);
     }
-    for (const el of tilts.keys()) unset(el, TILT_PROPS);
     for (const el of magnets.keys()) unset(el, MAGNET_PROPS);
     delete root.dataset.interactive;
     delete root.dataset.pointer;

@@ -82,8 +82,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
 
   return (
     <>
-      <Link href="/orders" className="mb-5 inline-flex items-center gap-1.5 text-[13px] text-fg-muted hover:text-fg">
-        <ArrowLeft className="size-3.5" /> Orders
+      <Link href="/orders" className="app-back mb-5">
+        <ArrowLeft className="size-3.5" aria-hidden /> <span className="link-line">Orders</span>
       </Link>
       <AppHeader
         eyebrow={<Badge tone={screeningOrder ? "info" : "progress"}>{auto || (screeningOrder && (order.source_text || !file)) ? "AI-writing risk report" : screeningOrder ? "Report · human-processed" : "Writing Refinement"}</Badge>}
@@ -175,7 +175,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
               <AutoRefresh every={10_000} className="relative mt-5" />
             </Card>
           ) : (
-            <Card strong className="p-5 sm:p-7">
+            <Card strong className="app-plain p-5 sm:p-7">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h2 className="text-[15px] font-semibold">Payment</h2>

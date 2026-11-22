@@ -5,9 +5,9 @@
  * matching PRESSABLE) it:
  * - sets `data-pressed` until the pointer is released, so CSS can sink the
  *   control (`:active` alone is unreliable on iOS);
- * - drops a ripple of light that spreads from the exact press point, inside a
- *   clipping layer so the element's own overflow, shadows and edge light are
- *   left alone.
+ * - sends a thin ring out from the exact press point (the same wave the
+ *   essay sheet makes), inside a clipping layer so the element's own
+ *   overflow, shadows and edge light are left alone.
  *
  * With reduced motion the pressed state still shows but there's no ripple.
  */
@@ -49,7 +49,8 @@ export function startPressEffects(): () => void {
     const size = 2 * Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y));
     const ripple = document.createElement("span");
     ripple.className = "press-ripple";
-    ripple.style.cssText = `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${size.toFixed(0)}px;height:${size.toFixed(0)}px`;
+    // The ring's size animates up to --s, so its line stays 1px as it grows.
+    ripple.style.cssText = `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--s:${size.toFixed(0)}px`;
     ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
     host.appendChild(ripple);
     while (host.childElementCount > MAX_RIPPLES) host.firstElementChild?.remove();

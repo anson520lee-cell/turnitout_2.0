@@ -12,11 +12,12 @@ export default function NotFound() {
       <main id="main" className="min-h-[70vh] overflow-x-clip">
         <PageHeader
           eyebrow="404"
-          title="That page isn’t here."
+          title="That page"
+          outline="isn’t here."
           body="The link may be old or mistyped. Here are some places to start."
         />
-        <Container className="pb-24">
-          <div className="flex flex-wrap gap-3">
+        <Container className="pb-24 pt-10">
+          <div className="flex flex-wrap justify-center gap-3">
             <Link href="/" className={buttonClasses("primary", "lg")}>Back to home</Link>
             <Link href="/services/screening" className={buttonClasses("secondary", "lg")}>Get report</Link>
             <Link href="/services" className={buttonClasses("secondary", "lg")}>See services</Link>

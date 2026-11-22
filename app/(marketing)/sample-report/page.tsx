@@ -19,7 +19,8 @@ export default function SampleReportPage() {
     <>
       <PageHeader
         eyebrow="Sample report"
-        title="What you get back"
+        title="What you"
+        outline="get back."
         body={`This is the page a customer sees when a report is ready, filled with example data. ${reportFromLabel}, ${reportRateLabel}.`}
       />
       <Container className="max-w-4xl pb-24">

@@ -439,16 +439,8 @@ export function LensHome() {
       <div className="lens-flow">
         <section className="lens-hero" aria-labelledby="lens-title">
           <Container className="relative pt-24 text-center sm:pt-32">
-            {/* a clean 1px outline for the second line: text-stroke would also draw the font's inner overlaps */}
-            <svg width="0" height="0" className="absolute" aria-hidden focusable="false">
-              <filter id="lens-outline" x="-5%" y="-20%" width="110%" height="140%" colorInterpolationFilters="sRGB">
-                <feMorphology in="SourceAlpha" operator="erode" radius="1.15" result="core" />
-                <feComposite in="SourceAlpha" in2="core" operator="out" result="ring" />
-                <feFlood floodColor="#e9edf7" floodOpacity="0.9" />
-                <feComposite in2="ring" operator="in" />
-              </filter>
-            </svg>
-            <h1 id="lens-title" data-no-entrance className="lens-title">
+            {/* the second line's 1px outline is the #lens-outline filter from <OutlineDefs /> in the root layout */}
+            <h1 id="lens-title" className="lens-title">
               <span className="lens-title-line">
                 <span>Know before</span>
               </span>{" "}
@@ -499,7 +491,7 @@ export function LensHome() {
                     {c.n} <span className="text-fg-subtle">/ 04</span> · {c.name}
                   </p>
                   {/* plain type here: these headings sit over the moving sheet, where a particle assembly would be hard to read */}
-                  <h2 id={`lens-ch-${c.id}`} data-no-entrance className="mt-3 text-balance text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-fg sm:text-[40px] lg:mt-4 lg:leading-[1.08]">
+                  <h2 id={`lens-ch-${c.id}`} className="mt-3 text-balance text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-fg sm:text-[40px] lg:mt-4 lg:leading-[1.08]">
                     {c.title}
                   </h2>
                   <p className="mt-3 text-pretty text-[15px] leading-relaxed text-fg-muted lg:mt-4 lg:text-[15.5px]">{c.body}</p>
@@ -541,6 +533,9 @@ export function LensHome() {
           </svg>
           <div ref={hudRef} className="lens-overlay" aria-hidden />
         </div>
+      </div>
+      {/* the chapter list rides its own pinned layer, above the text: on phones the chapter cards pass under the strip */}
+      <div className="lens-rail">
         <nav ref={progressRef} aria-label="How it works, step by step" className="lens-progress max-lg:glass">
           <span className="lens-progress-track" aria-hidden>
             <span className="lens-progress-fill" />

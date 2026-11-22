@@ -1,5 +1,5 @@
 import { Container, SectionHeading } from "@/components/ui/section";
-import { Stagger, StaggerItem } from "@/components/motion/reveal";
+import { Build, Stagger } from "@/components/motion/reveal";
 import { Lock, KeyRound, Timer, UserCheck, FileX2, ScrollText } from "lucide-react";
 import { retentionSentence } from "@/config/privacy-copy";
 
@@ -12,22 +12,36 @@ const items = [
   { icon: ScrollText, title: "Audit trail", body: "Every status change and file access is recorded against the order." },
 ];
 
+/**
+ * The privacy controls as a spec sheet ruled in hairlines: each cell is traced
+ * as an outline and filled as it scrolls in, its line icon drawing last. On
+ * hover a cell answers in the site's three beats: its top edge draws in, the
+ * content rises, the light comes last.
+ */
 export function PrivacySection() {
   return (
     <section className="py-24 sm:py-32">
       <Container>
         <SectionHeading
           eyebrow="Privacy & security"
-          title="Unpublished work, handled like it matters."
+          title="Unpublished work,"
+          outline="handled like it matters."
           body="Privacy is part of the product. These are the controls that exist today."
         />
-        <Stagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((it) => (
-            <StaggerItem key={it.title} tilt className="glass rounded-2xl p-6">
-              <it.icon className="size-5 text-accent" aria-hidden />
-              <h3 className="mt-4 text-[15px] font-semibold">{it.title}</h3>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-fg-muted">{it.body}</p>
-            </StaggerItem>
+        <Stagger className="spec-grid mt-14">
+          {items.map((it, i) => (
+            <Build key={it.title} r={0}>
+              <div className="spec-cell">
+                <div className="spec-in">
+                  <div className="flex items-center justify-between">
+                    <span className="nav-idx">{String(i + 1).padStart(2, "0")}</span>
+                    <it.icon className="size-5 text-accent" aria-hidden strokeWidth={1.5} />
+                  </div>
+                  <h3 className="mt-8 text-[16px] font-semibold tracking-tight">{it.title}</h3>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-fg-muted">{it.body}</p>
+                </div>
+              </div>
+            </Build>
           ))}
         </Stagger>
       </Container>

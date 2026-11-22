@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, CornerDownLeft, FileCheck2, Gift, Lock, Sparkles } from "lucide-react";
+import { CalendarClock, CornerDownLeft, FileCheck2, Gift, Lock } from "lucide-react";
 import { createFreeReportOrder } from "@/app/actions/orders";
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -49,18 +49,19 @@ function Ring({ available }: { available: boolean }) {
   return (
     <div className="relative grid size-24 shrink-0 place-items-center" aria-hidden>
       <svg viewBox="0 0 80 80" className="absolute inset-0 -rotate-90">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgb(170 176 196 / 0.16)" strokeWidth="5" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="rgb(148 163 255 / 0.2)" strokeWidth="1" />
         <circle
           cx="40"
           cy="40"
           r={r}
           fill="none"
           stroke={available ? "url(#daily-ring)" : "transparent"}
-          strokeWidth="5"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={available ? 0 : c}
-          style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)", filter: available ? "drop-shadow(0 0 7px rgb(91 140 255 / 0.7))" : undefined }}
+          className={available ? "daily-ring-arc" : undefined}
+          style={{ "--c": c, transition: "stroke-dashoffset 900ms cubic-bezier(0.22,1,0.36,1)", filter: available ? "drop-shadow(0 0 6px rgb(91 140 255 / 0.75))" : undefined } as CSSProperties}
         />
         <defs>
           <linearGradient id="daily-ring" x1="0" y1="0" x2="1" y2="1">
@@ -71,11 +72,11 @@ function Ring({ available }: { available: boolean }) {
       </svg>
       {available ? (
         <div className="text-center leading-none">
-          <p className="tile-num text-3xl font-semibold tracking-tight">1</p>
+          <p className="text-3xl font-semibold tracking-tight tabular-nums">1</p>
           <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">left</p>
         </div>
       ) : (
-        <Lock className="size-6 text-fg-subtle" />
+        <Lock className="size-6 text-fg-subtle" strokeWidth={1.5} />
       )}
     </div>
   );
@@ -104,9 +105,7 @@ export function DailyReportCard({
 
   return (
     <>
-      <Card strong className={cn("noise relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
-        <div aria-hidden className={cn("pointer-events-none absolute -left-16 -top-20 size-64 rounded-full blur-3xl", used ? "bg-white/[0.04]" : "bg-accent/20")} />
-        <div aria-hidden className={cn("pointer-events-none absolute -bottom-24 right-0 size-60 rounded-full blur-3xl", used ? "bg-white/[0.03]" : "bg-accent/12")} />
+      <Card strong className={cn("daily-card relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
           <Ring available={!used} />
           <div className="min-w-0 flex-1">
@@ -125,12 +124,9 @@ export function DailyReportCard({
             <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
               {used ? "Today's free report is used" : `One free full report every day, up to ${n(freeReport.maxChars)} characters`}
             </h2>
-            <ul className="mt-3 space-y-1.5 text-[13px] text-fg-muted">
+            <ul className={cn("daily-perks mt-3 space-y-1.5 text-[13px] text-fg-muted", used && "daily-perks-off")}>
               {PERKS.map((t) => (
-                <li key={t} className="flex gap-2.5">
-                  <Sparkles aria-hidden className={cn("mt-0.5 size-3.5 shrink-0", used ? "text-fg-subtle" : "text-accent")} />
-                  {t}
-                </li>
+                <li key={t}>{t}</li>
               ))}
             </ul>
             <p className="mt-3 flex items-center gap-1.5 text-[12px] text-fg-subtle">

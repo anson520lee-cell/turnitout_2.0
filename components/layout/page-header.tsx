@@ -1,17 +1,48 @@
-import type { ReactNode } from "react";
-import { Container, Eyebrow } from "@/components/ui/section";
-import { Reveal } from "@/components/motion/reveal";
+import type { CSSProperties, ReactNode } from "react";
+import { Container } from "@/components/ui/section";
+import { Headline } from "@/components/ui/headline";
+import { cn } from "@/lib/utils";
 
-export function PageHeader({ eyebrow, title, body }: { eyebrow: string; title: ReactNode; body?: ReactNode }) {
+/**
+ * Marketing page header, in the home page's voice: a centred two-line
+ * headline, the second line drawn as a 1px outline, rising out of its slot
+ * on load; a mono label between two hairlines above it; and a hairline under
+ * the header that draws out from the centre (lines first).
+ */
+export function PageHeader({
+  eyebrow,
+  title,
+  outline,
+  body,
+  align = "center",
+  children,
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  /** Optional second line, drawn as an outline. */
+  outline?: ReactNode;
+  body?: ReactNode;
+  align?: "left" | "center";
+  children?: ReactNode;
+}) {
+  const center = align === "center";
   return (
-    <section className="relative pt-36 pb-10 sm:pt-44">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(50%_60%_at_50%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
+    <section className={cn("page-head relative pt-32 pb-12 sm:pt-44 sm:pb-16", center && "text-center")}>
       <Container className="relative">
-        <Reveal aboveFold className="max-w-3xl">
-          <Eyebrow>{eyebrow}</Eyebrow>
-          <h1 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.02em] sm:text-5xl">{title}</h1>
-          {body && <p className="mt-5 max-w-2xl text-pretty text-[16px] leading-relaxed text-fg-muted">{body}</p>}
-        </Reveal>
+        <p className={cn("page-eyebrow", center && "page-eyebrow-center")}>
+          <span>{eyebrow}</span>
+        </p>
+        <Headline as="h1" intro size="page" solid={title} outline={outline} align={align} className="mt-6" />
+        {body && (
+          <p
+            data-reveal="intro"
+            style={{ "--d": "0.28s" } as CSSProperties}
+            className={cn("mt-7 max-w-2xl text-pretty text-[16px] leading-relaxed text-fg-muted", center && "mx-auto")}
+          >
+            {body}
+          </p>
+        )}
+        {children}
       </Container>
     </section>
   );

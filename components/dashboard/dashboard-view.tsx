@@ -1,23 +1,24 @@
 import Link from "next/link";
-import { FileCheck2, FileStack } from "lucide-react";
+import { ArrowRight, FileStack } from "lucide-react";
 import { AppHeader, EmptyState } from "@/components/layout/app-header";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { OrderRow } from "@/components/orders/order-row";
-import { HudCorners, HudLabel } from "@/components/ui/hud";
 import { DailyReportCard, type DailyReportStatus } from "@/components/orders/daily-report-card";
 import type { Order } from "@/types/domain";
 import { ACTIVE_STATUSES, isScreening } from "@/lib/orders/status";
 import { reportFromLabel } from "@/config/services";
 
-/** The signed-in overview. Takes plain data so the real page and the design preview render the same thing. */
+/**
+ * The signed-in overview. Takes plain data so the real page and the design preview render the same thing.
+ * Figures sit on hairlines (no boxes), the next action is one ruled row, and the recent orders are an indexed list.
+ */
 export function DashboardView({
   email,
   displayName,
   dailyReport,
   orders,
   pendingClaims,
+  links = { settings: "/settings", orders: "/orders", order: (id: string) => `/orders/${id}` },
 }: {
   email: string;
   displayName: string | null;
@@ -25,6 +26,8 @@ export function DashboardView({
   dailyReport?: DailyReportStatus;
   orders: Order[];
   pendingClaims: Set<string>;
+  /** Where the overview links to (the design preview keeps its links inside the preview). */
+  links?: { settings: string; orders: string; order: (id: string) => string };
 }) {
   const active = orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const completedScreenings = orders.filter((o) => o.status === "completed" && isScreening(o.service_type));
@@ -36,66 +39,77 @@ export function DashboardView({
     <>
       <AppHeader title={`Welcome, ${name}`} body="Your orders and reports." />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card tilt className="p-5">
-          <HudCorners />
-          <HudLabel>Active orders</HudLabel>
-          <p className="tile-num mt-3 text-4xl font-semibold tracking-tight">{active.length}</p>
-          {confirming.length > 0 && <p className="mt-3 text-[12px] text-fg-muted">{confirming.length} payment{confirming.length > 1 ? "s" : ""} being confirmed</p>}
-          {unpaid.length > 0 && <p className="mt-1 text-[12px] text-warn">{unpaid.length} awaiting payment</p>}
-        </Card>
-        <Card tilt className="p-5">
-          <HudCorners />
-          <HudLabel>Completed reports</HudLabel>
-          <p className="tile-num mt-3 text-4xl font-semibold tracking-tight">{completedScreenings.length}</p>
-        </Card>
-        <Card tilt className="p-5">
-          <HudCorners />
-          <HudLabel>Account</HudLabel>
-          <p className="mt-3 truncate text-[14px] font-medium">{email}</p>
-          <Link href="/settings" className="mt-3 inline-block text-[12.5px] text-accent hover:underline">Settings</Link>
-        </Card>
-      </div>
-
-      {dailyReport && <DailyReportCard status={dailyReport} className="mt-5" />}
-
-      <div className="mt-5 grid gap-3">
-        {[
-          { href: "/services/screening", icon: FileCheck2, t: "Get a report", d: "AI-writing risk, sentence by sentence", tag: reportFromLabel },
-        ].map((q) => (
-          <Link key={q.href} href={q.href} data-tilt="8" data-press className="glass group flex items-center gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-[var(--line-strong)]">
-            <span className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><q.icon className="size-5" aria-hidden /></span>
-            <div className="flex-1">
-              <p className="text-[14px] font-medium">{q.t}</p>
-              <p className="text-[12px] text-fg-subtle">{q.d}</p>
-            </div>
-            <Badge tone="neutral">{q.tag}</Badge>
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-8">
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between px-5 pt-5">
-            <h2 className="text-[15px] font-semibold">Recent orders</h2>
-            <Link href="/orders" className="text-[12.5px] text-fg-muted hover:text-fg">View all</Link>
-          </div>
-          {orders.length ? (
-            <ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">
-              {orders.slice(0, 5).map((o) => <OrderRow key={o.id} order={o} paymentPending={pendingClaims.has(o.id)} />)}
-            </ul>
-          ) : (
-            <div className="p-5">
-              <EmptyState
-                icon={<FileStack className="size-5" />}
-                title="No orders yet"
-                body="When you get a report, it appears here with its live status."
-                action={<Link href="/services/screening" className={buttonClasses("secondary", "sm")}>Get a report</Link>}
-              />
-            </div>
+      <dl className="app-stats">
+        <div className="app-stat">
+          <dt>
+            <span className="nav-idx">01</span> Active orders
+          </dt>
+          <dd className="app-stat-num">{active.length}</dd>
+          {confirming.length > 0 && (
+            <dd className="app-stat-note">
+              {confirming.length} payment{confirming.length > 1 ? "s" : ""} being confirmed
+            </dd>
           )}
-        </Card>
-      </div>
+          {unpaid.length > 0 && <dd className="app-stat-note text-warn">{unpaid.length} awaiting payment</dd>}
+        </div>
+        <div className="app-stat">
+          <dt>
+            <span className="nav-idx">02</span> Completed reports
+          </dt>
+          <dd className="app-stat-num">{completedScreenings.length}</dd>
+        </div>
+        <div className="app-stat">
+          <dt>
+            <span className="nav-idx">03</span> Account
+          </dt>
+          <dd className="mt-3 truncate text-[14px] font-medium">{email}</dd>
+          <dd className="mt-2">
+            <Link href={links.settings} className="link-line text-[12.5px] text-fg-muted">
+              Settings
+            </Link>
+          </dd>
+        </div>
+      </dl>
+
+      {dailyReport && <DailyReportCard status={dailyReport} className="mt-6" />}
+
+      <Link href="/services/screening" data-press className="app-go group mt-6">
+        <span className="app-go-k">Next</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-medium text-fg">Get a report</span>
+          <span className="block text-[12.5px] text-fg-subtle">AI-writing risk, sentence by sentence · {reportFromLabel}</span>
+        </span>
+        <ArrowRight className="app-go-arrow size-4" aria-hidden />
+      </Link>
+
+      <section className="mt-10" aria-labelledby="recent-orders">
+        <div className="app-section-head">
+          <h2 id="recent-orders" className="app-section-title">
+            Recent orders
+          </h2>
+          <Link href={links.orders} className="link-line text-[12.5px] text-fg-muted">
+            View all
+          </Link>
+        </div>
+        {orders.length ? (
+          <ul className="app-list">
+            {orders.slice(0, 5).map((o, i) => (
+              <OrderRow key={o.id} order={o} index={i} href={links.order(o.id)} paymentPending={pendingClaims.has(o.id)} />
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            icon={<FileStack className="size-5" strokeWidth={1.5} />}
+            title="No orders yet"
+            body="When you get a report, it appears here with its live status."
+            action={
+              <Link href="/services/screening" className={buttonClasses("secondary", "sm")}>
+                Get a report
+              </Link>
+            }
+          />
+        )}
+      </section>
     </>
   );
 }

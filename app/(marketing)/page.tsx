@@ -49,7 +49,8 @@ export default function HomePage() {
           <SectionHeading
             align="center"
             eyebrow="Services & pricing"
-            title="Simple per-document pricing."
+            title="Simple per-document"
+            outline="pricing."
             body="Start with your free daily report. Pay only when you need more."
           />
           <div className="mt-14">
@@ -63,10 +64,11 @@ export default function HomePage() {
         <Container className="grid gap-12 lg:grid-cols-[1fr_1.6fr]">
           <SectionHeading
             eyebrow="FAQ"
-            title="Straight answers."
+            title="Straight"
+            outline="answers."
             body={
               <>
-                More in the <Link href="/faq" className="text-accent hover:underline">full FAQ</Link>.
+                More in the <Link href="/faq" className="link-line text-accent">full FAQ</Link>.
               </>
             }
           />
