@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
@@ -74,7 +75,8 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
         {para.sentences.map((s) => (
           <span key={s.n}>
             <span
-              className={cn("rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
+              id={`s-${s.n}`}
+              className={cn("report-sentence rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
               title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
             >
               {s.text}
@@ -108,8 +110,31 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
   );
 }
 
+/**
+ * A link to one sentence (#s-N, e.g. from the home page's lens) lands on it: centred, and ringed for a moment.
+ * Done here as well as with :target, because a client-side navigation does not update :target.
+ */
+function useSentenceLanding() {
+  useEffect(() => {
+    const land = () => {
+      const m = /^#s-(\d+)$/.exec(window.location.hash);
+      const el = m ? document.getElementById(`s-${m[1]}`) : null;
+      if (!el) return;
+      el.classList.remove("report-sentence-landed");
+      void el.offsetWidth;
+      el.classList.add("report-sentence-landed");
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    };
+    land();
+    window.addEventListener("hashchange", land);
+    return () => window.removeEventListener("hashchange", land);
+  }, []);
+}
+
 /** The finished automatic report: overall level, a map of every paragraph, then each paragraph with its marked sentences. */
 export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo }: { title: string; finishedAt: string; result: AutoReportResult; rewriteDemo?: boolean; rewrite?: { orderId: string; saved: ReportRewrite | null; sourceText: string | null; credits: number; balance: number; canSkip?: boolean } }) {
+  useSentenceLanding();
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);

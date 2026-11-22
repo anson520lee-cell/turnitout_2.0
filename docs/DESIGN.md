@@ -24,8 +24,9 @@ Space + machine learning, dark and calm. The background supports the content and
 ## Effects: where they are allowed
 | Effect | Where |
 |---|---|
-| Particle headings (h1/h2) | Public pages only; never in the signed-in app, never in the footer |
-| Document + agent terminal | The product visual: home hero, scan page. Terminal under the document on phones |
+| Particle headings (h1/h2) | Public pages only; never in the signed-in app, never in the footer. Not over the essay sheet: the home headline and chapter titles are plain type |
+| Essay under the lens (WebGL glass sheet, lens with contour lines, lines that lift) | Home page only: the hero and its four chapters (Paste, Read, Report, Refine). Sample essay and example data only; reduced motion rests the lens on one sentence |
+| Document + agent terminal | The product visual on the scan page. Terminal under the document on phones |
 | 3D sphere network | Pattern Engine section only |
 | Reveal entrance | Any section |
 | Background (galaxy, nebula, field, landscape) | Global, kept dim |

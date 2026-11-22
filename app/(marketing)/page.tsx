@@ -1,5 +1,4 @@
-import { Hero } from "@/components/landing/hero";
-import { HowItWorks } from "@/components/landing/how-it-works";
+import { LensHome } from "@/components/lens/lens-home";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { FalsePositives } from "@/components/landing/false-positives";
 import { PricingCards } from "@/components/landing/pricing-cards";
@@ -16,8 +15,10 @@ import Link from "next/link";
 /**
  * The homepage reads as one story, in three movements:
  *
- * 1. The promise and the path: hero, then the five steps from draft to
- *    report, then the dashboard where you follow those steps.
+ * 1. The promise and the path: the essay under the lens (move a lens over a
+ *    sample essay to see how a detector reads it), then the same sheet plays
+ *    the four steps as you scroll (paste, read, report, refine), then the
+ *    dashboard where you follow those steps.
  * 2. How to read the result: why genuine writing can still be flagged, then
  *    what each service costs.
  * 3. Reassurance and close: privacy controls, the integrity policy, FAQ, and
@@ -40,8 +41,7 @@ export default function HomePage() {
           ],
         }}
       />
-      <Hero />
-      <HowItWorks />
+      <LensHome />
       <DashboardPreview />
       <FalsePositives />
       <section id="pricing" className="py-24 sm:py-32">
