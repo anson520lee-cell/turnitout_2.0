@@ -220,7 +220,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
     requestAnimationFrame(() => document.getElementById("writing-refinement")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  const shown = useMemo(() => rewrite?.items.filter((i) => i.rewrite) ?? [], [rewrite]);
+  const shown = useMemo(() => rewrite?.items.filter((i): i is RewriteItem & { rewrite: string } => !!i.rewrite) ?? [], [rewrite]);
   const still = useMemo(() => new Set(check?.stillCounted ?? []), [check]);
   const left = (rewrite?.items.length ?? 0) - shown.length;
   const accepted = shown.filter((i) => decisions[i.n] === "accept").length;
@@ -311,16 +311,7 @@ export function RewritePanel({ orderId, result, initial, sourceText, credits, ba
                         {still.has(i.n) && <Badge tone="warn">Still flagged on the re-check</Badge>}
                       </div>
                       {i.why && <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: {i.why}</p>}
-                      <div className="mt-3 grid gap-3 md:grid-cols-2" translate="no">
-                        <div className={cn("rounded-lg border p-3", d === "accept" ? "border-[var(--line)] opacity-60" : "border-[var(--line)]")}>
-                          <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Your sentence</p>
-                          <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">{i.original}</p>
-                        </div>
-                        <div className={cn("rounded-lg border p-3", d === "accept" ? "border-accent/50 bg-accent/10" : "border-accent/25 bg-accent/[0.05]")}>
-                          <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#a9c1ff]">Suggested</p>
-                          <p className="mt-1 text-[13.5px] leading-relaxed text-fg">{i.rewrite}</p>
-                        </div>
-                      </div>
+                      <SentencePair original={i.original} suggestion={i.rewrite} accepted={d === "accept"} />
                       <div className="mt-3 flex flex-wrap gap-2">
                         {d === "accept" ? (
                           <Button variant="outline" size="sm" onClick={() => choose(i.n, undefined)}><Undo2 className="size-3.5" /> <span>Keep mine</span></Button>
@@ -415,10 +406,20 @@ function Disclaimer() {
   );
 }
 
-/** A fixed example of the Writing Refinement add-on for the sample report: nothing here is clickable or charged. */
-export function RewriteDemo() {
+function SentencePair({ original, suggestion, accepted }: { original: string; suggestion: string; accepted: boolean }) {
   return (
-    <Card className="p-5 sm:p-6 print:hidden">
+    <div className="sentence-pair" data-choice={accepted ? "suggested" : "original"} translate="no">
+      <div><p className="orbit-micro">Your sentence</p><p>{original}</p></div>
+      <div><p className="orbit-micro">Suggested</p><p>{suggestion}</p></div>
+    </div>
+  );
+}
+
+/** An interactive example kept entirely in the component. */
+export function RewriteDemo() {
+  const [accepted, setAccepted] = useState(false);
+  return (
+    <Card id="writing-refinement" className="scroll-mt-24 p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-[15px] font-semibold tracking-tight">Writing Refinement: lower your AI score</h3>
         <Badge tone="info">Add-on · 3× the report&rsquo;s price</Badge>
@@ -430,16 +431,14 @@ export function RewriteDemo() {
       <div className="mt-4 rounded-xl border border-[var(--line)] bg-ink-900/40 p-4">
         <span className="font-mono text-[11px] text-fg-subtle">Example sentence</span>
         <p className="mt-1.5 text-[12.5px] text-fg-subtle">Flagged because: stock transition and an even, polished rhythm.</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="rounded-lg border border-[var(--line)] p-3">
-            <p className="font-mono text-[10.5px] uppercase tracking-wider text-fg-subtle">Your sentence</p>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">Furthermore, it is important to note that urban noise has a significant impact on residents&rsquo; sleep.</p>
-          </div>
-          <div className="rounded-lg border border-accent/25 bg-accent/[0.05] p-3">
-            <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#a9c1ff]">Suggested</p>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-fg">Urban noise also affects how well residents sleep.</p>
-          </div>
-        </div>
+        <SentencePair
+          original="Furthermore, it is important to note that urban noise has a significant impact on residents’ sleep."
+          suggestion="Urban noise also affects how well residents sleep." accepted={accepted} />
+        <Button type="button" variant="outline" size="sm" className="mt-3"
+          onClick={() => setAccepted(!accepted)} aria-pressed={accepted}>
+          {accepted ? <Undo2 size={14} /> : <Check size={14} />}
+          <span>{accepted ? "Keep original example" : "Try this suggestion"}</span>
+        </Button>
       </div>
       <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">Example only. Suggestions are not corrections, and they do not guarantee any result in any checker. You find this card at the bottom of your own finished report, above &ldquo;Paragraph by paragraph&rdquo;.</p>
     </Card>

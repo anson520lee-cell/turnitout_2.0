@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { Container } from "@/components/ui/section";
+import { ReadingDocument } from "@/components/layout/reading-document";
 
 export const metadata: Metadata = {
   title: "Academic integrity",
@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 export default function IntegrityPage() {
   return (
     <>
-      <PageHeader
+      <PageHeader form="scan" jump="Read the policy"
         eyebrow="Academic integrity"
         title="For genuine student writing."
         body="We support students reviewing and refining work they have genuinely written. The service is not intended to disguise third-party or AI-generated academic work as original authorship."
       />
-      <Container className="prose-doc max-w-3xl">
+      <ReadingDocument>
         <h2>What we ask of you</h2>
         <ul>
           <li>Submit only work you wrote yourself, or that you are otherwise authorised to submit.</li>
@@ -33,7 +33,7 @@ export default function IntegrityPage() {
           <li>Invent or alter sources and citations.</li>
           <li>Promise a particular score.</li>
         </ul>
-      </Container>
+      </ReadingDocument>
     </>
   );
 }

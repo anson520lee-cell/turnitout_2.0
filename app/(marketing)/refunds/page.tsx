@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
-import { Container } from "@/components/ui/section";
+import { ReadingDocument } from "@/components/layout/reading-document";
 import { brand } from "@/config/app";
 import { CREDITS_PER_USD } from "@/config/pricing";
 
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 export default function RefundsPage() {
   return (
     <>
-      <PageHeader eyebrow="Refunds" title="Credits, payments and refunds" />
-      <Container className="prose-doc max-w-3xl">
+      <PageHeader form="report" jump="Read the policy" eyebrow="Refunds" title="Credits, payments and refunds" />
+      <ReadingDocument>
         <h2>1. Credits</h2>
         <p>
           Services are paid for with credits. You buy credits in US dollars ({CREDITS_PER_USD} credits = US$1) by PayPal, Alipay or
@@ -73,7 +73,7 @@ export default function RefundsPage() {
           or order reference (shown on your <Link href="/billing">Billing &amp; Credits</Link> page). We reply within two working
           days.
         </p>
-      </Container>
+      </ReadingDocument>
     </>
   );
 }

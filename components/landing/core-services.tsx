@@ -1,54 +1,55 @@
+import { ArrowUpRight } from "lucide-react";
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
-import { ArrowUpRight, FileCheck2 } from "lucide-react";
-import { Container, SectionHeading } from "@/components/ui/section";
-import { SpotlightCard } from "@/components/motion/spotlight-card";
-import { Stagger, StaggerItem } from "@/components/motion/reveal";
-import { Badge } from "@/components/ui/badge";
+import { Container } from "@/components/ui/section";
 import { freeReport } from "@/config/app";
-import { reportFromLabel, reportRangeLabel, reportRateLabel, reportService, serviceLabels } from "@/config/services";
-
-const cards = [
-  {
-    icon: FileCheck2,
-    tag: <Badge tone="info">Automatic · a few minutes</Badge>,
-    title: serviceLabels[reportService],
-    body: "Paste your text and press Enter. Every sentence and paragraph is read, and you get an overall level, a map of your text, the sentences to look at again and grammar spots, with a PDF to download.",
-    meta: `${freeReport.dailyLimit} free a day · ${reportFromLabel} · ${reportRateLabel} · ${reportRangeLabel}`,
-    href: "/services/screening",
-  },
-];
+import { reportFromLabel, reportRangeLabel, reportRateLabel } from "@/config/services";
+import { rewritePricing } from "@/config/pricing";
 
 export function CoreServices() {
   return (
-    <section id="services" className="py-24 sm:py-32">
-      <Container>
-        <SectionHeading
-          eyebrow="Our service"
-          title="One service: the AI-writing risk report."
-          body="An automatic AI-writing risk report on your own text. Your first report each day is free."
-        />
-        <Stagger className="mt-14 mx-auto grid max-w-xl gap-5">
-          {cards.map((c) => (
-            <StaggerItem key={c.title}>
-              <SpotlightCard press className="h-full">
-                <Link href={c.href} className="flex h-full flex-col p-6 sm:p-7">
-                  <div className="flex items-center justify-between">
-                    <span className="grid size-11 place-items-center rounded-xl border border-[var(--line)] bg-gradient-to-b from-white/[0.07] to-transparent">
-                      <c.icon className="size-5 text-accent" aria-hidden />
-                    </span>
-                    {c.tag}
-                  </div>
-                  <h3 className="mt-6 text-lg font-semibold tracking-tight">{c.title}</h3>
-                  <p className="mt-2 flex-1 text-[14px] leading-relaxed text-fg-muted">{c.body}</p>
-                  <div className="mt-6 flex items-center justify-between border-t border-[var(--line)] pt-4 text-[12.5px] text-fg-subtle">
-                    {c.meta}
-                    <ArrowUpRight className="size-4 text-fg-muted transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-fg" />
-                  </div>
-                </Link>
-              </SpotlightCard>
-            </StaggerItem>
-          ))}
-        </Stagger>
+    <section id="services">
+      <Container className="service-route">
+        <article>
+          <p className="orbit-kicker">
+            <i aria-hidden />
+            Automatic report
+          </p>
+          <h2>Read your draft.</h2>
+          <p>
+            Paste your text and press Enter. Every sentence and paragraph is read. Get an overall level, a map of
+            your text, the sentences to look at again and grammar spots, with a PDF to download.
+          </p>
+          <p className="service-spec">
+            {freeReport.dailyLimit} free a day · {reportFromLabel} · {reportRateLabel} · {reportRangeLabel}
+          </p>
+          <Link href="/services/screening" className="orbit-text-link">
+            Get a report <ArrowUpRight size={15} />
+          </Link>
+        </article>
+        <article>
+          <p className="orbit-kicker">
+            <i aria-hidden />
+            Optional add-on
+          </p>
+          <h2>Writing Refinement.</h2>
+          <p>
+            After a report is finished, you can ask for a rewrite of each flagged sentence. The result is re-checked
+            by the same detector and what still reads as AI is rewritten again. A suggestion may change what a
+            sentence says. Numbers, names, quotations and citations are kept. You choose which suggestions to use.
+          </p>
+          <p className="service-spec">
+            {rewritePricing.multiple}× the report price. Charged only when suggestions are ready. It does not
+            guarantee any result in any checker.
+          </p>
+          <div className="flex flex-wrap gap-5">
+            <Link href="/sample-report#writing-refinement" className="orbit-text-link">
+              Try the example <ArrowUpRight size={15} />
+            </Link>
+            <Link href="/pricing" className="orbit-text-link">
+              Pricing <ArrowUpRight size={15} />
+            </Link>
+          </div>
+        </article>
       </Container>
     </section>
   );

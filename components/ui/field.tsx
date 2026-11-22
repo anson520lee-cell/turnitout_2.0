@@ -32,7 +32,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("orbit-field space-y-1.5", className)}>
       <label htmlFor={htmlFor} className="block text-[13px] font-medium text-fg">
         {label}
       </label>

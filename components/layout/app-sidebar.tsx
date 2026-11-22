@@ -61,7 +61,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-[17.5rem] shrink-0 p-3 lg:block">
-        <div className="sidebar-glass relative flex h-full flex-col rounded-[28px] p-4">
+        <div className="orbital-sidebar sidebar-glass relative flex h-full flex-col rounded-[28px] p-4">
         <div className="mb-6 px-2 pt-1">
           <Logo />
           <p className="mt-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-fg-subtle">
@@ -85,7 +85,7 @@ export function AppSidebar({ email, isAdmin, credits }: { email: string; isAdmin
       </header>
       {open && (
         <div className="fixed inset-x-0 top-14 bottom-0 z-40 p-3 lg:hidden">
-          <div className="sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4">{list}</div>
+          <div className="orbital-sidebar sidebar-glass sidebar-glass-sheet relative flex h-full flex-col overflow-y-auto rounded-[28px] p-4">{list}</div>
         </div>
       )}
     </>

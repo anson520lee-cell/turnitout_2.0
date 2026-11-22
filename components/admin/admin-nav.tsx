@@ -24,7 +24,7 @@ export function AdminNav({ email }: { email: string }) {
           <LogoMark className="size-6" />
           <span className="text-[14px] font-semibold">Admin</span>
         </Link>
-        <nav aria-label="Admin" className="flex flex-1 gap-1 overflow-x-auto">
+        <nav aria-label="Admin" className="admin-orbit-links flex flex-1 gap-1 overflow-x-auto">
           {tabs.map((t) => {
             // Order detail pages belong to Activity (the old Orders tab).
             const active = t.href === "/admin" ? path === "/admin" : path.startsWith(t.href) || (t.href === "/admin/activity" && path.startsWith("/admin/orders"));

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function HowItWorksPage() {
   return (
     <>
-      <PageHeader
+      <PageHeader form="draft" jump="Explore the steps"
         eyebrow="How it works"
         title="From draft to report, step by step."
         body="The report reads your whole text and is ready in a few minutes, while you watch a live scan of your text. Your first report each day is free."

@@ -38,10 +38,11 @@ export function DashboardPreview() {
   const root = useRef<HTMLDivElement>(null);
   // 0…4 are the pipeline steps; 5 holds on "Ready" before the loop restarts
   const [tick, setTick] = useState(2);
+  const [manual, setManual] = useState(false);
 
   useEffect(() => {
     const el = root.current;
-    if (!el || reduce) return;
+    if (!el || reduce || manual) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     const io = new IntersectionObserver(([e]) => {
       clearInterval(timer);
@@ -52,7 +53,7 @@ export function DashboardPreview() {
       io.disconnect();
       clearInterval(timer);
     };
-  }, [reduce]);
+  }, [reduce, manual]);
 
   const step = Math.min(tick, 4);
   const ready = step === 4;
@@ -260,7 +261,15 @@ export function DashboardPreview() {
               </AnimatePresence>
             </div>
           </div>
-          <p className="mt-14 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>
+          <div className="dashboard-playback" role="group" aria-label="Example order timeline">
+            {STEPS.map((name, i) => (
+              <button key={name} type="button" aria-pressed={step === i} onClick={() => { setManual(true); setTick(i); }}>
+                <i aria-hidden />{name}
+              </button>
+            ))}
+            {manual && !reduce && <button type="button" onClick={() => setManual(false)}>Replay</button>}
+          </div>
+          <p className="mt-3 text-center text-[12px] text-fg-subtle">Illustration with example data.</p>
         </Reveal>
       </Container>
     </section>

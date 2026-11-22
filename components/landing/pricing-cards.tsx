@@ -2,6 +2,7 @@ import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Check, FileCheck2 } from "lucide-react";
 import { services, type ServiceKind } from "@/config/services";
 import { buttonClasses } from "@/components/ui/button";
+import { CostPlot } from "./cost-plot";
 import { Stagger, StaggerItem } from "@/components/motion/reveal";
 import { PaymentMethodStrip } from "@/components/orders/payment-methods";
 import { cn } from "@/lib/utils";
@@ -31,13 +32,14 @@ function RunningEdge() {
 export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" | "h3" } = {}) {
   return (
     <>
-      <Stagger className="mx-auto grid max-w-md items-stretch gap-5">
+      <div className="pricing-instruments">
+      <Stagger className="min-w-0">
         {services.map((s) => {
           const k = kindMeta[s.kind];
           return (
             <StaggerItem key={s.id} className="h-full">
               <div
-                data-tilt="8"
+                data-tilt="3"
                 className={cn(
                   "relative flex h-full flex-col rounded-2xl p-6 sm:p-7",
                   s.highlight
@@ -92,6 +94,8 @@ export function PricingCards({ headingAs: Heading = "h3" }: { headingAs?: "h2" |
           );
         })}
       </Stagger>
+      <CostPlot />
+      </div>
       <PaymentMethodStrip className="mt-8 justify-center" />
       <p className="mt-4 text-center text-[12px] text-fg-subtle">
         Prices in Hong Kong dollars.

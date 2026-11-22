@@ -1,59 +1,60 @@
 "use client";
-import Image from "next/image";
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { ArrowUpRight, ScanLine, X } from "lucide-react";
-import styles from "./writing-atlas.module.css";
+import { useState } from "react";
+import { ArrowRight, MoveHorizontal, Pause, Play } from "lucide-react";
+import { OrbitCanvas } from "@/components/space/orbit-canvas";
+import { usePrefersReducedMotion } from "@/components/motion/use-reduced-motion";
+
+const stages = [
+  { form: "draft", name: "Draft", detail: "Start with your own text." },
+  { form: "scan", name: "Scan", detail: "The reviewer reads each sentence in context." },
+  { form: "report", name: "Report", detail: "Explore your paragraph map and marked sentences." },
+] as const;
 
 export function HeroVisual() {
-  const [open, setOpen] = useState(false);
-  const frame = useRef<number | null>(null);
-  const stage = useRef<HTMLButtonElement>(null);
-  const point = useRef({ x: 0, y: 0 });
-  function resetLens() {
-    if (frame.current !== null) cancelAnimationFrame(frame.current);
-    frame.current = null;
-    stage.current?.removeAttribute("data-exploring");
-  }
-  useEffect(() => resetLens, []);
-  function explore(event: PointerEvent<HTMLButtonElement>) {
-    if (open || event.pointerType === "touch" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    point.current = { x: event.clientX, y: event.clientY };
-    if (frame.current !== null) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = null;
-      const el = stage.current;
-      if (!el) return;
-      const bounds = el.getBoundingClientRect();
-      const x = point.current.x - bounds.left;
-      const y = point.current.y - bounds.top;
-      el.style.setProperty("--px", x + "px");
-      el.style.setProperty("--py", y + "px");
-      el.style.setProperty("--dx", ((x / bounds.width - .5) * 13) + "px");
-      el.style.setProperty("--dy", ((y / bounds.height - .5) * 12) + "px");
-      el.dataset.exploring = "true";
-    });
-  }
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const reduce = usePrefersReducedMotion();
+  const current = stages[index];
+  const next = (index + 1) % stages.length;
   return (
-    <figure className={styles.instrument}>
-      <figcaption className={styles.bar}><span><i /> Document study</span><span>Fig. 01</span></figcaption>
-      <button ref={stage} type="button" className={styles.stage}
-        data-open={open} aria-expanded={open} aria-controls="sample-annotation"
-        aria-label={open ? "Close sample annotation" : "Inspect sample annotation"}
-        onPointerMove={explore} onPointerLeave={resetLens}
-        onClick={() => { resetLens(); setOpen(!open); }}
-        onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
-        <span aria-hidden className={styles.art}>
-          <Image src="/landing/paper-relief.webp" alt="" width={1159} height={850} sizes="(min-width: 1024px) 600px, 94vw" unoptimized loading="eager" />
-        </span>
-        <span aria-hidden className={styles.xray} />
-        <span aria-hidden className={styles.lens} />
-        <span className={styles.note} id="sample-annotation" aria-hidden={!open}>
-          <span className={styles.noteMeta}>Sample annotation</span>
-          <span className={styles.quote}>“<mark>It is important to note</mark> that the surveys differed in length.”</span>
-          <span className={styles.explanation}>The opening phrase delays the finding. Try starting with “The surveys differed in length.”</span>
-        </span>
-        <span className={styles.stageFoot}><span><ScanLine size={14} />{open ? "Close annotation" : "Inspect a sentence"}</span>{open ? <X size={16}/> : <ArrowUpRight size={16}/>}</span>
-      </button>
+    <figure className="orbit-viewer">
+      <div className="orbit-stage">
+        <OrbitCanvas
+          form={current.form}
+          paused={paused}
+          onAdvance={() => setIndex(next)}
+          label={`Show ${stages[next].name.toLowerCase()} stage`}
+        />
+        <span aria-hidden className="orbit-reticle" />
+      </div>
+      <figcaption>
+        <div className="orbit-selector" role="group" aria-label="Report stages">
+          {stages.map((stage, i) => (
+            <button key={stage.form} type="button" aria-pressed={i === index} onClick={() => setIndex(i)}>
+              <i aria-hidden />
+              {stage.name}
+            </button>
+          ))}
+          {!reduce && (
+            <button
+              className="motion-key"
+              type="button"
+              onClick={() => setPaused(!paused)}
+              aria-label={paused ? "Resume orbit animation" : "Pause orbit animation"}
+              aria-pressed={paused}
+            >
+              {paused ? <Play size={13} /> : <Pause size={13} />}
+            </button>
+          )}
+        </div>
+        <div className="orbit-caption">
+          <span aria-live="polite">{current.detail}</span>
+          <span className="orbit-gesture" aria-hidden>
+            {reduce ? <ArrowRight size={13} /> : <MoveHorizontal size={14} />}
+            {reduce ? "Select a stage" : "Drag to rotate"}
+          </span>
+        </div>
+      </figcaption>
     </figure>
   );
 }

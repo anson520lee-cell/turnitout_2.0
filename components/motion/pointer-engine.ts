@@ -495,6 +495,8 @@ export function startPointerEngine(layers: EngineLayers) {
       }
     }
     overControl = !!el?.closest("a[href], button, [role='button'], summary, label, input, textarea, select");
+    const showAim = pointer.inside && overControl && !el?.closest("dialog,input,textarea,select,label,[contenteditable=true]");
+    layers.halo.toggleAttribute("data-aim", showAim);
   };
 
   const frame = (now: number) => {

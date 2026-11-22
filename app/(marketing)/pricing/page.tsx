@@ -19,7 +19,7 @@ const reportExamples = [1500, 3000, 8000, 20000, 28000, 50000, 100000].map((char
 export default function PricingPage() {
   return (
     <>
-      <PageHeader
+      <PageHeader form="report" jump="Explore pricing"
         eyebrow="Pricing"
         title="Start free. Pay only for what you check."
         body={`Every account gets ${freeReport.dailyLimit} full report a day free (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). Longer texts: the AI-writing risk report is priced by length.`}

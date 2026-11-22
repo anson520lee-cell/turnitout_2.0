@@ -1437,12 +1437,6 @@ html[data-interactive] [data-depth] {
   .dash-rim { animation: none; }
 }
 
-/* Heading entrance: until components/motion/entrance-engine.ts has measured
-   the page, its headings stay out of sight (it removes the class). */
-html.ent-pre :is(.depth-title, h1, h2) {
-  visibility: hidden;
-}
-
 /* Dashboard engine schematic (components/dashboard/engine-schematic.tsx):
    one thin read line sweeping the layers, and the gauge arc easing round. */
 .es-read { animation: es-read 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
@@ -1569,12 +1563,8 @@ html.ent-pre :is(.depth-title, h1, h2) {
   line-height: 1.65;
 }
 
-/* No light follows the mouse: the cursor glow and the soft light behind the
-   content are switched off. The press ripple and the card tilt stay. */
-.light-back,
-.light-halo {
-  display: none !important;
-}
+/* The sky supplies the ambient light. Action targets use the small orbital reticle. */
+.light-back { display: none; }
 
 /* ------------------------------------------------------------------
    Signed-in modules: instrument-panel details shared by the charts,

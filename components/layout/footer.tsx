@@ -1,18 +1,10 @@
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
+import { ProductChart } from "./product-chart";
 import { Logo } from "@/components/ui/logo";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";
 
 const cols = [
-  {
-    title: "Product",
-    links: [
-      { href: "/services", label: "Services" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/sample-report", label: "Sample report" },
-      { href: "/how-it-works", label: "How it works" },
-    ],
-  },
   {
     title: "Company",
     links: [
@@ -34,13 +26,14 @@ const cols = [
 
 export function Footer() {
   return (
-    <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)] bg-ink-950/70">
+    <footer className="orbital-footer relative mt-24 overflow-hidden border-t border-[var(--line)] bg-ink-950/70">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-      <Container className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:py-14 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-12">
+      <Container className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:py-14 md:grid-cols-[1fr_1.6fr_.7fr_.85fr] md:gap-7">
         <div className="col-span-2 max-w-xs md:col-span-1">
           <Logo />
           <p className="mt-4 text-[13.5px] leading-relaxed text-fg-muted">{brand.description}</p>
         </div>
+        <ProductChart />
         {cols.map((c) => (
           <div key={c.title}>
             <h2 className="text-[12px] font-medium uppercase tracking-[0.16em] text-fg-subtle">{c.title}</h2>

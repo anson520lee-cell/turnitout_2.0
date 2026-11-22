@@ -53,11 +53,11 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
   }, []);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
+    <header className="orbit-nav fixed inset-x-0 top-0 z-50 px-3 sm:px-5">
       <nav
         aria-label="Main"
         className={cn(
-          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
+          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-none px-4 transition-colors duration-200 sm:px-5",
           scrolled || open ? "glass-strong" : "border border-transparent",
         )}
       >
@@ -69,12 +69,13 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
                 <motion.span
                   layoutId="nav-pill"
                   aria-hidden
-                  className="absolute inset-0 rounded-lg border border-white/[0.07] bg-white/[0.05] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_6px_20px_-10px_rgb(91_140_255/0.6)]"
+                  className="absolute inset-x-2 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan to-transparent"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
               <Link
                 href={l.href}
+                aria-current={pathname === l.href ? "page" : undefined}
                 onPointerEnter={() => setHovered(l.href)}
                 onFocus={() => setHovered(l.href)}
                 onBlur={() => setHovered(null)}

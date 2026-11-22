@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function SampleReportPage() {
   return (
     <>
-      <PageHeader
+      <PageHeader form="scan" jump="Explore the report"
         eyebrow="Sample report"
         title="What you get back"
         body={`This is the page a customer sees when a report is ready, filled with example data. ${reportFromLabel}, ${reportRateLabel}.`}

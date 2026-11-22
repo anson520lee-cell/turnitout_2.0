@@ -1,16 +1,23 @@
 "use client";
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useId, useState } from "react";
+import { ArrowRight, CheckCheck, FileText, Fingerprint, Gauge, Wallet } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { Reveal } from "@/components/motion/reveal";
 import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC), PayPal or Alipay";
 
 export const steps = [
-  { n: "01", title: "Paste your text", body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free." },
-  { n: "02", title: "Press Enter", body: "Sign in if you haven't yet. Only you and authorised staff can see your text and your report." },
+  {
+    n: "01",
+    title: "Paste your text",
+    body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free.",
+  },
+  {
+    n: "02",
+    title: "Press Enter",
+    body: "Sign in if you haven't yet. Only you and authorised staff can see your text and your report.",
+  },
   {
     n: "03",
     title: "Free or paid",
@@ -21,16 +28,22 @@ export const steps = [
     title: "Pay (if paid)",
     body: `${reportRateLabel}. ${reportLimitsLabel}. Pay just that report by Alipay at its exact price, or top up credits by ${methods}.`,
   },
-  { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
+  {
+    n: "05",
+    title: "Read your report",
+    body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download.",
+  },
 ];
 
-export function HowItWorks({ heading = true }: { heading?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 75%", "end 55%"] });
-  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1]);
+const icons = [FileText, Fingerprint, Gauge, Wallet, CheckCheck];
 
+export function HowItWorks({ heading = true }: { heading?: boolean }) {
+  const [index, setIndex] = useState(0);
+  const id = useId();
+  const step = steps[index];
+  const Icon = icons[index];
   return (
-    <section id="how-it-works" className="py-24 sm:py-32">
+    <section id="how-it-works" className="mission-section scroll-mt-20">
       <Container>
         {heading && (
           <SectionHeading
@@ -39,32 +52,36 @@ export function HowItWorks({ heading = true }: { heading?: boolean }) {
             body="Every order shows its current step in your dashboard, from payment to report."
           />
         )}
-        <div ref={ref} className="relative mt-14 pl-10 sm:pl-14">
-          <div aria-hidden className="absolute left-[15px] top-2 bottom-2 w-px bg-[var(--line)] sm:left-[23px]" />
-          <motion.div
-            aria-hidden
-            style={{ scaleY }}
-            className="absolute left-[15px] top-2 bottom-2 w-px origin-top bg-gradient-to-b from-cyan via-accent to-violet shadow-[0_0_12px_rgb(91_140_255/0.8)] sm:left-[23px]"
-          />
-          <span
-            aria-hidden
-            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(141_179_255/0.9)] sm:left-[22px]"
-          />
-          <ol className="space-y-6">
-            {steps.map((s, i) => (
-              <li key={s.n} className="relative">
-                <Reveal delay={i * 0.04}>
-                  <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[11px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
-                    {s.n}
-                  </span>
-                  <div data-tilt="6" className="glass rounded-2xl p-5 sm:p-6">
-                    <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
-                    <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
-                  </div>
-                </Reveal>
+        <div className="flight-path">
+          <ol aria-label="Steps from draft to report">
+            {steps.map((item, i) => (
+              <li key={item.n}>
+                <button type="button" onClick={() => setIndex(i)} aria-pressed={i === index} aria-controls={id}>
+                  <span className="flight-dot" aria-hidden />
+                  <small>{item.n}</small>
+                  <span>{item.title}</span>
+                  <ArrowRight size={15} aria-hidden />
+                </button>
               </li>
             ))}
           </ol>
+          <div className="flight-reading" id={id}>
+            <div className="flight-instrument" aria-hidden>
+              <i />
+              <i />
+              <i />
+              <Icon key={index} size={28} strokeWidth={1} />
+            </div>
+            <div key={step.n} className="flight-detail" aria-live="polite">
+              <span className="orbit-micro">Step {step.n} / 05</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </div>
+            <button type="button" className="orbit-text-link" onClick={() => setIndex((index + 1) % steps.length)}>
+              {index === steps.length - 1 ? "Back to first step" : "Next step"}
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
       </Container>
     </section>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { Container } from "@/components/ui/section";
+import { ReadingDocument } from "@/components/layout/reading-document";
 import { brand } from "@/config/app";
 import { disclaimers } from "@/config/services";
 
@@ -13,12 +13,12 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <>
-      <PageHeader
+      <PageHeader form="draft" jump="About the service"
         eyebrow="About"
         title="Built for students checking their own work."
         body={`${brand.name} is an independent service for students who want to know how their genuine writing reads before they hand it in.`}
       />
-      <Container className="prose-doc max-w-3xl">
+      <ReadingDocument>
         <h2>What we do</h2>
         <p>
           We offer an AI-writing risk report that
@@ -37,7 +37,7 @@ export default function AboutPage() {
         <p>
           <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>
         </p>
-      </Container>
+      </ReadingDocument>
     </>
   );
 }

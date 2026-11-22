@@ -5,7 +5,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Navbar />
-      <main id="main" className="overflow-x-clip">
+      <main id="main" className="orbital-public overflow-x-clip">
         {children}
       </main>
       <Footer />

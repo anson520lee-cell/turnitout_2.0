@@ -191,6 +191,9 @@ export function PasteDialog({
               ) : (
                 <>
                   <label htmlFor={`${titleId}-text`} className="sr-only">Text</label>
+                  <div className="paste-signal" aria-hidden>
+                    <i style={{ width: `${Math.min(100, 8 + Math.log2(1 + text.length) * 6)}%` }} />
+                  </div>
                   <div className="paste-input-frame rounded-2xl">
                     <textarea
                       id={`${titleId}-text`}

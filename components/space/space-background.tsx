@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { createConstellation } from "./constellation";
 import nebulaTexture from "./nebula.webp";
 import galaxyTexture from "./galaxy.webp";
 
@@ -38,7 +39,10 @@ export function SpaceBackground() {
     const c = ctx;
     const cv = canvas;
 
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reduce = motion.matches;
+    const stars = createConstellation();
+    let lastSkyTime = 0;
     let w = 0;
     let h = 0;
     let dpr = 1;
@@ -57,7 +61,7 @@ export function SpaceBackground() {
         if (disposed) return;
         ready(image);
         skyAge = 99;
-        if (reduce) draw(0);
+        if (reduce) draw(t);
       }).catch(() => { /* The remaining sky layers can render without this texture. */ });
     }
     // The clouds drift slowly, so they are painted into a half-resolution
@@ -88,7 +92,7 @@ export function SpaceBackground() {
       sky.height = Math.max(2, Math.round(h / 2));
       skyAge = 99;
       docH = document.documentElement.scrollHeight;
-      if (reduce) draw(0);
+      if (reduce) draw(t);
     }
 
     function drawNebula(time: number, off: number) {
@@ -286,6 +290,8 @@ export function SpaceBackground() {
       drawGalaxy(time, off);
       drawPlanet(off);
       drawLandscape(time);
+      stars.paint(c, w, h, time, scrollY, Math.min(.1, Math.max(0, time - lastSkyTime)), reduce);
+      lastSkyTime = time;
       drawProgress();
     }
 
@@ -316,18 +322,31 @@ export function SpaceBackground() {
     window.addEventListener("resize", resize);
     function onStillScroll() {
       scrollY = window.scrollY;
-      draw(0);
+      draw(t);
     }
-    if (reduce) {
-      window.addEventListener("scroll", onStillScroll, { passive: true });
-      draw(0);
-    } else {
-      document.addEventListener("visibilitychange", onVisibility);
-      raf = requestAnimationFrame(loop);
+    function motionChanged() {
+      reduce = motion.matches;
+      window.removeEventListener("scroll", onStillScroll);
+      onVisibility();
+      if (reduce) {
+        window.addEventListener("scroll", onStillScroll, { passive: true });
+        onStillScroll();
+      }
     }
+    function press(event: PointerEvent) {
+      if (reduce || !event.isPrimary || event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest("input,textarea,select,[contenteditable=true]")) return;
+      stars.sendPulse(event.clientX, event.clientY);
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pointerdown", press, { passive: true });
+    motion.addEventListener("change", motionChanged);
+    motionChanged();
     return () => {
       cancelAnimationFrame(raf);
       disposed = true;
+      motion.removeEventListener("change", motionChanged);
+      window.removeEventListener("pointerdown", press);
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", onStillScroll);
       document.removeEventListener("visibilitychange", onVisibility);

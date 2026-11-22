@@ -1,3 +1,4 @@
+import { OrbitCanvas } from "@/components/space/orbit-canvas";
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 
@@ -12,8 +13,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
       <div className="relative flex flex-col px-6 py-8 sm:px-12">
         <Logo />
-        <div className="flex flex-1 items-center justify-center py-12">
-          <div className="w-full max-w-[400px]">{children}</div>
+        <div className="auth-orbit-layout">
+          <div aria-hidden className="auth-orbit"><OrbitCanvas form="scan" /></div>
+          <div className="auth-orbit-form">{children}</div>
         </div>
         <p className="text-[11.5px] text-fg-subtle">
           <Link href="/privacy" className="hover:text-fg">Privacy</Link> · <Link href="/terms" className="hover:text-fg">Terms</Link>

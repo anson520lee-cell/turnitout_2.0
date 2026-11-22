@@ -25,7 +25,7 @@ export default function FaqPage() {
           })),
         }}
       />
-      <PageHeader eyebrow="FAQ" title="Frequently asked questions." />
+      <PageHeader form="report" jump="Browse questions" eyebrow="FAQ" title="Frequently asked questions." />
       <Container className="max-w-3xl">
         <FaqList items={faq} />
       </Container>
