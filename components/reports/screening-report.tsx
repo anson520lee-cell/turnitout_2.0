@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { motion } from "framer-motion";
 import { Download, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import type { Order, OrderFile, ScreeningResultRow } from "@/types/domain";

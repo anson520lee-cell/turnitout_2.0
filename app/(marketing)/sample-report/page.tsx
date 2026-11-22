@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Info } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";

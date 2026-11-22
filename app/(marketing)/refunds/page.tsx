@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProseDoc } from "@/components/layout/prose-doc";
 import { brand } from "@/config/app";

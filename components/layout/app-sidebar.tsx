@@ -64,7 +64,8 @@ export function AppSidebar({ email, isAdmin, credits, preview }: { email: string
             <li key={href} style={{ "--i": i } as CSSProperties}>
               <Link
                 href={to(href)}
-                onClick={() => setOpenOn(null)}
+                // The sheet stays up, with the pressed page lit, until that page arrives (it closes when the path changes).
+                onClick={() => i === activeIdx && setOpenOn(null)}
                 aria-current={i === activeIdx ? "page" : undefined}
                 data-press
                 className="app-nav-link"

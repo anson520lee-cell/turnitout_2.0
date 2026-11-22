@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { ArrowRight } from "lucide-react";
 import type { Order } from "@/types/domain";
 import { StatusBadge } from "@/components/ui/status-badge";

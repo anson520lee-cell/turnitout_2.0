@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { demoBalance, demoEmail } from "./demo";
 
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default function AppPreviewLayout({ children }: LayoutProps<"/preview/app">) {
+  // Only on preview deployments: the live site has the real app, and its top-up panel should not appear under a made-up account.
+  if (process.env.VERCEL_ENV === "production") notFound();
   return (
     <div className="relative min-h-dvh lg:flex">
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(50%_40%_at_70%_0%,rgb(91_140_255/0.08),transparent_70%)]" />

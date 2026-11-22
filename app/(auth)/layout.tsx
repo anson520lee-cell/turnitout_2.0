@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Logo } from "@/components/ui/logo";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {

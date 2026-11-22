@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, Wallet } from "lucide-react";

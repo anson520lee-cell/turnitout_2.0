@@ -2227,7 +2227,8 @@ html[data-interactive] [data-depth] {
 .nav-burger[data-open] .nav-burger-lines > i:first-child { top: 4.25px; transform: rotate(45deg); }
 .nav-burger[data-open] .nav-burger-lines > i:last-child { top: 4.25px; transform: rotate(-45deg); }
 
-.nav-sheet { overflow: hidden; }
+/* Menus sit over page text: a near-opaque glass, so nothing behind reads through where a backdrop blur is weak or missing. */
+.nav-sheet { overflow: hidden; --glass-strong: rgb(13 18 40 / 0.94); }
 .nav-sheet ul { padding: 6px 8px 0; }
 .nav-sheet li { position: relative; }
 .nav-sheet li::after {
@@ -3731,4 +3732,71 @@ html[data-interactive] [data-depth] {
     clip-path: none !important;
   }
   main.app-main :is(.glass, .glass-strong)::after { display: none; }
+}
+
+/* ---- Waiting for the next page (components/ui/navigation-link.tsx) ----
+   A thin line runs along the top of the window, and the pressed link already
+   shows as the place you are going, until the page arrives. */
+.nav-pending {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgb(91 140 255 / 0.3);
+}
+.nav-pending::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, var(--color-accent) 40%, rgb(196 214 255) 62%, transparent);
+  animation: nav-pending 1.05s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes nav-pending {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(240%); }
+}
+body:has(> [data-navigation-pending]) { cursor: progress; }
+
+.nav-link:has(> [data-link-pending]) { color: var(--color-fg); }
+.nav-link:has(> [data-link-pending])::after { transform: scaleX(1); transform-origin: left; background: var(--color-accent); transition-duration: 0.2s; }
+.nav-link:has(> [data-link-pending]) .nav-idx,
+.nav-sheet-link:has(> [data-link-pending]) .nav-idx { color: var(--color-accent); }
+
+/* The rail's marker slides to the pressed page straight away (overrides the inline --ai). */
+.app-nav-track:has(> ul > li:nth-child(1) > a > [data-link-pending]) { --ai: 0 !important; }
+.app-nav-track:has(> ul > li:nth-child(2) > a > [data-link-pending]) { --ai: 1 !important; }
+.app-nav-track:has(> ul > li:nth-child(3) > a > [data-link-pending]) { --ai: 2 !important; }
+.app-nav-track:has(> ul > li:nth-child(4) > a > [data-link-pending]) { --ai: 3 !important; }
+.app-nav-track:has(> ul > li:nth-child(5) > a > [data-link-pending]) { --ai: 4 !important; }
+.app-nav-track:has(> ul > li:nth-child(6) > a > [data-link-pending]) { --ai: 5 !important; }
+.app-nav-track:has([data-link-pending]) > .app-nav-marker { opacity: 1; }
+.app-nav-link:has(> [data-link-pending]) { color: var(--color-fg); background-color: rgb(91 140 255 / 0.07); }
+.app-nav-link:has(> [data-link-pending]) :is(.nav-idx, .app-nav-icon) { color: var(--color-accent); }
+.app-nav-track:has([data-link-pending]) .app-nav-link[aria-current]:not(:has(> [data-link-pending])) { color: var(--color-fg-muted); background-color: transparent; }
+.app-nav-track:has([data-link-pending]) .app-nav-link[aria-current]:not(:has(> [data-link-pending])) :is(.nav-idx, .app-nav-icon) { color: var(--color-fg-subtle); }
+
+/* Filter tabs: the underline moves to the pressed tab. */
+.app-tab:has(> [data-link-pending]) { color: var(--color-fg); }
+.app-tab:has(> [data-link-pending])::after { transform: scaleX(1); transform-origin: left; background: var(--color-accent); transition-duration: 0.2s; }
+.app-tabs:has([data-link-pending]) .app-tab[aria-current]:not(:has(> [data-link-pending])) { color: var(--color-fg-muted); }
+.app-tabs:has([data-link-pending]) .app-tab[aria-current]:not(:has(> [data-link-pending]))::after { animation: none; transform: scaleX(0); transform-origin: right; }
+
+/* Rows and the dashboard's next step hold their lit state while the page loads. */
+.app-row-link:has(> [data-link-pending]),
+.app-go:has(> [data-link-pending]) { background-color: rgb(91 140 255 / 0.06); }
+.app-row-link:has(> [data-link-pending])::after,
+.app-go:has(> [data-link-pending])::after { transform: scaleX(1); transform-origin: left; transition-duration: 0.2s; }
+.app-row-link:has(> [data-link-pending]) .app-row-idx { color: var(--color-accent); }
+.app-row-link:has(> [data-link-pending]) .app-row-main { translate: 4px 0; }
+.app-row-link:has(> [data-link-pending]) .app-row-arrow,
+.app-go:has(> [data-link-pending]) .app-go-arrow { translate: 4px 0; color: var(--color-fg); }
+.app-back:has(> [data-link-pending]) { color: var(--color-fg); }
+.app-back:has(> [data-link-pending]) > svg { translate: -3px 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pending { background: var(--color-accent); }
+  .nav-pending::before { display: none; }
 }

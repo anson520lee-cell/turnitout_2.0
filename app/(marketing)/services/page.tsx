@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { CoreServices } from "@/components/landing/core-services";
 import { Container } from "@/components/ui/section";
 import { Build } from "@/components/motion/reveal";

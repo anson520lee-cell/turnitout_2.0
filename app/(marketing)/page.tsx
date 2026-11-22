@@ -10,7 +10,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { faq } from "@/config/faq";
 import { brand } from "@/config/app";
 import { appUrl } from "@/lib/utils";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 
 /**
  * The homepage reads as one story, in three movements:

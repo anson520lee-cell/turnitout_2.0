@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

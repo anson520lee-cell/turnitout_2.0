@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { DailyReportCard } from "@/components/orders/daily-report-card";
 import { getFreeReportStatus } from "@/lib/free-report";

@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CornerDownLeft, FileCheck2, Gift, Lock } from "lucide-react";

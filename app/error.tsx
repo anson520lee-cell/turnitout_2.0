@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { useEffect } from "react";
 import { Container, Eyebrow } from "@/components/ui/section";
 import { buttonClasses } from "@/components/ui/button";
