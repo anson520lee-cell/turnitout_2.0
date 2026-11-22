@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import nebulaTexture from "./nebula.webp";
+import galaxyTexture from "./galaxy.webp";
 
 /**
  * The backdrop: deep space.
@@ -17,194 +19,6 @@ import { usePathname } from "next/navigation";
  */
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-
-/** A cloud texture: domain-warped fractal noise coloured blue → violet → magenta with cyan filaments. Built once. */
-function makeNebula(): HTMLCanvasElement {
-  const N = 384;
-  const cvs = document.createElement("canvas");
-  cvs.width = cvs.height = N;
-  const g = cvs.getContext("2d");
-  if (!g) return cvs;
-  const P = new Uint8Array(512);
-  for (let i = 0; i < 256; i++) P[i] = i;
-  for (let i = 255; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const t = P[i];
-    P[i] = P[j];
-    P[j] = t;
-  }
-  for (let i = 0; i < 256; i++) P[i + 256] = P[i];
-  const lat = (x: number, y: number) => P[(P[x & 255] + y) & 255] / 255;
-  const noise = (x: number, y: number) => {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const fx = x - xi;
-    const fy = y - yi;
-    const u = fx * fx * (3 - 2 * fx);
-    const v = fy * fy * (3 - 2 * fy);
-    const a = lat(xi, yi);
-    const b = lat(xi + 1, yi);
-    const d = lat(xi, yi + 1);
-    const e = lat(xi + 1, yi + 1);
-    return a + (b - a) * u + (d - a) * v + (a - b - d + e) * u * v;
-  };
-  const fbm = (x: number, y: number) => {
-    let sum = 0;
-    let amp = 0.5;
-    let f = 1;
-    for (let o = 0; o < 5; o++) {
-      sum += amp * noise(x * f, y * f);
-      amp *= 0.5;
-      f *= 2;
-    }
-    return sum;
-  };
-  const img = g.createImageData(N, N);
-  const C1 = [50, 105, 255];
-  const C2 = [150, 90, 255];
-  const C3 = [240, 95, 205];
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      const nx = (x / N) * 3.6;
-      const ny = (y / N) * 3.6;
-      const q = fbm(nx + 3.1, ny + 1.7);
-      const n = fbm(nx + q * 1.7, ny + q * 1.7 + 5.2);
-      const m = fbm(nx * 1.6 + 9.4, ny * 1.6 + 2.8);
-      // fade to nothing at the border so the texture can be drawn at any size
-      const edge = clamp(Math.min(Math.min(x, N - 1 - x), Math.min(y, N - 1 - y)) / (N * 0.2));
-      const d = clamp((n - 0.4) / 0.36) * edge * edge * (3 - 2 * edge);
-      const t = clamp((m - 0.32) / 0.38);
-      const A = t < 0.5 ? C1 : C2;
-      const B = t < 0.5 ? C2 : C3;
-      const k = t < 0.5 ? t * 2 : (t - 0.5) * 2;
-      const hi = clamp((n - 0.66) / 0.14); // bright cyan filaments in the densest folds
-      const o = (y * N + x) * 4;
-      img.data[o] = A[0] + (B[0] - A[0]) * k + (120 - 60) * hi;
-      img.data[o + 1] = A[1] + (B[1] - A[1]) * k + 120 * hi;
-      img.data[o + 2] = A[2] + (B[2] - A[2]) * k;
-      img.data[o + 3] = d * d * 235;
-    }
-  }
-  g.putImageData(img, 0, 0);
-  return cvs;
-}
-
-/**
- * A spiral galaxy sprite, built once and drawn rotating. Tens of thousands of
- * faint points add up to smooth light, the way a real disc does:
- * an exponential stellar disc, two major and two minor logarithmic arms with
- * clumpy brightness, a warm bulge, blue young clusters and pink star-forming
- * regions along the arms, soft glow lanes, dark dust carved along the arms'
- * inner edges, and a faint halo.
- */
-function makeGalaxy(): HTMLCanvasElement {
-  const N = 1024;
-  const cvs = document.createElement("canvas");
-  cvs.width = cvs.height = N;
-  const g = cvs.getContext("2d");
-  if (!g) return cvs;
-  g.translate(N / 2, N / 2);
-  const R = N * 0.48;
-  const TAU = Math.PI * 2;
-  const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
-  const WIND = 2.9;
-  const spiral = (r: number) => WIND * Math.log(1 + r / (R * 0.16));
-  const dot = (x: number, y: number, size: number) => g.fillRect(x - size / 2, y - size / 2, size, size);
-  const blob = (x: number, y: number, r: number, col: string, a: number) => {
-    const b = g.createRadialGradient(x, y, 0, x, y, r);
-    b.addColorStop(0, `rgba(${col},${a})`);
-    b.addColorStop(1, `rgba(${col},0)`);
-    g.fillStyle = b;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
-  };
-
-  // halo
-  blob(0, 0, R, "120,135,255", 0.13);
-  g.globalCompositeOperation = "lighter";
-
-  // the smooth disc: brightness falls off exponentially with radius
-  for (let i = 0; i < 70000; i++) {
-    const r = Math.min(R, -Math.log(1 - Math.random()) * R * 0.27);
-    const th = Math.random() * TAU;
-    const warm = Math.max(0, 1 - r / (R * 0.5));
-    g.fillStyle = `rgba(${Math.round(190 + 65 * warm)},${Math.round(200 + 35 * warm)},${Math.round(255 - 30 * warm)},${0.035 + Math.random() * 0.08})`;
-    dot(Math.cos(th) * r, Math.sin(th) * r, 1.3);
-  }
-
-  // the arms
-  const ARMS: [number, number][] = [
-    [0, 1],
-    [Math.PI, 1],
-    [Math.PI * 0.5, 0.42],
-    [Math.PI * 1.5, 0.42],
-  ];
-  for (const [phase, strength] of ARMS) {
-    const count = Math.round(46000 * strength);
-    for (let i = 0; i < count; i++) {
-      // broad, diffuse arms that thin out and fade toward the rim
-      const r = R * (0.06 + 0.9 * Math.pow(Math.random(), 1.1));
-      const k = r / R;
-      const fade = Math.pow(1 - k, 0.7);
-      const th = phase + spiral(r) + gauss() * (0.62 - 0.2 * k) + (Math.random() - 0.5) * 0.25;
-      // clumps: the arm is brighter in knots along its length
-      const clump = 0.55 + 0.45 * Math.sin(spiral(r) * 5.3 + phase * 3) * Math.sin(r * 0.031 + phase);
-      const x = Math.cos(th) * r;
-      const y = Math.sin(th) * r;
-      const p = Math.random();
-      if (p < 0.005) {
-        // a young blue cluster
-        blob(x, y, 3 + Math.random() * 4, "170,205,255", 0.2 * strength * fade);
-        g.fillStyle = `rgba(225,238,255,${(0.85 * fade + 0.1).toFixed(2)})`;
-        dot(x, y, 1.5);
-      } else if (p < 0.009 && k > 0.18) {
-        // a pink star-forming region
-        blob(x, y, 4 + Math.random() * 6, "255,110,180", 0.17 * strength * fade);
-        g.fillStyle = `rgba(255,190,220,${(0.7 * fade + 0.1).toFixed(2)})`;
-        dot(x, y, 1.3);
-      } else {
-        const warm = Math.max(0, 1 - k * 2.4);
-        g.fillStyle = `rgba(${Math.round(155 + 100 * warm)},${Math.round(185 + 50 * warm)},${Math.round(255 - 40 * warm)},${((0.04 + Math.random() * 0.13) * strength * (0.5 + clump) * (0.25 + fade)).toFixed(3)})`;
-        dot(x, y, Math.random() < 0.08 ? 1.7 : 1.1);
-      }
-    }
-    // glow that follows the arm
-    for (let i = 0; i < 260 * strength; i++) {
-      const r = R * (0.1 + 0.88 * Math.random());
-      const th = phase + spiral(r) + gauss() * 0.16;
-      blob(Math.cos(th) * r, Math.sin(th) * r, 22 + Math.random() * 44, r < R * 0.35 ? "210,190,255" : "110,150,255", (0.034 * strength + 0.012) * (1.15 - r / R));
-    }
-  }
-
-  // dust: dark lanes on the inner (trailing) edge of the two major arms
-  g.globalCompositeOperation = "destination-out";
-  for (const phase of [0, Math.PI]) {
-    for (let i = 0; i < 520; i++) {
-      const r = R * (0.12 + 0.7 * Math.random());
-      const th = phase + spiral(r) - 0.42 + gauss() * 0.12;
-      blob(Math.cos(th) * r, Math.sin(th) * r, 6 + Math.random() * 14, "0,0,0", 0.07 + Math.random() * 0.08);
-    }
-  }
-  g.globalCompositeOperation = "lighter";
-
-  // the bulge: old, warm stars packed round the centre, slightly barred
-  for (let i = 0; i < 11000; i++) {
-    const r = Math.abs(gauss()) * R * 0.26;
-    const th = Math.random() * TAU;
-    g.fillStyle = `rgba(255,${Math.round(225 + Math.random() * 20)},${Math.round(190 + Math.random() * 30)},${0.05 + Math.random() * 0.1})`;
-    dot(Math.cos(th) * r * 1.25, Math.sin(th) * r * 0.85, 1.2);
-  }
-  blob(0, 0, R * 0.2, "255,236,208", 0.5);
-  blob(0, 0, R * 0.075, "255,250,240", 0.95);
-
-  // a scatter of foreground stars across the whole disc
-  for (let i = 0; i < 260; i++) {
-    const r = Math.sqrt(Math.random()) * R;
-    const th = Math.random() * TAU;
-    g.fillStyle = `rgba(240,245,255,${0.35 + Math.random() * 0.55})`;
-    dot(Math.cos(th) * r, Math.sin(th) * r, Math.random() < 0.2 ? 1.9 : 1.2);
-  }
-  return cvs;
-}
 
 /** Signed-in areas get the full show; public pages keep it quieter behind their own visuals. */
 const APP_ROUTES = /^\/(dashboard|scan|orders|services|billing|settings|admin)(\/|$)/;
@@ -229,16 +43,23 @@ export function SpaceBackground() {
     let h = 0;
     let dpr = 1;
     let small = false;
-    // The two textures take a moment to paint, so they are built just after
-    // the first frame instead of holding it up.
-    let nebula: HTMLCanvasElement | null = null;
-    let galaxy: HTMLCanvasElement | null = null;
-    const texTimer = window.setTimeout(() => {
-      nebula = makeNebula();
-      galaxy = makeGalaxy();
-      skyAge = 99;
-      if (reduce) draw(0);
-    }, 80);
+    // The textures are rendered from the original procedural artwork ahead of time.
+    // Decode off the interaction path and keep drawing the rest of the sky meanwhile.
+    let nebula: HTMLImageElement | null = null;
+    let galaxy: HTMLImageElement | null = null;
+    let disposed = false;
+    function loadTexture(src: string, ready: (image: HTMLImageElement) => void) {
+      const image = new Image();
+      image.decoding = "async";
+      image.fetchPriority = "low";
+      image.src = src;
+      void image.decode().then(() => {
+        if (disposed) return;
+        ready(image);
+        skyAge = 99;
+        if (reduce) draw(0);
+      }).catch(() => { /* The remaining sky layers can render without this texture. */ });
+    }
     // The clouds drift slowly, so they are painted into a half-resolution
     // layer every few frames and that layer is blitted, instead of blending
     // two full-screen textures on every frame.
@@ -490,6 +311,8 @@ export function SpaceBackground() {
     }
 
     resize();
+    loadTexture(nebulaTexture.src, (image) => { nebula = image; });
+    loadTexture(galaxyTexture.src, (image) => { galaxy = image; });
     window.addEventListener("resize", resize);
     function onStillScroll() {
       scrollY = window.scrollY;
@@ -504,7 +327,7 @@ export function SpaceBackground() {
     }
     return () => {
       cancelAnimationFrame(raf);
-      window.clearTimeout(texTimer);
+      disposed = true;
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", onStillScroll);
       document.removeEventListener("visibilitychange", onVisibility);

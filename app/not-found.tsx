@@ -4,13 +4,11 @@ import { Footer } from "@/components/layout/footer";
 import { PageHeader } from "@/components/layout/page-header";
 import { Container } from "@/components/ui/section";
 import { buttonClasses } from "@/components/ui/button";
-import { getSessionUser } from "@/lib/auth/session";
 
-export default async function NotFound() {
-  const user = await getSessionUser();
+export default function NotFound() {
   return (
     <>
-      <Navbar signedIn={Boolean(user)} />
+      <Navbar />
       <main id="main" className="min-h-[70vh] overflow-x-clip">
         <PageHeader
           eyebrow="404"

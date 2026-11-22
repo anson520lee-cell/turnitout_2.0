@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { Logo } from "@/components/ui/logo";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/config/app";

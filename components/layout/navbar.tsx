@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,7 +15,27 @@ const links = [
   { href: "/faq", label: "FAQ" },
 ];
 
-export function Navbar({ signedIn }: { signedIn: boolean }) {
+export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
+  const [hasSession, setHasSession] = useState(false);
+  const signedIn = verified ?? hasSession;
+  useEffect(() => {
+    // Public pages share static HTML. Only the account shortcut needs session state.
+    if (verified !== undefined || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void import("@/lib/supabase/client").then(({ createClient }) => {
+      if (disposed) return;
+      const { data } = createClient().auth.onAuthStateChange((_event, session) => {
+        setHasSession(Boolean(session));
+      });
+      unsubscribe = () => data.subscription.unsubscribe();
+    }).catch(() => { /* Guest navigation stays usable if auth cannot initialise. */ });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
+  }, [verified]);
+
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   // Menu state is tied to the path it was opened on, so navigating closes it.

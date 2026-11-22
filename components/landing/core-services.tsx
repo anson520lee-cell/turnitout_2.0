@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { ArrowUpRight, FileCheck2 } from "lucide-react";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { SpotlightCard } from "@/components/motion/spotlight-card";

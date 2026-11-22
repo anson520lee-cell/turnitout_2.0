@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { brand } from "@/config/app";
 import { cn } from "@/lib/utils";
 
