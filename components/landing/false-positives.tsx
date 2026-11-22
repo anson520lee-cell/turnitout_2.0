@@ -22,7 +22,7 @@ const reasons = [
 
 export function FalsePositives() {
   return (
-    <section className="editorial-index py-24 sm:py-32">
+    <section className="py-24 sm:py-32">
       <Container className="grid gap-12 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
         <SectionHeading
           eyebrow="False positives"

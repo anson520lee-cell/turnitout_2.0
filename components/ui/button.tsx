@@ -4,13 +4,25 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
+/**
+ * Button look for <button> and <Link>: capsules of liquid glass. `btn-fx`
+ * gives every variant the shared press feedback (sink, spring back, ripple
+ * from the press point; see the "Press and hover feedback" section of
+ * globals.css), `btn-glass` the glass itself, and the primary button a rim of
+ * light that runs around its edge on hover.
+ */
 export function buttonClasses(variant: Variant = "primary", size: Size = "md", className?: string) {
   return cn(
-    "btn-fx studio-button group/btn relative inline-flex select-none items-center justify-center gap-2.5 whitespace-nowrap rounded-full font-medium disabled:pointer-events-none disabled:opacity-50",
-    size === "sm" && "min-h-9 px-4 text-[13px]",
-    size === "md" && "min-h-11 px-5 text-sm",
-    size === "lg" && "min-h-12 px-6 text-[15px]",
-    "studio-btn-" + variant,
+    "btn-fx group/btn relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium disabled:pointer-events-none disabled:opacity-50",
+    size === "sm" && "h-10 px-4 text-[13px] sm:h-8 sm:px-3.5",
+    size === "md" && "h-10 px-5 text-sm",
+    size === "lg" && "h-12 px-7 text-[15px]",
+    // Liquid glass: every filled variant is the same pane of glass, tinted (see .btn-glass in globals.css).
+    variant === "primary" && "btn-primary btn-glass magnetic text-white [--tint:150_185_255] [--fill:0.07] [--edge-a:0.38]",
+    variant === "secondary" && "btn-glass magnetic text-fg [--tint:205_218_255] [--fill:0.03]",
+    variant === "outline" && "btn-glass magnetic text-fg [--tint:150_175_255] [--fill:0] [--edge-a:0.3]",
+    variant === "ghost" && "text-fg-muted hover:bg-white/[0.07] hover:text-fg active:bg-white/[0.1]",
+    variant === "danger" && "btn-glass text-[#dbe6ff] [--tint:100_140_255] [--fill:0.1]",
     className,
   );
 }

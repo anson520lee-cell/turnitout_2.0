@@ -1,47 +1,110 @@
-import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
+import { Container } from "@/components/ui/section";
+import { Reveal } from "@/components/motion/reveal";
+import { HeroVisual } from "./hero-visual";
 import { freeReport } from "@/config/app";
-import { OrbitalStudy } from "./orbital-study";
+
+/** Extrusion layers behind the headline, nearest first. */
+const DEPTH = [
+  { i: 1, rgb: "78 118 255", a: 0.55 },
+  { i: 2, rgb: "90 104 245", a: 0.38 },
+  { i: 3, rgb: "108 96 235", a: 0.24 },
+  { i: 4, rgb: "124 92 225", a: 0.13 },
+];
+
+function Headline() {
+  const text = (sheen: boolean) => (
+    <>
+      <span className={sheen ? "depth-title-sheen" : undefined}>Know before</span>
+      <br />
+      you submit.
+    </>
+  );
+  return (
+    // The extruded copies sit beside the <h1>, not in it, so the heading's
+    // text (what search engines and screen readers read) appears once.
+    <div data-cursor className="depth-title relative text-balance text-[42px] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-6xl lg:text-[68px]">
+      <span aria-hidden className="depth-title-layer depth-title-shadow">
+        {text(false)}
+      </span>
+      {DEPTH.slice()
+        .reverse()
+        .map((l) => (
+          <span
+            key={l.i}
+            aria-hidden
+            className="depth-title-layer"
+            style={{ ["--i" as string]: l.i, ["--layer-rgb" as string]: l.rgb, ["--layer-a" as string]: l.a }}
+          >
+            {text(false)}
+          </span>
+        ))}
+      <h1 className="relative">{text(true)}</h1>
+    </div>
+  );
+}
+
+/** Aurora and a perspective floor that leans toward the cursor. Decorative. */
+function Backdrop() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      <div data-depth="-3" className="absolute inset-x-0 top-0 h-[760px]">
+        <div className="aurora left-[48%] top-[-18%] size-[760px] bg-[radial-gradient(closest-side,rgb(91_140_255/0.2),rgb(91_140_255/0.06)_55%,transparent)] [--drift:17s]" />
+        <div className="aurora left-[-12%] top-[-10%] size-[620px] bg-[radial-gradient(closest-side,rgb(141_150_172/0.15),transparent_70%)] [--drift:23s]" />
+      </div>
+      <div data-depth="-1" className="absolute inset-x-0 top-0 h-[760px]">
+        <div className="aurora left-[62%] top-[30%] size-[420px] bg-[radial-gradient(closest-side,rgb(141_179_255/0.1),transparent_70%)] [--drift:14s]" />
+      </div>
+      <div data-cursor className="hero-floor absolute inset-x-0 bottom-0 h-[31%] min-h-[220px]">
+        <div className="hero-floor-plane">
+          <div className="hero-floor-grid" />
+          <div className="hero-floor-light" />
+        </div>
+        {/* horizon */}
+        <div className="absolute left-[34%] right-[6%] top-0 h-px bg-gradient-to-r from-transparent via-accent/35 to-transparent" />
+        <div className="absolute left-[42%] right-[2%] -top-6 h-12 bg-[radial-gradient(50%_50%_at_50%_50%,rgb(91_140_255/0.22),transparent)]" />
+      </div>
+    </div>
+  );
+}
 
 export function Hero() {
   return (
-    <section className="field-hero" aria-labelledby="hero-title">
-      <div className="field-wash" aria-hidden />
-      <div className="studio-width">
-        <div className="field-composition">
-          <div className="field-copy">
-            <span className="field-ruler" aria-hidden />
-            <h1 id="hero-title">
-              Know before
-              <br />
-              <em>you submit.</em>
-            </h1>
-            <p className="field-lead">
+    <section className="noise relative overflow-hidden pt-32 pb-20 sm:pt-40 lg:pb-28">
+      <Backdrop />
+      <Container className="relative grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-6">
+        <div>
+          <Reveal aboveFold delay={0.08} flip={24}>
+            <Headline />
+          </Reveal>
+          <Reveal aboveFold delay={0.16}>
+            <p className="mt-6 max-w-lg text-pretty text-[16.5px] leading-relaxed text-fg-muted">
               Get a report that reads every sentence and shows where your writing could be misread as
               AI-written. Your first one each day is free.
             </p>
-            <div className="field-actions">
-              <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
-                Get report <ArrowUpRight size={17} aria-hidden />
-              </Link>
-              <Link href="/sample-report" className="studio-text-link">
-                See a sample report <ArrowRight size={15} aria-hidden />
-              </Link>
-            </div>
-          </div>
-          <OrbitalStudy />
+          </Reveal>
+          <Reveal aboveFold delay={0.24} className="mt-9 flex flex-wrap items-center gap-3">
+            <Link href="/services/screening" className={buttonClasses("primary", "lg")}>
+              Get report
+              <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
+            </Link>
+            <Link href="/sample-report" className={buttonClasses("secondary", "lg")}>
+              See a sample report
+            </Link>
+          </Reveal>
+          <Reveal aboveFold delay={0.32}>
+            <p className="mt-6 flex items-center gap-2 text-[13px] text-fg-subtle">
+              <ShieldCheck className="size-4 text-ok" aria-hidden />
+              {freeReport.dailyLimit} full report free every day. Private document handling.
+            </p>
+          </Reveal>
         </div>
-        <div className="field-controls">
-          <p className="field-note">
-            <ShieldCheck size={16} aria-hidden />
-            {freeReport.dailyLimit} full report free every day. Private document handling.
-          </p>
-          <a className="field-jump" href="#how-it-works" aria-label="How it works">
-            <ArrowRight size={15} aria-hidden />
-          </a>
-        </div>
-      </div>
+        <Reveal aboveFold delay={0.2} className="flex justify-center lg:-mr-6 lg:justify-end xl:-mr-12 2xl:-mr-28">
+          <HeroVisual />
+        </Reveal>
+      </Container>
     </section>
   );
 }

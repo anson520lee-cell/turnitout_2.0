@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/motion/providers";
 import { InteractiveSurfaces } from "@/components/motion/interactive-surfaces";
+import { Entrance, ENTRANCE_PRE_SCRIPT } from "@/components/motion/entrance";
 import { TranslationGuard } from "@/components/motion/translation-guard";
+import { SpaceBackground } from "@/components/space/space-background";
 import { brand } from "@/config/app";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
-import "./studio.css";
 
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -27,13 +28,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070b12",
+  themeColor: "#04060b",
   colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: ENTRANCE_PRE_SCRIPT }} />
+      </head>
       <body className="min-h-full">
         <a
           href="#main"
@@ -41,10 +45,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <div className="studio-sky" aria-hidden />
+        <SpaceBackground />
         <MotionProvider>{children}</MotionProvider>
         <InteractiveSurfaces />
         <TranslationGuard />
+        <Entrance />
         {/* page views and the funnel events from lib/analytics; no cookies, no document text */}
         <Analytics />
       </body>

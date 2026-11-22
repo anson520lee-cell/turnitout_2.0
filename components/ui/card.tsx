@@ -14,7 +14,7 @@ export function Card({
 }: HTMLAttributes<HTMLDivElement> & { strong?: boolean; tilt?: boolean | number }) {
   return (
     <div
-      className={cn(strong ? "glass-strong" : "glass", "studio-panel rounded-xl", className)}
+      className={cn(strong ? "glass-strong" : "glass", "rounded-2xl", className)}
       data-tilt={tilt ? (tilt === true ? "" : String(tilt)) : undefined}
       {...props}
     />

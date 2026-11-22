@@ -1,4 +1,3 @@
-import { HeroVisual } from "@/components/landing/hero-visual";
 import { Hero } from "@/components/landing/hero";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
@@ -42,7 +41,7 @@ export default function HomePage() {
         }}
       />
       <Hero />
-      <HowItWorks visual={<HeroVisual />} />
+      <HowItWorks />
       <DashboardPreview />
       <FalsePositives />
       <section id="pricing" className="py-24 sm:py-32">

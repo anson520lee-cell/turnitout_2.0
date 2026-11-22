@@ -1,0 +1,100 @@
+/* This layer is empty at rest. None of these selectors style the site's content. */
+.interaction-accents {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  overflow: clip;
+  pointer-events: none;
+  contain: strict;
+}
+
+.interaction-wake {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 96px;
+  height: 24px;
+  opacity: 0;
+  transform-origin: 0 50%;
+  stroke: #a8c9ff;
+  stroke-width: 1;
+}
+
+.interaction-wake path:nth-child(2) { stroke: #edf4ff; }
+.interaction-wake path:nth-child(3) { opacity: .55; }
+
+.interaction-corners {
+  --corner: linear-gradient(#b9d4ff, #b9d4ff);
+  display: none;
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    var(--corner) left top / 9px 1px, var(--corner) left top / 1px 9px,
+    var(--corner) right top / 9px 1px, var(--corner) right top / 1px 9px,
+    var(--corner) left bottom / 9px 1px, var(--corner) left bottom / 1px 9px,
+    var(--corner) right bottom / 9px 1px, var(--corner) right bottom / 1px 9px;
+  background-repeat: no-repeat;
+}
+
+.interaction-corners[data-feedback] { display: block; }
+.interaction-corners[data-feedback="hover"] { animation: interaction-acquire 440ms both; }
+
+.interaction-corners[data-feedback="press"] {
+  animation: interaction-confirm 460ms both;
+}
+
+.interaction-corners[data-feedback="press"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 8%;
+  border-bottom: 1px solid #a7cbff;
+  animation: interaction-scan 370ms ease-out both;
+}
+
+.interaction-scroll-trace {
+  position: absolute;
+  top: 0;
+  right: max(3px, env(safe-area-inset-right));
+  width: 9px;
+  height: var(--trace-length, 12px);
+  border-right: 1px solid #9dbdf1;
+  background: repeating-linear-gradient(0deg, #9dbdf1 0 1px, transparent 1px 5px) right / 5px 100% no-repeat;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.interaction-scroll-trace::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 9px;
+  height: 1px;
+  background: #dceaff;
+  box-shadow: 0 0 6px #8db3ff;
+}
+
+.interaction-scroll-trace[data-moving] { opacity: .85; transition-duration: 75ms; }
+
+@keyframes interaction-acquire {
+  0% { opacity: 0; transform: scale(1.09, 1.2); }
+  28% { opacity: .86; }
+  70% { opacity: .65; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes interaction-confirm {
+  0% { opacity: .95; transform: scale(1.05, 1.12); }
+  42% { opacity: .95; transform: scale(.99, .98); }
+  100% { opacity: 0; transform: scale(1.035, 1.08); }
+}
+
+@keyframes interaction-scan {
+  from { opacity: 0; transform: translateY(-90%) scaleX(.3); }
+  30% { opacity: .75; }
+  to { opacity: 0; transform: translateY(-5%) scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce), print {
+  .interaction-accents, .interaction-corners { display: none !important; }
+}

@@ -36,7 +36,7 @@ export function DashboardView({
     <>
       <AppHeader title={`Welcome, ${name}`} body="Your orders and reports." />
 
-      <div className="desk-stats grid sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card tilt className="p-5">
           <HudCorners />
           <HudLabel>Active orders</HudLabel>

@@ -1,22 +1,16 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Container, SectionHeading } from "@/components/ui/section";
+import { Reveal } from "@/components/motion/reveal";
 import { freeReport } from "@/config/app";
 import { reportLimitsLabel, reportRateLabel } from "@/config/services";
 
 const methods = "crypto (USDT, USDC or BTC), PayPal or Alipay";
 
 export const steps = [
-  {
-    n: "01",
-    title: "Paste your text",
-    body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free.",
-  },
-  {
-    n: "02",
-    title: "Press Enter",
-    body: "Sign in if you haven't yet. Only you and authorised staff can see your text and your report.",
-  },
+  { n: "01", title: "Paste your text", body: "Press Get report and paste your text into the dialog. Every account gets one full report a day free." },
+  { n: "02", title: "Press Enter", body: "Sign in if you haven't yet. Only you and authorised staff can see your text and your report." },
   {
     n: "03",
     title: "Free or paid",
@@ -27,66 +21,51 @@ export const steps = [
     title: "Pay (if paid)",
     body: `${reportRateLabel}. ${reportLimitsLabel}. Pay just that report by Alipay at its exact price, or top up credits by ${methods}.`,
   },
-  {
-    n: "05",
-    title: "Read your report",
-    body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download.",
-  },
+  { n: "05", title: "Read your report", body: "It is made in a few minutes while you watch a live scan: an overall level, a map of every paragraph and the sentences to look at again, with a PDF to download." },
 ];
 
-export function HowItWorks({ heading = true, visual }: { heading?: boolean; visual?: ReactNode }) {
-  const list = useRef<HTMLOListElement>(null);
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const stepsList = list.current;
-    if (!stepsList) return;
-    const items = Array.from(stepsList.children);
-    let observer: IntersectionObserver;
-    function observeReadingLine() {
-      observer?.disconnect();
-      const middle = Math.floor(window.innerHeight / 2);
-      observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) setActive(Number((entry.target as HTMLElement).dataset.step));
-          }
-        },
-        { rootMargin: `-${middle}px 0px -${Math.max(0, window.innerHeight - middle - 2)}px 0px` },
-      );
-      for (const item of items) observer.observe(item);
-    }
-    observeReadingLine();
-    window.addEventListener("resize", observeReadingLine);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", observeReadingLine);
-    };
-  }, []);
+export function HowItWorks({ heading = true }: { heading?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 75%", "end 55%"] });
+  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
   return (
-    <section id="how-it-works" className="method-section">
-      <Container className={visual ? "method-grid" : undefined}>
+    <section id="how-it-works" className="py-24 sm:py-32">
+      <Container>
         {heading && (
-          <div className="method-intro">
-            <SectionHeading
-              eyebrow="How it works"
-              title="Five steps, fully visible."
-              body="Every order shows its current step in your dashboard, from payment to report."
-            />
-            {visual}
-          </div>
+          <SectionHeading
+            eyebrow="How it works"
+            title="Five steps, fully visible."
+            body="Every order shows its current step in your dashboard, from payment to report."
+          />
         )}
-        <ol ref={list} className="method-steps">
-          {steps.map((step, index) => (
-            <li key={step.n} data-step={index} data-active={active === index}>
-              <span className="method-number">{step.n}</span>
-              <div>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div ref={ref} className="relative mt-14 pl-10 sm:pl-14">
+          <div aria-hidden className="absolute left-[15px] top-2 bottom-2 w-px bg-[var(--line)] sm:left-[23px]" />
+          <motion.div
+            aria-hidden
+            style={{ scaleY }}
+            className="absolute left-[15px] top-2 bottom-2 w-px origin-top bg-gradient-to-b from-cyan via-accent to-violet shadow-[0_0_12px_rgb(91_140_255/0.8)] sm:left-[23px]"
+          />
+          <span
+            aria-hidden
+            className="axon-pulse absolute left-[14px] h-14 w-[3px] rounded-full bg-gradient-to-b from-transparent via-cyan to-white shadow-[0_0_12px_rgb(141_179_255/0.9)] sm:left-[22px]"
+          />
+          <ol className="space-y-6">
+            {steps.map((s, i) => (
+              <li key={s.n} className="relative">
+                <Reveal delay={i * 0.04}>
+                  <span className="absolute -left-10 top-5 grid size-[31px] place-items-center rounded-full border border-[var(--line-strong)] bg-ink-900 font-mono text-[11px] text-accent sm:-left-14 sm:size-[47px] sm:text-[12px]">
+                    {s.n}
+                  </span>
+                  <div data-tilt="6" className="glass rounded-2xl p-5 sm:p-6">
+                    <h3 className="text-[16px] font-semibold tracking-tight">{s.title}</h3>
+                    <p className="mt-1.5 text-[14px] text-fg-muted">{s.body}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
+        </div>
       </Container>
     </section>
   );

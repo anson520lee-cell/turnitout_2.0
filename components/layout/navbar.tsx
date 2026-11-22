@@ -1,10 +1,12 @@
 "use client";
-
 import { NavigationLink as Link } from "@/components/ui/navigation-link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X, ArrowRight } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
+import { buttonClasses } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/how-it-works", label: "How It Works" },
@@ -17,117 +19,145 @@ export function Navbar({ signedIn: verified }: { signedIn?: boolean }) {
   const [hasSession, setHasSession] = useState(false);
   const signedIn = verified ?? hasSession;
   useEffect(() => {
-    if (
-      verified !== undefined ||
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-      return;
+    // Public pages share static HTML. Only the account shortcut needs session state.
+    if (verified !== undefined || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
-    void import("@/lib/supabase/client")
-      .then(({ createClient }) => {
-        if (disposed) return;
-        const { data } = createClient().auth.onAuthStateChange((_event, session) =>
-          setHasSession(Boolean(session)),
-        );
-        unsubscribe = () => data.subscription.unsubscribe();
-      })
-      .catch(() => {
-        /* Public links remain usable if the session is unavailable. */
+    void import("@/lib/supabase/client").then(({ createClient }) => {
+      if (disposed) return;
+      const { data } = createClient().auth.onAuthStateChange((_event, session) => {
+        setHasSession(Boolean(session));
       });
+      unsubscribe = () => data.subscription.unsubscribe();
+    }).catch(() => { /* Guest navigation stays usable if auth cannot initialise. */ });
     return () => {
       disposed = true;
       unsubscribe?.();
     };
   }, [verified]);
 
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  // Menu state is tied to the path it was opened on, so navigating closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = openOn === pathname;
-  const toggle = useRef<HTMLButtonElement>(null);
-  function closeMenu() {
-    setOpenOn(null);
-  }
-  useEffect(() => {
-    if (!open) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpenOn(null);
-      toggle.current?.focus();
-    }
-    const desktop = window.matchMedia("(min-width: 860px)");
-    function onSize() {
-      if (desktop.matches) setOpenOn(null);
-    }
-    window.addEventListener("keydown", onKey);
-    desktop.addEventListener("change", onSize);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      desktop.removeEventListener("change", onSize);
-    };
-  }, [open]);
+  // Which link the glass pill sits under: the hovered one, else the current page.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const pill = hovered ?? links.find((l) => l.href === pathname)?.href ?? null;
 
-  const account = signedIn ? "/dashboard" : "/signup";
-  const accountLabel = signedIn ? "Dashboard" : "Start free";
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="studio-masthead">
-      <nav className="studio-width studio-nav" aria-label="Main">
+    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5">
+      <nav
+        aria-label="Main"
+        className={cn(
+          "mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-4 transition-all duration-500 sm:px-5",
+          scrolled || open ? "glass-strong" : "border border-transparent",
+        )}
+      >
         <Logo />
-        <ul className="nav-desktop">
-          {links.map((link) => (
-            <li key={link.href}>
-              <Link href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
-                {link.label}
+        <ul className="hidden items-center gap-1 md:flex" onPointerLeave={() => setHovered(null)}>
+          {links.map((l) => (
+            <li key={l.href} className="relative">
+              {pill === l.href && (
+                <motion.span
+                  layoutId="nav-pill"
+                  aria-hidden
+                  className="absolute inset-0 rounded-lg border border-white/[0.07] bg-white/[0.05] shadow-[inset_0_1px_0_rgb(255_255_255/0.06),0_6px_20px_-10px_rgb(91_140_255/0.6)]"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <Link
+                href={l.href}
+                onPointerEnter={() => setHovered(l.href)}
+                onFocus={() => setHovered(l.href)}
+                onBlur={() => setHovered(null)}
+                data-press
+                className={cn(
+                  "relative block rounded-lg px-3 py-2 text-[13.5px] text-fg-muted transition-colors hover:text-fg",
+                  pathname === l.href && "text-fg",
+                )}
+              >
+                {l.label}
+                {pathname === l.href && (
+                  <span aria-hidden className="absolute inset-x-3 -bottom-px h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
+                )}
               </Link>
             </li>
           ))}
         </ul>
-        <div className="nav-account">
-          {!signedIn && (
-            <Link className="nav-login" href="/login">
-              Log in
+        <div className="hidden items-center gap-2 md:flex">
+          {signedIn ? (
+            <Link href="/dashboard" className={buttonClasses("primary", "sm", "px-4")}>
+              Dashboard
             </Link>
+          ) : (
+            <>
+              <Link href="/login" className={buttonClasses("ghost", "sm")}>
+                Log in
+              </Link>
+              <Link href="/signup" className={buttonClasses("primary", "sm", "px-4")}>
+                Start free
+                <ArrowRight className="size-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+              </Link>
+            </>
           )}
-          <Link className="nav-cta" href={account}>
-            {accountLabel} <ArrowUpRight size={14} aria-hidden />
-          </Link>
-          <button
-            ref={toggle}
-            type="button"
-            className="nav-menu-toggle"
-            aria-controls="mobile-menu"
-            aria-expanded={open}
-            aria-label={open ? "Close menu" : "Open menu"}
-            onClick={() => setOpenOn(open ? null : pathname)}
-          >
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
         </div>
+        <button
+          type="button"
+          className="grid size-11 place-items-center rounded-lg text-fg-muted hover:bg-white/5 hover:text-fg md:hidden"
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+          aria-label={open ? "Close menu" : "Open menu"}
+          onClick={() => setOpenOn(open ? null : pathname)}
+        >
+          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
       </nav>
-      {open && (
-        <nav id="mobile-menu" aria-label="Mobile" className="nav-drawer">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={pathname === link.href ? "page" : undefined}
-              onClick={closeMenu}
-            >
-              {link.label}
-              <ArrowUpRight size={17} aria-hidden />
-            </Link>
-          ))}
-          {!signedIn && (
-            <Link href="/login" onClick={closeMenu}>
-              Log in <ArrowUpRight size={17} aria-hidden />
-            </Link>
-          )}
-          <Link href={account} onClick={closeMenu}>
-            {accountLabel} <ArrowUpRight size={17} aria-hidden />
-          </Link>
-        </nav>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id="mobile-menu"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="glass-strong mx-auto mt-2 max-w-6xl rounded-2xl p-3 md:hidden"
+          >
+            <ul className="grid gap-1">
+              {links.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} data-press className="block rounded-xl px-3 py-3 text-[15px] text-fg hover:bg-white/5">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--line)] pt-3">
+              {signedIn ? (
+                <Link href="/dashboard" className={buttonClasses("primary", "md", "col-span-2")}>
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className={buttonClasses("secondary", "md")}>
+                    Log in
+                  </Link>
+                  <Link href="/signup" className={buttonClasses("primary", "md")}>
+                    Start free
+                  </Link>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

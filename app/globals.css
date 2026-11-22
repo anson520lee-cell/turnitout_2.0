@@ -4,18 +4,18 @@
    Design tokens. Dark-only product surface.
    ------------------------------------------------------------------ */
 @theme {
-  --color-ink-950: #070b12;
-  --color-ink-900: #0b101a;
-  --color-ink-850: #0e1521;
-  --color-ink-800: #121a27;
+  --color-ink-950: #04060b;
+  --color-ink-900: #070a12;
+  --color-ink-850: #0a0e19;
+  --color-ink-800: #0e1322;
   --color-ink-700: #151b2e;
   --color-ink-600: #1f2740;
 
-  --color-fg: #f0f2f6;
-  --color-fg-muted: #a9b3c3;
-  --color-fg-subtle: #95a2b7;
+  --color-fg: #e9edf7;
+  --color-fg-muted: #9aa3b8;
+  --color-fg-subtle: #8a92ae;
 
-  --color-accent: #a0beff;
+  --color-accent: #5b8cff;
   --color-accent-strong: #3f73ff;
   --color-indigo: #5f7fff;
   --color-violet: #8d96ac;
@@ -59,8 +59,8 @@
 
 :root {
   color-scheme: dark;
-  --line: rgb(168 189 220 / 0.17);
-  --line-strong: rgb(168 189 220 / 0.32);
+  --line: rgb(148 163 255 / 0.1);
+  --line-strong: rgb(148 163 255 / 0.18);
   --glass: rgb(16 22 44 / 0.46);
   --glass-strong: rgb(16 22 46 / 0.62);
 }

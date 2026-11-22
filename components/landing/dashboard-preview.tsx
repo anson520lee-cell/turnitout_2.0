@@ -60,7 +60,7 @@ export function DashboardPreview() {
   const C = 2 * Math.PI * 20;
 
   return (
-    <section className="dashboard-spread relative py-24 sm:py-32">
+    <section className="relative py-24 sm:py-32">
       <Container>
         <SectionHeading
           align="center"

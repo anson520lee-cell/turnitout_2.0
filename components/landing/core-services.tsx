@@ -20,14 +20,14 @@ const cards = [
 
 export function CoreServices() {
   return (
-    <section id="services" className="services-spread">
-      <Container className="services-grid">
+    <section id="services" className="py-24 sm:py-32">
+      <Container>
         <SectionHeading
           eyebrow="Our service"
           title="One service: the AI-writing risk report."
           body="An automatic AI-writing risk report on your own text. Your first report each day is free."
         />
-        <Stagger className="grid gap-5">
+        <Stagger className="mt-14 mx-auto grid max-w-xl gap-5">
           {cards.map((c) => (
             <StaggerItem key={c.title}>
               <SpotlightCard press className="h-full">

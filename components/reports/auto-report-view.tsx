@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { Download, ShieldCheck } from "lucide-react";
 import { RiskGauge } from "@/components/scan/risk-gauge";
 import { riskPrintClass, riskStyle } from "@/components/scan/report-view";
@@ -58,16 +57,8 @@ const uncounted = (s: ReportSentence, scored: boolean) => scored && isFlagged(s.
 function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolean }) {
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
-  const [selected, setSelected] = useState<number | null>(null);
-  const noteId = (n: number) => `reason-${para.p}-${n}`;
-  function inspect(n: number) {
-    setSelected(n);
-    const note = document.getElementById(noteId(n));
-    note?.focus({ preventScroll: true });
-    note?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-  }
   return (
-    <Card id={`para-${para.p}`} className="reader-paragraph relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
+    <Card id={`para-${para.p}`} className="relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-fg-subtle">Paragraph {para.p}</span>
@@ -79,24 +70,23 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
           {flagged.length > 0 && <> · {flagged.length} of {para.sentences.length} marked</>}
         </span>
       </div>
-      <p className="paragraph-text mt-3 text-fg-muted">
+      <p className="mt-3 text-[14.5px] leading-[1.75] text-fg-muted">
         {para.sentences.map((s) => (
           <span key={s.n}>
-            {s.risk === "low" ? s.text : (
-              <button type="button" className={cn("reader-line rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
-                aria-controls={noteId(s.n)} aria-pressed={selected === s.n} onClick={() => inspect(s.n)}
-                title={`${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}>
-                {s.text}
-              </button>
-            )}{" "}
+            <span
+              className={cn("rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
+              title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
+            >
+              {s.text}
+            </span>{" "}
           </span>
         ))}
       </p>
       {para.note && <p className="mt-3 text-[12.5px] text-fg-subtle">{para.note}</p>}
       {flagged.length > 0 && (
-        <ul className="reader-reasons mt-4 space-y-2.5 border-t border-[var(--line)] pt-4">
+        <ul className="mt-4 space-y-2.5 border-t border-[var(--line)] pt-4">
           {flagged.map((s) => (
-            <li key={s.n} id={noteId(s.n)} tabIndex={-1} data-selected={selected === s.n} className="text-[13px] leading-relaxed">
+            <li key={s.n} className="text-[13px] leading-relaxed">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[11px] text-fg-subtle">Sentence {s.n}</span>
                 <Badge tone={riskStyle[s.risk].tone} className={riskPrintClass[riskStyle[s.risk].tone]}>{label[s.risk]}</Badge>
@@ -134,20 +124,20 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
   const text = overallText[overall];
   const partial = pieces.reviewed < pieces.total;
   return (
-    <div className="report-workspace space-y-5">
+    <div className="space-y-5">
       <div className="hidden print:block">
         <p className="text-[20px] font-semibold">{brand.name} · AI-writing risk report</p>
         <p className="text-[12px] text-fg-subtle">{title} · {finishedAt}</p>
       </div>
 
-      <Card strong className="report-cover relative overflow-hidden p-6 sm:p-8">
+      <Card strong className="noise relative overflow-hidden p-6 sm:p-8">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_80%_at_90%_0%,rgb(91_140_255/0.14),transparent_70%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ok print:text-[#4a5266]">
               <ShieldCheck className="size-4" /> Report complete
             </p>
-            <p className="report-document-title mt-3 print:text-[#10131c]">{title}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-tight print:text-[#10131c]">{title}</p>
             <p className="mt-1 text-[13px] text-fg-muted">AI-writing risk, sentence by sentence · {finishedAt}</p>
           </div>
           <button
@@ -226,8 +216,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
             ))}
           </div>
         </div>
-        <div className="mt-5 overflow-x-auto">
-        <div className="relative h-40" style={dense ? { minWidth: 40 + paragraphs.length * 10 } : undefined} role="group" aria-label="Share of flagged sentences in each paragraph, in order">
+        <div className="relative mt-5 h-40" role="list" aria-label="Share of flagged sentences in each paragraph, in order">
           {[0, 50, 100].map((g) => (
             <span key={g} aria-hidden className="absolute inset-x-0 border-t border-dashed border-[var(--line)]" style={{ bottom: `${g}%` }}>
               <span className="absolute -top-2 left-0 pr-1 font-mono text-[10px] text-fg-subtle">{g}%</span>
@@ -239,6 +228,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
               return (
                 <a
                   key={p.p}
+                  role="listitem"
                   href={`#para-${p.p}`}
                   title={`Paragraph ${p.p}: ${share}% of sentences flagged (${label[p.risk]} risk)`}
                   className="group relative flex h-full min-w-[6px] flex-1 items-end"
@@ -249,7 +239,6 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
               );
             })}
           </div>
-        </div>
         </div>
         {!dense && (
           <div className="ml-8 mt-1.5 flex gap-[3px] font-mono text-[10px] text-fg-subtle" aria-hidden>
@@ -285,7 +274,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
       {rewriteDemo && !rewrite && <RewriteDemo />}
       {rewrite && <RewritePanel orderId={rewrite.orderId} result={result} initial={rewrite.saved} sourceText={rewrite.sourceText} credits={rewrite.credits} balance={rewrite.balance} title={title} canSkip={rewrite.canSkip} />}
 
-      <div className="space-y-3" id="paragraphs">
+      <div className="space-y-3">
         <h3 className="px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b4bccf] print:text-[#3a4258]">Paragraph by paragraph</h3>
         {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} scored={scored} />)}
       </div>

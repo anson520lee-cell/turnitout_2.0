@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { startPointerEngine } from "./pointer-engine";
 import { startPressEffects } from "./press-effects";
+import { InteractionAccents } from "./interaction-accents";
 
 /**
  * Mounts the pointer engine (see `pointer-engine.ts`) and the light layers it
@@ -57,16 +58,19 @@ export function InteractiveSurfaces() {
   }, []);
 
   return (
-    <div aria-hidden className="light-layers">
-      <div ref={back} className="light-back">
-        <div className="light-back-grid-window">
-          <div ref={grid} className="light-back-grid" />
+    <>
+      <div aria-hidden className="light-layers">
+        <div ref={back} className="light-back">
+          <div className="light-back-grid-window">
+            <div ref={grid} className="light-back-grid" />
+          </div>
+          <div className="light-back-vignette" />
+          <div className="light-back-glow" />
         </div>
-        <div className="light-back-vignette" />
-        <div className="light-back-glow" />
+        <div ref={halo} className="light-halo" />
+        <div ref={ripples} />
       </div>
-      <div ref={halo} className="light-halo" />
-      <div ref={ripples} />
-    </div>
+      <InteractionAccents />
+    </>
   );
 }
