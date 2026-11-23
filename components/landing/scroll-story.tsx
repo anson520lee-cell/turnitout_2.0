@@ -14,6 +14,8 @@ import { Container } from "@/components/ui/section";
  * One scroll handler writes five numbers (--p0 … --p4, each stage's 0→1) on
  * the pinned layer; CSS draws everything from them ("From draft to report" in
  * globals.css). Reduced motion: nothing pins, every stage is shown complete.
+ * Below 1024px the stages are one row of numbered steps under the sheet, with
+ * the current stage's name and line below it, so it all fits a phone screen.
  * Illustrative: the text is written for this page and the levels are not a
  * measurement, and both are labelled so.
  */
@@ -110,7 +112,8 @@ export function ScrollStory() {
         return;
       }
       const r = sec.getBoundingClientRect();
-      const sp = clamp(-r.top / Math.max(1, r.height - window.innerHeight));
+      // the pinned layer's own height (100svh): steady on phones, where window.innerHeight changes as the browser bar slides
+      const sp = clamp(-r.top / Math.max(1, r.height - (pin.clientHeight || window.innerHeight)));
       RANGES.forEach(([a, b], i) => pin.style.setProperty(`--p${i}`, clamp((sp - a) / (b - a)).toFixed(4)));
       const act = Math.min(4, Math.floor(sp * 5));
       setActive((p) => (p === act ? p : act));
@@ -136,7 +139,7 @@ export function ScrollStory() {
     if (!sec) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const top = sec.getBoundingClientRect().top + window.scrollY;
-    const total = sec.offsetHeight - window.innerHeight;
+    const total = sec.offsetHeight - (pinRef.current?.clientHeight || window.innerHeight);
     window.scrollTo({ top: top + total * (RANGES[i][1] + 0.01), behavior: reduce ? "auto" : "smooth" });
   };
 
@@ -156,7 +159,13 @@ export function ScrollStory() {
                     <span className="story-step-name">{s.label}</span>
                   </button>
                   <div className="story-step-body">
-                    <p>{s.body}</p>
+                    <p>
+                      {/* phones: the step row shows numbers only, so the current stage's name heads its line */}
+                      <span className="story-step-title" aria-hidden>
+                        {s.label}
+                      </span>
+                      {s.body}
+                    </p>
                   </div>
                 </li>
               ))}

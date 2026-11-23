@@ -16,6 +16,11 @@ import galaxyTexture from "./galaxy.webp";
  *
  * It never takes pointer events, pauses while the tab is hidden, and draws a
  * single still frame when the visitor prefers reduced motion.
+ *
+ * The canvas is as tall as the largest viewport (100lvh), so a phone's browser
+ * bar sliding in and out while you scroll neither resizes nor clears it: the
+ * sky, the planet and the sea stay put. It is redrawn at once when its size
+ * really changes (width, rotation), so there is no blank frame.
  */
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -77,10 +82,15 @@ export function SpaceBackground() {
     let frame = 0;
 
     function resize() {
-      small = window.innerWidth < 760;
-      dpr = Math.min(window.devicePixelRatio || 1, small ? 1 : 1.5);
-      w = window.innerWidth;
-      h = window.innerHeight;
+      // the canvas box, not the window: its height is the large viewport, which the browser bar does not change
+      const nw = Math.max(1, Math.round(cv.clientWidth || window.innerWidth));
+      const nh = Math.max(1, Math.round(cv.clientHeight || window.innerHeight));
+      const ndpr = Math.min(window.devicePixelRatio || 1, nw < 760 ? 1 : 1.5);
+      if (nw === w && nh === h && ndpr === dpr) return;
+      w = nw;
+      h = nh;
+      small = w < 760;
+      dpr = ndpr;
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -88,7 +98,8 @@ export function SpaceBackground() {
       sky.height = Math.max(2, Math.round(h / 2));
       skyAge = 99;
       docH = document.documentElement.scrollHeight;
-      if (reduce) draw(0);
+      // resizing cleared the canvas: paint this frame now rather than leave it blank until the next tick
+      draw(reduce ? 0 : t);
     }
 
     function drawNebula(time: number, off: number) {
@@ -313,6 +324,9 @@ export function SpaceBackground() {
     resize();
     loadTexture(nebulaTexture.src, (image) => { nebula = image; });
     loadTexture(galaxyTexture.src, (image) => { galaxy = image; });
+    const ro = new ResizeObserver(resize);
+    ro.observe(cv);
+    // a zoom changes the pixel ratio without changing the box
     window.addEventListener("resize", resize);
     function onStillScroll() {
       scrollY = window.scrollY;
@@ -328,11 +342,12 @@ export function SpaceBackground() {
     return () => {
       cancelAnimationFrame(raf);
       disposed = true;
+      ro.disconnect();
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", onStillScroll);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
-  return <canvas ref={ref} aria-hidden className="pointer-events-none fixed inset-0 -z-20 size-full" />;
+  return <canvas ref={ref} aria-hidden className="space-canvas pointer-events-none -z-20" />;
 }

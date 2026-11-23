@@ -16,7 +16,9 @@ import { GLASS_BOTTOM, GLASS_TOP, layoutPaper, lineIndexRows, paintPaper, riskRG
  *    lingers: a fast sweep leaves them almost still.
  * 3. the light: under flagged sentences blue light comes through the gap,
  *    and it is the last thing to fade.
- * A press pins the sentence and sends a ring through the sheet.
+ * A press pins the sentence and sends a ring through the sheet. On touch the
+ * lens answers taps only: a finger that lands on the sheet to scroll the page
+ * moves nothing.
  *
  * The same sheet plays the chapters (stage 1…4): a scan line reveals the
  * reading (Read), the lines fold into the paragraph chart (Report), and the
@@ -711,7 +713,8 @@ export class LensRenderer {
   }
 
   private onMove = (e: PointerEvent) => {
-    if (!this.ready) return;
+    // A finger moving on the page is scrolling it: the lens answers to taps only (onUp).
+    if (!this.ready || e.pointerType === "touch") return;
     const p = this.local(e);
     this.pointer.x = p.x;
     this.pointer.y = p.y;
@@ -733,17 +736,23 @@ export class LensRenderer {
     this.pointer.downX = p.x;
     this.pointer.downY = p.y;
     this.pointer.type = e.pointerType;
-    if (!hit) return;
+    // A finger landing on the sheet is usually starting a scroll: nothing moves until it lifts as a tap.
+    if (!hit || e.pointerType === "touch") return;
     // visible at once: the ring starts on this frame, whatever the press turns out to be
     this.pointer.x = p.x;
     this.pointer.y = p.y;
     this.pointer.over = true;
     this.pointer.lastMove = this.time;
+    this.press(p.x, p.y, hit);
+  };
+
+  /** The ring through the sheet from a press point. */
+  private press(x: number, y: number, hit: { u: number; v: number }) {
     this.tour.on = false;
-    if (!this.init.reduced) this.ring = { x: p.x, y: p.y, t0: this.time, u: hit.u, v: hit.v };
+    if (!this.init.reduced) this.ring = { x, y, t0: this.time, u: hit.u, v: hit.v };
     for (const l of this.lines) l.kicked = -1;
     this.wake();
-  };
+  }
 
   private onUp = (e: PointerEvent) => {
     if (!this.ready || this.pointer.downAt < 0) return;
@@ -752,6 +761,11 @@ export class LensRenderer {
     this.pointer.downAt = -1;
     if (moved > 14) return;
     const hit = this.toSheet(p.x, p.y, 4);
+    if (e.pointerType === "touch" && hit) {
+      // a tap: the ring starts now, as the finger lifts
+      this.pointer.lastMove = this.time;
+      this.press(p.x, p.y, hit);
+    }
     const n = hit ? this.sentenceAt(hit.u, hit.v) : null;
     if (n === null || (this.pinned && this.pinned.n === n)) {
       this.pinned = null;
