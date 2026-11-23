@@ -11,9 +11,10 @@
  *
  * A finger that lands on a control is often starting a scroll, not a press.
  * So on touch the press shows once it is clearly a press: when the finger
- * lifts without having moved (a tap; well inside 0.2 s), or after a short
- * hold that the browser has not turned into a scroll. A scroll that starts
- * on a button or card leaves it alone.
+ * lifts without having moved (a tap; well inside 0.2 s), or after a 0.15 s
+ * hold that the browser has not turned into a scroll (the delay iOS scroll
+ * views use). A scroll that starts on a button or card leaves it alone, and
+ * if a held press turns into a scroll after all, its ring is taken back.
  *
  * With reduced motion the pressed state still shows but there's no ripple.
  */
@@ -23,7 +24,7 @@ export const PRESSABLE = ".btn-fx, [data-press]";
 
 const MAX_RIPPLES = 3;
 /** How long a still finger waits before the press shows (a tap shows at once on release). */
-const HOLD_MS = 90;
+const HOLD_MS = 150;
 /** Movement that makes a touch a drag/scroll rather than a press. */
 const SLOP_PX = 10;
 /** How long a tap's sunk state stays on, so the sink is seen. */
@@ -32,6 +33,7 @@ const TAP_SINK_MS = 130;
 export function startPressEffects(): () => void {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   let pressedEl: HTMLElement | null = null;
+  let lastRipple: HTMLElement | null = null;
   let pending: { el: HTMLElement; id: number; x: number; y: number; timer: number } | null = null;
   let sinkTimer = 0;
 
@@ -49,6 +51,7 @@ export function startPressEffects(): () => void {
     release();
     pressedEl = el;
     el.dataset.pressed = "";
+    lastRipple = null;
     if (reduce.matches) return;
 
     let host = el.querySelector<HTMLElement>(":scope > .press-fx");
@@ -69,6 +72,7 @@ export function startPressEffects(): () => void {
     ripple.style.cssText = `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--s:${size.toFixed(0)}px`;
     ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
     host.appendChild(ripple);
+    lastRipple = ripple;
     while (host.childElementCount > MAX_RIPPLES) host.firstElementChild?.remove();
   };
 
@@ -114,6 +118,8 @@ export function startPressEffects(): () => void {
 
   const onCancel = () => {
     drop();
+    // a held press that the browser took for a scroll after all: take its ring back too
+    if (pressedEl) lastRipple?.remove();
     release();
   };
 

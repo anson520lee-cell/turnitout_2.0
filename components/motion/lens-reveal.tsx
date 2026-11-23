@@ -68,8 +68,8 @@ export function LensReveal({
     let target: { x: number; y: number } | null = null;
     let pointerIn = false;
     let touching = false;
-    // a finger that is down but not yet known to be a tap or a drag
-    let down: { id: number; x: number; y: number } | null = null;
+    // a finger that is down but not yet known to be a tap, a scroll or a sideways drag
+    let down: { id: number; x: number; y: number; sideways: boolean } | null = null;
     // after a tap the lens stays where the finger was for a moment
     let pinUntil = 0;
     let speed = 0;
@@ -205,8 +205,22 @@ export function LensReveal({
     };
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse" && !touching) {
-        // still here after moving past the slop: the browser is not scrolling, so this is a drag across the box
-        if (!down || down.id !== e.pointerId || Math.hypot(e.clientX - down.x, e.clientY - down.y) < 10) return;
+        if (!down || down.id !== e.pointerId) return;
+        const dx = e.clientX - down.x;
+        const dy = e.clientY - down.y;
+        if (Math.hypot(dx, dy) < 10) return;
+        // Along the page: a scroll. The browser takes the finger (pointercancel) a move or two later,
+        // so this touch is never followed.
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          down = null;
+          return;
+        }
+        // Sideways: followed from the next move, so that a browser that still takes it for a pan
+        // (pointercancel straight after the move that starts one) never gets a lens drawn.
+        if (!down.sideways) {
+          down.sideways = true;
+          return;
+        }
         down = null;
         touching = true;
         speed = 0;
@@ -232,11 +246,11 @@ export function LensReveal({
     const onDown = (e: PointerEvent) => {
       if (e.pointerType === "mouse") return;
       // nothing yet: most fingers that land here are starting a scroll
-      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY, sideways: false };
     };
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === "mouse") return;
-      const tap = down && down.id === e.pointerId;
+      const tap = !!down && down.id === e.pointerId && !down.sideways;
       down = null;
       if (tap) {
         // a tap: open where it landed (at once, as the finger lifts) and stay a moment
@@ -252,12 +266,11 @@ export function LensReveal({
     };
     const onCancel = (e: PointerEvent) => {
       if (e.pointerType === "mouse") return;
-      // the browser took the finger for a scroll
+      // the browser took the finger for a scroll: let go at once
       down = null;
       if (!touching) return;
       touching = false;
-      lastMove = now();
-      pinUntil = lastMove + 0.6;
+      pinUntil = 0;
       wake();
     };
 
