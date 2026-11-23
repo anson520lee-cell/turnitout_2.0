@@ -9,6 +9,12 @@
  *   essay sheet makes), inside a clipping layer so the element's own
  *   overflow, shadows and edge light are left alone.
  *
+ * A finger that lands on a control is often starting a scroll, not a press.
+ * So on touch the press shows once it is clearly a press: when the finger
+ * lifts without having moved (a tap; well inside 0.2 s), or after a short
+ * hold that the browser has not turned into a scroll. A scroll that starts
+ * on a button or card leaves it alone.
+ *
  * With reduced motion the pressed state still shows but there's no ripple.
  */
 
@@ -16,20 +22,30 @@
 export const PRESSABLE = ".btn-fx, [data-press]";
 
 const MAX_RIPPLES = 3;
+/** How long a still finger waits before the press shows (a tap shows at once on release). */
+const HOLD_MS = 90;
+/** Movement that makes a touch a drag/scroll rather than a press. */
+const SLOP_PX = 10;
+/** How long a tap's sunk state stays on, so the sink is seen. */
+const TAP_SINK_MS = 130;
 
 export function startPressEffects(): () => void {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   let pressedEl: HTMLElement | null = null;
+  let pending: { el: HTMLElement; id: number; x: number; y: number; timer: number } | null = null;
+  let sinkTimer = 0;
 
   const release = () => {
+    window.clearTimeout(sinkTimer);
     if (pressedEl) delete pressedEl.dataset.pressed;
     pressedEl = null;
   };
+  const drop = () => {
+    if (pending) window.clearTimeout(pending.timer);
+    pending = null;
+  };
 
-  const onDown = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const el = e.target instanceof Element ? (e.target.closest(PRESSABLE) as HTMLElement | null) : null;
-    if (!el || el.matches(":disabled, [aria-disabled='true']")) return;
+  const press = (el: HTMLElement, clientX: number, clientY: number) => {
     release();
     pressedEl = el;
     el.dataset.pressed = "";
@@ -43,8 +59,8 @@ export function startPressEffects(): () => void {
       el.appendChild(host);
     }
     const r = el.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
+    const x = clientX - r.left;
+    const y = clientY - r.top;
     // Big enough to reach the farthest corner from the press point.
     const size = 2 * Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y));
     const ripple = document.createElement("span");
@@ -56,15 +72,63 @@ export function startPressEffects(): () => void {
     while (host.childElementCount > MAX_RIPPLES) host.firstElementChild?.remove();
   };
 
+  const onDown = (e: PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const el = e.target instanceof Element ? (e.target.closest(PRESSABLE) as HTMLElement | null) : null;
+    drop();
+    if (!el || el.matches(":disabled, [aria-disabled='true']")) return;
+    if (e.pointerType !== "touch") {
+      press(el, e.clientX, e.clientY);
+      return;
+    }
+    release();
+    const { clientX: x, clientY: y, pointerId: id } = e;
+    pending = {
+      el,
+      id,
+      x,
+      y,
+      timer: window.setTimeout(() => {
+        if (pending?.el !== el) return;
+        pending = null;
+        press(el, x, y);
+      }, HOLD_MS),
+    };
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (pending && pending.id === e.pointerId && Math.hypot(e.clientX - pending.x, e.clientY - pending.y) > SLOP_PX) drop();
+  };
+
+  const onUp = (e: PointerEvent) => {
+    if (pending && pending.id === e.pointerId) {
+      // a tap: show the press now, and keep the sink on long enough to be seen
+      const { el, x, y } = pending;
+      drop();
+      press(el, x, y);
+      sinkTimer = window.setTimeout(release, TAP_SINK_MS);
+      return;
+    }
+    release();
+  };
+
+  const onCancel = () => {
+    drop();
+    release();
+  };
+
   window.addEventListener("pointerdown", onDown, { passive: true });
-  window.addEventListener("pointerup", release, { passive: true });
-  window.addEventListener("pointercancel", release, { passive: true });
-  window.addEventListener("blur", release);
+  window.addEventListener("pointermove", onMove, { passive: true });
+  window.addEventListener("pointerup", onUp, { passive: true });
+  window.addEventListener("pointercancel", onCancel, { passive: true });
+  window.addEventListener("blur", onCancel);
   return () => {
     window.removeEventListener("pointerdown", onDown);
-    window.removeEventListener("pointerup", release);
-    window.removeEventListener("pointercancel", release);
-    window.removeEventListener("blur", release);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onCancel);
+    window.removeEventListener("blur", onCancel);
+    drop();
     release();
     document.querySelectorAll(".press-fx").forEach((n) => n.remove());
   };

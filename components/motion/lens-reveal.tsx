@@ -10,8 +10,10 @@ import { useEffect, useRef, type ReactNode } from "react";
  * It moves the way the home lens does: a fast sweep widens it and drags a
  * trail behind; when the pointer slows it settles into a smaller reading
  * glass; when the pointer leaves it closes first (or glides back to `focus`,
- * if one is set). On touch it follows the finger while it is down. `sweep`
- * makes it read across once by itself when it first comes into view.
+ * if one is set). On touch it opens where a tap lands and stays a moment; a
+ * finger that lands to scroll the page opens nothing, and one that drags
+ * sideways where the page can't scroll (touch-action: pan-y) is followed.
+ * `sweep` makes it read across once by itself when it first comes into view.
  *
  * Per frame it writes six CSS variables on its own box and three circles'
  * attributes; nothing else, and nothing while it is still or off screen.
@@ -66,6 +68,8 @@ export function LensReveal({
     let target: { x: number; y: number } | null = null;
     let pointerIn = false;
     let touching = false;
+    // a finger that is down but not yet known to be a tap or a drag
+    let down: { id: number; x: number; y: number } | null = null;
     // after a tap the lens stays where the finger was for a moment
     let pinUntil = 0;
     let speed = 0;
@@ -200,7 +204,13 @@ export function LensReveal({
       return { x: e.clientX - b.left, y: e.clientY - b.top };
     };
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse" && !touching) return;
+      if (e.pointerType !== "mouse" && !touching) {
+        // still here after moving past the slop: the browser is not scrolling, so this is a drag across the box
+        if (!down || down.id !== e.pointerId || Math.hypot(e.clientX - down.x, e.clientY - down.y) < 10) return;
+        down = null;
+        touching = true;
+        speed = 0;
+      }
       const p = local(e);
       const t = now();
       if (target && lastMove) {
@@ -221,19 +231,33 @@ export function LensReveal({
     };
     const onDown = (e: PointerEvent) => {
       if (e.pointerType === "mouse") return;
-      touching = true;
-      target = local(e);
-      lastMove = now();
-      speed = 0;
-      readAt = { ...target };
-      readRef.current?.(target.x, target.y);
-      wake();
+      // nothing yet: most fingers that land here are starting a scroll
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
     };
     const onUp = (e: PointerEvent) => {
-      if (e.pointerType === "mouse" || !touching) return;
+      if (e.pointerType === "mouse") return;
+      const tap = down && down.id === e.pointerId;
+      down = null;
+      if (tap) {
+        // a tap: open where it landed (at once, as the finger lifts) and stay a moment
+        target = local(e);
+        speed = 0;
+        readAt = { ...target };
+        readRef.current?.(target.x, target.y);
+      } else if (!touching) return;
       touching = false;
       lastMove = now();
       pinUntil = lastMove + 1.6;
+      wake();
+    };
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") return;
+      // the browser took the finger for a scroll
+      down = null;
+      if (!touching) return;
+      touching = false;
+      lastMove = now();
+      pinUntil = lastMove + 0.6;
       wake();
     };
 
@@ -258,14 +282,14 @@ export function LensReveal({
     el.addEventListener("pointerleave", onLeave, { passive: true });
     el.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("pointerup", onUp, { passive: true });
-    window.addEventListener("pointercancel", onUp, { passive: true });
+    window.addEventListener("pointercancel", onCancel, { passive: true });
     return () => {
       io.disconnect();
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointercancel", onCancel);
       if (raf) cancelAnimationFrame(raf);
       kick.current = () => {};
     };

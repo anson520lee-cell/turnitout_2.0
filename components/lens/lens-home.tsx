@@ -222,6 +222,8 @@ export function LensHome() {
   const tickRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const rendererRef = useRef<LensRenderer | null>(null);
   const stageNow = useRef(0);
+  /** The window height the scroll is measured against: the pinned stage's, i.e. the largest viewport (see measure). */
+  const viewH = useRef(0);
   const anchors = useRef<[number, number][]>([[0, 0]]);
   const frame = useRef<StageFrame | null>(null);
 
@@ -251,7 +253,10 @@ export function LensHome() {
     const stage = stageRef.current;
     const slot = slotRef.current;
     if (!wrap || !stage || !slot || !env) return;
-    const vh = window.innerHeight;
+    // The stage is 100lvh: on a phone that stays put while the browser bar slides in and out (window.innerHeight
+    // does not), so the sheet keeps its place in the story instead of jumping each time the bar moves.
+    const vh = stage.clientHeight || window.innerHeight;
+    viewH.current = vh;
     const y0 = wrap.getBoundingClientRect().top + window.scrollY;
     const slotTop = slot.getBoundingClientRect().top + window.scrollY - y0;
     const mid = chapterRefs.current.map((el) => {
@@ -294,7 +299,7 @@ export function LensHome() {
   /** Scroll → stage and pose (the renderer eases toward them), chapter progress. */
   const compute = useCallback(() => {
     const a = anchors.current;
-    const y = window.scrollY + window.innerHeight / 2;
+    const y = window.scrollY + (viewH.current || window.innerHeight) / 2;
     let st = a[a.length - 1][1];
     if (y <= a[0][0]) st = a[0][1];
     else
