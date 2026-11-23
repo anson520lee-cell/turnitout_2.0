@@ -3138,6 +3138,21 @@ html[data-interactive] [data-depth] {
   .story-caret,
   .story-scan { display: none; }
 }
+/* Reduced motion below 1024px: nothing pins and every stage shows complete, so the one-row steps
+   (one stage's line at a time) go back to the plain list with every stage's line showing. */
+@media (prefers-reduced-motion: reduce) and (max-width: 1023px) {
+  .story-list { display: block; min-height: 0; }
+  .story-item { position: relative; border-top: 1px solid var(--line); }
+  .story-item:last-child { border-bottom: 1px solid var(--line); }
+  .story-item::before { display: block; }
+  .story-step { justify-content: flex-start; padding: 8px 2px; border-top: 0; font-size: 15.5px; }
+  .story-step-name { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .story-step-body { position: static; opacity: 1; visibility: visible; translate: none; transition: none; }
+  .story-step-body > p { padding-left: 31px; }
+  .story-step-body > p::after { display: block; }
+  .story-step-title { display: none; }
+  .story-sum { display: block; }
+}
 
 /* ---- Services: the one service as one object (components/landing/core-services.tsx) ---- */
 .svc { display: grid; overflow: hidden; }
