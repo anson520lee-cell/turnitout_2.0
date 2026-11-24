@@ -6,7 +6,7 @@ import { chunkText } from "@/lib/chunking";
 import { scoreTrial, summarize, type Origin, type Sample, type Trial } from "@/lib/chunk-eval";
 import { truthFor } from "@/lib/chunk-samples";
 import type { TruthSentence } from "@/lib/eval";
-import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
+import { REASONING_EFFORTS, writingModelEnabled, writingModelKeyName } from "@/lib/writing-model";
 import { runChunkPiece } from "@/lib/chunk-run";
 import { advanceAutoReport } from "@/lib/auto-report/run";
 import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
@@ -14,7 +14,7 @@ import { CANDIDATE_PROMPT_NAMES } from "@/lib/chunk-candidate-names";
 
 /**
  * Runs the piece-size experiment without a signed-in browser: the owner (or
- * Claude, on request) calls this with CHUNK_AUTO_TOKEN. The DeepSeek key never
+ * Claude, on request) calls this with CHUNK_AUTO_TOKEN. The model API key never
  * leaves the server. Switched off (404) whenever CHUNK_AUTO_TOKEN is unset, so
  * deleting that variable in Vercel closes it.
  *   setup  loads the starter set and copies the Turnitin cases once
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, samples: eligible.length, rows: summarize(scored, map, level) }, { headers: noStore });
   }
 
-  if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." }, { headers: noStore });
+  if (!writingModelEnabled()) return NextResponse.json({ ok: false, message: `${writingModelKeyName()} isn't set in Vercel.` }, { headers: noStore });
   const { data: doneRows } = await db.from("chunk_trials").select("sample_id,size,idx").eq("batch", batch).eq("ok", true).limit(10_000);
   const done = new Set((doneRows ?? []).map((r: { sample_id: string; size: number; idx: number }) => `${r.sample_id}|${r.size}|${r.idx}`));
   const todo: { sampleId: string; size: number; idx: number }[] = [];

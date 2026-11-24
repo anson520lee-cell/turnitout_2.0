@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { after } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { DeepSeekRunError, deepseekEnabled, deepseekModel, deepseekRun } from "@/lib/deepseek";
+import { WritingModelRunError, writingModelEnabled, defaultWritingModel, runWritingModel, writingModelKeyName } from "@/lib/writing-model";
 import { logModelCall } from "@/lib/model-usage";
 import { getModelSetting } from "@/lib/site-settings";
 import { localModel } from "@/config/app";
@@ -24,9 +24,9 @@ import type { DraftJob, WorkerStatus } from "./types";
 
 const MIN_SECRET_LENGTH = 24;
 
-/** True when refinement drafts can be written: DeepSeek is configured, or the local worker is. */
+/** True when refinement drafts can be written: the API provider or the local worker is configured. */
 export function localModelEnabled(): boolean {
-  return isSupabaseConfigured && (deepseekEnabled() || workerSecretSet());
+  return isSupabaseConfigured && (writingModelEnabled() || workerSecretSet());
 }
 
 function workerSecretSet(): boolean {
@@ -43,7 +43,7 @@ export function isWorkerRequest(authorization: string | null): boolean {
 
 export async function workerStatus(): Promise<WorkerStatus> {
   const offline: WorkerStatus = { online: false, lastSeenAt: null, model: null };
-  if (deepseekEnabled()) return { online: true, lastSeenAt: new Date().toISOString(), model: deepseekModel() };
+  if (writingModelEnabled()) return { online: true, lastSeenAt: new Date().toISOString(), model: defaultWritingModel() };
   if (!localModelEnabled()) return offline;
   try {
     const { data } = await createAdminClient()
@@ -64,7 +64,7 @@ export async function workerStatus(): Promise<WorkerStatus> {
  * finished drafts for the order. Returns a message when it can't queue.
  */
 export async function enqueueRefinementDraft(orderId: string): Promise<{ ok: true } | { ok: false; message: string }> {
-  if (!localModelEnabled()) return { ok: false, message: "The writing model isn't set up (DEEPSEEK_API_KEY)." };
+  if (!localModelEnabled()) return { ok: false, message: `The writing model isn't set up (${writingModelKeyName()}).` };
   try {
     const db = createAdminClient();
     const { data: open } = await db
@@ -75,20 +75,20 @@ export async function enqueueRefinementDraft(orderId: string): Promise<{ ok: tru
       .limit(1);
     if (open?.length) return { ok: false, message: "A draft is already waiting or being written." };
     await db.from("model_jobs").delete().eq("order_id", orderId).in("status", ["done", "failed"]);
-    const viaDeepseek = deepseekEnabled();
+    const viaWritingModel = writingModelEnabled();
     const { data: job, error } = await db
       .from("model_jobs")
       .insert({
         kind: "refinement_draft",
         order_id: orderId,
         expires_at: new Date(Date.now() + localModel.draftDays * 86_400_000).toISOString(),
-        ...(viaDeepseek ? { status: "running", claimed_at: new Date().toISOString(), attempts: 1, model: deepseekModel() } : {}),
+        ...(viaWritingModel ? { status: "running", claimed_at: new Date().toISOString(), attempts: 1, model: defaultWritingModel() } : {}),
       })
       .select("id")
       .single<{ id: string }>();
     // 23505: the one-open-draft index caught a request racing this one.
     if (error || !job) return { ok: false, message: error?.code === "23505" ? "A draft is already waiting or being written." : "Couldn't queue the draft." };
-    if (viaDeepseek) after(() => writeDraftWithDeepseek(job.id, orderId));
+    if (viaWritingModel) after(() => writeDraftWithModel(job.id, orderId));
     return { ok: true };
   } catch {
     return { ok: false, message: "Couldn't queue the draft." };
@@ -118,7 +118,7 @@ function chunkText(text: string): string[] {
 }
 
 /** Writes the draft for a running job. Never throws; a failure is recorded on the job with a generic message. */
-async function writeDraftWithDeepseek(jobId: string, orderId: string): Promise<void> {
+async function writeDraftWithModel(jobId: string, orderId: string): Promise<void> {
   const db = createAdminClient();
   const fail = async (reason: string) => {
     await db
@@ -142,11 +142,11 @@ async function writeDraftWithDeepseek(jobId: string, orderId: string): Promise<v
     const setting = await getModelSetting();
     for (const chunk of chunks) {
       try {
-        const result = await deepseekRun({ system, user: `<text>\n${chunk}\n</text>`, maxTokens: 8000, model: setting.model, effort: setting.effort });
+        const result = await runWritingModel({ system, user: `<text>\n${chunk}\n</text>`, maxTokens: 8000, model: setting.model, effort: setting.effort });
         await logModelCall("refinement_draft", { ok: true, result });
         out.push(result.text);
       } catch (e) {
-        if (e instanceof DeepSeekRunError) await logModelCall("refinement_draft", { ok: false, error: e });
+        if (e instanceof WritingModelRunError) await logModelCall("refinement_draft", { ok: false, error: e });
         throw e;
       }
     }
@@ -178,8 +178,8 @@ export async function latestDraft(orderId: string): Promise<DraftJob | null> {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<DraftJob>();
-  // A direct DeepSeek draft that never reported back (the function was cut off) isn't "being written" forever.
-  if (data?.status === "running" && deepseekEnabled() && Date.now() - new Date(data.created_at).getTime() > 15 * 60_000) {
+  // A draft started through the API that never reported back (the function was cut off) isn't "being written" forever.
+  if (data?.status === "running" && writingModelEnabled() && Date.now() - new Date(data.created_at).getTime() > 15 * 60_000) {
     const error = "The draft didn't finish. Ask for a new one.";
     await db.from("model_jobs").update({ status: "failed", error, finished_at: new Date().toISOString() }).eq("id", data.id).eq("status", "running");
     return { ...data, status: "failed", error };

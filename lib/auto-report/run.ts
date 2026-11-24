@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekRun } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, writingModelEnabled, runWritingModel } from "@/lib/writing-model";
 import { chunkText } from "@/lib/chunking";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
@@ -184,7 +184,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
 
   let paused = false;
   if (todo.length) {
-    if (!deepseekEnabled()) {
+    if (!writingModelEnabled()) {
       await db.from("auto_reports").update({ lease_until: null }).eq("order_id", orderId);
       await failReport(orderId, "reviewer not configured");
       return { state: "failed", reviewed: 0, total };
@@ -201,7 +201,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
             const attempts = (rows.get(idx)?.attempts ?? 0) + 1;
             const row = { order_id: orderId, idx, attempts, updated_at: new Date().toISOString() };
             try {
-              const result = await deepseekRun({
+              const result = await runWritingModel({
                 system: [prompt, DRAFT_GUARD].join("\n\n"),
                 user: ["<draft>", chunks[idx].text, "</draft>"].join("\n"),
                 maxTokens: 24_000,
@@ -212,8 +212,8 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
               await logModelCall("paid_report", { ok: true, result });
               await db.from("auto_report_pieces").upsert({ ...row, report: result.text, ok: !result.truncated, truncated: result.truncated, ms: result.ms }, { onConflict: "order_id,idx" });
             } catch (e) {
-              if (e instanceof DeepSeekRunError) await logModelCall("paid_report", { ok: false, error: e });
-              else if (!(e instanceof DeepSeekError)) console.error("auto report piece failed", e);
+              if (e instanceof WritingModelRunError) await logModelCall("paid_report", { ok: false, error: e });
+              else if (!(e instanceof WritingModelError)) console.error("auto report piece failed", e);
               await db.from("auto_report_pieces").upsert({ ...row, ok: false }, { onConflict: "order_id,idx" });
             }
           }

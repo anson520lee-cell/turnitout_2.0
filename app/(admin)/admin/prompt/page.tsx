@@ -6,6 +6,7 @@ import { PromptEditor } from "@/components/admin/prompt-editor";
 import { ModelPicker } from "@/components/admin/model-picker";
 import { MODEL_CHOICES, getModelSetting, getScanReportSetting, listPromptVersions } from "@/lib/site-settings";
 import { dailyReportLimit, usageSummary } from "@/lib/model-usage";
+import { writingModelProviderLabel } from "@/lib/writing-model";
 import { formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin · AI prompt" };
@@ -29,7 +30,7 @@ export default async function AdminPrompt() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">AI prompt</h1>
       <p className="mt-1 max-w-3xl text-[13px] text-fg-muted">
-        What DeepSeek is told with every report, and which model runs it. Changes take effect on new reports within about 30 seconds; no redeploy needed.
+        Manage the prompt and model used for reports with {writingModelProviderLabel()}. Changes take effect on new reports within about 30 seconds.
       </p>
 
       <div className="mt-6 space-y-5">
@@ -64,7 +65,7 @@ export default async function AdminPrompt() {
         <Card className="p-5">
           <h2 className="text-[14px] font-semibold">Usage, last 14 days</h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
-            Every report and test run. Token counts only, never the text. Cost is an estimate at DeepSeek&rsquo;s peak-hour prices, so the real bill is the same or lower.{" "}
+            Token usage and estimated cost for reports and test runs. No submitted text is included.{" "}
             {dailyReportLimit() === 0
               ? "No daily limit on reports."
               : `Cost brake: reports pause for the rest of the day after ${dailyReportLimit()} (set DAILY_REPORT_LIMIT in Vercel to change; 0 turns it off).`}

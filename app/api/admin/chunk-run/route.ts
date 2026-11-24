@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
-import { REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
+import { REASONING_EFFORTS, writingModelEnabled, writingModelKeyName } from "@/lib/writing-model";
 import { runChunkPiece } from "@/lib/chunk-run";
 import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
 import { CANDIDATE_PROMPT_NAMES } from "@/lib/chunk-candidate-names";
@@ -29,7 +29,7 @@ const body = z.object({
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
   if (!user || user.profile.role !== "admin") return NextResponse.json({ ok: false, message: "Not authorised." }, { status: 403, headers: noStore });
-  if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." }, { headers: noStore });
+  if (!writingModelEnabled()) return NextResponse.json({ ok: false, message: `${writingModelKeyName()} isn't set in Vercel.` }, { headers: noStore });
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, message: "Bad request." }, { status: 400, headers: noStore });
   const { promptName, ...piece } = parsed.data;

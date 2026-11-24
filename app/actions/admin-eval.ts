@@ -5,7 +5,7 @@ import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, REASONING_EFFORTS, deepseekEnabled, deepseekRun } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, REASONING_EFFORTS, writingModelEnabled, runWritingModel, writingModelKeyName } from "@/lib/writing-model";
 import { scoreReport, truthFromFlaggedLines, type Metrics, type TruthSentence } from "@/lib/eval";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall } from "@/lib/model-usage";
@@ -72,7 +72,7 @@ export interface EvalRunSummary {
  */
 export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRunSummary }>> {
   const admin = await assertAdmin();
-  if (!deepseekEnabled()) return { ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." };
+  if (!writingModelEnabled()) return { ok: false, message: `${writingModelKeyName()} isn't set in Vercel.` };
   const parsed = runInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Unknown case." };
   const db = createAdminClient();
@@ -81,7 +81,7 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
 
   const [prompt, promptSetting, model] = await Promise.all([getScanReportPrompt(), getScanReportSetting(), getModelSetting()]);
   try {
-    const result = await deepseekRun({
+    const result = await runWritingModel({
       system: [prompt, DRAFT_GUARD].join("\n\n"),
       user: ["<draft>", row.body, "</draft>"].join("\n"),
       maxTokens: 24_000,
@@ -117,8 +117,8 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
       run: { id: saved.id, createdAt: saved.created_at, model: result.model, effort: result.effort, promptLabel: label, promptChars: prompt.length, metrics, ms: result.ms, tokens },
     };
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("eval", { ok: false, error: e });
-    const reason = e instanceof DeepSeekError ? ` (${e.reason})` : "";
+    if (e instanceof WritingModelRunError) await logModelCall("eval", { ok: false, error: e });
+    const reason = e instanceof WritingModelError ? ` (${e.reason})` : "";
     return { ok: false, message: `The model didn't answer${reason}. Try again.` };
   }
 }

@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
 import { WORD_1 } from "@/lib/chunk-prompts";
-import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort } from "@/lib/deepseek";
+import { REASONING_EFFORTS, defaultEffort, defaultWritingModel, writingModelProvider, type ReasoningEffort } from "@/lib/writing-model";
 
 /**
  * Settings the owner edits on /admin/prompt, kept in public.site_settings
@@ -28,8 +28,8 @@ const DEFAULT_REPORT_PROMPT = WORD_1;
 
 export const SETTING_KEYS = {
   reportPrompt: "scan_report_prompt",
-  model: "deepseek_model",
-  effort: "deepseek_effort",
+  model: `${writingModelProvider()}_model`,
+  effort: `${writingModelProvider()}_effort`,
 } as const;
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
 
@@ -131,8 +131,11 @@ export async function resetScanReportPrompt(): Promise<void> {
 
 /* ---------- model and reasoning ---------- */
 
-/** Models offered in the admin picker. Any other id can still be set with DEEPSEEK_MODEL. */
-export const MODEL_CHOICES = [
+/** Models offered in the admin picker for the configured provider. */
+export const MODEL_CHOICES = writingModelProvider() === "openai" ? [
+  { id: "gpt-6-luna", label: "GPT-6 Luna", note: "Lower-cost model for high-volume reports." },
+  { id: "gpt-6.1-terra", label: "GPT-6.1 Terra", note: "Higher-cost option for comparison tests." },
+] as const : [
   { id: "deepseek-flash", label: "DeepSeek V4.1 Flash", note: "Fast and cheap. Good for most reports." },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", note: "Stronger reasoning, slower and pricier." },
 ] as const;
@@ -149,7 +152,7 @@ export async function getModelSetting(): Promise<ModelSetting> {
   const [model, effort] = await Promise.all([read(SETTING_KEYS.model), read(SETTING_KEYS.effort)]);
   const validEffort = (REASONING_EFFORTS as readonly string[]).includes(effort ?? "") ? (effort as ReasoningEffort) : null;
   return {
-    model: model ?? deepseekModel(),
+    model: model ?? defaultWritingModel(),
     effort: validEffort ?? defaultEffort(),
     customModel: model !== null,
     customEffort: validEffort !== null,

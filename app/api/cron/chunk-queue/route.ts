@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chunkText } from "@/lib/chunking";
 import { runChunkPiece } from "@/lib/chunk-run";
-import { deepseekEnabled, REASONING_EFFORTS, type ReasoningEffort } from "@/lib/deepseek";
+import { writingModelEnabled, REASONING_EFFORTS, type ReasoningEffort } from "@/lib/writing-model";
 import { CANDIDATE_PROMPTS } from "@/lib/chunk-prompts";
 import { CANDIDATE_PROMPT_NAMES, type CandidatePromptName } from "@/lib/chunk-candidate-names";
 import { pieceBudget } from "@/lib/chunk-queue";
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!setting?.value) return new NextResponse("Not found", { status: 404 });
   const given = createHash("sha256").update(request.headers.get("x-queue-key") ?? "").digest("hex");
   if (!same(given, setting.value.trim())) return new NextResponse("Unauthorized", { status: 401 });
-  if (!deepseekEnabled()) return NextResponse.json({ ok: false, message: "No model key." }, { headers: noStore });
+  if (!writingModelEnabled()) return NextResponse.json({ ok: false, message: "No model key." }, { headers: noStore });
   // Customers' paid reports come first: one that nobody is watching is moved on here, and the backtest waits a minute.
   const report = await advanceIdleReport();
   if (report) return NextResponse.json({ ok: true, report }, { headers: noStore });

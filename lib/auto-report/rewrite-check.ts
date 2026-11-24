@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekRun, type ReasoningEffort } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, writingModelEnabled, runWritingModel, type ReasoningEffort } from "@/lib/writing-model";
 import { chunkText } from "@/lib/chunking";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
@@ -30,7 +30,7 @@ export type CheckOutcome =
 
 async function reviewPiece(text: string, prompt: string, model: string, effort: ReasoningEffort): Promise<string | null> {
   try {
-    const result = await deepseekRun({
+    const result = await runWritingModel({
       system: [prompt, DRAFT_GUARD].join("\n\n"),
       user: ["<draft>", text, "</draft>"].join("\n"),
       maxTokens: 24_000,
@@ -41,8 +41,8 @@ async function reviewPiece(text: string, prompt: string, model: string, effort: 
     await logModelCall("paid_report", { ok: true, result });
     return result.truncated ? null : result.text;
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("paid_report", { ok: false, error: e });
-    else if (!(e instanceof DeepSeekError)) console.error("rewrite check piece failed", e);
+    if (e instanceof WritingModelRunError) await logModelCall("paid_report", { ok: false, error: e });
+    else if (!(e instanceof WritingModelError)) console.error("rewrite check piece failed", e);
     return null;
   }
 }
@@ -53,7 +53,7 @@ export async function checkReportRewrite(orderId: string, userId: string): Promi
   const rewrite = report?.rewrite;
   if (!report?.result || !rewrite || !rewrite.items.some((i) => i.rewrite)) return { ok: false, reason: "no_rewrite" };
   if (rewrite.check && !rewrite.pending) return { ok: true, check: rewrite.check, rewrite };
-  if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
+  if (!writingModelEnabled()) return { ok: false, reason: "unavailable" };
   if (await paidPieceLimitReached()) return { ok: false, reason: "daily_limit" };
 
   const { data: order } = await db.from("orders").select("source_text").eq("id", orderId).maybeSingle<{ source_text: string | null }>();

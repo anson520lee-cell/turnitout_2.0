@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
-import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
+import type { ChatResult, ChatUsage, WritingModelRunError } from "@/lib/writing-model";
 
 /**
  * A log of model calls (migration 0010): purpose, model, effort, tokens, time
@@ -12,14 +12,15 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
 export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test" | "paid_report" | "report_rewrite";
 
 /**
- * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
- * prices (api-docs.deepseek.com/quick_start/pricing, checked 2026-10-11), so
- * the estimate is an upper bound; off-peak is half. Edit here if they change.
+ * USD per million tokens for the admin estimate: DeepSeek peak pricing and
+ * OpenAI standard pricing (model catalog checked 2026-11-25).
  * Reasoning tokens are billed as output and are already in completion_tokens.
  */
 const PRICES: Record<string, { input: number; cachedInput: number; output: number }> = {
   "deepseek-flash": { input: 0.3, cachedInput: 0.006, output: 1.2 },
   "deepseek-v4-pro": { input: 1.32, cachedInput: 0.044, output: 3.96 },
+  "gpt-6-luna": { input: 0.10, cachedInput: 0.01, output: 0.50 },
+  "gpt-6.1-terra": { input: 1.00, cachedInput: 0.05, output: 5.00 },
 };
 const FALLBACK_PRICE = PRICES["deepseek-flash"];
 
@@ -31,7 +32,7 @@ export function estimateCostUsd(model: string, u: Pick<ChatUsage, "promptTokens"
 
 export async function logModelCall(
   purpose: UsagePurpose,
-  outcome: { ok: true; result: ChatResult } | { ok: false; error: DeepSeekRunError },
+  outcome: { ok: true; result: ChatResult } | { ok: false; error: WritingModelRunError },
 ): Promise<void> {
   if (!isSupabaseConfigured) return;
   const row = outcome.ok
