@@ -1,79 +1,42 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
-import { mountInference } from "./inference-field";
+import { useRef } from "react";
 import styles from "./request-visuals.module.css";
 
 export function ReportVisual({ className }: { className?: string }) {
-  const field = useRef<ReturnType<typeof mountInference>>(undefined);
-  const [ready, setReady] = useState(false);
-  const [output, setOutput] = useState(0);
-  const [input, setInput] = useState(46);
-  const [streaming, setStreaming] = useState(false);
-  const activePointer = useRef<number | null>(null);
-  const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return;
-    const mounted = mountInference(canvas, setOutput);
-    field.current = mounted;
-    setReady(Boolean(mounted));
-    return () => {
-      mounted?.stop();
-      field.current = undefined;
-    };
-  }, []);
-  function steer(value: number) {
-    const next = Math.round(Math.max(0, Math.min(100, value)));
-    setInput(next);
-    field.current?.steer(next / 100);
-  }
-  function steerAt(y: number, element: HTMLElement) {
-    const box = element.getBoundingClientRect();
-    steer((y - box.top) / box.height * 100);
-  }
-  function release(pointerId: number) {
-    if (activePointer.current !== pointerId) return;
-    activePointer.current = null;
-    setStreaming(false);
-    field.current?.hold(false);
-  }
-  return <section id="inference-field" className={`${className ?? ""} ${styles.field}`} aria-label="Interactive inference demo">
-    <header className={styles.head}>
-      <h2>Inference engine</h2>
-      <span className={styles.demo}><i aria-hidden="true" />Interactive demo</span>
-    </header>
-    <div className={styles.stage} data-streaming={streaming}
-      onPointerDown={e => {
-        if (activePointer.current !== null || e.button !== 0) return;
-        activePointer.current = e.pointerId;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        steerAt(e.clientY, e.currentTarget);
-        setStreaming(true);
-        field.current?.hold(true);
+  const glint = useRef<HTMLDivElement>(null);
+  const sweep = useRef<Animation | null>(null);
+
+  return (
+    <div
+      id="inference-field"
+      aria-hidden="true"
+      className={`${styles.field} ${className ?? ""}`}
+      onPointerMove={event => {
+        if (event.pointerType === "touch" || !event.isPrimary) return;
+        const field = event.currentTarget;
+        const bounds = field.getBoundingClientRect();
+        const x = event.clientX - bounds.left;
+        const y = event.clientY - bounds.top;
+        field.style.setProperty("--pointer-x", `${x}px`);
+        field.style.setProperty("--pointer-y", `${y}px`);
+        field.style.setProperty("--shift-x", `${(x / bounds.width - .5) * 5}px`);
+        field.style.setProperty("--shift-y", `${(y / bounds.height - .5) * 5}px`);
+        field.dataset.hover = "true";
       }}
-      onPointerMove={e => {
-        if (activePointer.current === e.pointerId) steerAt(e.clientY, e.currentTarget);
+      onPointerLeave={event => { delete event.currentTarget.dataset.hover; }}
+      onClick={() => {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        sweep.current?.cancel();
+        sweep.current = glint.current?.animate([
+          { maskPosition: "100% 50%", opacity: 0 },
+          { maskPosition: "78% 50%", opacity: .8, offset: .25 },
+          { maskPosition: "20% 50%", opacity: .65, offset: .78 },
+          { maskPosition: "0% 50%", opacity: 0 },
+        ], { duration: 720, easing: "ease-out" }) ?? null;
       }}
-      onPointerUp={e => release(e.pointerId)} onPointerCancel={e => release(e.pointerId)}
-      onLostPointerCapture={e => release(e.pointerId)}>
-      <canvas ref={attachCanvas} className={styles.canvas} aria-hidden="true" />
-      <div className={styles.axis} aria-hidden="true">
-        <span>Input</span><span>Hidden layers</span><span>Output</span>
-      </div>
+    >
+      <div className={styles.light} ref={glint} />
     </div>
-    <footer className={styles.footer}>
-      <div className={styles.actions}>
-        <div className={styles.cta}>
-          <button type="button" disabled={!ready} onClick={() => field.current?.send()}>Send pulse <ArrowRight size={15} aria-hidden="true" /></button>
-          <span className={styles.tally} aria-label={`${output} pulses received at output`}>
-            <i aria-hidden="true" />RX <b>{String(output).padStart(3,"0")}</b>
-          </span>
-        </div>
-        <label className={styles.inputControl}>Input position
-          <input type="range" min="0" max="100" step="1" value={input} onChange={e => steer(Number(e.target.value))} />
-        </label>
-      </div>
-      <p>Hold the field to stream pulses. Drag up or down to steer.</p>
-    </footer>
-  </section>;
+  );
 }

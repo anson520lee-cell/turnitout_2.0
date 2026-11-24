@@ -1,69 +1,48 @@
 .field {
-  --ice: #c2dcff;
   position: relative;
   isolation: isolate;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   scroll-margin-top: 5rem;
-  color: #e2ebfa;
-  border: 1px solid #7396cf58;
-  border-radius: 16px;
-  background: radial-gradient(ellipse at 54% 46%, #1e355c 0%, #111e36 43%, #0b1425 78%);
-  box-shadow: inset 0 1px #d1e4ff19;
+  border-radius: 12px;
+  background: #070d18 url("/screening-light.webp") center / cover no-repeat;
+  --pointer-x: 50%;
+  --pointer-y: 50%;
+  --shift-x: 0px;
+  --shift-y: 0px;
 }
-.head, .footer { position: relative; z-index: 1; padding-inline: clamp(14px, 3%, 26px); }
-.head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 19px; }
-.head h2 { font: 520 clamp(17px, 1.6vw, 23px)/1.2 var(--font-sans); letter-spacing: -.045em; }
-.demo, .axis, .tally, .inputControl {
-  font: 500 9px/1.4 var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: .11em;
+
+.field::before,
+.light {
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  opacity: 0;
+  pointer-events: none;
 }
-.demo, .tally { display: inline-flex; align-items: center; gap: 7px; color: #acbfda; }
-.demo i, .tally i { width: 5px; height: 5px; border-radius: 50%; background: #9fcbff; box-shadow: 0 0 8px #7dabff; }
-.stage {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 234px;
-  margin: 8px 0 2px;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-  background-image: radial-gradient(#6889be30 .7px, transparent .85px);
-  background-size: 12px 12px;
+
+.field::before {
+  content: "";
+  mask-image: radial-gradient(circle 105px at var(--pointer-x) var(--pointer-y), black 12%, transparent 100%);
+  transform: translate(var(--shift-x), var(--shift-y));
+  filter: brightness(1.17);
+  transition: opacity 220ms ease-out;
 }
-.stage[data-streaming=true] { background-color: #5279db0c; }
-.canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.axis { position: absolute; bottom: 3px; inset-inline: 5%; display: flex; justify-content: space-between; align-items: center; color: #a3b9da; pointer-events: none; }
-.axis::before { content: ""; position: absolute; height: 1px; background: #6888b347; left: 0; right: 0; top: -6px; }
-.axis span::before { display: block; width: 1px; height: 4px; margin-top: -10px; margin-bottom: 6px; background: #9ebde1; content: ""; }
-.axis span:nth-child(2)::before { margin-inline: auto; }
-.axis span:last-child::before { margin-left: auto; }
-.footer { padding-block: 15px 16px; }
-.actions, .cta, .inputControl { display: flex; align-items: center; }
-.actions { justify-content: space-between; gap: 10px; }
-.cta { gap: 12px; }
-.cta button {
-  display: inline-flex; gap: 12px; align-items: center; justify-content: center;
-  min-height: 38px; padding: 0 14px; border-radius: 30px;
-  background: #d3e5ff; color: #0f2039; font: 600 12px/1 var(--font-sans);
-  cursor: pointer; transition: background .15s;
+
+.light {
+  mask-image: linear-gradient(107deg, transparent 44%, black 50%, transparent 56%);
+  mask-size: 300% 100%;
+  mask-repeat: no-repeat;
+  filter: brightness(1.55);
 }
-.cta button:hover { background: #eff6ff; }
-.cta button:active { background: #a2c7ff; }
-.field :focus-visible { outline: 2px solid #b4d6ff; outline-offset: 4px; }
-.tally { font-variant-numeric: tabular-nums; letter-spacing: .06em; gap: 5px; }
-.tally i { width: 3px; height: 3px; }
-.tally b { font-weight: 500; color: #e0efff; }
-.inputControl { flex-direction: column; align-items: flex-start; gap: 1px; color: #aabee0; font-size: 8px; }
-.inputControl input { width: clamp(58px, 7vw, 96px); height: 20px; cursor: ew-resize; accent-color: #aecfff; }
-.footer p { margin-top: 8px; color: #a5b7d0; font: 400 11px/1.5 var(--font-sans); }
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .field[data-hover="true"]::before { opacity: .88; }
+}
+
 @media (max-width: 639px) {
-  .field { min-height: 350px; }
-  .head { padding-top: 14px; }
-  .demo, .axis { font-size: 8px; letter-spacing: .06em; }
-  .stage { min-height: 205px; }
-  .cta { gap: 8px; }
-  .footer { padding-block: 12px; }
+  .field { min-height: 0; aspect-ratio: 4 / 3; flex: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field::before, .light { display: none; }
 }
