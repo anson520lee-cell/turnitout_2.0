@@ -1,25 +1,69 @@
-.study {isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;position:relative;scroll-margin-top:5rem;overflow:hidden;border:1px solid #61739355;border-radius:14px;background:radial-gradient(ellipse at 40% 30%,#22334d 0,transparent 62%),linear-gradient(142deg,#101b2d,#090f1c 73%);color:#dae4f2;--stroke:#9bb1d544;}
-.head,.controls,.markers {display:flex;align-items:center;justify-content:space-between}
-.head {padding:17px 20px 0;z-index:1}
-.head span,.label,.markers {font:500 10px/1.4 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:#b1c3dc}
-.head span {display:inline-flex;align-items:center;gap:8px}
-.head i {width:6px;height:6px;background:#b7d1ff;box-shadow:0 0 10px #91b7ff;border-radius:50%}
-.head button,.controls button {background:#162237;color:#d3e0f3;border:1px solid var(--stroke);border-radius:100px;cursor:pointer;transition:background .14s,color .14s}
-.head button {font-size:11px;display:inline-flex;align-items:center;gap:6px;padding:6px 10px}
-.controls button {display:inline-grid;place-items:center;width:32px;height:32px}
-.controls div {display:flex;gap:5px}
-.study button:focus-visible,.input:focus-visible {outline:2px solid #b8d0ff;outline-offset:2px}
-@media(hover:hover){.study button:hover {background:#32445f;color:white}}
-.stage {min-height:210px;flex:1;position:relative;cursor:crosshair;touch-action:pan-y;margin:0 6px}
-.canvas {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 14px 9px #01081180)}
-.glow {position:absolute;inset:0;background:radial-gradient(ellipse at 52% 62%,#829fd327,transparent 57%);pointer-events:none}
-.ruler {position:absolute;left:6%;right:6%;bottom:18px;height:5px;border-bottom:1px solid #7c92b044;background:repeating-linear-gradient(90deg,#91a6c76b 0 1px,transparent 1px 2.5%)}
-.markers {position:absolute;bottom:3px;left:6%;right:6%;pointer-events:none}
-.markers span {font-size:8px;color:#8e9fb7}.markers span[data-active=true]{color:#d1e1ff}
-.reading {padding:14px 20px 18px;border-top:1px solid var(--stroke);margin-top:8px;background:linear-gradient(100deg,#142135d9,#0d1727c9);min-height:145px}
-.label {font-size:9px;color:#9cbaf0}
-.quote,.input {font:550 clamp(21px,2.2vw,30px)/1.16 var(--font-sans);letter-spacing:-.025em;color:#eef2f6;margin:4px 0 7px}
-.note {font-size:12px;line-height:1.48;color:#bdc9d9;max-width:63ch;margin:0}
-.input {width:100%;padding:8px 0;border-bottom:1px solid var(--stroke);background:transparent;color:#eef2f6}
-@media(prefers-reduced-motion:no-preference){.annotation{animation:folio-in .24s ease-out both}@keyframes folio-in{from{opacity:.25;transform:translateY(3px)}}}
-@media(max-width:639px){.head{padding:12px 12px 0}.reading{padding:12px;min-height:155px}.stage{min-height:215px}.study{min-height:425px}.head span{font-size:8px}.controls button{width:36px;height:36px}.quote{font-size:24px}}
+.field {
+  --ice: #c2dcff;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  scroll-margin-top: 5rem;
+  color: #e2ebfa;
+  border: 1px solid #7396cf58;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 54% 46%, #1e355c 0%, #111e36 43%, #0b1425 78%);
+  box-shadow: inset 0 1px #d1e4ff19;
+}
+.head, .footer { position: relative; z-index: 1; padding-inline: clamp(14px, 3%, 26px); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 19px; }
+.head h2 { font: 520 clamp(17px, 1.6vw, 23px)/1.2 var(--font-sans); letter-spacing: -.045em; }
+.demo, .axis, .tally, .inputControl {
+  font: 500 9px/1.4 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .11em;
+}
+.demo, .tally { display: inline-flex; align-items: center; gap: 7px; color: #acbfda; }
+.demo i, .tally i { width: 5px; height: 5px; border-radius: 50%; background: #9fcbff; box-shadow: 0 0 8px #7dabff; }
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 234px;
+  margin: 8px 0 2px;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  background-image: radial-gradient(#6889be30 .7px, transparent .85px);
+  background-size: 12px 12px;
+}
+.stage[data-streaming=true] { background-color: #5279db0c; }
+.canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.axis { position: absolute; bottom: 3px; inset-inline: 5%; display: flex; justify-content: space-between; align-items: center; color: #a3b9da; pointer-events: none; }
+.axis::before { content: ""; position: absolute; height: 1px; background: #6888b347; left: 0; right: 0; top: -6px; }
+.axis span::before { display: block; width: 1px; height: 4px; margin-top: -10px; margin-bottom: 6px; background: #9ebde1; content: ""; }
+.axis span:nth-child(2)::before { margin-inline: auto; }
+.axis span:last-child::before { margin-left: auto; }
+.footer { padding-block: 15px 16px; }
+.actions, .cta, .inputControl { display: flex; align-items: center; }
+.actions { justify-content: space-between; gap: 10px; }
+.cta { gap: 12px; }
+.cta button {
+  display: inline-flex; gap: 12px; align-items: center; justify-content: center;
+  min-height: 38px; padding: 0 14px; border-radius: 30px;
+  background: #d3e5ff; color: #0f2039; font: 600 12px/1 var(--font-sans);
+  cursor: pointer; transition: background .15s;
+}
+.cta button:hover { background: #eff6ff; }
+.cta button:active { background: #a2c7ff; }
+.field :focus-visible { outline: 2px solid #b4d6ff; outline-offset: 4px; }
+.tally { font-variant-numeric: tabular-nums; letter-spacing: .06em; gap: 5px; }
+.tally i { width: 3px; height: 3px; }
+.tally b { font-weight: 500; color: #e0efff; }
+.inputControl { flex-direction: column; align-items: flex-start; gap: 1px; color: #aabee0; font-size: 8px; }
+.inputControl input { width: clamp(58px, 7vw, 96px); height: 20px; cursor: ew-resize; accent-color: #aecfff; }
+.footer p { margin-top: 8px; color: #a5b7d0; font: 400 11px/1.5 var(--font-sans); }
+@media (max-width: 639px) {
+  .field { min-height: 350px; }
+  .head { padding-top: 14px; }
+  .demo, .axis { font-size: 8px; letter-spacing: .06em; }
+  .stage { min-height: 205px; }
+  .cta { gap: 8px; }
+  .footer { padding-block: 12px; }
+}

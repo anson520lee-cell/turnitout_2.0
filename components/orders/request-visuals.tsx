@@ -1,69 +1,74 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Pencil, X } from "lucide-react";
-import { mountRibbon } from "./manuscript-ribbon";
+import { ArrowRight } from "lucide-react";
+import { mountInference } from "./inference-field";
 import styles from "./request-visuals.module.css";
-
-const passages = [
-  { line: "The city changed overnight.", note: "“Changed” makes a broad claim. What looked different the next morning?" },
-  { line: "One window still held the light.", note: "The detail of one lit window gives the reader something specific to picture." },
-  { line: "Inside, someone was setting the table.", note: "A small action brings the scene from the street into a single room." },
-];
-const lines = passages.map(p => p.line);
-const pad = (n: number) => String(n + 1).padStart(2, "0");
 
 export function ReportVisual({ className }: { className?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const art = useRef<ReturnType<typeof mountRibbon>>(undefined);
-  const [index, setIndex] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const own = editing && draft.trim() !== "";
-  const custom = own ? draft.trim() : "";
+  const field = useRef<ReturnType<typeof mountInference>>(undefined);
+  const [output, setOutput] = useState(0);
+  const [input, setInput] = useState(46);
+  const [streaming, setStreaming] = useState(false);
+  const activePointer = useRef<number | null>(null);
   useEffect(() => {
     if (!canvas.current) return;
-    art.current = mountRibbon(canvas.current, lines);
-    return () => art.current?.stop();
+    field.current = mountInference(canvas.current, setOutput);
+    return () => field.current?.stop();
   }, []);
-  useEffect(() => { art.current?.text(custom); }, [custom]);
-  useEffect(() => { art.current?.select(index); }, [index]);
-
-  return <section id="manuscript-study" aria-label="Interactive sample manuscript" className={`${className ?? ""} ${styles.study}`}>
-    <header className={styles.head}><span><i aria-hidden="true"/>Sample manuscript</span>
-      <button type="button" aria-expanded={editing} onClick={() => setEditing(!editing)}>
-        {editing ? <X size={13}/> : <Pencil size={13}/>} {editing ? "Back to sample" : "Try your text"}
-      </button>
+  function steer(value: number) {
+    const next = Math.round(Math.max(0, Math.min(100, value)));
+    setInput(next);
+    field.current?.steer(next / 100);
+  }
+  function steerAt(y: number, element: HTMLElement) {
+    const box = element.getBoundingClientRect();
+    steer((y - box.top) / box.height * 100);
+  }
+  function release(pointerId: number) {
+    if (activePointer.current !== pointerId) return;
+    activePointer.current = null;
+    setStreaming(false);
+    field.current?.hold(false);
+  }
+  return <section id="inference-field" className={`${className ?? ""} ${styles.field}`} aria-label="Interactive inference demo">
+    <header className={styles.head}>
+      <h2>Inference engine</h2>
+      <span className={styles.demo}><i aria-hidden="true" />Interactive demo</span>
     </header>
-    <div className={styles.stage} onPointerMove={e => {
-      if (e.pointerType !== "mouse") return;
-      const box = e.currentTarget.getBoundingClientRect();
-      art.current?.move((e.clientX - box.left) / box.width * 2 - 1, (e.clientY - box.top) / box.height * 2 - 1);
-    }} onPointerLeave={() => art.current?.move(0,0)}
-      onClick={e => {
-        if (editing) return;
-        const box = e.currentTarget.getBoundingClientRect();
-        const part = Math.max(0, Math.min(2, Math.floor((e.clientX - box.left) / box.width * 3)));
-        setIndex(part);
-      }}>
-      <div className={styles.glow}/><canvas ref={canvas} aria-hidden="true" className={styles.canvas}/>
-      <div className={styles.ruler} aria-hidden="true"/>
-      <div className={styles.markers} aria-hidden="true">{lines.map((line,i) =>
-        <span key={line} data-active={!editing && i === index}>S·{pad(i)}</span>)}</div>
-    </div>
-    {editing ? <div className={styles.reading}>
-      <label htmlFor="ribbon-sentence" className={styles.label}>Typeset your sentence</label>
-      <input id="ribbon-sentence" className={styles.input} value={draft} maxLength={96} autoComplete="off"
-        placeholder="Write a sentence…" onChange={e => setDraft(e.target.value)}/>
-      <p className={styles.note}>Local typography preview · {draft.length}/96 characters</p>
-    </div> : <div className={styles.reading}>
-      <div className={styles.controls}><span className={styles.label}>Sentence {pad(index)} / 03</span>
-        <div>{[-1,1].map(step => <button type="button" key={step} aria-label={step < 0 ? "Previous sentence" : "Next sentence"}
-          onClick={() => setIndex((index + step + lines.length) % lines.length)}>
-          {step < 0 ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button>)}</div>
+    <div className={styles.stage} data-streaming={streaming}
+      onPointerDown={e => {
+        if (activePointer.current !== null || e.button !== 0) return;
+        activePointer.current = e.pointerId;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        steerAt(e.clientY, e.currentTarget);
+        setStreaming(true);
+        field.current?.hold(true);
+      }}
+      onPointerMove={e => {
+        if (activePointer.current === e.pointerId) steerAt(e.clientY, e.currentTarget);
+      }}
+      onPointerUp={e => release(e.pointerId)} onPointerCancel={e => release(e.pointerId)}
+      onLostPointerCapture={e => release(e.pointerId)}>
+      <canvas ref={canvas} className={styles.canvas} aria-hidden="true" />
+      <div className={styles.axis} aria-hidden="true">
+        <span>Input</span><span>Hidden layers</span><span>Output</span>
       </div>
-      <div key={index} aria-live="polite" className={styles.annotation}><p className={styles.quote}>{lines[index]}</p>
-        <p className={styles.note}>{passages[index].note}</p></div>
-    </div>}
+    </div>
+    <footer className={styles.footer}>
+      <div className={styles.actions}>
+        <div className={styles.cta}>
+          <button type="button" onClick={() => field.current?.send()}>Send pulse <ArrowRight size={15} aria-hidden="true" /></button>
+          <span className={styles.tally} aria-label={`${output} pulses received at output`}>
+            <i aria-hidden="true" />RX <b>{String(output).padStart(3,"0")}</b>
+          </span>
+        </div>
+        <label className={styles.inputControl}>Input position
+          <input type="range" min="0" max="100" step="1" value={input} onChange={e => steer(Number(e.target.value))} />
+        </label>
+      </div>
+      <p>Hold the field to stream pulses. Drag up or down to steer.</p>
+    </footer>
   </section>;
 }
