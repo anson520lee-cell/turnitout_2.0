@@ -68,9 +68,20 @@ async function main() {
       ...metrics(event.result),
       streamed: deltas > 0,
       parsed: !event.result.truncated && targets.every((sentence) => suggestions.has(sentence.n)),
+      parsedIds: [...suggestions.keys()],
       usable,
       targets: targets.length,
     }));
+    if (!suggestions.size) {
+      console.log("OPENAI_TRIAL synthetic response", JSON.stringify(event.result.text.replace(/\s+/g, " ").slice(0, 400)));
+      const plain = await runWritingModel({
+        system: "Edit the supplied sentence for clarity while keeping all facts. Return only the revised sentence.",
+        user: "The committee arrived at a decision to delay the vote until Friday.",
+        maxTokens: 500,
+        timeoutMs: 20_000,
+      });
+      console.log("OPENAI_TRIAL clarity edit", JSON.stringify({ ...metrics(plain), preservedFriday: /Friday/.test(plain.text) }));
+    }
   }
 }
 
