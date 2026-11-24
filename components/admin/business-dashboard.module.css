@@ -1,0 +1,51 @@
+.board { display:grid; gap:1.25rem; color:var(--color-fg); --accent:#90b6ff; }
+.heading,.head,.breakdown,.axis,.readout {display:flex; align-items:center; justify-content:space-between; gap:.8rem}
+.heading {flex-wrap:wrap; margin-bottom:.5rem}
+.heading h1 {font-size:clamp(1.65rem,3vw,2.35rem);font-weight:600;letter-spacing:-.045em}
+.heading p,.note,.axis,.readout span,.stat small,.breakdown,.table th {color:var(--color-fg-muted);font-size:.79rem}
+.switcher {display:inline-flex; padding:3px; border-radius:.8rem; border:1px solid var(--line); background:rgba(75,96,130,.07)}
+.switcher :is(button,a) {cursor:pointer;border-radius:.57rem;padding:.4rem .72rem;font-size:.78rem;color:var(--color-fg-muted);transition:background .15s,color .15s}
+.switcher :is([aria-current=page],[aria-pressed=true],:hover) {color:var(--color-fg);background:rgba(124,155,207,.2)}
+.stats,.charts {display:grid;gap:1rem;min-width:0}
+.stats {grid-template-columns:repeat(4,minmax(0,1fr))}
+.charts {grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+.panel,.stat {border-radius:1.1rem;min-width:0;padding:clamp(1rem,2.4vw,1.65rem)}
+.stat p {display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--color-fg-muted)}
+.stat p svg,.head svg {color:var(--accent)}
+.stat strong,.readout strong {display:block;font-size:clamp(1.5rem,2.4vw,2.35rem);font-weight:550;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.stat strong {margin-top:.7rem}
+.stat small {display:block;line-height:1.45;margin-top:.18rem}
+.head {flex-wrap:wrap}
+.head h2 {font-size:1.08rem;font-weight:600;letter-spacing:-.025em}
+.readout {justify-content:flex-start;align-items:baseline;flex-wrap:wrap;margin:1rem 0 .6rem}
+.plot,.histogram {height:10rem;position:relative}
+.plot svg {width:100%;height:100%;overflow:visible}
+.plot input {position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:crosshair}
+.plot:focus-within,.histogram button:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+.gridline,.crosshair,.curve {vector-effect:non-scaling-stroke}
+.gridline {stroke:var(--line);stroke-dasharray:3 5}
+.crosshair {stroke:#8cadcd;stroke-dasharray:3 4}
+.curve {stroke:var(--accent);stroke-width:2.5;fill:none;stroke-linejoin:round}
+.dot {position:absolute;border-radius:100%;width:8px;height:8px;background:var(--accent);box-shadow:0 0 8px #97baff88;transform:translate(-50%,-50%);pointer-events:none}
+.axis {font-variant-numeric:tabular-nums;font-size:.68rem;margin-top:.5rem}
+.breakdown {justify-content:flex-start;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:1rem;padding-top:.8rem}
+.breakdown b {font-weight:550;color:var(--color-fg)}
+.note {line-height:1.55;margin-top:.65rem}
+.histogram {display:flex;align-items:stretch;gap:2px;border-bottom:1px solid var(--line)}
+.histogram button {position:relative;flex:1;min-width:0;cursor:pointer;border-radius:4px}
+.histogram i {position:absolute;bottom:0;left:0;right:0;height:max(2px,var(--bar));border-radius:4px 4px 0 0;background:#607ba9;transform-origin:bottom}
+.histogram [data-peak=true] i,.histogram button:is(:focus,:hover) i {background:var(--accent)}
+.table {width:100%;border-collapse:collapse;margin-top:1.1rem;font-variant-numeric:tabular-nums}
+.table :is(td,th) {text-align:right;padding:.65rem .3rem;border-bottom:1px solid var(--line)}
+.table th {font-weight:500}
+.table :is(td,th):first-child {text-align:left;width:66%}
+.table td {font-size:.88rem}
+.table td i {display:block;max-width:80%;height:3px;background:linear-gradient(90deg,#5774a2,var(--accent));border-radius:4px;margin-top:.4rem}
+@media(prefers-reduced-motion:no-preference){.panel,.stat {animation:arrive .32s ease-out both}.curve {animation:traceIn .32s ease-out both}.histogram i {animation:rise .4s ease-out both}.stat {transition:border-color .16s}.stat:hover{border-color:#758fb866}}
+@keyframes arrive {from{opacity:.4;transform:translateY(5px)}}
+@keyframes traceIn {from{opacity:.25}to{opacity:1}}
+@keyframes rise {from{transform:scaleY(.06)}to{transform:scaleY(1)}}
+@media(max-width:800px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.charts{grid-template-columns:1fr}}
+@media(max-width:420px){.stats,.charts{gap:.6rem}.stat{padding:.85rem}.stat p{align-items:flex-start}.switcher :is(button,a){padding:.42rem .54rem}.readout{gap:.4rem}}
+@media(prefers-reduced-motion:reduce){.switcher :is(button,a){transition:none}}
+.chartFrame {display:grid;grid-template-columns:auto minmax(0,1fr);gap:.65rem}.scale {display:flex;flex-direction:column;justify-content:space-between;padding:.12rem 0;font-size:.65rem;color:var(--color-fg-muted);font-variant-numeric:tabular-nums}
