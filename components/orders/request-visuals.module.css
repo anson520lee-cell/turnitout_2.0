@@ -1,0 +1,25 @@
+.study {isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;position:relative;scroll-margin-top:5rem;overflow:hidden;border:1px solid #61739355;border-radius:14px;background:radial-gradient(ellipse at 40% 30%,#22334d 0,transparent 62%),linear-gradient(142deg,#101b2d,#090f1c 73%);color:#dae4f2;--stroke:#9bb1d544;}
+.head,.controls,.markers {display:flex;align-items:center;justify-content:space-between}
+.head {padding:17px 20px 0;z-index:1}
+.head span,.label,.markers {font:500 10px/1.4 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:#b1c3dc}
+.head span {display:inline-flex;align-items:center;gap:8px}
+.head i {width:6px;height:6px;background:#b7d1ff;box-shadow:0 0 10px #91b7ff;border-radius:50%}
+.head button,.controls button {background:#162237;color:#d3e0f3;border:1px solid var(--stroke);border-radius:100px;cursor:pointer;transition:background .14s,color .14s}
+.head button {font-size:11px;display:inline-flex;align-items:center;gap:6px;padding:6px 10px}
+.controls button {display:inline-grid;place-items:center;width:32px;height:32px}
+.controls div {display:flex;gap:5px}
+.study button:focus-visible,.input:focus-visible {outline:2px solid #b8d0ff;outline-offset:2px}
+@media(hover:hover){.study button:hover {background:#32445f;color:white}}
+.stage {min-height:210px;flex:1;position:relative;cursor:crosshair;touch-action:pan-y;margin:0 6px}
+.canvas {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 14px 9px #01081180)}
+.glow {position:absolute;inset:0;background:radial-gradient(ellipse at 52% 62%,#829fd327,transparent 57%);pointer-events:none}
+.ruler {position:absolute;left:6%;right:6%;bottom:18px;height:5px;border-bottom:1px solid #7c92b044;background:repeating-linear-gradient(90deg,#91a6c76b 0 1px,transparent 1px 2.5%)}
+.markers {position:absolute;bottom:3px;left:6%;right:6%;pointer-events:none}
+.markers span {font-size:8px;color:#8e9fb7}.markers span[data-active=true]{color:#d1e1ff}
+.reading {padding:14px 20px 18px;border-top:1px solid var(--stroke);margin-top:8px;background:linear-gradient(100deg,#142135d9,#0d1727c9);min-height:145px}
+.label {font-size:9px;color:#9cbaf0}
+.quote,.input {font:550 clamp(21px,2.2vw,30px)/1.16 var(--font-sans);letter-spacing:-.025em;color:#eef2f6;margin:4px 0 7px}
+.note {font-size:12px;line-height:1.48;color:#bdc9d9;max-width:63ch;margin:0}
+.input {width:100%;padding:8px 0;border-bottom:1px solid var(--stroke);background:transparent;color:#eef2f6}
+@media(prefers-reduced-motion:no-preference){.annotation{animation:folio-in .24s ease-out both}@keyframes folio-in{from{opacity:.25;transform:translateY(3px)}}}
+@media(max-width:639px){.head{padding:12px 12px 0}.reading{padding:12px;min-height:155px}.stage{min-height:215px}.study{min-height:425px}.head span{font-size:8px}.controls button{width:36px;height:36px}.quote{font-size:24px}}
