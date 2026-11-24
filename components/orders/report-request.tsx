@@ -6,7 +6,6 @@ import { createScreeningTextOrder } from "@/app/actions/orders";
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ReportVisual } from "./request-visuals";
 import { PaymentMethodStrip } from "./payment-methods";
 import { billableChars, formatCredits, priceUsd, reportPrice, reportPricing } from "@/config/pricing";
 import { formatMoney } from "@/config/payments";
@@ -32,12 +31,11 @@ export function ReportRequest() {
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid gap-5">
         <Card strong id="paid-report" className="noise flex scroll-mt-24 flex-col overflow-hidden p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-accent/15 blur-3xl" />
           <div aria-hidden className="pointer-events-none absolute -bottom-28 right-0 size-72 rounded-full bg-violet/15 blur-3xl" />
-          <ReportVisual className="relative min-h-[520px] flex-1 sm:min-h-[430px]" />
-          <div className="relative mt-6 flex flex-wrap items-end justify-between gap-5 border-t border-[var(--line)] pt-6">
+          <div className="relative flex flex-wrap items-center justify-between gap-5">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">One report · made on the spot</p>
               <p className="mt-2 text-4xl font-semibold tracking-tight">
@@ -67,7 +65,7 @@ export function ReportRequest() {
           </div>
         </Card>
 
-        <div className="space-y-5">
+        <div className="grid items-start gap-5 lg:grid-cols-2">
           <Card className="p-5 sm:p-6">
             <h2 className="text-[15px] font-semibold">What you receive</h2>
             <ul className="mt-4 space-y-3 text-[13.5px] text-fg-muted">
