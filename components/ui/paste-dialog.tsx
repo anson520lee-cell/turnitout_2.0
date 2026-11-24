@@ -8,6 +8,13 @@ import { WaitingAnimation } from "@/components/ui/waiting";
 import { extractText, ExtractError, SCAN_FILE_ACCEPT } from "@/lib/extract-text";
 import { cn } from "@/lib/utils";
 
+export type PasteChoice = {
+  label: string;
+  detail: string;
+  disabled?: boolean;
+  run: (text: string) => Promise<PasteResult>;
+};
+
 export type PasteResult = { ok: true } | { ok: false; message: string };
 
 /**
@@ -26,6 +33,7 @@ export function PasteDialog({
   placeholder = "Paste your paragraph(s) here…",
   submitLabel = "Submit",
   validate,
+  choicesFor,
   meta,
   footnote,
   onSubmit,
@@ -46,6 +54,7 @@ export function PasteDialog({
   /** Return an error message to block submission, or null. */
   validate?: (text: string) => string | null;
   /** Live line under the text box: counts, price, limits. */
+  choicesFor?: (text: string) => PasteChoice[] | undefined;
   meta?: (text: string) => ReactNode;
   footnote?: ReactNode;
   onSubmit: (text: string) => Promise<PasteResult>;
@@ -61,6 +70,7 @@ export function PasteDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const submitting = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +91,7 @@ export function PasteDialog({
     const d = dialogRef.current;
     if (!d) return;
     if (open && !d.open) {
+      submitting.current = false;
       d.showModal();
       setPhase("edit");
       setError(initialError ?? null);
@@ -93,23 +104,32 @@ export function PasteDialog({
 
   const busy = phase !== "edit";
 
-  const submit = async () => {
-    if (busy) return;
+  const choices = open ? choicesFor?.(text) : undefined;
+  const firstChoice = useRef<HTMLButtonElement>(null);
+
+  const submit = async (choice?: PasteChoice) => {
+    if (busy || submitting.current || choice?.disabled) return;
+    if (choices && !choice) {
+      firstChoice.current?.focus();
+      return;
+    }
     const value = text.trim();
-    const problem = !value ? "Paste some text first." : validate?.(value) ?? null;
+    const problem = !value ? "Paste some text first." : choice ? null : validate?.(value) ?? null;
     if (problem) {
       setError(problem);
       return;
     }
     setError(null);
+    submitting.current = true;
     setPhase("waiting");
     let res: PasteResult;
     try {
-      res = await onSubmit(value);
+      res = await (choice?.run ?? onSubmit)(value);
     } catch {
       res = { ok: false, message: "We couldn't reach the server. Check your connection and try again." };
     }
     if (!res.ok) {
+      submitting.current = false;
       setPhase("edit");
       setError(res.message);
       requestAnimationFrame(() => textRef.current?.focus());
@@ -196,7 +216,7 @@ export function PasteDialog({
                       id={`${titleId}-text`}
                       ref={textRef}
                       value={text}
-                      onChange={(e) => setText(e.target.value)}
+                      onChange={(e) => { setText(e.target.value); setError(null); }}
                       onKeyDown={(e) => {
                         // keyCode 229: Safari fires the Enter that confirms an IME
                         // candidate (Cangjie, Pinyin…) after compositionend.
@@ -238,18 +258,32 @@ export function PasteDialog({
                   <div className="mt-3">
                     <FormMessage>{error}</FormMessage>
                   </div>
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="flex items-center gap-2 text-[12.5px] text-fg-muted">
-                      <kbd className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-fg">
-                        Enter <CornerDownLeft className="size-3" />
-                      </kbd>
-                      to submit
-                      <span className="text-fg-subtle">· Shift + Enter for a new line</span>
-                    </p>
-                    <Button type="button" onClick={submit} disabled={busy} size="md">
-                      {submitLabel}
-                    </Button>
-                  </div>
+                  {choices ? (
+                    <div role="group" aria-label="Report options" className="free-length-choices mt-4 grid gap-2 sm:grid-cols-2">
+                      {choices.map((choice, i) => (
+                        <Button key={i} ref={i === 0 ? firstChoice : undefined} type="button"
+                          variant={i === 0 ? "secondary" : "primary"} disabled={busy || choice.disabled}
+                          onClick={() => submit(choice)}
+                          className="h-auto min-h-16 flex-col items-start gap-1 whitespace-normal rounded-2xl px-4 py-3 text-left">
+                          <span className="font-semibold">{choice.label}</span>
+                          <span className="text-xs font-normal text-fg-muted">{choice.detail}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="flex items-center gap-2 text-[12.5px] text-fg-muted">
+                        <kbd className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-fg">
+                          Enter <CornerDownLeft className="size-3" />
+                        </kbd>
+                        to submit
+                        <span className="text-fg-subtle">· Shift + Enter for a new line</span>
+                      </p>
+                      <Button type="button" onClick={() => submit()} disabled={busy} size="md">
+                        {submitLabel}
+                      </Button>
+                    </div>
+                  )}
                   {footnote && <div className={cn("mt-4 border-t border-[var(--line)] pt-3 text-[11.5px] leading-relaxed text-fg-subtle")}>{footnote}</div>}
                 </>
               )}

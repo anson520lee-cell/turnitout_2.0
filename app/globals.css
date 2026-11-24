@@ -4001,3 +4001,11 @@ body:has(> [data-navigation-pending]) { cursor: progress; }
   .nav-pending { background: var(--color-accent); }
   .nav-pending::before { display: none; }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .free-length-choices { animation: free-choice-reveal 180ms ease-out both; }
+  @keyframes free-choice-reveal {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}

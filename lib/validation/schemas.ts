@@ -1,12 +1,10 @@
 import { z } from "zod";
+import { maxPasteChars } from "@/config/app";
 import { billableChars } from "@/config/pricing";
 import { claimReference, MANUAL_PAYMENT_METHODS } from "@/config/payments";
 import { freeReportCharError, reportCharError } from "@/lib/orders/limits";
 
 export const screeningType = z.enum(["ai_screening", "similarity_screening", "combined_screening"]);
-
-/** Hard ceiling on pasted text, well above 29,000 words, to stop abuse. */
-const MAX_PASTE_CHARS = 400_000;
 
 /** Legacy file-upload screening orders. New orders are text only (below). */
 export const screeningOrderInput = z.object({
@@ -23,7 +21,7 @@ export const screeningOrderInput = z.object({
 export const screeningTextOrderInput = z.object({
   text: z
     .string()
-    .max(MAX_PASTE_CHARS, "That text is too long for one report.")
+    .max(maxPasteChars, "That text is too long for one report.")
     .transform((s) => s.trim())
     .superRefine((s, ctx) => {
       const problem = s ? reportCharError(billableChars(s)) : "Paste the text you want a report for.";
@@ -35,7 +33,7 @@ export const screeningTextOrderInput = z.object({
 export const freeReportOrderInput = z.object({
   text: z
     .string()
-    .max(MAX_PASTE_CHARS, "That text is too long for the daily free report.")
+    .max(maxPasteChars, "That text is too long for the daily free report.")
     .transform((s) => s.trim())
     .superRefine((s, ctx) => {
       const problem = s ? freeReportCharError(billableChars(s)) : "Paste the text you want a report for.";

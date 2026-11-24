@@ -28,6 +28,9 @@ export const freeReport = {
   perNetworkLimit: 3,
 } as const;
 
+/** Maximum raw input size before whitespace normalization. */
+export const maxPasteChars = 400_000;
+
 export const uploads = {
   maxBytes: 20 * 1024 * 1024,
   allowedMimeTypes: [
