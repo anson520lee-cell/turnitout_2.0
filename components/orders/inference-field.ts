@@ -37,7 +37,8 @@ function trace(input: number) {
 }
 function sample(fiber: Fiber, t: number) {
   const k = t * t * (3 - 2 * t);
-  return { x: fiber.start.x + (fiber.end.x - fiber.start.x) * t, y: fiber.start.y + (fiber.end.y - fiber.start.y) * k };
+  const horizontal = t * (1.5 + t * (t - 1.5));
+  return { x: fiber.start.x + (fiber.end.x - fiber.start.x) * horizontal, y: fiber.start.y + (fiber.end.y - fiber.start.y) * k };
 }
 function path(ctx: CanvasRenderingContext2D, fiber: Fiber) {
   const {start, end} = fiber;
@@ -99,7 +100,7 @@ export function mountInference(canvas: HTMLCanvasElement, onOutput: (count: numb
     canvas.width = base.width = Math.max(1, Math.round(rect.width * dpr));
     canvas.height = base.height = Math.max(1, Math.round(rect.height * dpr));
     width = canvas.width / 720;
-    height = Math.min(canvas.height / 290, width * 1.55);
+    height = Math.min(canvas.height / 345, width * 1.45);
     backdrop.setTransform(width,0,0,height,0,(canvas.height-height*330)/2);
     columns.forEach((x, i) => plane(backdrop, x, i));
     schedule();
@@ -169,6 +170,17 @@ export function mountInference(canvas: HTMLCanvasElement, onOutput: (count: numb
       signal.phase += dt * 3.1;
       if (signal.phase >= 4 || motion.matches) { deliver(signal.field); signals.splice(i,1); continue; }
       const section = Math.floor(signal.phase), t = signal.phase % 1;
+      if (section > 0 && t < .48) {
+        const x = columns[section - 1];
+        const decay = 1 - t / .48;
+        signal.field.activations[section - 1].forEach((energy, n) => {
+          const p = point(x, unitY(n));
+          ctx.fillStyle = "rgba(101,193,255," + energy * decay * .54 + ")";
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, 2 + 5 * energy, 2 + 3 * energy, -.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
       for (const fiber of signal.field.fibers[section]) {
         if (fiber.strength < .13) continue;
         ctx.lineWidth = 4.2;

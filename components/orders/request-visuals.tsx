@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { mountInference } from "./inference-field";
 import styles from "./request-visuals.module.css";
 
 export function ReportVisual({ className }: { className?: string }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
   const field = useRef<ReturnType<typeof mountInference>>(undefined);
+  const [ready, setReady] = useState(false);
   const [output, setOutput] = useState(0);
   const [input, setInput] = useState(46);
   const [streaming, setStreaming] = useState(false);
   const activePointer = useRef<number | null>(null);
-  useEffect(() => {
-    if (!canvas.current) return;
-    field.current = mountInference(canvas.current, setOutput);
-    return () => field.current?.stop();
+  const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    if (!canvas) return;
+    const mounted = mountInference(canvas, setOutput);
+    field.current = mounted;
+    setReady(Boolean(mounted));
+    return () => {
+      mounted?.stop();
+      field.current = undefined;
+    };
   }, []);
   function steer(value: number) {
     const next = Math.round(Math.max(0, Math.min(100, value)));
@@ -51,7 +56,7 @@ export function ReportVisual({ className }: { className?: string }) {
       }}
       onPointerUp={e => release(e.pointerId)} onPointerCancel={e => release(e.pointerId)}
       onLostPointerCapture={e => release(e.pointerId)}>
-      <canvas ref={canvas} className={styles.canvas} aria-hidden="true" />
+      <canvas ref={attachCanvas} className={styles.canvas} aria-hidden="true" />
       <div className={styles.axis} aria-hidden="true">
         <span>Input</span><span>Hidden layers</span><span>Output</span>
       </div>
@@ -59,7 +64,7 @@ export function ReportVisual({ className }: { className?: string }) {
     <footer className={styles.footer}>
       <div className={styles.actions}>
         <div className={styles.cta}>
-          <button type="button" onClick={() => field.current?.send()}>Send pulse <ArrowRight size={15} aria-hidden="true" /></button>
+          <button type="button" disabled={!ready} onClick={() => field.current?.send()}>Send pulse <ArrowRight size={15} aria-hidden="true" /></button>
           <span className={styles.tally} aria-label={`${output} pulses received at output`}>
             <i aria-hidden="true" />RX <b>{String(output).padStart(3,"0")}</b>
           </span>
