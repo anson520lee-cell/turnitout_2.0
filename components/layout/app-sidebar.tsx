@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutGrid },
   { href: "/orders", label: "Orders", icon: FileStack },
-  { href: "/services/screening", label: "Get Report", icon: FileCheck2 },
+  { href: "/reports/new", label: "Get Report", icon: FileCheck2 },
   { href: "/billing", label: "Billing & Credits", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -19,6 +19,7 @@ const nav = [
 const previewHref: Record<string, string> = {
   "/dashboard": "/preview/app",
   "/orders": "/preview/app/orders",
+  "/reports/new": "/preview/app/reports/new",
   "/billing": "/preview/app/billing",
   "/settings": "/preview/app/settings",
 };
@@ -64,6 +65,7 @@ export function AppSidebar({ email, isAdmin, credits, preview }: { email: string
             <li key={href} style={{ "--i": i } as CSSProperties}>
               <Link
                 href={to(href)}
+                prefetch={false}
                 // The sheet stays up, with the pressed page lit, until that page arrives (it closes when the path changes).
                 onClick={() => i === activeIdx && setOpenOn(null)}
                 aria-current={i === activeIdx ? "page" : undefined}

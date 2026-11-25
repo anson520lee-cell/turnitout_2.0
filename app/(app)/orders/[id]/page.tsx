@@ -143,7 +143,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                 stepMs={2200}
                 note="This usually takes a few seconds. The page updates by itself."
               />
-              <AutoRefresh every={5_000} className="relative mt-5" />
+              <AutoRefresh every={5_000} maxEvery={30_000} className="relative mt-5" />
               <p className="relative mt-4 text-center text-[12px] text-fg-subtle">
                 Still waiting after a few minutes?{" "}
                 <Link href={`/orders/${order.id}`} className="underline hover:text-fg">
@@ -178,7 +178,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                 <div className="min-w-0"><dt className="text-fg-subtle">Your reference</dt><dd className="mt-0.5 truncate">{pendingClaim.payer_reference}</dd></div>
                 <div><dt className="text-fg-subtle">Submitted</dt><dd className="mt-0.5">{formatDateTime(pendingClaim.created_at)}</dd></div>
               </dl>
-              <AutoRefresh every={10_000} className="relative mt-5" />
+              <AutoRefresh every={10_000} maxEvery={60_000} className="relative mt-5" />
             </Card>
           ) : (
             <Card strong className="app-plain p-5 sm:p-7">
@@ -295,7 +295,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
                 ? "Nothing was charged and your text has been deleted. You can start a new one whenever you like."
                 : "Writing Refinement is no longer offered, so this order was cancelled. Anything you paid for it was returned to your balance as credits, which you can use for reports."}
             </p>
-            <Link href="/services/screening" className={buttonClasses("primary", "lg", "mt-5")}>
+            <Link href="/reports/new" prefetch={false} className={buttonClasses("primary", "lg", "mt-5")}>
               Get a new report
             </Link>
           </Card>

@@ -20,6 +20,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|sitemap.xml|opengraph-image|api/stripe/webhook|api/payments/nowpayments/webhook|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|sitemap.xml|opengraph-image|api/stripe/webhook|api/payments/nowpayments/webhook|api/cron|services/screening(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // The public form is static, but its submissions still refresh the session.
+    { source: "/services/screening", has: [{ type: "header", key: "next-action" }] },
   ],
 };
