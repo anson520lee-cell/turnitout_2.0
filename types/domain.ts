@@ -19,6 +19,7 @@ export interface Order {
   status: OrderStatus;
   title: string;
   price: number;
+  daily_free_chars?: number;
   currency: string;
   word_count: number | null;
   instructions: string | null;

@@ -71,7 +71,7 @@ const chapters = [
     title: "A suggested rewrite beside each flagged sentence.",
     body: "Writing Refinement is an optional add-on for a finished report. Each flagged sentence gets a suggested rewrite, shown beside your own, and you choose, one by one.",
     facts: ["Optional add-on", "You choose"],
-    small: "Three times the price of the report, charged only when the suggestions are ready. They are suggestions: no result in any checker is promised.",
+    small: "Three times the regular full-length report price, charged only when the suggestions are ready. They are suggestions: no result in any checker is promised.",
     height: "lg:min-h-[125vh]",
   },
 ] as const;

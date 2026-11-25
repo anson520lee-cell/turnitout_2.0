@@ -3,6 +3,18 @@ import assert from "node:assert/strict";
 import { freeReportCharError } from "../lib/orders/limits";
 import { nextHkMidnight } from "../lib/free-report-time";
 import { freeReport } from "../config/app";
+import { reportPrice } from "../config/pricing";
+import { orderAmountParts } from "../config/payments";
+
+test("the daily allowance covers the first 4,000 characters and waives the regular minimum", () => {
+  const quote = (chars: number) => reportPrice(chars, freeReport.maxChars);
+  for (const [chars, cents] of [[4000, 0], [4001, 100], [5000, 100], [5001, 200], [12000, 800], [24000, 800], [24001, 900], [100000, 4000]]) {
+    assert.equal(quote(chars), cents, String(chars));
+  }
+  assert.equal(orderAmountParts("alipay", quote(5000)).main, "HK$0.98");
+  assert.equal(reportPrice(5000), 500);
+  assert.equal(reportPrice(500), 200);
+});
 
 test("daily free report accepts 500 to 4,000 characters only", () => {
   assert.equal(freeReportCharError(freeReport.minChars), null);

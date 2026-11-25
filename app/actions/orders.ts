@@ -7,7 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { billableChars, currency, formatCredits, reportPrice, screeningPrice, toCredits } from "@/config/pricing";
 import { reportService, serviceLabels } from "@/config/services";
 import { acceptsClaims, isDirectPayMethod, manualPayments, orderAmountText } from "@/config/payments";
-import { uploads } from "@/config/app";
+import { freeReport, uploads } from "@/config/app";
+import { ipHash } from "@/lib/network";
 import {
   freeReportOrderInput,
   paymentClaimInput,
@@ -109,14 +110,20 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
   const text = parsed.data.text;
   const words = countWords(text);
   const chars = billableChars(text);
-  const price = reportPrice(chars);
+  const allowance = parsed.data.useDailyAllowance ? freeReport.maxChars : 0;
+  if (allowance && chars <= allowance) return { ok: false, message: "Use the free report option for this text." };
+  const price = reportPrice(chars, allowance);
   const db = createAdminClient();
-  const { data: order, error } = await db
+  const title = (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Report", chars, "characters");
+  const { data: order, error } = allowance ? await db.rpc("create_daily_overage_order", {
+    p_user: user.id, p_text: text, p_words: words, p_title: title, p_price: price,
+    p_free_chars: allowance, p_ip_hash: await ipHash(), p_ip_limit: freeReport.perNetworkLimit,
+  }) : await db
     .from("orders")
     .insert({
       user_id: user.id,
       service_type: reportService,
-      title: (isAdminUser(user) ? ADMIN_TEST_PREFIX : "") + autoTitle("Report", chars, "characters"),
+      title,
       price,
       currency,
       word_count: words,
@@ -125,6 +132,9 @@ export async function createScreeningTextOrder(input: unknown): Promise<{ ok: tr
     })
     .select("id")
     .single();
+  if (error?.code === "P4001" || error?.code === "P4002") {
+    return { ok: false, message: "Today's free allowance is already used for this account or network. Open your existing order or choose a regular paid report." };
+  }
   if (error || !order) return { ok: false, message: "We couldn't create your report request. Please try again." };
 
   await audit("order_created", { actorId: user.id, orderId: order.id, detail: { service: reportService, words, chars, source: "paste" } });

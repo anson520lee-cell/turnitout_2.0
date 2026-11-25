@@ -25,7 +25,7 @@ import { rewriteCredits } from "@/lib/auto-report/rewrite";
 import { ACTIVE_STATUSES, isScreening, statusMeta } from "@/lib/orders/status";
 import { uuid } from "@/lib/validation/schemas";
 import { serviceLabels } from "@/config/services";
-import { CREDITS_PER_USD, formatCredits, toCredits, topUp } from "@/config/pricing";
+import { billableChars, CREDITS_PER_USD, formatCredits, toCredits, topUp } from "@/config/pricing";
 import { directPayMethods, manualPayments, orderAmountParts, paymentReference } from "@/config/payments";
 import { devPaymentsEnabled } from "@/lib/env";
 import { getCreditBalance } from "@/lib/credits";
@@ -47,6 +47,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
   const order = await repriceUnpaid(bundle.order);
   const screeningOrder = isScreening(order.service_type);
   const unpaid = order.status === "awaiting_payment";
+  const freeChars = order.daily_free_chars ?? 0;
   const pendingClaim = unpaid ? claims.find((c) => c.status === "pending") ?? null : null;
   // Back from Stripe before its webhook has marked the order paid: wait for
   // it (the page refreshes itself) instead of offering to pay again.
@@ -127,6 +128,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/or
         <RefinementResult orderId={order.id} original={order.source_text} revised={refinement.revised_text} notes={refinement.reviewer_notes} />
       )}
 
+      {unpaid && freeChars > 0 && order.source_text && (
+        <p className="mb-4 text-sm text-fg-muted">
+          Daily allowance applied · {freeChars.toLocaleString("en-HK")} characters free · {(billableChars(order.source_text) - freeChars).toLocaleString("en-HK")} extra characters · {formatCredits(order.price)}
+        </p>
+      )}
       {unpaid && (
         <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
           {confirmingCard ? (

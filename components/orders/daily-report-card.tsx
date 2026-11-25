@@ -7,7 +7,7 @@ import { createFreeReportOrder, createScreeningTextOrder } from "@/app/actions/o
 import { PasteDialog } from "@/components/ui/paste-dialog";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { billableChars, reportPrice, reportPricing } from "@/config/pricing";
+import { billableChars, formatCredits, reportPrice, reportPricing } from "@/config/pricing";
 import { freeReport, maxPasteChars } from "@/config/app";
 import { orderAmountParts } from "@/config/payments";
 import { reportService } from "@/config/services";
@@ -115,7 +115,7 @@ export function DailyReportCard({
   }
 
   async function startFull(text: string) {
-    const res = await createScreeningTextOrder({ text });
+    const res = await createScreeningTextOrder({ text, useDailyAllowance: true });
     if (!res.ok) return res;
     track("order_created", { service: reportService, from: "free_length_choice" });
     router.push(`/orders/${res.orderId}?created=1`);
@@ -202,12 +202,13 @@ export function DailyReportCard({
           const chars = billableChars(text);
           if (chars <= freeReport.maxChars) return;
           const tooLong = chars > reportPricing.maxChars || text.trim().length > maxPasteChars;
-          const cost = orderAmountParts("alipay", reportPrice(chars)).main;
+          const price = reportPrice(chars, freeReport.maxChars);
+          const cost = orderAmountParts("alipay", price).main;
           return [
             { label: `First ${n(freeReport.maxChars)} characters · Free`,
               detail: "Use today’s free report on this excerpt.", run: value => startFree(freeExcerpt(value)) },
             { label: tooLong ? "Full report unavailable" : `All ${n(chars)} characters · ${cost}`,
-              detail: tooLong ? `Shorten your text for a full report (up to ${n(reportPricing.maxChars)} characters).` : "Continue to payment · Alipay or credits",
+              detail: tooLong ? `Shorten your text for a full report (up to ${n(reportPricing.maxChars)} characters).` : `Use today’s allowance. Pay for the extra ${n(chars - freeReport.maxChars)} characters with Alipay or ${formatCredits(price)}.`,
               disabled: tooLong, run: startFull },
           ];
         }}

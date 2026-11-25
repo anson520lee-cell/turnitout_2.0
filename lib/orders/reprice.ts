@@ -11,11 +11,11 @@ import type { Order } from "@/types/domain";
  * shown or paid. Orders that are paid, free (price 0), or have no stored text
  * (old file uploads) are left alone.
  */
-export function currentPriceOf(order: Pick<Order, "service_type" | "source_text" | "status" | "price">): number | null {
+export function currentPriceOf(order: Pick<Order, "service_type" | "source_text" | "status" | "price" | "daily_free_chars">): number | null {
   if (order.status !== "awaiting_payment" || order.price <= 0 || !order.source_text) return null;
   const chars = billableChars(order.source_text);
   if (order.service_type === "refinement") return refinementPrice(chars);
-  return isScreening(order.service_type) ? reportPrice(chars) : null;
+  return isScreening(order.service_type) ? reportPrice(chars, order.daily_free_chars) : null;
 }
 
 export async function repriceUnpaid<T extends Order>(order: T): Promise<T> {

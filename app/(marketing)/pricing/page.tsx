@@ -26,7 +26,7 @@ export default function PricingPage() {
         eyebrow="Pricing"
         title="Start free."
         outline="Pay only for what you check."
-        body={`Every account gets ${freeReport.dailyLimit} full report a day free (up to ${freeReport.maxChars.toLocaleString("en-HK")} characters). Longer texts: the AI-writing risk report is priced by length.`}
+        body={`Use your daily free report to cover the first ${freeReport.maxChars.toLocaleString("en-HK")} characters. For a longer text, pay only for the extra characters, from 1 credit.`}
       />
       <Container>
         <PricingCards headingAs="h2" />
@@ -43,7 +43,7 @@ export default function PricingPage() {
                 spaces and line breaks count once. You see the exact price before you pay, and you can pay just that one report by Alipay (no top-up, no minimum) or use credits. A new report after you revise is a new order.
               </p>
               <p className="mt-3">
-                <span className="font-medium text-fg">Writing Refinement</span> is an optional add-on after a finished report: it rewrites each flagged sentence to bring the AI score down, re-checked by the same detector, with what still reads as AI rewritten again. A suggestion may change what a sentence says (numbers, names, quotations and citations are kept), and you choose which to use. It costs {rewritePricing.multiple} times the price of that report and is charged only when suggestions are made. It does not change your report and does not guarantee any result in any checker.
+                <span className="font-medium text-fg">Writing Refinement</span> is an optional add-on after a finished report: it rewrites each flagged sentence to bring the AI score down, re-checked by the same detector, with what still reads as AI rewritten again. A suggestion may change what a sentence says (numbers, names, quotations and citations are kept), and you choose which to use. It costs {rewritePricing.multiple} times the regular full-length report price and is charged only when suggestions are made. It does not change your report and does not guarantee any result in any checker.
               </p>
               <table className="price-table mt-5">
                 <caption className="sr-only">Example report prices by length</caption>
