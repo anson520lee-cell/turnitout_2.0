@@ -40,6 +40,7 @@ export function ReportScan({
   speed = 1,
   skipIntro = false,
   canSkip = false,
+  stableIds = false,
 }: {
   text: string;
   feed: ReportFeed;
@@ -53,11 +54,13 @@ export function ReportScan({
   skipIntro?: boolean;
   /** One admin account (decided on the server): may skip the animation and wait for the report. */
   canSkip?: boolean;
+  stableIds?: boolean;
 }) {
   const reduce = usePrefersReducedMotion();
-  const plan = useMemo(() => scanPlan(text), [text]);
-  const total = plan.sentences.length;
   const result = feed.result;
+  const stablePlan = result ? result.reviewFormat === 1 : stableIds;
+  const plan = useMemo(() => scanPlan(text, stablePlan), [text, stablePlan]);
+  const total = plan.sentences.length;
   const ratings = useMemo(() => (result ? ratingsBySentence(result) : null), [result]);
   const duration = scanDurationMs(plan.chars);
 

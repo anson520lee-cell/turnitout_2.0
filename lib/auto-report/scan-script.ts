@@ -9,8 +9,8 @@
  * reason or a number.
  */
 
-import { chunkText } from "@/lib/chunking";
-import { splitSentences } from "@/lib/recheck";
+import { chunkSentences } from "@/lib/chunking";
+import { splitReviewSentences, splitSentences } from "@/lib/recheck";
 import { PIECE_SIZE, SCORE_BANDS, overallFor, type AutoReportResult, type Level, type Overall, type ReportSentence, type ScoreCurve } from "./stitch";
 
 export interface ScanSentence {
@@ -36,8 +36,8 @@ export interface ScanPlan {
   pieces: number;
 }
 
-export function scanPlan(text: string): ScanPlan {
-  const split = splitSentences(text);
+export function scanPlan(text: string, stableIds = false): ScanPlan {
+  const split = stableIds ? splitReviewSentences(text) : splitSentences(text);
   let at = 0;
   const sentences: ScanSentence[] = split.map((x, i) => {
     const start = at;
@@ -55,7 +55,7 @@ export function scanPlan(text: string): ScanPlan {
     paragraphs,
     chars: text.trim().length,
     words: sentences.reduce((sum, x) => sum + x.words.length, 0),
-    pieces: text.trim() ? chunkText(text, PIECE_SIZE).length : 0,
+    pieces: chunkSentences(split, PIECE_SIZE).length,
   };
 }
 

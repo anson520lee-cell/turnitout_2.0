@@ -8,6 +8,10 @@
 
 import { parseReport, type Risk } from "@/lib/report-format";
 import { splitSentences } from "@/lib/recheck";
+import type { PreparedReview } from "@/lib/auto-report/review";
+import { reportOverall, reportScore, type AutoReportResult } from "@/lib/auto-report/stitch";
+
+export const EVAL_PIPELINE = "validated-report-v1";
 
 export interface TruthSentence {
   p: number;
@@ -62,6 +66,13 @@ export interface Metrics {
   overall: Risk | null;
   /** The model ran out of output budget and the report ends mid-way, so the scores are unreliable. */
   truncated?: boolean;
+  pipeline?: string;
+  basis?: string;
+  aiRate?: number;
+  referenceScore?: string;
+  errorPoints?: number;
+  labelsUnavailable?: boolean;
+  counted?: Confusion;
 }
 
 const key = (p: number, s: number) => `${p}:${s}`;
@@ -109,6 +120,11 @@ export function scoreReport(report: string, truth: TruthSentence[]): Metrics {
     else if (/^overall risk/i.test(b.text) && b.risk) overall = b.risk;
   }
 
+  return compareFlags(truth, high, medium, uncertain, paragraphRisk, overall);
+}
+
+function compareFlags(truth: TruthSentence[], high: Set<string>, medium: Set<string>, uncertain: Set<string>,
+  paragraphRisk: Map<number, Risk>, overall: Risk | null): Metrics {
   const hm = new Set([...high, ...medium]);
   const any = new Set([...hm, ...uncertain]);
 
@@ -146,6 +162,59 @@ export function scoreReport(report: string, truth: TruthSentence[]): Metrics {
     paragraphAccuracyLoose: share((x) => x.agreesLoose),
     overall,
   };
+}
+
+export function scoreReviewedReport(review: PreparedReview, report: AutoReportResult, storedTruth: TruthSentence[], reference: string | null): Metrics {
+  const hasLabels = storedTruth.length > 0 && storedTruth.length === (review.sentences.at(-1)?.legacyLast ?? -1) + 1;
+  const truth = hasLabels ? review.sentences.map(s => ({
+    p: s.p,
+    s: s.s,
+    flagged: storedTruth.slice(s.legacyFirst, s.legacyLast + 1).some(mark => mark.flagged),
+  })) : [];
+  const high = new Set<string>();
+  const medium = new Set<string>();
+  const uncertain = new Set<string>();
+  const counted = new Set<string>();
+  const paragraphRisk = new Map<number, Risk>();
+  for (const para of report.paragraphs) {
+    paragraphRisk.set(para.p, para.risk);
+    for (const mark of para.sentences) {
+      const position = key(para.p, review.sentences[mark.n - 1].s);
+      if (mark.risk === "high") high.add(position);
+      if (mark.risk === "medium") medium.add(position);
+      if (mark.risk === "uncertain") uncertain.add(position);
+      if (mark.counts) counted.add(position);
+    }
+  }
+  const overall = reportOverall(report.summary);
+  const aiRate = Math.round(reportScore(report.summary) * 100);
+  const metrics = compareFlags(truth, high, medium, uncertain, paragraphRisk,
+    overall === "elevated" ? "high" : overall === "moderate" ? "medium" : "low");
+  return {
+    ...metrics,
+    sentences: report.summary.sentences,
+    pipeline: EVAL_PIPELINE,
+    aiRate,
+    labelsUnavailable: !hasLabels,
+    ...(hasLabels ? { counted: confusion(counted, truth) } : {}),
+    ...(reference === null ? {} : {
+      referenceScore: reference,
+      errorPoints: reference === "*" ? Math.max(1 - aiRate, aiRate - 19, 0) : Math.abs(aiRate - Number(reference)),
+    }),
+  };
+}
+
+export function prepareEvalTruth(body: string, flaggedLines: string, reference: string | null) {
+  const pasted = Boolean(flaggedLines.trim());
+  if (pasted && (reference === "0" || reference === "*")) {
+    return { ok: false, message: "Clear the pasted highlights for this Turnitin result." } as const;
+  }
+  const { truth, unmatched } = truthFromFlaggedLines(body, flaggedLines);
+  if (!truth.length) return { ok: false, message: "No reviewable sentences were found." } as const;
+  const flagged = truth.filter(t => t.flagged).length;
+  if (pasted && !flagged) return { ok: false, message: "None of the pasted highlights matched. Check that the essay and highlights are from the same report." } as const;
+  if (!pasted && reference === null) return { ok: false, message: "Enter the Turnitin score or paste its highlighted sentences." } as const;
+  return { ok: true, truth: pasted || reference === "0" ? truth : [], flagged, unmatched } as const;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();

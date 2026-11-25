@@ -15,6 +15,7 @@ export interface EvalCaseView {
   note: string | null;
   sentences: number;
   flagged: number;
+  referenceScore: string | null;
   createdAt: string;
   runs: EvalRunSummary[];
 }
@@ -27,19 +28,25 @@ const mean = (xs: (number | null)[]): number | null => {
 };
 
 interface Group {
+  key: string;
   label: string;
   runs: EvalRunSummary[];
 }
 
 /** Complete runs grouped by model, reasoning and prompt, so the same settings can be averaged. */
 function groupRuns(runs: EvalRunSummary[]): Group[] {
-  const groups = new Map<string, EvalRunSummary[]>();
+  const groups = new Map<string, Group>();
   for (const r of runs) {
     if (r.metrics.truncated) continue;
-    const label = `${r.model} · reasoning ${r.effort} · ${r.promptLabel}`;
-    groups.set(label, [...(groups.get(label) ?? []), r]);
+    const version = r.metrics.basis ? "report " + r.metrics.basis.slice(0, 6) : "legacy";
+    const label = `${r.model} · reasoning ${r.effort} · ${r.promptLabel} · ${version}`;
+    const setting = r.metrics.basis ?? r.promptChars;
+    const key = label + " · " + setting;
+    const existing = groups.get(key);
+    if (existing) existing.runs.push(r);
+    else groups.set(key, { key, label, runs: [r] });
   }
-  return [...groups.entries()].map(([label, rs]) => ({ label, runs: rs }));
+  return [...groups.values()];
 }
 
 function Averages({ runs }: { runs: EvalRunSummary[] }) {
@@ -53,6 +60,7 @@ function Averages({ runs }: { runs: EvalRunSummary[] }) {
           <tr className="border-b border-[var(--line)]">
             <th className="py-2 pr-3 font-medium">Setting</th>
             <th className="py-2 pr-3 font-medium">Runs</th>
+            <th className="py-2 pr-3 font-medium">Avg website score</th>
             <th className="py-2 pr-3 font-medium">High: precision / recall</th>
             <th className="py-2 pr-3 font-medium">High+Med: precision / recall</th>
             <th className="py-2 pr-3 font-medium">Paragraphs right (High)</th>
@@ -61,12 +69,13 @@ function Averages({ runs }: { runs: EvalRunSummary[] }) {
         </thead>
         <tbody className="divide-y divide-[var(--line)] text-fg-muted">
           {groups.map((g) => (
-            <tr key={g.label}>
+            <tr key={g.key}>
               <td className="py-2 pr-3 text-fg">{g.label}</td>
               <td className="py-2 pr-3">{g.runs.length}</td>
-              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.high.precision)))} / {pct(mean(g.runs.map((r) => r.metrics.high.recall)))}</td>
-              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.highMedium.precision)))} / {pct(mean(g.runs.map((r) => r.metrics.highMedium.recall)))}</td>
-              <td className="py-2 pr-3">{pct(mean(g.runs.map((r) => r.metrics.paragraphAccuracyStrict)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map(r => r.metrics.aiRate === undefined ? null : r.metrics.aiRate / 100)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map(r => r.metrics.labelsUnavailable ? null : r.metrics.high.precision)))} / {pct(mean(g.runs.map(r => r.metrics.labelsUnavailable ? null : r.metrics.high.recall)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map(r => r.metrics.labelsUnavailable ? null : r.metrics.highMedium.precision)))} / {pct(mean(g.runs.map(r => r.metrics.labelsUnavailable ? null : r.metrics.highMedium.recall)))}</td>
+              <td className="py-2 pr-3">{pct(mean(g.runs.map(r => r.metrics.labelsUnavailable ? null : r.metrics.paragraphAccuracyStrict)))}</td>
               <td className="py-2">{Math.round(mean(g.runs.map((r) => r.ms / 1000)) ?? 0)}s</td>
             </tr>
           ))}
@@ -94,8 +103,18 @@ function ConfusionRow({ label, c }: { label: string; c: Confusion }) {
 const riskWord = (r: string | null) => (r ? r.charAt(0).toUpperCase() + r.slice(1) : "–");
 
 function RunDetail({ m }: { m: Metrics }) {
+  const score = m.aiRate === undefined ? null : (
+    <p className="text-[13px] font-medium">
+      Website AI score {m.aiRate}%
+      {m.referenceScore !== undefined && <span className="text-fg-muted"> · Turnitin {m.referenceScore}% · {m.errorPoints} pp from {m.referenceScore === "*" ? "the 1–19% interval" : "the reference"}</span>}
+    </p>
+  );
   return (
     <div className="mt-3 space-y-4">
+      {score}
+      {m.labelsUnavailable ? (
+        <p className="text-[12px] text-fg-subtle">Sentence comparisons require matched Turnitin highlights or a confirmed 0% result.</p>
+      ) : <>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-left text-[12.5px] tabular-nums">
           <thead className="text-fg-subtle">
@@ -110,6 +129,7 @@ function RunDetail({ m }: { m: Metrics }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--line)] text-fg-muted">
+            {m.counted && <ConfusionRow label="Counted in the website score" c={m.counted} />}
             <ConfusionRow label="High only" c={m.high} />
             <ConfusionRow label="High + Medium" c={m.highMedium} />
             <ConfusionRow label="High + Medium + Uncertain" c={m.anyFlag} />
@@ -141,6 +161,7 @@ function RunDetail({ m }: { m: Metrics }) {
           Paragraphs right: {pct(m.paragraphAccuracyStrict)} counting only High as risky, {pct(m.paragraphAccuracyLoose)} counting High and Medium. Overall verdict: {riskWord(m.overall)}.
         </p>
       </div>
+      </>}
     </div>
   );
 }
@@ -160,7 +181,8 @@ function CaseCard({ c }: { c: EvalCaseView }) {
         <div>
           <h3 className="text-[14px] font-semibold">{c.name}</h3>
           <p className="mt-0.5 text-[12.5px] text-fg-muted">
-            {c.sentences} sentences, {c.flagged} flagged by Turnitin · added {formatDateTime(c.createdAt)}
+            {c.referenceScore !== null && <>Turnitin {c.referenceScore}% · </>}
+            {c.sentences ? `${c.flagged} of ${c.sentences} stored sentences flagged` : "Document score only"} · added {formatDateTime(c.createdAt)}
           </p>
           {c.note && <p className="mt-0.5 text-[12px] text-fg-subtle">{c.note}</p>}
         </div>
@@ -234,6 +256,7 @@ function CaseCard({ c }: { c: EvalCaseView }) {
             <Badge tone="progress">{latest.model}</Badge>
             <Badge>reasoning {latest.effort}</Badge>
             <Badge>{latest.promptLabel}</Badge>
+            {!latest.metrics.pipeline && <Badge>Legacy evaluation</Badge>}
             <span>{formatDateTime(latest.createdAt)} · {Math.round(latest.ms / 100) / 10}s · {latest.tokens.toLocaleString("en-HK")} tokens</span>
           </div>
           {latest.metrics.truncated && (
@@ -270,9 +293,9 @@ function CaseCard({ c }: { c: EvalCaseView }) {
                     <td className="py-2 pr-3 text-fg">{formatDateTime(r.createdAt)}</td>
                     <td className="py-2 pr-3">{r.model} · {r.effort}</td>
                     <td className="py-2 pr-3">{r.promptLabel} ({r.promptChars.toLocaleString("en-HK")})</td>
-                    <td className="py-2 pr-3">{pct(r.metrics.high.precision)}</td>
-                    <td className="py-2 pr-3">{pct(r.metrics.highMedium.precision)} / {pct(r.metrics.highMedium.recall)}</td>
-                    <td className="py-2">{pct(r.metrics.paragraphAccuracyStrict)}</td>
+                    <td className="py-2 pr-3">{pct(r.metrics.labelsUnavailable ? null : r.metrics.high.precision)}</td>
+                    <td className="py-2 pr-3">{pct(r.metrics.labelsUnavailable ? null : r.metrics.highMedium.precision)} / {pct(r.metrics.labelsUnavailable ? null : r.metrics.highMedium.recall)}</td>
+                    <td className="py-2">{pct(r.metrics.labelsUnavailable ? null : r.metrics.paragraphAccuracyStrict)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -290,6 +313,7 @@ function AddCase() {
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
   const [flagged, setFlagged] = useState("");
+  const [referenceScore, setReferenceScore] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ tone: "error" | "success" | "info"; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -305,7 +329,7 @@ function AddCase() {
     <section className="rounded-2xl border border-[var(--line)] bg-white/[0.02] p-4 sm:p-5">
       <h3 className="text-[14px] font-semibold">New test case</h3>
       <p className="mt-1 text-[12.5px] text-fg-muted">
-        An essay and the sentences Turnitin flagged in it. Use the essay body only (no title or references), the same text you would paste into the scan.
+        Use the same essay body for both reports. Paste the highlighted text when Turnitin provides it.
       </p>
       <div className="mt-4 space-y-4">
         <Field label="Name" htmlFor="eval-name">
@@ -314,7 +338,10 @@ function AddCase() {
         <Field label="Essay text" htmlFor="eval-body" hint="Up to 8,000 characters. Blank lines separate paragraphs.">
           <Textarea id="eval-body" value={body} onChange={(e) => setBody(e.target.value)} className="h-48 resize-y text-[13px]" />
         </Field>
-        <Field label="Sentences Turnitin flagged" htmlFor="eval-flagged" hint="One sentence per line, copied from the Turnitin report's highlighted text. A fragment of a sentence is enough.">
+        <Field label="Turnitin AI score" htmlFor="eval-reference" hint="Enter the displayed percentage, including 0, or * for a withheld score. You can leave this blank if you paste highlights.">
+          <Input id="eval-reference" value={referenceScore} onChange={e => setReferenceScore(e.target.value)} maxLength={4} />
+        </Field>
+        <Field label="Sentences Turnitin flagged" htmlFor="eval-flagged" hint="Paste one sentence or fragment per line. Leave blank for 0% or *%.">
           <Textarea id="eval-flagged" value={flagged} onChange={(e) => setFlagged(e.target.value)} className="h-40 resize-y text-[13px]" />
         </Field>
         <Field label="Note (optional)" htmlFor="eval-note">
@@ -329,15 +356,16 @@ function AddCase() {
           onClick={() =>
             start(async () => {
               setMessage(null);
-              const res = await addEvalCase({ name, body, flagged, note });
+              const res = await addEvalCase({ name, body, flagged, referenceScore, note });
               if (!res.ok) return setMessage({ tone: "error", text: res.message });
               setMessage({
                 tone: res.unmatched.length ? "info" : "success",
-                text: `Saved: ${res.flagged} of ${res.sentences} sentences marked as flagged.${res.unmatched.length ? ` ${res.unmatched.length} pasted line(s) matched nothing: ${res.unmatched.map((u) => `“${u.slice(0, 50)}…”`).join(", ")}` : ""}`,
+                text: res.sentences === 0 ? "Saved the document score." : `Saved: ${res.flagged} of ${res.sentences} sentences marked as flagged.${res.unmatched.length ? ` ${res.unmatched.length} pasted line(s) matched nothing: ${res.unmatched.map((u) => `“${u.slice(0, 50)}…”`).join(", ")}` : ""}`,
               });
               setName("");
               setBody("");
               setFlagged("");
+              setReferenceScore("");
               setNote("");
               router.refresh();
             })

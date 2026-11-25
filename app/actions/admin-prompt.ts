@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
-import { DeepSeekError, DeepSeekRunError, REASONING_EFFORTS, deepseekEnabled, deepseekRun } from "@/lib/deepseek";
+import { DeepSeekError, DeepSeekRunError, REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
 import { logModelCall } from "@/lib/model-usage";
 import {
   getModelSetting,
@@ -14,7 +14,8 @@ import {
   saveModelSetting,
   saveScanReportPrompt,
 } from "@/lib/site-settings";
-import { DRAFT_GUARD } from "@/lib/local-model/prompts";
+import { prepareReview, reviewSystem } from "@/lib/auto-report/review";
+import { finishProductionReview, REVIEW_CONTEXT_CHARS, requestReviewPiece } from "@/lib/auto-report/review-model";
 
 type Result = { ok: true } | { ok: false; message: string };
 
@@ -119,22 +120,24 @@ export async function testReportPrompt(input: unknown): Promise<PromptTestResult
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid test." };
   const setting = await getModelSetting();
   try {
-    const result = await deepseekRun({
-      system: `${parsed.data.prompt}\n\n${DRAFT_GUARD}`,
-      user: `<draft>\n${parsed.data.text}\n</draft>`,
-      maxTokens: 24_000,
-      model: setting.model,
-      effort: parsed.data.effort ?? setting.effort,
-    });
-    await logModelCall("prompt_test", { ok: true, result });
+    const review = prepareReview(parsed.data.text, undefined, REVIEW_CONTEXT_CHARS);
+    const system = reviewSystem(parsed.data.prompt, true);
+    const effort = parsed.data.effort ?? setting.effort;
+    const pieces = await Promise.all(review.pieces.map(async piece => {
+      const checked = await requestReviewPiece(piece, system, { model: setting.model, effort });
+      await logModelCall("prompt_test", { ok: true, result: checked.result });
+      return checked;
+    }));
+    const report = finishProductionReview(review, new Map(pieces.flatMap(({ read }, index) => read ? [[index, read]] : [])));
+    if (!report) return { ok: false, message: "The reviewer returned an incomplete or invalid result. No score was produced." };
     return {
       ok: true,
-      report: result.text,
-      model: result.model,
-      effort: result.effort,
-      seconds: Math.round(result.ms / 100) / 10,
-      tokens: result.usage.promptTokens + result.usage.completionTokens,
-      truncated: result.truncated,
+      report: JSON.stringify({ summary: report.summary, paragraphs: report.paragraphs }, null, 2),
+      model: setting.model,
+      effort,
+      seconds: Math.round(Math.max(...pieces.map(p => p.result.ms)) / 100) / 10,
+      tokens: pieces.reduce((sum, p) => sum + p.result.usage.promptTokens + p.result.usage.completionTokens, 0),
+      truncated: false,
     };
   } catch (e) {
     if (e instanceof DeepSeekRunError) await logModelCall("prompt_test", { ok: false, error: e });

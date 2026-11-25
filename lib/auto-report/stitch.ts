@@ -9,10 +9,11 @@
 
 import { chunkText, type Chunk } from "@/lib/chunking";
 import { parseReport, type Risk } from "@/lib/report-format";
-import { splitSentences } from "@/lib/recheck";
+import { splitSentences, type Sentence } from "@/lib/recheck";
 
 export type Level = "high" | "medium" | "uncertain" | "low";
 export type Overall = "low" | "moderate" | "elevated";
+export type Signal8Mode = "countable" | "supporting";
 
 export interface ReportSentence {
   /** 1-based place in the whole text. */
@@ -21,6 +22,8 @@ export interface ReportSentence {
   risk: Level;
   /** Why the reviewer flagged it (signals), when it did. */
   why?: string;
+  /** Verbatim evidence checked against this sentence. */
+  evidence?: string;
   /** The question to ask yourself, when the reviewer gave one. */
   ask?: string;
   /** Counts toward the AI score (see countsTowardScore). Reports made before 2026-10-24 never set it. */
@@ -43,6 +46,8 @@ export interface GrammarNote {
 }
 
 export interface AutoReportSummary {
+  /** Final calibrated score (0 to 1) for versioned reports only. */
+  calibrated?: number;
   words: number;
   sentences: number;
   paragraphs: number;
@@ -61,7 +66,10 @@ export interface AutoReportSummary {
 }
 
 export interface AutoReportResult {
+  calibration?: { version: string; confirmed: number[] };
   version: 1;
+  /** Stable sentence IDs and a validated response per piece. Absent on older reports. */
+  reviewFormat?: 1;
   pieces: { total: number; reviewed: number };
   summary: AutoReportSummary;
   paragraphs: ReportParagraph[];
@@ -146,21 +154,33 @@ export function countsTowardScore(risk: Level, why?: string): boolean {
   return Boolean(cited && /\b[789][a-z]?\b/i.test(cited[1]));
 }
 
+function countsStructured(risk: Level, signals: number[], mode: Signal8Mode): boolean {
+  const hasStrongSignal = signals.includes(7) || signals.includes(9);
+  if (mode === "supporting" && signals.includes(8)) {
+    if (risk !== "medium" && risk !== "high") return false;
+    const corroborating = new Set(signals.filter(signal => signal >= 1 && signal <= 9 && signal !== 8));
+    return hasStrongSignal || (risk === "high" && corroborating.size >= 2);
+  }
+  return risk === "high" || (risk === "medium" && (hasStrongSignal || signals.includes(8)));
+}
+
 /** The share and curve a report's AI score is read from: counted sentences when the report has them, else all flagged ones. */
 export function scoreBasis(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): { share: number; curve: ScoreCurve } {
   return summary.countedShare === undefined ? { share: summary.flaggedShare, curve: SCORE_CURVE } : { share: summary.countedShare, curve: COUNTED_CURVE };
 }
 
 /** A report's AI score, 0 to 1. */
-export function reportScore(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): number {
+export function reportScore(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare" | "calibrated">): number {
+  if (summary.calibrated !== undefined) return summary.calibrated;
   const { share, curve } = scoreBasis(summary);
   return aiScore(share, curve);
 }
 
 /** A report's overall band, on the same basis as its score. */
-export function reportOverall(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare">): Overall {
-  const { share, curve } = scoreBasis(summary);
-  return overallFor(share, curve);
+export function reportOverall(summary: Pick<AutoReportSummary, "flaggedShare" | "countedShare" | "calibrated">): Overall {
+  const score = reportScore(summary);
+  if (score >= SCORE_BANDS.elevated) return "elevated";
+  return score >= SCORE_BANDS.moderate ? "moderate" : "low";
 }
 
 const toLevel = (r: Risk | undefined): Level => (r === "high" || r === "medium" || r === "uncertain" ? r : "low");
@@ -174,9 +194,11 @@ interface SentenceRead {
   risk: Level;
   why?: string;
   ask?: string;
+  signals?: number[];
+  evidence?: string;
 }
 
-interface PieceRead {
+export interface PieceRead {
   sentences: Map<number, SentenceRead>;
   paragraphs: Map<number, { risk: Level; note?: string }>;
   grammar: { n: number; issue: string }[];
@@ -235,17 +257,29 @@ function derivedParagraphRisk(sentences: ReportSentence[]): Level {
 export function stitchReport(text: string, answers: PieceAnswer[], size = PIECE_SIZE): AutoReportResult {
   const all = splitSentences(text);
   const chunks = chunkText(text, size);
+  const reads = new Map<number, PieceRead>();
+  for (const a of answers) {
+    const chunk = chunks[a.idx];
+    if (!chunk || !a.ok || a.truncated) continue;
+    const read = readPiece(a.report, chunk);
+    if (read) reads.set(a.idx, read);
+  }
+  return assembleReport(text, all, chunks, reads);
+}
+
+export function assembleReport(
+  text: string, all: readonly Sentence[], chunks: readonly Chunk[], reads: ReadonlyMap<number, PieceRead>,
+  signal8: Signal8Mode = "countable",
+): AutoReportResult {
   const bySentence = new Map<number, SentenceRead>();
   const paraNote = new Map<number, { risk: Level; note?: string }>();
   const grammar: GrammarNote[] = [];
   let reviewed = 0;
   const covered = new Set<number>();
 
-  for (const a of answers) {
-    const chunk = chunks[a.idx];
-    if (!chunk || !a.ok || a.truncated) continue;
-    const read = readPiece(a.report, chunk);
-    if (!read) continue;
+  for (const [idx, read] of reads) {
+    const chunk = chunks[idx];
+    if (!chunk) continue;
     reviewed += 1;
     for (let i = 0; i < chunk.count; i++) covered.add(chunk.first + i + 1);
     for (const [n, v] of read.sentences) bySentence.set(n, v);
@@ -262,8 +296,16 @@ export function stitchReport(text: string, answers: PieceAnswer[], size = PIECE_
       paragraphs.push(para);
     }
     const hit = bySentence.get(n);
-    const counts = hit && covered.has(n) && countsTowardScore(hit.risk, hit.why);
-    para.sentences.push({ n, text: s.text, risk: hit?.risk ?? "low", ...(hit?.why ? { why: hit.why } : {}), ...(hit?.ask ? { ask: hit.ask } : {}), ...(counts ? { counts: true as const } : {}) });
+    const counts = hit && covered.has(n) && (hit.signals
+      ? countsStructured(hit.risk, hit.signals, signal8)
+      : countsTowardScore(hit.risk, hit.why));
+    para.sentences.push({
+      n, text: s.text, risk: hit?.risk ?? "low",
+      ...(hit?.why ? { why: hit.why } : {}),
+      ...(hit?.evidence ? { evidence: hit.evidence } : {}),
+      ...(hit?.ask ? { ask: hit.ask } : {}),
+      ...(counts ? { counts: true as const } : {}),
+    });
   }
   for (const para of paragraphs) {
     const given = paraNote.get(para.p);

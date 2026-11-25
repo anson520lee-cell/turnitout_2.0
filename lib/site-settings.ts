@@ -25,9 +25,11 @@ import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort }
  * Revert = MIX_1. A prompt saved on /admin/prompt still takes precedence.
  */
 const DEFAULT_REPORT_PROMPT = WORD_1;
+const PROMPT_HISTORY_KEY = "scan_report_prompt";
 
 export const SETTING_KEYS = {
-  reportPrompt: "scan_report_prompt",
+  // A previous deployment can finish its in-flight Markdown reviews with its old setting.
+  reportPrompt: "scan_report_prompt_20261125",
   model: "deepseek_model",
   effort: "deepseek_effort",
 } as const;
@@ -57,7 +59,7 @@ async function write(key: SettingKey, value: string, userId: string, keepHistory
   const db = createAdminClient();
   const { error } = await db.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString(), updated_by: userId });
   if (error) throw new Error("save failed");
-  if (keepHistory) await db.from("site_setting_history").insert({ key, value, saved_by: userId });
+  if (keepHistory) await db.from("site_setting_history").insert({ key: PROMPT_HISTORY_KEY, value, saved_by: userId });
   cache.delete(key);
 }
 
@@ -105,7 +107,7 @@ export async function listPromptVersions(limit = 20): Promise<PromptVersion[]> {
   const { data } = await createAdminClient()
     .from("site_setting_history")
     .select("id,value,saved_at")
-    .eq("key", SETTING_KEYS.reportPrompt)
+    .eq("key", PROMPT_HISTORY_KEY)
     .order("saved_at", { ascending: false })
     .limit(limit);
   return (data ?? []).map((r: { id: number; value: string; saved_at: string }) => ({ id: r.id, value: r.value, savedAt: r.saved_at }));
@@ -115,7 +117,7 @@ export async function getPromptVersion(id: number): Promise<string | null> {
   const { data } = await createAdminClient()
     .from("site_setting_history")
     .select("value")
-    .eq("key", SETTING_KEYS.reportPrompt)
+    .eq("key", PROMPT_HISTORY_KEY)
     .eq("id", id)
     .maybeSingle<{ value: string }>();
   return data?.value ?? null;

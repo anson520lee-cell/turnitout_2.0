@@ -32,7 +32,10 @@ interface Unit {
 }
 
 export function chunkText(text: string, size: number): Chunk[] {
-  const sentences = splitSentences(text);
+  return chunkSentences(splitSentences(text), size);
+}
+
+export function chunkSentences(sentences: readonly Sentence[], size: number): Chunk[] {
   if (sentences.length === 0) return [];
   const max = Math.round(size * MAX_OVER);
 

@@ -12,5 +12,5 @@ import { useLiveReportFeed } from "@/components/reports/scan/use-report-feed";
 export function AutoReportRunner({ orderId, text, title, reference, canSkip = false }: { orderId: string; text: string; title: string; reference: string; canSkip?: boolean }) {
   const router = useRouter();
   const feed = useLiveReportFeed(orderId);
-  return <ReportScan text={text} feed={feed} title={title} reference={reference} onFinish={() => router.refresh()} canSkip={canSkip} />;
+  return <ReportScan text={text} feed={feed} title={title} reference={reference} onFinish={() => router.refresh()} canSkip={canSkip} stableIds />;
 }

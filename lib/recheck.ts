@@ -66,6 +66,21 @@ export function splitSentences(text: string): Sentence[] {
   return out;
 }
 
+/** Keep the original sentence indexes so older accuracy labels can be mapped after joining citations. */
+export function splitReviewSentences(text: string): (Sentence & { legacyFirst: number; legacyLast: number })[] {
+  const sentences: ReturnType<typeof splitReviewSentences> = [];
+  for (const [i, sentence] of splitSentences(text).entries()) {
+    const previous = sentences.at(-1);
+    if (previous?.p === sentence.p && /\bet al\.$/i.test(previous.text) && /^\(\d{4}[a-z]?(?=[\s,;)]|$)/i.test(sentence.text)) {
+      previous.text += " " + sentence.text;
+      previous.legacyLast = i;
+    } else {
+      sentences.push({ ...sentence, s: previous?.p === sentence.p ? previous.s + 1 : 1, legacyFirst: i, legacyLast: i });
+    }
+  }
+  return sentences;
+}
+
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 const tokens = (s: string) => norm(s).split(" ").filter(Boolean);
 

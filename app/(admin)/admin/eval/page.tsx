@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Admin · Accuracy" };
 // Running a case waits for the model.
 export const maxDuration = 120;
 
-type CaseRow = { id: string; name: string; note: string | null; sentences: TruthSentence[]; created_at: string };
+type CaseRow = { id: string; name: string; note: string | null; sentences: TruthSentence[]; reference_score: string | null; created_at: string };
 type RunRow = {
   id: number;
   case_id: string;
@@ -28,7 +28,7 @@ export default async function AdminEval() {
   await assertAdmin();
   const db = createAdminClient();
   const [{ data: cases }, { data: runs }] = await Promise.all([
-    db.from("eval_cases").select("id,name,note,sentences,created_at").order("created_at", { ascending: false }),
+    db.from("eval_cases").select("id,name,note,sentences,reference_score,created_at").order("created_at", { ascending: false }),
     db.from("eval_runs").select("id,case_id,created_at,model,effort,prompt_label,prompt_chars,metrics,ms,tokens").order("created_at", { ascending: false }).limit(200),
   ]);
   const runsByCase = new Map<string, EvalRunSummary[]>();
@@ -43,6 +43,7 @@ export default async function AdminEval() {
     note: c.note,
     sentences: c.sentences.length,
     flagged: c.sentences.filter((s) => s.flagged).length,
+    referenceScore: c.reference_score,
     createdAt: c.created_at,
     runs: runsByCase.get(c.id) ?? [],
   }));
@@ -51,8 +52,7 @@ export default async function AdminEval() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Accuracy</h1>
       <p className="mt-1 max-w-3xl text-[13px] text-fg-muted">
-        How well the self-check report matches what Turnitin really flagged. Each test case is an essay with its known Turnitin result; run the reviewer on it
-        (with the prompt, model and reasoning you have set) and compare. Use it after you change the prompt or the model, to see if it got better or worse.
+        Compare the website AI score and sentence flags with a known Turnitin result. New runs use the same review and scoring pipeline as customer reports.
       </p>
       <Card className="mt-6 p-5">
         <EvalPanel cases={views} />
