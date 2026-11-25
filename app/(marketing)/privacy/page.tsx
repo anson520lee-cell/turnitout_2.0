@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ProseDoc } from "@/components/layout/prose-doc";
 import { brand, retention, uploads } from "@/config/app";
 import { retentionSentence } from "@/config/privacy-copy";
-import { deepseekEnabled } from "@/lib/deepseek";
+import { writingModelEnabled } from "@/lib/writing-model";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 // Foundation text. Have it reviewed against the PDPO (Cap. 486) before launch.
 export default function PrivacyPage() {
-  const model = deepseekEnabled();
+  const model = writingModelEnabled();
   return (
     <>
       <PageHeader eyebrow="Privacy" title="Privacy" outline="policy." body="How we handle your account, your writing and your documents." />
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Files are stored in private storage. There are no public links to them.</li>
           <li>Access is limited to you and authorised staff, enforced by database access rules, and opened through signed links that expire after {uploads.signedUrlTtl} seconds.</li>
-          <li>For a paid report, your text is cut into sections and each section is sent to an outside AI provider (DeepSeek), which writes the review. Your text is not sent to Turnitin or added to any paper repository. The sections&rsquo; answers are kept only until the report is finished.</li>
+          <li>To generate a report, OpenAI reviews your text section by section. OpenAI also processes the relevant text when you request Writing Refinement. Your text is not sent to Turnitin or added to any paper repository. We keep the individual section responses until the report is complete.</li>
           <li>We do not put document contents in analytics or logs.</li>
           <li>We may use text submitted from now on, with personal details removed, to maintain and improve the service.</li>
           <li>Every status change and file access is recorded in an audit log.</li>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Supabase:</strong> authentication, database and file storage.</li>
           <li><strong>NOWPayments:</strong> crypto payment processing (USDT, USDC, BTC).</li>
-          {model && <li><strong>DeepSeek:</strong> an AI provider that processes the text for reports.</li>}
+          {model && <li><strong>OpenAI:</strong> processes text for reports and Writing Refinement.</li>}
           <li><strong>Hosting provider:</strong> serves the website.</li>
         </ul>
         <h2>Your rights</h2>

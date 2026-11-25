@@ -1,6 +1,6 @@
 /**
  * Writing Refinement ("lower your AI score"): suggested rewrites for the sentences a finished report flagged.
- * Pure functions, no I/O, so they can be tested (the DeepSeek calls are in rewrite-run.ts).
+ * Pure functions, no I/O, so they can be tested (the model calls are in rewrite-run.ts).
  *
  * The flagged sentences are rewritten for a lower AI score, guided by the detector's reason for each, in the
  * detector's own terms (REWRITE_PROMPT): one long sentence with its ideas strung together, never a run of short tidy

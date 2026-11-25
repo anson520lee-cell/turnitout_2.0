@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled, type ReasoningEffort } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, writingModelEnabled, type ReasoningEffort } from "@/lib/writing-model";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
@@ -35,8 +35,8 @@ async function reviewPiece(piece: ReviewPiece, system: string, model: string, ef
     await logModelCall("paid_report", { ok: true, result });
     return read;
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("paid_report", { ok: false, error: e });
-    else if (!(e instanceof DeepSeekError)) console.error("rewrite check piece failed", e);
+    if (e instanceof WritingModelRunError) await logModelCall("paid_report", { ok: false, error: e });
+    else if (!(e instanceof WritingModelError)) console.error("rewrite check piece failed", e);
     return null;
   }
 }
@@ -47,7 +47,7 @@ export async function checkReportRewrite(orderId: string, userId: string): Promi
   const rewrite = report?.rewrite;
   if (!report?.result || !rewrite || !rewrite.items.some((i) => i.rewrite)) return { ok: false, reason: "no_rewrite" };
   if (rewrite.check && !rewrite.pending) return { ok: true, check: rewrite.check, rewrite };
-  if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
+  if (!writingModelEnabled()) return { ok: false, reason: "unavailable" };
   if (await paidPieceLimitReached()) return { ok: false, reason: "daily_limit" };
 
   const { data: order } = await db.from("orders").select("source_text").eq("id", orderId).maybeSingle<{ source_text: string | null }>();

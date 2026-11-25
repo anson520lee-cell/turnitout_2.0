@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
-import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
+import type { ChatResult, ChatUsage, WritingModelRunError } from "@/lib/writing-model";
 
 /**
  * A log of model calls (migration 0010): purpose, model, effort, tokens, time
@@ -12,16 +12,15 @@ import type { ChatResult, ChatUsage, DeepSeekRunError } from "@/lib/deepseek";
 export type UsagePurpose = "scan_report" | "scan_recheck" | "prompt_test" | "refinement_draft" | "eval" | "chunk_test" | "paid_report" | "report_rewrite";
 
 /**
- * USD per million tokens, for the admin estimate only: DeepSeek's peak-hour
- * prices (api-docs.deepseek.com/quick_start/pricing, checked 2026-10-11), so
- * the estimate is an upper bound; off-peak is half. Edit here if they change.
- * Reasoning tokens are billed as output and are already in completion_tokens.
+ * USD per million tokens. OpenAI standard rates and DeepSeek peak rates for
+ * historical usage. Reasoning tokens are included in completion tokens.
  */
 const PRICES: Record<string, { input: number; cachedInput: number; output: number }> = {
+  "gpt-6-luna": { input: 0.10, cachedInput: 0.01, output: 0.50 },
   "deepseek-flash": { input: 0.3, cachedInput: 0.006, output: 1.2 },
   "deepseek-v4-pro": { input: 1.32, cachedInput: 0.044, output: 3.96 },
 };
-const FALLBACK_PRICE = PRICES["deepseek-flash"];
+const FALLBACK_PRICE = PRICES["gpt-6-luna"];
 
 export function estimateCostUsd(model: string, u: Pick<ChatUsage, "promptTokens" | "completionTokens" | "cacheHitTokens">): number {
   const p = PRICES[model] ?? FALLBACK_PRICE;
@@ -31,7 +30,7 @@ export function estimateCostUsd(model: string, u: Pick<ChatUsage, "promptTokens"
 
 export async function logModelCall(
   purpose: UsagePurpose,
-  outcome: { ok: true; result: ChatResult } | { ok: false; error: DeepSeekRunError },
+  outcome: { ok: true; result: ChatResult } | { ok: false; error: WritingModelRunError },
 ): Promise<void> {
   if (!isSupabaseConfigured) return;
   const row = outcome.ok

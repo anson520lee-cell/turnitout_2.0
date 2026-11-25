@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
-import { DeepSeekError, DeepSeekRunError, REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, REASONING_EFFORTS, writingModelEnabled } from "@/lib/writing-model";
 import { logModelCall } from "@/lib/model-usage";
 import {
   getModelSetting,
@@ -115,7 +115,7 @@ export type PromptTestResult =
  */
 export async function testReportPrompt(input: unknown): Promise<PromptTestResult> {
   await assertAdmin();
-  if (!deepseekEnabled()) return { ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." };
+  if (!writingModelEnabled()) return { ok: false, message: "OPENAI_API_KEY isn't set in Vercel." };
   const parsed = testInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid test." };
   const setting = await getModelSetting();
@@ -140,8 +140,8 @@ export async function testReportPrompt(input: unknown): Promise<PromptTestResult
       truncated: false,
     };
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("prompt_test", { ok: false, error: e });
-    const reason = e instanceof DeepSeekError ? ` (${e.reason})` : "";
+    if (e instanceof WritingModelRunError) await logModelCall("prompt_test", { ok: false, error: e });
+    const reason = e instanceof WritingModelError ? ` (${e.reason})` : "";
     return { ok: false, message: `The model didn't answer${reason}. Check the model id, then try again.` };
   }
 }

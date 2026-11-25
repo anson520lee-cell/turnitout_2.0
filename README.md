@@ -4,7 +4,7 @@ A pre-submission service for students checking their own academic writing. It of
 
 | Service | What it is | Where the result comes from |
 | --- | --- | --- |
-| **AI-Writing Risk Report** (automatic, 1 credit per 1,000 characters, minimum 2 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our own reviewer (DeepSeek) reads the whole pasted text in pieces and the answers are stitched into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. Not a Turnitin result and no Turnitin-like percentage |
+| **AI-Writing Risk Report** (automatic, 1 credit per 1,000 characters, minimum 2 credits, first 8,000 of every 20,000 characters charged and the rest free, 500–100,000 characters) | Our reviewer uses OpenAI GPT-6 Luna to read the text in pieces and assemble the results into one report | Overall level, paragraph map, marked sentences, grammar spots and a PDF. |
 
 The UI keeps these apart everywhere: the report is labelled as our own reviewer's guidance. Older hand-made Turnitin reports still display as the observed result of that run.
 

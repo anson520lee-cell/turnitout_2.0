@@ -1,5 +1,5 @@
 /**
- * Backtest of Writing Refinement against the live detector prompt, straight from DeepSeek (no database, no credits).
+ * Backtest of Writing Refinement using OpenAI and the built-in detector prompt, without the site database.
  *
  *   NODE_USE_ENV_PROXY=1 npx tsx --conditions=react-server tools/refine-backtest/run.ts [--only a,b] [--out dir]
  *     [--concurrency 6] [--rounds 3] [--rescore N] [--prompt-file path] [--label name]
@@ -14,7 +14,7 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chunkText } from "@/lib/chunking";
-import { deepseekRun, type ReasoningEffort } from "@/lib/deepseek";
+import { defaultEffort, defaultWritingModel, runWritingModel, writingModelEnabled, type ReasoningEffort } from "@/lib/writing-model";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { WORD_1 } from "@/lib/chunk-prompts";
 import { STARTER_SAMPLES } from "@/lib/starter-samples";
@@ -40,7 +40,7 @@ import {
   type RewriteItem,
 } from "@/lib/auto-report/rewrite";
 
-process.env.DEEPSEEK_API_KEY ||= "proxy-injected";
+if (!writingModelEnabled()) throw new Error("OPENAI_API_KEY is required.");
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -49,8 +49,8 @@ const opt = (name: string) => {
 };
 const flag = (name: string) => args.includes(`--${name}`);
 
-const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-flash";
-const EFFORT = (process.env.DEEPSEEK_REASONING_EFFORT || "low") as ReasoningEffort;
+const MODEL = defaultWritingModel();
+const EFFORT = defaultEffort();
 const OUT = opt("out") ?? join(import.meta.dirname ?? __dirname, "results", opt("label") ?? "run");
 const RW_MODEL = process.env.RW_MODEL || MODEL;
 const RW_EFFORT = (process.env.RW_EFFORT || EFFORT) as ReasoningEffort;
@@ -69,7 +69,7 @@ let tokensOut = 0;
 async function ask(system: string, user: string, maxTokens: number, timeoutMs: number, writer = false) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await deepseekRun({ system: [system, DRAFT_GUARD].join("\n\n"), user, maxTokens, model: writer ? RW_MODEL : MODEL, effort: writer ? RW_EFFORT : EFFORT, timeoutMs });
+      const res = await runWritingModel({ system: [system, DRAFT_GUARD].join("\n\n"), user, maxTokens, model: writer ? RW_MODEL : MODEL, effort: writer ? RW_EFFORT : EFFORT, timeoutMs });
       calls++;
       tokensIn += res.usage.promptTokens;
       tokensOut += res.usage.completionTokens;

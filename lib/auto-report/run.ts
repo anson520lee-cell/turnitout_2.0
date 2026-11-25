@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, writingModelEnabled } from "@/lib/writing-model";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
@@ -228,7 +228,7 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
 
   let paused = false;
   if (!result && todo.length) {
-    if (!deepseekEnabled()) {
+    if (!writingModelEnabled()) {
       await failReport(orderId, "reviewer not configured");
       return { state: "failed", reviewed: 0, total };
     }
@@ -255,8 +255,8 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
               truncated = check.result.truncated;
               ms = check.result.ms;
             } catch (e) {
-              if (e instanceof DeepSeekRunError) await logModelCall("paid_report", { ok: false, error: e });
-              else if (!(e instanceof DeepSeekError)) console.error("auto report piece failed", e);
+              if (e instanceof WritingModelRunError) await logModelCall("paid_report", { ok: false, error: e });
+              else if (!(e instanceof WritingModelError)) console.error("auto report piece failed", e);
             }
             const { error } = await db.from("auto_report_pieces").upsert({
               ...row, report: JSON.stringify({ basis, output }), ok: Boolean(read), truncated, ms,

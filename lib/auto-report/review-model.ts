@@ -1,6 +1,6 @@
 import "server-only";
 
-import { deepseekRun, type ReasoningEffort } from "@/lib/deepseek";
+import { runWritingModel, type ReasoningEffort } from "@/lib/writing-model";
 import { finishReview, parseReviewPiece, reviewInput, type PreparedReview, type ReviewPiece } from "./review";
 import { calibrateReview } from "./calibration";
 import type { PieceRead } from "./stitch";
@@ -20,7 +20,7 @@ export async function requestReviewPiece(
   settings: { model: string; effort: ReasoningEffort },
   timeoutMs = REVIEW_TIMEOUT_MS,
 ) {
-  const result = await deepseekRun({
+  const result = await runWritingModel({
     system, user: reviewInput(piece), ...settings,
     maxTokens: 24_000, timeoutMs, totalTimeoutMs: timeoutMs,
   });

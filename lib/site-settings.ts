@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/env";
 import { WORD_1 } from "@/lib/chunk-prompts";
-import { REASONING_EFFORTS, defaultEffort, deepseekModel, type ReasoningEffort } from "@/lib/deepseek";
+import { REASONING_EFFORTS, defaultEffort, defaultWritingModel, type ReasoningEffort } from "@/lib/writing-model";
 
 /**
  * Settings the owner edits on /admin/prompt, kept in public.site_settings
@@ -30,8 +30,8 @@ const PROMPT_HISTORY_KEY = "scan_report_prompt";
 export const SETTING_KEYS = {
   // A previous deployment can finish its in-flight Markdown reviews with its old setting.
   reportPrompt: "scan_report_prompt_20261125",
-  model: "deepseek_model",
-  effort: "deepseek_effort",
+  model: "openai_model",
+  effort: "openai_effort",
 } as const;
 type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS];
 
@@ -133,10 +133,9 @@ export async function resetScanReportPrompt(): Promise<void> {
 
 /* ---------- model and reasoning ---------- */
 
-/** Models offered in the admin picker. Any other id can still be set with DEEPSEEK_MODEL. */
+/** Models offered in the admin picker. Any other id can still be set with OPENAI_MODEL. */
 export const MODEL_CHOICES = [
-  { id: "deepseek-flash", label: "DeepSeek V4.1 Flash", note: "Fast and cheap. Good for most reports." },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", note: "Stronger reasoning, slower and pricier." },
+  { id: "gpt-6-luna", label: "GPT-6 Luna", note: "Default for reports and Writing Refinement." },
 ] as const;
 
 export interface ModelSetting {
@@ -151,7 +150,7 @@ export async function getModelSetting(): Promise<ModelSetting> {
   const [model, effort] = await Promise.all([read(SETTING_KEYS.model), read(SETTING_KEYS.effort)]);
   const validEffort = (REASONING_EFFORTS as readonly string[]).includes(effort ?? "") ? (effort as ReasoningEffort) : null;
   return {
-    model: model ?? deepseekModel(),
+    model: model ?? defaultWritingModel(),
     effort: validEffort ?? defaultEffort(),
     customModel: model !== null,
     customEffort: validEffort !== null,

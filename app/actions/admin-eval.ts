@@ -5,7 +5,7 @@ import { z } from "zod";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, REASONING_EFFORTS, deepseekEnabled } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, REASONING_EFFORTS, writingModelEnabled } from "@/lib/writing-model";
 import { prepareEvalTruth, scoreReviewedReport, type Metrics, type TruthSentence } from "@/lib/eval";
 import { prepareReview, reviewSystem } from "@/lib/auto-report/review";
 import { finishProductionReview, REVIEW_CONTEXT_CHARS, requestReviewPiece } from "@/lib/auto-report/review-model";
@@ -79,7 +79,7 @@ export interface EvalRunSummary {
  */
 export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRunSummary }>> {
   const admin = await assertAdmin();
-  if (!deepseekEnabled()) return { ok: false, message: "DEEPSEEK_API_KEY isn't set in Vercel." };
+  if (!writingModelEnabled()) return { ok: false, message: "OPENAI_API_KEY isn't set in Vercel." };
   const parsed = runInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Unknown case." };
   const db = createAdminClient();
@@ -98,7 +98,7 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
     const valid = responses.flatMap((response, index) => response.status === "fulfilled" ? [{ ...response.value, index }] : []);
     await Promise.all(responses.map(response => {
       if (response.status === "fulfilled") return logModelCall("eval", { ok: true, result: response.value.result });
-      if (response.reason instanceof DeepSeekRunError) return logModelCall("eval", { ok: false, error: response.reason });
+      if (response.reason instanceof WritingModelRunError) return logModelCall("eval", { ok: false, error: response.reason });
     }));
     const report = finishProductionReview(review, new Map(valid.flatMap(({ read, index }) => read ? [[index, read]] : [])));
     if (!report) return { ok: false, message: "The report is incomplete or contains an invalid reply. No score was saved. Try again." };
@@ -133,8 +133,8 @@ export async function runEvalCase(input: unknown): Promise<Result<{ run: EvalRun
       run: { id: saved.id, createdAt: saved.created_at, model: settings.model, effort, promptLabel: label, promptChars: prompt.length, metrics, ms, tokens },
     };
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("eval", { ok: false, error: e });
-    const reason = e instanceof DeepSeekError ? ` (${e.reason})` : "";
+    if (e instanceof WritingModelRunError) await logModelCall("eval", { ok: false, error: e });
+    const reason = e instanceof WritingModelError ? ` (${e.reason})` : "";
     return { ok: false, message: `The model didn't answer${reason}. Try again.` };
   }
 }

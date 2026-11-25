@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekRunError, deepseekEnabled, deepseekRun, deepseekStream } from "@/lib/deepseek";
+import { WritingModelRunError, writingModelEnabled, runWritingModel, streamWritingModel } from "@/lib/writing-model";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall, rewriteLimitReached } from "@/lib/model-usage";
 import { getModelSetting } from "@/lib/site-settings";
@@ -52,7 +52,7 @@ export type RewriteOutcome =
 
 async function askBatch(batch: ReportSentence[], result: AutoReportResult, model: string, redo?: Map<number, string>, round = 1): Promise<Map<number, string> | null> {
   try {
-    const res = await deepseekRun({
+    const res = await runWritingModel({
       system: [REWRITE_PROMPT, CITATION_RULE, DRAFT_GUARD].join("\n\n"),
       user: rewriteInput(batch, result, redo, round),
       maxTokens: 12_000,
@@ -64,7 +64,7 @@ async function askBatch(batch: ReportSentence[], result: AutoReportResult, model
     if (res.truncated) return null;
     return parseRewrites(res.text);
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("report_rewrite", { ok: false, error: e });
+    if (e instanceof WritingModelRunError) await logModelCall("report_rewrite", { ok: false, error: e });
     return null;
   }
 }
@@ -86,7 +86,7 @@ async function streamBatch(batch: ReportSentence[], result: AutoReportResult, mo
     return got;
   };
   try {
-    for await (const e of deepseekStream({ system: [REWRITE_PROMPT, CITATION_RULE, DRAFT_GUARD].join("\n\n"), user: rewriteInput(batch, result), maxTokens: 12_000, model, effort: "low" })) {
+    for await (const e of streamWritingModel({ system: [REWRITE_PROMPT, CITATION_RULE, DRAFT_GUARD].join("\n\n"), user: rewriteInput(batch, result), maxTokens: 12_000, model, effort: "low" })) {
       if (e.type === "delta") {
         text += e.text;
         if (e.text.includes("}")) take();
@@ -100,7 +100,7 @@ async function streamBatch(batch: ReportSentence[], result: AutoReportResult, mo
     }
     return seen.size ? take() : null;
   } catch (e) {
-    if (e instanceof DeepSeekRunError) await logModelCall("report_rewrite", { ok: false, error: e });
+    if (e instanceof WritingModelRunError) await logModelCall("report_rewrite", { ok: false, error: e });
     return seen.size ? take() : null;
   }
 }
@@ -161,7 +161,7 @@ export async function makeRewrite(orderId: string, who: { userId: string; admin:
   if (report.rewrite) return { ok: true, rewrite: report.rewrite };
   const flagged = pickFlagged(report.result);
   if (!flagged.length) return { ok: false, reason: "nothing_flagged" };
-  if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
+  if (!writingModelEnabled()) return { ok: false, reason: "unavailable" };
   if (await rewriteLimitReached()) return { ok: false, reason: "daily_limit" };
 
   // What it costs, and whether the account can pay, before any model call. An admin's own test is free.
@@ -238,7 +238,7 @@ export async function makeRound(orderId: string): Promise<RoundOutcome> {
   const rewrite = report?.rewrite;
   if (!report?.result || !rewrite) return { ok: false, reason: "no_rewrite" };
   if (!needsRound(rewrite)) return { ok: true, rewrite };
-  if (!deepseekEnabled()) return { ok: false, reason: "unavailable" };
+  if (!writingModelEnabled()) return { ok: false, reason: "unavailable" };
   if (await rewriteLimitReached()) return { ok: false, reason: "daily_limit" };
 
   const now = new Date();

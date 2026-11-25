@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, type ReasoningEffort, deepseekRun } from "@/lib/deepseek";
+import { WritingModelError, WritingModelRunError, type ReasoningEffort, runWritingModel } from "@/lib/writing-model";
 import { chunkText } from "@/lib/chunking";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall } from "@/lib/model-usage";
@@ -23,7 +23,7 @@ export async function runChunkPiece(args: { sampleId: string; size: number; idx:
   const effort = args.effort ?? setting.effort;
   const row = { sample_id: sampleId, batch, size, idx, first_sentence: piece.first, chunk: piece.text, model: setting.model, effort };
   try {
-    const result = await deepseekRun({
+    const result = await runWritingModel({
       system: [prompt, DRAFT_GUARD].join("\n\n"),
       user: ["<draft>", piece.text, "</draft>"].join("\n"),
       maxTokens: 24_000,
@@ -40,12 +40,12 @@ export async function runChunkPiece(args: { sampleId: string; size: number; idx:
     return { ok: true, pieces: pieces.length, ms: result.ms };
   } catch (e) {
     let ms = 0;
-    if (e instanceof DeepSeekRunError) {
+    if (e instanceof WritingModelRunError) {
       ms = e.ms;
       await logModelCall("chunk_test", { ok: false, error: e });
     }
     await db.from("chunk_trials").upsert({ ...row, ok: false, ms }, { onConflict: "sample_id,batch,size,idx" });
-    const reason = e instanceof DeepSeekError ? ` (${e.reason})` : "";
+    const reason = e instanceof WritingModelError ? ` (${e.reason})` : "";
     return { ok: false, message: `The model didn't answer${reason}.` };
   }
 }

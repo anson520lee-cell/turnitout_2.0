@@ -1,7 +1,6 @@
 # Writing Refinement backtest
 
-Runs the real detector prompt (`WORD_1`, pieces of `PIECE_SIZE`, same stitching and score curve) and the real rewrite
-code (`REWRITE_PROMPT`, `checkRewrite`, rounds, keep-the-best) straight against DeepSeek. No Vercel, no credits, no database.
+Runs the built-in detector prompt (`WORD_1`) and refinement code against OpenAI with `OPENAI_API_KEY` in the environment.
 
 ```
 NODE_USE_ENV_PROXY=1 npx tsx --conditions=react-server tools/refine-backtest/run.ts --label v5 --rescore 3
@@ -14,7 +13,7 @@ Test essays are in `essays/` (five Gemini essays supplied by the owner).
 
 Read it with care: the detector is noisy. The same text scored 4, 91 and 94 on three runs, so a single re-check says little
 and the lowest of several rounds is partly luck. Judge a change by `--rescore` means over all five essays, and ideally two runs.
-The detector here is the site's own (DeepSeek Flash, low effort, the default); it says nothing about Turnitin or GPTZero.
+The default model is GPT-6 Luna at low reasoning effort. The results below are historical DeepSeek runs.
 
 ## 2026-10-29 results (kept text, mean of 3 fresh re-checks; round 1 = first re-check after the first rewrite)
 

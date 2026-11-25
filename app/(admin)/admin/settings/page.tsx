@@ -9,7 +9,8 @@ import { isStripeConfigured, devPaymentsEnabled } from "@/lib/env";
 import { notificationChannels } from "@/lib/notify";
 import { getScreeningProvider } from "@/lib/screening";
 import { trustsProxyHeaders } from "@/lib/network";
-import { deepseekEnabled, deepseekModel } from "@/lib/deepseek";
+import { writingModelEnabled } from "@/lib/writing-model";
+import { getModelSetting } from "@/lib/site-settings";
 import { localModelEnabled, workerStatus } from "@/lib/local-model/jobs";
 import { formatDateTime } from "@/lib/utils";
 
@@ -36,7 +37,7 @@ export default async function AdminSettings() {
   await assertAdmin();
   const provider = getScreeningProvider();
   const channels = notificationChannels();
-  const worker = await workerStatus();
+  const [worker, model] = await Promise.all([workerStatus(), getModelSetting()]);
   const rows: [string, React.ReactNode][] = [
     ["Brand", brand.name],
     ["Free reports / day", `${freeReport.dailyLimit} per account (${freeReport.timezone})`],
@@ -47,17 +48,17 @@ export default async function AdminSettings() {
         : off("One shared allowance: set TRUST_PROXY_IP_HEADERS if your host overwrites X-Forwarded-For"),
     ],
     [
-      "Writing model (DeepSeek)",
+      "Writing model (OpenAI)",
       <div key="m" className="space-y-1">
-        {deepseekEnabled()
-          ? on(`On · ${deepseekModel()}`)
+        {writingModelEnabled()
+          ? on(`On · ${model.model}`)
           : !localModelEnabled()
           ? off("Off")
           : worker.online
             ? on(`Online${worker.model ? ` · ${worker.model}` : ""}`)
             : off(worker.lastSeenAt ? `Offline · last seen ${formatDateTime(worker.lastSeenAt)}` : "Waiting for the worker to connect")}
         <p className="text-[12px] text-fg-subtle">
-          Set {env("DEEPSEEK_API_KEY")} in Vercel to write reports with DeepSeek.
+          Set {env("OPENAI_API_KEY")} in Vercel to enable report generation.
         </p>
       </div>,
     ],

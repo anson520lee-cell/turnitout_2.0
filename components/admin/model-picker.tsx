@@ -51,7 +51,7 @@ export function ModelPicker({
       <fieldset>
         <legend className="text-[12.5px] font-medium text-fg">Model</legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-3">
-          {[...choices, { id: "other", label: "Other model id", note: "Any model id DeepSeek accepts." }].map((c) => (
+          {[...choices, { id: "other", label: "Other model id", note: "An OpenAI model supported by the API project." }].map((c) => (
             <label
               key={c.id}
               className={cn(
@@ -71,7 +71,7 @@ export function ModelPicker({
             aria-label="Model id"
             value={other}
             onChange={(e) => setOther(e.target.value)}
-            placeholder="e.g. deepseek-v4-pro"
+            placeholder={choices[0]?.id}
             className="mt-2 max-w-sm font-mono text-[13px]"
           />
         )}

@@ -38,7 +38,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: "Is my text added to Turnitin or any paper database?",
-    a: "No. The report is made by this website's own reviewer, so your text is never sent to Turnitin or added to any paper repository. To write the report, the text is sent to an outside AI provider (DeepSeek), which is named in the privacy policy.",
+    a: "No. OpenAI processes your text to write the report. Your text is never sent to Turnitin or added to a paper repository.",
   },
   {
     q: "Can AI-writing detectors make mistakes?",
