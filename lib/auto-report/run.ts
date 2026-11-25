@@ -13,6 +13,7 @@ import { PIECE_SIZE, type AutoReportResult, type PieceRead } from "./stitch";
 import { reportBasis, textHash } from "./reuse";
 import { parseReviewPiece, prepareReview, reviewSystem } from "./review";
 import { finishProductionReview, REVIEW_CONTEXT_CHARS, requestReviewPiece, REVIEW_CONCURRENCY } from "./review-model";
+import { calibrateReview } from "./calibration";
 
 /**
  * Works on an automatic report: reviews the pieces that have no answer yet (a few
@@ -136,8 +137,10 @@ export async function earlierResult(userId: string, orderId: string, hash: strin
   // Only this account's own earlier reports count: another account never gets a result made for someone else.
   const { data: mine } = await db.from("orders").select("id").eq("user_id", userId).in("id", found.map((r) => r.order_id)).returns<{ id: string }[]>();
   const own = new Set((mine ?? []).map((o) => o.id));
-  return found.find((r) => own.has(r.order_id) && r.result.reviewFormat === 1
-    && r.result.pieces.total > 0 && r.result.pieces.reviewed === r.result.pieces.total)?.result ?? null;
+  const report = found.find((r) => own.has(r.order_id) && r.result.reviewFormat === 1
+    && r.result.pieces.total > 0 && r.result.pieces.reviewed === r.result.pieces.total)?.result;
+  // A scorer update can reuse the validated labels without another provider call.
+  return report ? calibrateReview(report) : null;
 }
 
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {

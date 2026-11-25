@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { brand } from "@/config/app";
-import { reportOverall, reportScore, scoreBasis, type AutoReportResult, type Level, type Overall, type ReportParagraph, type ReportSentence } from "@/lib/auto-report/stitch";
+import { reportOverall, reportScore, type AutoReportResult, type Level, type Overall, type ReportParagraph, type ReportSentence } from "@/lib/auto-report/stitch";
 import { RewriteDemo, RewritePanel } from "@/components/reports/rewrite-panel";
 import type { ReportRewrite } from "@/lib/auto-report/rewrite";
 import { track } from "@/lib/analytics";
@@ -26,7 +26,7 @@ const mark: Record<Level, string> = {
   low: "",
 };
 
-// A Medium sentence that does not count toward the AI score: still shown, marked more lightly.
+// Supporting flags are marked more lightly.
 const markUncounted = "bg-warn/[0.07] decoration-warn/45 underline decoration-dotted decoration-1 underline-offset-[3px] print:bg-[#f4f7ff]";
 
 const rail: Record<Level, string> = { high: "bg-risk", medium: "bg-warn", uncertain: "bg-fg-subtle", low: "bg-ok" };
@@ -52,12 +52,12 @@ function Stat({ title, value, of, sub }: { title: string; value: string; of?: st
   );
 }
 
-/** Reports that mark which sentences count toward the score: a flagged sentence that doesn't count is shown lighter. */
-const uncounted = (s: ReportSentence, scored: boolean) => scored && isFlagged(s.risk) && !s.counts;
-
-function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolean }) {
+function ParagraphCard({ para, scored, weighted, confirmed }: { para: ReportParagraph; scored: boolean;
+  weighted: boolean; confirmed: ReadonlySet<number> }) {
   const flagged = para.sentences.filter((s) => s.risk !== "low");
   const share = paragraphShare(para);
+  const supporting = (s: ReportSentence) => scored && isFlagged(s.risk) && !s.counts && !confirmed.has(s.n);
+  const note = weighted ? "Contributes at a lower weight" : "not counted in the AI score";
   return (
     <Card id={`para-${para.p}`} className="rp-para relative scroll-mt-24 overflow-hidden p-5 sm:p-6 print:break-inside-avoid">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px] opacity-80", rail[para.risk])} />
@@ -76,8 +76,8 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
           <span key={s.n}>
             <span
               id={`s-${s.n}`}
-              className={cn("report-sentence rounded-[3px] px-0.5", uncounted(s, scored) ? markUncounted : mark[s.risk])}
-              title={s.risk === "low" ? undefined : `${label[s.risk]} risk${uncounted(s, scored) ? " · not counted in the AI score" : ""}`}
+              className={cn("report-sentence rounded-[3px] px-0.5", supporting(s) ? markUncounted : mark[s.risk])}
+              title={s.risk === "low" ? undefined : `${label[s.risk]} risk${supporting(s) ? " · " + note : ""}`}
             >
               {s.text}
             </span>{" "}
@@ -92,7 +92,7 @@ function ParagraphCard({ para, scored }: { para: ReportParagraph; scored: boolea
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[11px] text-fg-subtle">Sentence {s.n}</span>
                 <Badge tone={riskStyle[s.risk].tone} className={riskPrintClass[riskStyle[s.risk].tone]}>{label[s.risk]}</Badge>
-                {uncounted(s, scored) && <span className="text-[11.5px] text-fg-subtle">not counted in the AI score</span>}
+                {supporting(s) && <span className="text-[11.5px] text-fg-subtle">{note}</span>}
               </div>
               <p className="mt-1.5 border-l-2 border-[var(--line)] pl-3 text-fg">{s.text}</p>
               {s.evidence && <p className="mt-1.5 text-fg-muted">“{s.evidence}”</p>}
@@ -139,9 +139,11 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
   const { summary, paragraphs, grammar, pieces } = result;
   const flagged = summary.high + summary.medium;
   const flaggedPct = Math.round(summary.flaggedShare * 100);
-  const scorePct = Math.round(reportScore(summary) * 100);
-  const basis = scoreBasis(summary);
+  const score = reportScore(summary);
+  const scorePct = Math.round(score * 100);
   const scored = summary.counted !== undefined;
+  const weighted = result.calibration?.weighted !== undefined;
+  const confirmed = new Set(result.calibration?.confirmed ?? []);
   const clear = Math.max(0, summary.sentences - flagged);
   const lowOnly = Math.max(0, summary.sentences - flagged - summary.uncertain);
   const overall = reportOverall(summary);
@@ -180,12 +182,12 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
 
         <div className="relative mt-6 grid items-center gap-6 border-t border-[var(--line)] pt-6 lg:grid-cols-[minmax(0,260px)_1fr]">
           <div>
-            <RiskGauge level={overall} share={basis.share} curve={basis.curve} />
+            <RiskGauge level={overall} finalScore={score} />
           </div>
           <div>
             <p className="text-[15px] leading-relaxed text-fg">
               <span className="font-semibold">AI score {scorePct}%</span>. {flaggedPct}% of sentences were flagged ({flagged} of {summary.sentences})
-              {scored && <>, and {summary.counted} of them count toward the score</>}, so the overall band is{" "}
+              {scored && !weighted && <>, and {summary.counted} of them count toward the score</>}. The overall band is{" "}
               <span className="font-semibold">{text.title}</span>. {text.line}
             </p>
             <div className="rp-stats mt-4">
@@ -199,7 +201,9 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
               <Stat title="Sections read" value={String(pieces.reviewed)} of={`of ${pieces.total}`} sub={`${pct(pieces.reviewed, pieces.total)}% covered`} />
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">
-              {scored
+              {weighted
+                ? "Every High or Medium flag contributes. Common wording and unconfirmed patterns carry less weight. A higher band needs stronger support across the draft."
+                : scored
                 ? "The AI score comes from the share of sentences that count: every High sentence, and the Medium sentences whose reasons point to a template structure, predictable wording or stock plain-style moves. Other Medium sentences are shown, lighter, for you to check, but not counted. On a curve: below 40% of the sentences counted it leans toward 0%, above 40% toward 100%."
                 : "The AI score comes from the share of sentences marked High or Medium, on a curve: below 60% of the sentences flagged it leans toward 0%, above 60% toward 100%."}{" "}
               It is not the chance that AI wrote your text, and it is not a Turnitin score. Formal, tidy writing such as exam essays and academic prose can score high even when a person wrote every word, so a high score is a reason to check your own sentences, not proof that AI was used.
@@ -304,7 +308,7 @@ export function AutoReportView({ title, finishedAt, result, rewrite, rewriteDemo
         <h3 className="section-eyebrow px-1 print:text-[#3a4258]">
           <span>Paragraph by paragraph</span>
         </h3>
-        {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} scored={scored} />)}
+        {paragraphs.map((p) => <ParagraphCard key={p.p} para={p} scored={scored} weighted={weighted} confirmed={confirmed} />)}
       </div>
 
       {grammar.length > 0 && (
