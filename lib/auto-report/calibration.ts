@@ -2,6 +2,7 @@ import "server-only";
 
 import model from "./paragraph-model-20261125.json";
 import { aiScore, COUNTED_CURVE, reportOverall, reportScore, type AutoReportResult, type ReportParagraph } from "./stitch";
+import { scoreWeightedRisk, uplift, weightedRiskEvidence, WEIGHTED_SCORE_VERSION, type StyleMargins } from "./weighted-score";
 
 const WORD = /[\p{L}\p{Nl}\p{No}]+(?:'[\p{L}\p{Nl}\p{No}]+)?|\p{Nd}+/gu;
 const TOKENS = /[\p{L}\p{Nl}\p{No}]+(?:'[\p{L}\p{Nl}\p{No}]+)?|\p{Nd}+|[.,!?;:()'"–-]/gu;
@@ -79,7 +80,7 @@ function roundEven(value: number): number {
   return value % 1 === .5 ? Math.floor(value / 2) * 2 + (Math.floor(value) % 2 ? 2 : 0) : Math.round(value);
 }
 
-function paragraphsAgreed(paragraphs: ReportParagraph[]): Set<number> {
+export function paragraphAgreement(paragraphs: ReportParagraph[]): StyleMargins & { confirmed: Set<number> } {
   const strengths: number[] = [];
   const ids = new Set<number>();
   for (const paragraph of paragraphs) {
@@ -91,41 +92,53 @@ function paragraphsAgreed(paragraphs: ReportParagraph[]): Set<number> {
     const size = Math.floor(sentences.length / windows);
     const remainder = sentences.length % windows;
     let start = 0;
-    let strength = 0;
+    let strength = -Infinity;
     for (let index = 0; index < windows; index++) {
       const end = start + size + (index < remainder ? 1 : 0);
       if (counts.slice(start, end).reduce((sum, count) => sum + count, 0) >= 45) {
         const group = sentences.slice(start, end);
         const input = features(group.map(sentence => sentence.text));
         const agreement = Math.min(...models.map(item => margin(input, item)));
+        if (Number.isFinite(agreement)) strength = Math.max(agreement, strength);
         if (agreement > 0) {
-          strength = Math.max(agreement, strength);
           for (const sentence of group) ids.add(sentence.n);
         }
       }
       start = end;
     }
-    if (strength > 0) strengths.push(strength);
+    if (Number.isFinite(strength)) strengths.push(strength);
   }
   strengths.sort((a, b) => b - a);
-  return (strengths[1] ?? 0) > model.confirmation ? ids : new Set();
+  const strongest = strengths[0] ?? -Infinity;
+  const second = strengths[1] ?? -Infinity;
+  return { strongest, second, confirmed: second > model.confirmation ? ids : new Set() };
 }
 
-function uplift(score: number, start: number, exponent: number): number {
-  return score <= start ? score : start + (1 - start) * ((score - start) / (1 - start)) ** exponent;
-}
-
-/** Apply the two calibrated scoring branches to an already validated review. */
-export function calibrateReview(report: AutoReportResult): AutoReportResult {
-  if (report.calibration || report.summary.counted === undefined) return report;
+function previousCalibration(report: AutoReportResult, confirmed: ReadonlySet<number>): AutoReportResult {
   const { summary, paragraphs } = report;
   const base = reportScore(summary);
   const scoreOnly = uplift(base, .45, .5);
-  const confirmed = paragraphsAgreed(paragraphs);
   const additions = paragraphs.flatMap(p => p.sentences.filter(s => !s.counts && confirmed.has(s.n)).map(s => s.n));
   const joint = confirmed.size ? uplift(aiScore(((summary.counted ?? 0) + additions.length) / summary.sentences, COUNTED_CURVE), .2, .25) : base;
   const calibrated = Math.max(scoreOnly, joint);
   const next = { ...summary, calibrated };
   return { ...report, summary: { ...next, overall: reportOverall(next) },
     calibration: { version: model.version, confirmed: joint > scoreOnly ? additions : [] } };
+}
+
+/** Reuse validated reviewer responses across scorer versions. */
+export function calibrateReview(report: AutoReportResult): AutoReportResult {
+  if (report.reviewFormat !== 1 || report.pieces.total <= 0 || report.pieces.reviewed !== report.pieces.total
+    || report.summary.counted === undefined || report.summary.sentences <= 0
+    || (report.calibration && report.calibration.version !== model.version)) return report;
+  const agreement = paragraphAgreement(report.paragraphs);
+  const previous = report.calibration ? report : previousCalibration(report, agreement.confirmed);
+  const evidence = weightedRiskEvidence(previous);
+  if (!evidence) return previous;
+  const previousScore = reportScore(previous.summary);
+  const calibrated = scoreWeightedRisk(previousScore, evidence, agreement);
+  const next = { ...previous.summary, calibrated };
+  return { ...previous, summary: { ...next, overall: reportOverall(next) },
+    calibration: { version: WEIGHTED_SCORE_VERSION, confirmed: previous.calibration?.confirmed ?? [],
+      weighted: { previousScore, weakShare: evidence.residual } } };
 }

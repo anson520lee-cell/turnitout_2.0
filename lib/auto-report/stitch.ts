@@ -22,6 +22,8 @@ export interface ReportSentence {
   risk: Level;
   /** Why the reviewer flagged it (signals), when it did. */
   why?: string;
+  /** The validated signal numbers, when the report used the structured reviewer. */
+  signals?: number[];
   /** Verbatim evidence checked against this sentence. */
   evidence?: string;
   /** The question to ask yourself, when the reviewer gave one. */
@@ -66,7 +68,7 @@ export interface AutoReportSummary {
 }
 
 export interface AutoReportResult {
-  calibration?: { version: string; confirmed: number[] };
+  calibration?: { version: string; confirmed: number[]; weighted?: { previousScore: number; weakShare: number } };
   version: 1;
   /** Stable sentence IDs and a validated response per piece. Absent on older reports. */
   reviewFormat?: 1;
@@ -302,6 +304,7 @@ export function assembleReport(
     para.sentences.push({
       n, text: s.text, risk: hit?.risk ?? "low",
       ...(hit?.why ? { why: hit.why } : {}),
+      ...(hit?.signals ? { signals: hit.signals } : {}),
       ...(hit?.evidence ? { evidence: hit.evidence } : {}),
       ...(hit?.ask ? { ask: hit.ask } : {}),
       ...(counts ? { counts: true as const } : {}),

@@ -8,6 +8,7 @@ import { PIECE_SIZE, reportScore, type AutoReportResult } from "./stitch";
 import { reportBasis, textHash } from "./reuse";
 import { prepareReview, reviewSystem, type ReviewPiece } from "./review";
 import { finishProductionReview, REVIEW_CONTEXT_CHARS, requestReviewPiece } from "./review-model";
+import { calibrateReview } from "./calibration";
 import { earlierResult } from "./run";
 import { acceptAll, checkOutcome, reviseText, type ReportRewrite, type RewriteCheck } from "./rewrite";
 
@@ -86,8 +87,10 @@ export async function checkReportRewrite(orderId: string, userId: string): Promi
     const check: RewriteCheck = { checkedAt: new Date().toISOString(), score: reportScore(after.summary), ...checkOutcome(trial, after), result: after };
     const round = rewrite.pending?.round ?? 1;
     const scores = [...(rewrite.scores ?? (rewrite.check ? [rewrite.check.score] : [])), check.score];
-    // A later round is kept only when it scores lower than the best so far.
-    const better = !rewrite.check || check.score < rewrite.check.score;
+    // Compare on the same scale when a draft was checked before a scorer update.
+    const earlier = rewrite.check?.result && calibrateReview(rewrite.check.result);
+    const priorScore = earlier ? reportScore(earlier.summary) : rewrite.check?.score;
+    const better = priorScore === undefined || check.score < priorScore;
     const rest: ReportRewrite = { ...rewrite };
     delete rest.pending;
     const saved: ReportRewrite = better ? { ...rest, items: trial.items, check, round, scores } : { ...rest, round, scores };

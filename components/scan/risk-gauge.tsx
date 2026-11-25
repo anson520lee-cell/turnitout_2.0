@@ -25,17 +25,18 @@ const arc = (from: number, to: number, r = R) => {
  * flagged) it becomes a 0 to 100 dial of the AI score (aiScore): the needle sits at the score and the band edges are
  * the report's thresholds on the same scale, so the needle is always inside the band whose name is shown. `curve` is
  * the curve that share is read on (see scoreBasis); without it, the curve for all flagged sentences.
+ * For a finished calibrated report, use its final score and band directly.
  */
-export function RiskGauge({ level, share, curve }: { level: RiskLevel; share?: number; curve?: ScoreCurve }) {
-  const measured = share !== undefined;
-  const shown = share !== undefined ? overallFor(share, curve) : level;
+export function RiskGauge({ level, share, curve, finalScore }: { level: RiskLevel; share?: number; curve?: ScoreCurve; finalScore?: number }) {
+  const measured = finalScore !== undefined || share !== undefined;
+  const shown = finalScore === undefined && share !== undefined ? overallFor(share, curve) : level;
   const idx = LEVELS.findIndex((l) => l.id === shown);
-  const score = share !== undefined ? aiScore(share, curve) : 0;
+  const score = finalScore ?? (share !== undefined ? aiScore(share, curve) : 0);
   const marks = [0, SCORE_BANDS.moderate, SCORE_BANDS.elevated, 1];
   const edges = measured ? marks.map((v) => v * 180) : [0, 60, 120, 180];
   const angle = measured ? -90 + score * 180 : -60 + idx * 60; // true score, or the centre of the band
   const current = LEVELS[idx];
-  const percent = share !== undefined ? Math.round(score * 100) : null;
+  const percent = measured ? Math.round(score * 100) : null;
   const ticks = Array.from({ length: 37 }, (_, i) => i * 5);
   return (
     <div className="relative mx-auto w-full max-w-[300px]">
