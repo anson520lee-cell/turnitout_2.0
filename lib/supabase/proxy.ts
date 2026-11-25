@@ -1,14 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/dashboard", "/orders", "/settings", "/admin"];
+const PROTECTED = ["/dashboard", "/orders", "/reports/new", "/settings", "/admin"];
 
 function needsAuth(url: Pick<URL, "pathname" | "searchParams">): boolean {
   const path = url.pathname;
-  // /services is public marketing; /services/screening and /services/refinement
-  // (the request forms) are open to guests too — pasting text and seeing the
-  // price needs no account, only submitting does, and the server action
-  // itself checks that. See app/(scan)/layout.tsx.
+  // The public report form is open to guests. Its actions check auth before
+  // submitting. The signed-in form shows private allowance and credit data.
   return PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
 }
 

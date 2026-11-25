@@ -5,28 +5,53 @@ import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Re-fetches the server page every `every` ms while the tab is visible, and
- * once when the tab becomes visible again. The page mounts this only in
- * waiting states, so it stops by itself once the status moves on.
+ * Refreshes waiting pages while visible. Payment checks start quickly,
+ * then back off while confirmation is taking longer.
  */
-export function AutoRefresh({ every = 20_000, className }: { every?: number; className?: string }) {
+export function AutoRefresh({
+  every = 20_000,
+  maxEvery = every,
+  className,
+}: {
+  every?: number;
+  maxEvery?: number;
+  className?: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let delay = every;
+
     const refresh = () => {
-      if (document.visibilityState !== "visible") return;
       start(() => router.refresh());
       setCheckedAt(new Date());
     };
-    const t = setInterval(refresh, every);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      clearInterval(t);
-      document.removeEventListener("visibilitychange", refresh);
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (document.visibilityState !== "visible") return;
+        refresh();
+        delay = Math.min(delay * 2, maxEvery);
+        schedule();
+      }, delay);
     };
-  }, [router, every]);
+    const onVisibility = () => {
+      clearTimeout(timer);
+      if (document.visibilityState !== "visible") return;
+      refresh();
+      delay = every;
+      schedule();
+    };
+
+    if (document.visibilityState === "visible") schedule();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [router, every, maxEvery]);
 
   return (
     <p className={cn("flex items-center justify-center gap-2 text-[11.5px] text-fg-subtle", className)}>
@@ -35,11 +60,14 @@ export function AutoRefresh({ every = 20_000, className }: { every?: number; cla
         <span className="relative inline-flex size-2 rounded-full bg-ok" />
       </span>
       <span>
-        Checking for updates every {Math.round(every / 1000)} s
+        {maxEvery > every
+          ? `Checking for updates every ${every / 1000}–${maxEvery / 1000} s while this tab is open`
+          : `Checking for updates every ${every / 1000} s`}
         {checkedAt && ` · last checked ${checkedAt.toLocaleTimeString("en-HK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}
       </span>
       <button
         type="button"
+        disabled={pending}
         onClick={() => {
           start(() => router.refresh());
           setCheckedAt(new Date());

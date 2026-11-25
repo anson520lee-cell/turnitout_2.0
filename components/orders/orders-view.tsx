@@ -33,10 +33,12 @@ export function OrdersView({
   filter,
   base = "/orders",
   order = (id: string) => `/orders/${id}`,
+  reportHref = "/reports/new",
 }: {
   orders: Order[];
   pendingClaims: Set<string>;
   filter: string;
+  reportHref?: string;
   /** The page the filter tabs link to. */
   base?: string;
   order?: (id: string) => string;
@@ -47,7 +49,7 @@ export function OrdersView({
         title="Orders"
         body="Your reports, with their live status."
         actions={
-          <Link href="/services/screening" className={buttonClasses("primary", "md")}>
+          <Link href={reportHref} prefetch={false} className={buttonClasses("primary", "md")}>
             Get a report
           </Link>
         }
@@ -77,7 +79,7 @@ export function OrdersView({
           title={filter === "all" ? "No orders yet" : "Nothing here"}
           body={filter === "all" ? "Get a report to get started." : "No orders match this filter."}
           action={
-            <Link href="/services/screening" className={buttonClasses("secondary", "sm")}>
+            <Link href={reportHref} prefetch={false} className={buttonClasses("secondary", "sm")}>
               Get a report
             </Link>
           }

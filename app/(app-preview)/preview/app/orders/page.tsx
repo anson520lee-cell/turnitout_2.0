@@ -5,5 +5,5 @@ import { demoOrders, demoPath, demoPendingClaims } from "../demo";
 export default async function AppPreviewOrders({ searchParams }: PageProps<"/preview/app/orders">) {
   const { filter } = await searchParams;
   const f = typeof filter === "string" ? filter : "all";
-  return <OrdersView orders={filterOrders(demoOrders, f)} pendingClaims={demoPendingClaims} filter={f} base={demoPath.orders} order={demoPath.order} />;
+  return <OrdersView orders={filterOrders(demoOrders, f)} pendingClaims={demoPendingClaims} filter={f} base={demoPath.orders} order={demoPath.order} reportHref="/preview/app/reports/new" />;
 }

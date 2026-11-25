@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { buttonClasses } from "@/components/ui/button";
 import { OrderTimeline } from "@/components/orders/order-timeline";
 import { OrderDetails } from "@/components/orders/order-details";
+import { AutoRefresh } from "@/components/orders/auto-refresh";
 import { AutoReportView } from "@/components/reports/auto-report-view";
 import { sampleReport } from "@/lib/auto-report/sample";
 import { serviceLabels } from "@/config/services";
@@ -20,8 +21,8 @@ import { demoOrders, demoPath } from "../../demo";
  * (the same as /sample-report); the others show their progress and details. The live scan and the
  * payment panel need a real order, so they are not part of this preview.
  */
-export default async function AppPreviewOrder({ params }: PageProps<"/preview/app/orders/[id]">) {
-  const { id } = await params;
+export default async function AppPreviewOrder({ params, searchParams }: PageProps<"/preview/app/orders/[id]">) {
+  const [{ id }, { state }] = await Promise.all([params, searchParams]);
   const order = demoOrders.find((o) => o.id === id);
   if (!order) notFound();
   const open = order.status !== "completed" && order.status !== "cancelled";
@@ -49,7 +50,7 @@ export default async function AppPreviewOrder({ params }: PageProps<"/preview/ap
           <Card strong className="p-5 sm:p-7">
             <h2 className="text-[15px] font-semibold">Order cancelled</h2>
             <p className="mt-1 text-[13px] text-fg-muted">Nothing was charged and your text has been deleted. You can start a new one whenever you like.</p>
-            <Link href="/services/screening" className={buttonClasses("primary", "lg", "mt-5")}>
+            <Link href="/preview/app/reports/new" className={buttonClasses("primary", "lg", "mt-5")}>
               Get a new report
             </Link>
           </Card>
@@ -57,6 +58,13 @@ export default async function AppPreviewOrder({ params }: PageProps<"/preview/ap
         </div>
       ) : (
         <div className="max-w-xl">
+          {order.status === "awaiting_payment" && state === "confirming" && (
+            <Card strong className="mb-5 p-5 sm:p-7">
+              <h2 className="text-[15px] font-semibold">Waiting for payment confirmation</h2>
+              <p className="mt-2 text-[13px] text-fg-muted">Demo order. You can try the refresh behaviour here.</p>
+              <AutoRefresh every={5_000} maxEvery={30_000} className="mt-5" />
+            </Card>
+          )}
           <OrderDetails order={order} file={null} payments={[]} />
         </div>
       )}

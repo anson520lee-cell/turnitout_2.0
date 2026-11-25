@@ -46,7 +46,7 @@ function useResetIn(): string | null {
 }
 
 /** Progress ring: full while today's free report is available, empty and locked once it is used. */
-function Ring({ available }: { available: boolean }) {
+function Ring({ available, label }: { available: boolean; label: string }) {
   const r = 34;
   const c = 2 * Math.PI * r;
   return (
@@ -76,7 +76,7 @@ function Ring({ available }: { available: boolean }) {
       {available ? (
         <div className="text-center leading-none">
           <p className="text-3xl font-semibold tracking-tight tabular-nums">1</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">left</p>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">{label}</p>
         </div>
       ) : (
         <Lock className="size-6 text-fg-subtle" strokeWidth={1.5} />
@@ -93,11 +93,13 @@ function Ring({ available }: { available: boolean }) {
 export function DailyReportCard({
   status,
   paidHref = "/services/screening#paid-report",
+  preview = false,
   className,
 }: {
   status: DailyReportStatus;
   /** Where "get a full report" leads once today's free one is used. */
   paidHref?: string;
+  preview?: boolean;
   className?: string;
 }) {
   const router = useRouter();
@@ -107,6 +109,7 @@ export function DailyReportCard({
   const unlimited = status.mode === "account" && status.unlimited;
 
   async function startFree(text: string) {
+    if (preview) return { ok: false as const, message: "Preview only. No report order was created." };
     const res = await createFreeReportOrder({ text });
     if (!res.ok) return res;
     track("order_created", { service: "daily_free_report" });
@@ -115,6 +118,7 @@ export function DailyReportCard({
   }
 
   async function startFull(text: string) {
+    if (preview) return { ok: false as const, message: "Preview only. No report order was created." };
     const res = await createScreeningTextOrder({ text, useDailyAllowance: true });
     if (!res.ok) return res;
     track("order_created", { service: reportService, from: "free_length_choice" });
@@ -126,7 +130,7 @@ export function DailyReportCard({
     <>
       <Card strong className={cn("daily-card relative overflow-hidden p-5 sm:p-6", used && "opacity-95", className)} id="daily-free-report">
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-          <Ring available={!used} />
+          <Ring available={!used} label={status.mode === "guest" ? "daily" : "left"} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Daily free report</p>
@@ -137,7 +141,7 @@ export function DailyReportCard({
                 )}
               >
                 {used ? <Lock className="size-3" aria-hidden /> : <Gift className="size-3" aria-hidden />}
-                {used ? "Used today" : unlimited ? "Owner · unlimited" : "1 left today"}
+                {used ? "Used today" : unlimited ? "Owner · unlimited" : status.mode === "guest" ? "Daily allowance" : "1 left today"}
               </span>
             </div>
             <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
@@ -183,7 +187,11 @@ export function DailyReportCard({
                     Enter <CornerDownLeft className="size-3" />
                   </kbd>
                 </p>
-                {status.mode === "guest" && <p className="text-[12px] text-fg-subtle sm:text-right">A free account is needed to start it</p>}
+                {status.mode === "guest" && (
+                  <Link href="/reports/new" prefetch={false} className="text-[12px] text-fg-subtle underline-offset-4 hover:underline sm:text-right">
+                    Check your account allowance
+                  </Link>
+                )}
               </>
             )}
           </div>

@@ -66,7 +66,10 @@ export function CryptoPaymentView({ initial, qr, poll = true }: { initial: Crypt
   useEffect(() => {
     if (!poll || PAID_STATUSES.includes(p.status) || DEAD_STATUSES.includes(p.status)) return;
     let stop = false;
+    let inFlight = false;
     const run = async () => {
+      if (inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
       try {
         const r = await fetch(`/api/payments/nowpayments/status/${initial.id}`, { cache: "no-store" });
         if (!r.ok) return;
@@ -74,12 +77,17 @@ export function CryptoPaymentView({ initial, qr, poll = true }: { initial: Crypt
         if (!stop && j.payment) setP(j.payment);
       } catch {
         /* keep the last known status */
+      } finally {
+        inFlight = false;
       }
     };
     const t = setInterval(run, 5000);
+    const onVisibility = () => void run();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       stop = true;
       clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [poll, p.status, initial.id]);
 
