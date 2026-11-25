@@ -19,6 +19,7 @@ export const screeningOrderInput = z.object({
 
 /** Report request: the pasted text only. Price and title are set by the server. */
 export const screeningTextOrderInput = z.object({
+  useDailyAllowance: z.boolean().optional(),
   text: z
     .string()
     .max(maxPasteChars, "That text is too long for one report.")

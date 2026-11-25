@@ -71,9 +71,10 @@ export function reportChargedChars(chars: number): number {
   return whole * chargedChars + Math.min(chargedChars, chars - whole * cycleChars);
 }
 
-export function reportPrice(chars: number): number {
-  const blocks = Math.max(1, Math.ceil(reportChargedChars(chars) / reportPricing.blockChars));
-  return Math.max(reportPricing.minimum, blocks * reportPricing.perBlock);
+export function reportPrice(chars: number, freeChars = 0): number {
+  const excess = Math.max(0, chars - freeChars);
+  const blocks = Math.ceil(reportChargedChars(excess) / reportPricing.blockChars);
+  return Math.max(freeChars > 0 ? 0 : reportPricing.minimum, blocks * reportPricing.perBlock);
 }
 
 /**

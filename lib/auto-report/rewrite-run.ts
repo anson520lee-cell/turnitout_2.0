@@ -165,7 +165,7 @@ export async function makeRewrite(orderId: string, who: { userId: string; admin:
   if (await rewriteLimitReached()) return { ok: false, reason: "daily_limit" };
 
   // What it costs, and whether the account can pay, before any model call. An admin's own test is free.
-  const { data: order } = await db.from("orders").select("price,source_text").eq("id", orderId).maybeSingle<{ price: number; source_text: string | null }>();
+  const { data: order } = await db.from("orders").select("price,source_text,daily_free_chars").eq("id", orderId).maybeSingle<{ price: number; source_text: string | null; daily_free_chars: number }>();
   if (!order) return { ok: false, reason: "no_report" };
   const credits = who.admin ? 0 : rewriteCredits(order, report.result);
   if (credits > 0) {
