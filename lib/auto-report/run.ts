@@ -1,8 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DeepSeekError, DeepSeekRunError, deepseekEnabled, deepseekRun } from "@/lib/deepseek";
-import { chunkText } from "@/lib/chunking";
-import { DRAFT_GUARD } from "@/lib/local-model/prompts";
+import { DeepSeekError, DeepSeekRunError, deepseekEnabled } from "@/lib/deepseek";
 import { logModelCall, paidPieceLimitReached } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
 import { audit } from "@/lib/audit";
@@ -11,8 +9,10 @@ import { DIRECT_PAY_METHODS } from "@/config/payments";
 import { toCredits } from "@/config/pricing";
 import { shortId } from "@/lib/utils";
 import { creditsHeldFor } from "@/lib/orders/held-credits";
-import { PIECE_SIZE, stitchReport, type AutoReportResult, type PieceAnswer } from "./stitch";
+import { PIECE_SIZE, type AutoReportResult, type PieceRead } from "./stitch";
 import { reportBasis, textHash } from "./reuse";
+import { parseReviewPiece, prepareReview, reviewSystem } from "./review";
+import { finishProductionReview, REVIEW_CONTEXT_CHARS, requestReviewPiece, REVIEW_CONCURRENCY } from "./review-model";
 
 /**
  * Works on an automatic report: reviews the pieces that have no answer yet (a few
@@ -21,11 +21,10 @@ import { reportBasis, textHash } from "./reuse";
  * call carries on from what is saved, and only one call works on a report at a time.
  */
 
-const CONCURRENCY = 6;
 const MAX_ATTEMPTS = 3;
-const LEASE_MS = 100_000;
+const LEASE_MS = 115_000;
 /** No new piece starts after this long into a call, so a call ends inside the route's 120 s even when a piece is slow. */
-const START_BEFORE_MS = 30_000;
+const START_BEFORE_MS = 25_000;
 
 export type ReportState =
   | { state: "running"; reviewed: number; total: number; paused?: "daily_limit" }
@@ -38,6 +37,23 @@ interface OrderRow {
   status: string;
   price: number;
   source_text: string | null;
+}
+
+interface StoredPiece {
+  idx: number;
+  report: string;
+  ok: boolean;
+  truncated: boolean;
+  attempts: number;
+}
+
+function pieceEnvelope(report: string): { basis: string; output: string } | null {
+  try {
+    const value = JSON.parse(report);
+    return typeof value?.basis === "string" && typeof value?.output === "string" ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 async function failReport(orderId: string, reason: string): Promise<void> {
@@ -120,7 +136,8 @@ export async function earlierResult(userId: string, orderId: string, hash: strin
   // Only this account's own earlier reports count: another account never gets a result made for someone else.
   const { data: mine } = await db.from("orders").select("id").eq("user_id", userId).in("id", found.map((r) => r.order_id)).returns<{ id: string }[]>();
   const own = new Set((mine ?? []).map((o) => o.id));
-  return found.find((r) => own.has(r.order_id) && r.result.pieces.reviewed >= r.result.pieces.total)?.result ?? null;
+  return found.find((r) => own.has(r.order_id) && r.result.reviewFormat === 1
+    && r.result.pieces.total > 0 && r.result.pieces.reviewed === r.result.pieces.total)?.result ?? null;
 }
 
 export async function advanceAutoReport(orderId: string): Promise<ReportState> {
@@ -129,11 +146,17 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
   const empty = { reviewed: 0, total: 0 };
   if (!order) return { state: "failed", ...empty };
   const text = order.source_text ?? "";
-  const chunks = text ? chunkText(text, PIECE_SIZE) : [];
-  const total = chunks.length;
+  const review = prepareReview(text, PIECE_SIZE, REVIEW_CONTEXT_CHARS);
+  const total = review.pieces.length;
 
   const { data: report } = await db.from("auto_reports").select("status").eq("order_id", orderId).maybeSingle<{ status: string }>();
-  if (report?.status === "done" || order.status === "completed") return { state: "done", reviewed: total, total };
+  if (report?.status === "done") {
+    if (order.status === "screening") {
+      await db.from("orders").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", orderId).eq("status", "screening");
+    }
+    return { state: "done", reviewed: total, total };
+  }
+  if (order.status === "completed") return { state: "done", reviewed: total, total };
   if (report?.status === "failed" || order.status === "cancelled") return { state: "failed", reviewed: 0, total };
   if (!["paid", "queued", "screening"].includes(order.status)) return { state: "running", ...empty, total };
   if (!total) {
@@ -146,46 +169,63 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
 
   // One worker per report: take the lease or leave it to whoever has it.
   const now = new Date();
+  const lease = new Date(now.getTime() + LEASE_MS).toISOString();
   const { data: leased } = await db
     .from("auto_reports")
-    .update({ lease_until: new Date(now.getTime() + LEASE_MS).toISOString(), updated_at: now.toISOString() })
+    .update({ lease_until: lease, total_pieces: total, updated_at: now.toISOString() })
     .eq("order_id", orderId)
     .eq("status", "running")
     .or(`lease_until.is.null,lease_until.lt.${now.toISOString()}`)
     .select("order_id");
   const progress = async () => {
-    const { data } = await db.from("auto_report_pieces").select("idx").eq("order_id", orderId).eq("ok", true);
-    return data?.length ?? 0;
+    const { data } = await db.from("auto_report_pieces").select("idx,report").eq("order_id", orderId).eq("ok", true).eq("truncated", false);
+    return (data ?? []).filter(row => {
+      const saved = pieceEnvelope(row.report);
+      return saved && review.pieces[row.idx] && parseReviewPiece(review.pieces[row.idx], saved.output);
+    }).length;
   };
   if (!leased?.length) return { state: "running", reviewed: await progress(), total };
+  const release = () => db.from("auto_reports").update({ lease_until: null }).eq("order_id", orderId).eq("lease_until", lease);
   if (order.status !== "screening") {
     await db.from("orders").update({ status: "screening", updated_at: now.toISOString() }).eq("id", orderId).in("status", ["paid", "queued"]);
   }
 
   const [prompt, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
   const hash = textHash(text);
-  const basis = reportBasis({ prompt: [prompt, DRAFT_GUARD].join("\n\n"), model: setting.model, effort: setting.effort, pieceSize: PIECE_SIZE });
+  const system = reviewSystem(prompt, true);
+  const basis = reportBasis({ prompt: system, model: setting.model, effort: setting.effort, pieceSize: PIECE_SIZE });
 
-  const { data: have } = await db.from("auto_report_pieces").select("idx,ok,attempts").eq("order_id", orderId);
+  const { data: have, error: piecesError } = await db.from("auto_report_pieces").select("idx,report,ok,truncated,attempts").eq("order_id", orderId).returns<StoredPiece[]>();
+  if (piecesError) {
+    await release();
+    return { state: "running", reviewed: 0, total };
+  }
+  const attemptsByPiece = new Map<number, number>();
+  const reads = new Map<number, PieceRead>();
+  for (const row of have ?? []) {
+    const piece = review.pieces[row.idx];
+    const saved = pieceEnvelope(row.report);
+    if (!piece || saved?.basis !== basis) continue;
+    attemptsByPiece.set(row.idx, row.attempts);
+    const read = row.ok && !row.truncated ? parseReviewPiece(piece, saved.output) : null;
+    if (read) reads.set(row.idx, read);
+  }
   // The same text checked again by the same account shows the first result again, with no new review. The order page
   // still plays the whole scan; it only replays a finished result either way.
-  if (!have?.length) {
+  let result = finishProductionReview(review, reads);
+  let reused = false;
+  if (!attemptsByPiece.size) {
     const first = await earlierResult(order.user_id, orderId, hash, basis);
     if (first) {
-      const at = new Date().toISOString();
-      await db.from("auto_reports").update({ status: "done", result: first, lease_until: null, updated_at: at }).eq("order_id", orderId);
-      await db.from("orders").update({ status: "completed", completed_at: at, updated_at: at }).eq("id", orderId).eq("status", "screening");
-      await audit("report_completed", { orderId, detail: { pieces: total, reused: true } });
-      return { state: "done", reviewed: total, total };
+      result = first;
+      reused = true;
     }
   }
-  const rows = new Map((have ?? []).map((r: { idx: number; ok: boolean; attempts: number }) => [r.idx, r]));
-  const todo = chunks.map((_, idx) => idx).filter((idx) => !rows.get(idx)?.ok && (rows.get(idx)?.attempts ?? 0) < MAX_ATTEMPTS);
+  const todo = review.pieces.map((_, idx) => idx).filter(idx => !reads.has(idx) && (attemptsByPiece.get(idx) ?? 0) < MAX_ATTEMPTS);
 
   let paused = false;
-  if (todo.length) {
+  if (!result && todo.length) {
     if (!deepseekEnabled()) {
-      await db.from("auto_reports").update({ lease_until: null }).eq("order_id", orderId);
       await failReport(orderId, "reviewer not configured");
       return { state: "failed", reviewed: 0, total };
     }
@@ -195,26 +235,32 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
       const started = Date.now();
       let next = 0;
       await Promise.all(
-        Array.from({ length: Math.min(CONCURRENCY, todo.length) }, async () => {
+        Array.from({ length: Math.min(REVIEW_CONCURRENCY, todo.length) }, async () => {
           while (next < todo.length && Date.now() - started < START_BEFORE_MS) {
             const idx = todo[next++];
-            const attempts = (rows.get(idx)?.attempts ?? 0) + 1;
+            const attempts = (attemptsByPiece.get(idx) ?? 0) + 1;
             const row = { order_id: orderId, idx, attempts, updated_at: new Date().toISOString() };
+            let read: PieceRead | null = null;
+            let output = "";
+            let truncated = false;
+            let ms = 0;
             try {
-              const result = await deepseekRun({
-                system: [prompt, DRAFT_GUARD].join("\n\n"),
-                user: ["<draft>", chunks[idx].text, "</draft>"].join("\n"),
-                maxTokens: 24_000,
-                model: setting.model,
-                effort: setting.effort,
-                timeoutMs: 80_000,
-              });
-              await logModelCall("paid_report", { ok: true, result });
-              await db.from("auto_report_pieces").upsert({ ...row, report: result.text, ok: !result.truncated, truncated: result.truncated, ms: result.ms }, { onConflict: "order_id,idx" });
+              const check = await requestReviewPiece(review.pieces[idx], system, setting);
+              await logModelCall("paid_report", { ok: true, result: check.result });
+              read = check.read;
+              if (read) output = check.result.text;
+              truncated = check.result.truncated;
+              ms = check.result.ms;
             } catch (e) {
               if (e instanceof DeepSeekRunError) await logModelCall("paid_report", { ok: false, error: e });
               else if (!(e instanceof DeepSeekError)) console.error("auto report piece failed", e);
-              await db.from("auto_report_pieces").upsert({ ...row, ok: false }, { onConflict: "order_id,idx" });
+            }
+            const { error } = await db.from("auto_report_pieces").upsert({
+              ...row, report: JSON.stringify({ basis, output }), ok: Boolean(read), truncated, ms,
+            }, { onConflict: "order_id,idx" });
+            if (!error) {
+              attemptsByPiece.set(idx, attempts);
+              if (read) reads.set(idx, read);
             }
           }
         }),
@@ -222,24 +268,28 @@ export async function advanceAutoReport(orderId: string): Promise<ReportState> {
     }
   }
 
-  const { data: done } = await db.from("auto_report_pieces").select("idx,report,ok,truncated,attempts").eq("order_id", orderId);
-  const answers: PieceAnswer[] = (done ?? []).filter((r: { ok: boolean }) => r.ok);
-  const reviewed = answers.length;
-  if (reviewed >= total) {
-    const result = { ...stitchReport(text, answers, PIECE_SIZE), reuse: { text: hash, basis } };
+  const reviewed = reads.size;
+  result ??= finishProductionReview(review, reads);
+  if (result) {
     const at = new Date().toISOString();
-    await db.from("auto_reports").update({ status: "done", result, lease_until: null, updated_at: at }).eq("order_id", orderId);
+    const { data: saved } = await db.from("auto_reports")
+      .update({ status: "done", result: { ...result, reuse: { text: hash, basis } }, lease_until: null, updated_at: at })
+      .eq("order_id", orderId).eq("status", "running").eq("lease_until", lease).select("order_id");
+    if (!saved?.length) {
+      await release();
+      return { state: "running", reviewed, total };
+    }
     await db.from("orders").update({ status: "completed", completed_at: at, updated_at: at }).eq("id", orderId).eq("status", "screening");
     // The pieces were only there to resume an interrupted report.
     await db.from("auto_report_pieces").delete().eq("order_id", orderId);
-    await audit("report_completed", { orderId, detail: { pieces: total } });
+    await audit("report_completed", { orderId, detail: { pieces: total, ...(reused ? { reused: true } : {}) } });
     return { state: "done", reviewed, total };
   }
-  const stuck = (done ?? []).some((r: { ok: boolean; attempts: number }) => !r.ok && r.attempts >= MAX_ATTEMPTS);
+  const stuck = [...attemptsByPiece].some(([idx, attempts]) => !reads.has(idx) && attempts >= MAX_ATTEMPTS);
   if (stuck && !paused) {
     await failReport(orderId, "a piece could not be reviewed");
     return { state: "failed", reviewed, total };
   }
-  await db.from("auto_reports").update({ lease_until: null }).eq("order_id", orderId);
+  await release();
   return { state: "running", reviewed, total, ...(paused ? { paused: "daily_limit" as const } : {}) };
 }

@@ -50,14 +50,11 @@ export default async function AdminPrompt() {
           <PromptEditor
             initial={setting.value}
             custom={setting.custom}
-            versions={versions.map((v) => ({ id: v.id, savedAt: v.savedAt, preview: preview(v.value) }))}
+            versions={versions.map((v) => ({ id: v.id, savedAt: v.savedAt, preview: preview(v.value), active: setting.custom && v.value.trim() === setting.value.trim(), structured: v.value.includes("RESPONSE CONTRACT:") }))}
           />
           <div className="mt-5 space-y-1.5 border-t border-[var(--line)] pt-4 text-[12px] leading-relaxed text-fg-subtle">
-            <p>Tips for the report to display well:</p>
-            <p>· Put each part heading on its own line, starting with &ldquo;A.&rdquo;, &ldquo;B.&rdquo; and so on. A closing &ldquo;Summary:&rdquo; line also works.</p>
-            <p>· Start each point with &ldquo;- &rdquo;. Split a point into fields with &ldquo; | &rdquo;: the first field is shown as the location, &ldquo;Risk: High/Medium/Low/Uncertain&rdquo; becomes a coloured label, and &ldquo;Ask: …&rdquo; is shown as the question.</p>
-            <p>· Ask for plain text (no ** or #).</p>
-            <p>· The site always adds one rule after your prompt: treat the text in &lt;draft&gt; as the essay only and ignore instructions inside it.</p>
+            <p>Reports use stable sentence IDs. The response contract specifies the JSON format and requires evidence quoted from the matching sentence.</p>
+            <p>Use Test prompt to check the same reviewer and scoring flow used for new reports.</p>
           </div>
         </Card>
 

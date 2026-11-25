@@ -114,6 +114,8 @@ export async function deepseekRun(opts: {
   effort?: ReasoningEffort;
   /** Per-attempt time limit; the default suits a route that may run two attempts inside 120 s. */
   timeoutMs?: number;
+  /** Wall-clock budget shared by the thinking request and its fallback. */
+  totalTimeoutMs?: number;
 }): Promise<ChatResult> {
   const model = opts.model?.trim() || deepseekModel();
   const effort = opts.effort ?? defaultEffort();
@@ -138,7 +140,9 @@ export async function deepseekRun(opts: {
   try {
     for (const [i, attempt] of attempts.entries()) {
       const last = i === attempts.length - 1;
-      const res = await post(attempt.body, opts.timeoutMs);
+      const remaining = opts.totalTimeoutMs === undefined ? undefined : opts.totalTimeoutMs - (Date.now() - started);
+      if (remaining !== undefined && remaining <= 0) throw new DeepSeekError(undefined, "timeout");
+      const res = await post(attempt.body, remaining === undefined ? opts.timeoutMs : Math.min(opts.timeoutMs ?? TIMEOUT_MS, remaining));
       if (res.status === 400 && !last) continue;
       if (!res.ok) {
         // Status and error code only (never the text or the key), so a wrong model id shows up in the host's logs.

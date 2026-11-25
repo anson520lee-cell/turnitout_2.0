@@ -93,7 +93,7 @@ export async function importEvalCases(): Promise<Result<{ added: number }>> {
   ]);
   const names = new Set((have ?? []).map((r: { name: string }) => r.name));
   const rows = ((cases ?? []) as { name: string; body: string; sentences: TruthSentence[]; note: string | null }[])
-    .filter((c) => !names.has(c.name))
+    .filter((c) => c.sentences.length > 0 && !names.has(c.name))
     .map((c) => ({ name: c.name, origin: "turnitin", body: c.body, sentences: c.sentences, note: c.note }));
   if (rows.length === 0) return { ok: true, added: 0 };
   const { error } = await db.from("chunk_samples").insert(rows);

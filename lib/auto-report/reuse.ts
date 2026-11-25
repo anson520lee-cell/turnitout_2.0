@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
  */
 
 /** Bump to stop old results being reused (for example after the scoring logic changes). */
-const REUSE_VERSION = 1;
+const REUSE_VERSION = 3;
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32);
 

@@ -4,6 +4,7 @@ import { chunkText } from "@/lib/chunking";
 import { DRAFT_GUARD } from "@/lib/local-model/prompts";
 import { logModelCall } from "@/lib/model-usage";
 import { getModelSetting, getScanReportPrompt } from "@/lib/site-settings";
+import { legacyReviewRubric } from "@/lib/auto-report/review";
 
 export type PieceResult = { ok: true; pieces: number; ms: number } | { ok: false; message: string };
 
@@ -18,7 +19,7 @@ export async function runChunkPiece(args: { sampleId: string; size: number; idx:
   if (!piece) return { ok: false, message: "No such piece." };
 
   const [saved, setting] = await Promise.all([getScanReportPrompt(), getModelSetting()]);
-  const prompt = args.prompt ?? saved;
+  const prompt = legacyReviewRubric(args.prompt ?? saved);
   const effort = args.effort ?? setting.effort;
   const row = { sample_id: sampleId, batch, size, idx, first_sentence: piece.first, chunk: piece.text, model: setting.model, effort };
   try {

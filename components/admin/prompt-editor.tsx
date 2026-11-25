@@ -5,8 +5,6 @@ import { FlaskConical, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormMessage, Textarea } from "@/components/ui/field";
-import { ReportView } from "@/components/scan/report-view";
-import { parseReport } from "@/lib/report-format";
 import { formatDateTime } from "@/lib/utils";
 import {
   loadPromptVersion,
@@ -16,7 +14,7 @@ import {
   type PromptTestResult,
 } from "@/app/actions/admin-prompt";
 
-type Version = { id: number; savedAt: string; preview: string };
+type Version = { id: number; savedAt: string; preview: string; active: boolean; structured: boolean };
 
 const SAMPLE = `Urban streets deserve greater attention in planning debates. Streets carry traffic, but they are also public spaces where people meet. Some projects make money while the environment deteriorates. Control over important decisions may also remain with a small group.
 
@@ -153,7 +151,7 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
               <span>{test.seconds}s · {test.tokens.toLocaleString("en-HK")} tokens</span>
               {test.truncated && <Badge tone="warn">Report cut short</Badge>}
             </div>
-            <ReportView blocks={parseReport(test.report)} />
+            <pre className="max-h-96 overflow-auto whitespace-pre-wrap text-xs">{test.report}</pre>
           </div>
         )}
       </section>
@@ -166,11 +164,12 @@ export function PromptEditor({ initial, custom, versions }: { initial: string; c
           <p className="mt-2 text-[12.5px] text-fg-subtle">Every time you press Save prompt, a copy is kept here so you can go back to it.</p>
         ) : (
           <ul className="mt-2 divide-y divide-[var(--line)] rounded-xl border border-[var(--line)]">
-            {versions.map((v, i) => (
+            {versions.map((v) => (
               <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 text-[12.5px]">
                 <div className="min-w-0">
                   <span className="text-fg">{formatDateTime(v.savedAt)}</span>
-                  {i === 0 && custom && <Badge tone="success" className="ml-2">In use</Badge>}
+                  {v.active && <Badge tone="success" className="ml-2">In use</Badge>}
+                  <span className="ml-2 text-fg-muted">{v.structured ? "Structured review" : "Legacy prompt backup"}</span>
                   <p className="truncate text-fg-subtle">{v.preview}</p>
                 </div>
                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => load(v.id)}>
