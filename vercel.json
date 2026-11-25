@@ -1,5 +1,4 @@
 {
   "regions": ["sin1"],
-  "buildCommand": "node --conditions=react-server --import tsx tools/luna-release-smoke.cjs && npm run build",
   "crons": [{ "path": "/api/cron/retention", "schedule": "0 19 * * *" }]
 }
