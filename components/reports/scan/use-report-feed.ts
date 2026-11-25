@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { AutoReportResult } from "@/lib/auto-report/stitch";
 
 export interface ReportFeed {
@@ -21,41 +21,56 @@ const START: ReportFeed = { state: "running", reviewed: 0, total: 0, paused: fal
 /**
  * Keeps an automatic report moving while the page is open: asks the server to
  * review some more pieces and reports how far it got, until the report is done
- * (with the finished report) or has failed. Closing the page only pauses it; the
- * saved pieces stay, and the next visit carries on from there.
+ * (with the finished report) or has failed. While the tab is hidden the
+ * background runner can pick up the saved progress.
  */
 export function useLiveReportFeed(orderId: string | null): ReportFeed {
   const [feed, setFeed] = useState<ReportFeed>(START);
-  const stopped = useRef(false);
-
   useEffect(() => {
     if (!orderId) return;
-    stopped.current = false;
+    let stopped = false;
+    let finished = false;
+    let inFlight = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let misses = 0;
-    const loop = async () => {
-      while (!stopped.current) {
-        let wait = 1_000;
-        try {
-          const res = await fetch(`/api/reports/${orderId}/advance`, { method: "POST", cache: "no-store" });
-          if (!res.ok) throw new Error(String(res.status));
-          const p = (await res.json()) as Progress;
-          misses = 0;
-          if (stopped.current) return;
-          setFeed({ state: p.state, reviewed: p.reviewed, total: p.total, paused: Boolean(p.paused), trouble: false, result: p.result ?? null });
-          if (p.state !== "running") return;
-          if (p.paused) wait = 30_000;
-        } catch {
-          // A slow or dropped request is normal here; the server keeps what it has finished.
-          misses += 1;
-          setFeed((f) => ({ ...f, trouble: true }));
-          wait = Math.min(15_000, 2_000 * misses);
+
+    const advance = async () => {
+      if (stopped || finished || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      let wait = 1_000;
+      try {
+        const res = await fetch(`/api/reports/${orderId}/advance`, { method: "POST", cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        const p = (await res.json()) as Progress;
+        if (stopped) return;
+        misses = 0;
+        finished = p.state !== "running";
+        setFeed({ state: p.state, reviewed: p.reviewed, total: p.total, paused: Boolean(p.paused), trouble: false, result: p.result ?? null });
+        if (p.paused) wait = 30_000;
+      } catch {
+        if (stopped) return;
+        // The server keeps what it has finished, so a retry can continue.
+        misses += 1;
+        setFeed((f) => ({ ...f, trouble: true }));
+        wait = Math.min(15_000, 2_000 * misses);
+      } finally {
+        inFlight = false;
+        if (!stopped && !finished && document.visibilityState === "visible") {
+          timer = setTimeout(advance, wait);
         }
-        await new Promise((r) => setTimeout(r, wait));
       }
     };
-    void loop();
+    const onVisibility = () => {
+      clearTimeout(timer);
+      void advance();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    void advance();
     return () => {
-      stopped.current = true;
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [orderId]);
 

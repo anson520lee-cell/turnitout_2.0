@@ -16,7 +16,7 @@ import { formatDate, shortId } from "@/lib/utils";
 export function OrderRow({ order, href, paymentPending, index }: { order: Order; href?: string; paymentPending?: boolean; index?: number }) {
   return (
     <li className="app-row" style={index !== undefined ? ({ "--i": index } as CSSProperties) : undefined}>
-      <Link href={href ?? `/orders/${order.id}`} data-press className="app-row-link group">
+      <Link href={href ?? `/orders/${order.id}`} prefetch={false} data-press className="app-row-link group">
         {index !== undefined && <span className="nav-idx app-row-idx">{String(index + 1).padStart(2, "0")}</span>}
         <div className="app-row-main min-w-0 flex-1">
           <p className="truncate text-[14.5px] font-medium text-fg">{order.title}</p>

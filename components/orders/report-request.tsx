@@ -25,7 +25,7 @@ const STEPS = [
  * Enter the server creates the order and we go to its payment page while
  * the dialog keeps showing "please wait".
  */
-export function ReportRequest() {
+export function ReportRequest({ preview = false }: { preview?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -135,6 +135,7 @@ export function ReportRequest() {
         }}
         footnote={<>By pressing Enter you confirm that you wrote this text or are otherwise authorised to submit it.</>}
         onSubmit={async (text) => {
+          if (preview) return { ok: false, message: "Preview only. No report order was created." };
           const res = await createScreeningTextOrder({ text });
           if (!res.ok) return res;
           track("order_created", { service: reportService });

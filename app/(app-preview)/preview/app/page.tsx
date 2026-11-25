@@ -12,6 +12,8 @@ export default async function AppPreviewOverview({ searchParams }: PageProps<"/p
       orders={demoOrders}
       pendingClaims={demoPendingClaims}
       links={{ settings: demoPath.settings, orders: demoPath.orders, order: demoPath.order }}
+      reportHref="/preview/app/reports/new"
+      preview
     />
   );
 }

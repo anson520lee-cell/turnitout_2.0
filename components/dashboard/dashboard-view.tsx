@@ -19,6 +19,8 @@ export function DashboardView({
   orders,
   pendingClaims,
   links = { settings: "/settings", orders: "/orders", order: (id: string) => `/orders/${id}` },
+  reportHref = "/reports/new",
+  preview = false,
 }: {
   email: string;
   displayName: string | null;
@@ -28,6 +30,8 @@ export function DashboardView({
   pendingClaims: Set<string>;
   /** Where the overview links to (the design preview keeps its links inside the preview). */
   links?: { settings: string; orders: string; order: (id: string) => string };
+  reportHref?: string;
+  preview?: boolean;
 }) {
   const active = orders.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const completedScreenings = orders.filter((o) => o.status === "completed" && isScreening(o.service_type));
@@ -71,9 +75,9 @@ export function DashboardView({
         </div>
       </dl>
 
-      {dailyReport && <DailyReportCard status={dailyReport} className="mt-6" />}
+      {dailyReport && <DailyReportCard status={dailyReport} paidHref={`${reportHref}#paid-report`} preview={preview} className="mt-6" />}
 
-      <Link href="/services/screening" data-press className="app-go group mt-6">
+      <Link href={reportHref} prefetch={false} data-press className="app-go group mt-6">
         <span className="app-go-k">Next</span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-medium text-fg">Get a report</span>
@@ -103,7 +107,7 @@ export function DashboardView({
             title="No orders yet"
             body="When you get a report, it appears here with its live status."
             action={
-              <Link href="/services/screening" className={buttonClasses("secondary", "sm")}>
+              <Link href={reportHref} prefetch={false} className={buttonClasses("secondary", "sm")}>
                 Get a report
               </Link>
             }
